@@ -97,6 +97,7 @@ class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
         session_timeout: float = 300.0,
         lease_ttl: str = "800s",
         max_parse_retries: int = 5,
+        image_source: str = "vmvm_registry",  # or "task_toml" (docker.io from task.toml)
         **kwargs,
     ) -> None:
         super().__init__(**kwargs)
@@ -107,6 +108,7 @@ class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
         self.session_timeout = session_timeout
         self.lease_ttl = lease_ttl
         self.max_parse_retries = max_parse_retries
+        self.image_source = image_source
 
     async def setup_state(self, state) -> "vf.State":
         info = state["info"]
@@ -126,8 +128,19 @@ class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
         # 0 (env_error), NOT crash the whole eval. At conc 128 across many nodes,
         # transient BackendInitError (vacli race, podman pull blob drop) is expected.
         try:
+            vmvm_url = info["image_url"]
+            docker_img = info.get("docker_image") or None
+            # task_toml: pull the docker.io image declared in task.toml as primary
+            # (the tb_train_v2 / 17k set lives at docker.io/tianhao0122/optimbench-tb,
+            # NOT in vmvm-registry). vmvm_registry (default): keep the registry image
+            # primary (the 80-task terminal-bench-2 set) with docker.io as fallback.
+            if self.image_source == "task_toml":
+                primary_img, fallback_img = (docker_img or vmvm_url), vmvm_url
+            else:
+                primary_img, fallback_img = vmvm_url, docker_img
             cfg = VacliVMVMConfig(
-                image_url=info["image_url"],
+                image_url=primary_img,
+                fallback_image_url=fallback_img,
                 work_dir=workdir,
                 session_timeout=self.session_timeout,
                 tenant_id=self.tenant_id,
@@ -413,6 +426,7 @@ def _load_dataset(dataset_path: str) -> Dataset:
                     "task_path": str(p),
                     "task_name": p.name,
                     "image_url": get_terminal_bench_vmvm_image_url(p.name),
+                    "docker_image": cfg.get("docker_image", "") or "",
                     "instruction": instruction,
                     "workdir": cfg.get("workdir", "/app"),
                 },
