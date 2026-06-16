@@ -88,7 +88,7 @@ class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
         *,
         tenant_id: str = "async_2347641",
         command_timeout: float = 300.0,
-        test_timeout: float = 300.0,
+        test_timeout: float = 900.0,
         max_output_length: int = 15000,
         session_timeout: float = 300.0,
         lease_ttl: str = "800s",
