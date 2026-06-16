@@ -1,6 +1,7 @@
 import json, glob, os, re
 RUNS = [
-    ('h200', '/checkpoint/ram/tianhaowu/vmvm_tb_multinode',      '/checkpoint/ram/tianhaowu/mn_eval_driver.log'),
+    ('h200 (8269569 old-infra)', '/checkpoint/ram/tianhaowu/vmvm_tb_multinode',    '/checkpoint/ram/tianhaowu/mn_eval_driver.log'),
+    ('h200-v2 (8272804 LATEST)', '/checkpoint/ram/tianhaowu/vmvm_tb_multinode_v2', '/checkpoint/ram/tianhaowu/mn_eval_v2_driver.log'),
     ('h100', '/checkpoint/ram/tianhaowu/vmvm_tb_multinode_h100', '/checkpoint/ram/tianhaowu/mn_eval_h100_driver.log'),
 ]
 def classify(m):
