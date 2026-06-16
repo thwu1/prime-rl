@@ -1,5 +1,5 @@
 #!/bin/bash
-# Terminal-Bench 2.0 eval on Qwen3.5 using prime-rl NATIVE multi-node / multi-replica
+# Terminal-Bench 2.0 eval on Qwen3.5 using prime-rl NATIVE multi-node on H100 (8 replicas) + 5x80 eval.
 # inference (5 nodes = 5 tp=8 replicas behind one vllm-router) and the 5x80 task eval
 # (rollouts-per-example=5) load-balanced across all replicas through the router.
 #
@@ -12,9 +12,9 @@ export VACLI_LEASE_RETRIES=10 VACLI_MAX_PULL_RETRIES=12
 # prunes the editable vmvm_tb install -> make the env importable via PYTHONPATH
 # (immune to uv sync; inherited by the vf-eval env-server subprocess).
 export PYTHONPATH="$HOME/prime-rl/environments/vmvm_tb${PYTHONPATH:+:$PYTHONPATH}"
-CFG=user/tianhaowu/configs/qwen35_infer_multinode.toml
+CFG=user/tianhaowu/configs/qwen35_infer_multinode_h100.toml
 DATASET=/checkpoint/ram/tianhaowu/datasets/terminal_bench/v2_harbor_pass80.jsonl
-OUTDIR=/checkpoint/ram/tianhaowu/vmvm_tb_multinode
+OUTDIR=/checkpoint/ram/tianhaowu/vmvm_tb_multinode_h100
 ROUTER_PORT=8000
 mkdir -p "$OUTDIR"
 
