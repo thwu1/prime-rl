@@ -28,6 +28,9 @@ export OPENAI_API_KEY=dummy-key
 export VACLI_LEASE_RETRIES=10
 export VACLI_MAX_PULL_RETRIES=12
 SEED=${SLURM_ARRAY_TASK_ID:-0}
+# Stagger boots: 5 nodes reading the shared ~467MB flashinfer + torch_compile cache
+# at once causes slow startup / dropped seeds. Spread boots ~60s apart.
+sleep $((SEED * 60))
 OUTDIR="/checkpoint/ram/tianhaowu/vmvm_tb_ref_runs/seed${SEED}"
 mkdir -p "$OUTDIR"
 
