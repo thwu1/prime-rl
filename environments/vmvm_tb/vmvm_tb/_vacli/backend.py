@@ -57,7 +57,7 @@ DEFAULT_LEASE_TTL = "500s"
 DEFAULT_TUNNEL_READY_TIMEOUT = (
     120.0  # seconds to wait for vacli to print tunnel mapping
 )
-DEFAULT_SSHD_READY_TIMEOUT = 60.0  # seconds to wait for sshd inside the leased VM
+DEFAULT_SSHD_READY_TIMEOUT = 180.0  # seconds to wait for sshd inside the leased VM
 DEFAULT_VACLI_CLEANUP_TIMEOUT = (
     30.0  # seconds to wait for vacli to release before SIGKILL
 )
@@ -694,21 +694,36 @@ class VacliVMVMBackend:
                 try:
                     self._lease.start()
                     self._ssh_port = self._lease.wait_for_tunnel()
+                    # Full bring-up inside the retry envelope: sshd readiness and
+                    # container pull/start are the ssh-dependent steps that saturate
+                    # under high concurrency (the dominant env_error cause). A failure
+                    # here abandons this VM and re-leases a FRESH one rather than
+                    # failing the rollout. Previously these two steps were outside the
+                    # loop -> a single slow sshd / dropped ssh handshake = instant 0.
+                    _wait_for_sshd(
+                        self._ssh_port,
+                        timeout=config.sshd_ready_timeout,
+                        control_path=self._control_path,
+                        subprocess_mod=config.subprocess_mod,
+                    )
+                    self._container_id = self._start_container()
                     break
                 except BackendInitError as _e:
                     try:
                         self._lease.cleanup()
                     except Exception:
                         pass
+                    self._container_id = None
                     if _attempt + 1 >= MAX_LEASE_RETRIES:
                         raise
                     _wait = min(2.0 * (2 ** _attempt), 20.0) + _random.uniform(0.0, 3.0)
                     logger.warning(
-                        "vacli: lease bring-up failed (attempt %d/%d): %s -- retry in %.1fs"
+                        "vacli: bring-up failed (attempt %d/%d): %s -- retry in %.1fs"
                         % (_attempt + 1, MAX_LEASE_RETRIES, str(_e)[:150], _wait)
                     )
                     time.sleep(_wait)
                     _nonce = uuid.uuid4().hex[:8]
+                    self._control_path = str(tmp / f"vacli_ctl_{os.getpid()}_{_nonce}")
                     self._vacli_log = tmp / f"vacli_lease_{os.getpid()}_{_nonce}.log"
                     self._lease = VacliLease(
                         tenant_id=config.tenant_id,
@@ -717,13 +732,6 @@ class VacliVMVMBackend:
                         tunnel_ready_timeout=config.tunnel_ready_timeout,
                         subprocess_mod=config.subprocess_mod,
                     )
-            _wait_for_sshd(
-                self._ssh_port,
-                timeout=config.sshd_ready_timeout,
-                control_path=self._control_path,
-                subprocess_mod=config.subprocess_mod,
-            )
-            self._container_id = self._start_container()
             # Persistent bash inside the container, driven via stdin over the
             # SSH master. Non-interactive `bash` (NOT `bash -i`): interactive
             # mode echoes every command back, prints PS1 on every line, and
