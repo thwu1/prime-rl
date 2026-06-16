@@ -106,21 +106,44 @@ class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
 
     async def setup_state(self, state) -> "vf.State":
         info = state["info"]
-        cfg = VacliVMVMConfig(
-            image_url=info["image_url"],
-            work_dir=info.get("workdir", "/app"),
-            session_timeout=self.session_timeout,
-            tenant_id=self.tenant_id,
-            lease_ttl=self.lease_ttl,
-        )
-        backend = await asyncio.to_thread(VacliVMVMBackend, cfg)
-        state["_backend"] = backend
         state["parse_errors"] = 0
         state["task_complete"] = False
-
+        state["setup_failed"] = False
+        state["turn_timings"] = []
+        state["_turn_idx"] = 0
+        state["_last_turn_end"] = time.perf_counter()
         workdir = info.get("workdir", "/app")
-        res = await asyncio.to_thread(backend.run_bash, f"cd {workdir} && pwd && ls -la", 30.0)
-        initial_output = res.get("output", "") if isinstance(res, dict) else ""
+
+        # Resilience: a transient lease/image-pull failure here must score THIS task
+        # 0 (env_error), NOT crash the whole eval. At conc 128 across many nodes,
+        # transient BackendInitError (vacli race, podman pull blob drop) is expected.
+        try:
+            cfg = VacliVMVMConfig(
+                image_url=info["image_url"],
+                work_dir=workdir,
+                session_timeout=self.session_timeout,
+                tenant_id=self.tenant_id,
+                lease_ttl=self.lease_ttl,
+            )
+            backend = await asyncio.to_thread(VacliVMVMBackend, cfg)
+            state["_backend"] = backend
+            res = await asyncio.to_thread(backend.run_bash, f"cd {workdir} && pwd && ls -la", 30.0)
+            initial_output = res.get("output", "") if isinstance(res, dict) else ""
+        except Exception as e:
+            logger.warning(
+                "setup_state failed for %s (scored 0, eval continues): %s",
+                info.get("task_name"), str(e)[:200],
+            )
+            state["_backend"] = None
+            state["setup_failed"] = True
+            state["tb_reward"] = 0.0
+            state["tb_outcome"] = "env_error"
+            state["tb_message"] = f"setup failed: {str(e)[:500]}"
+            state["tb_test_output"] = ""
+            state["tb_exit_code"] = None
+            state["tb_report"] = None
+            state["task_complete"] = True  # nothing to run; rollout ends immediately
+            initial_output = ""
 
         state["prompt"] = [
             {"role": "system", "content": _NATIVE_SYS},
@@ -132,12 +155,12 @@ class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
                 ),
             },
         ]
-        state["turn_timings"] = []
-        state["_turn_idx"] = 0
-        state["_last_turn_end"] = time.perf_counter()
         return state
 
     async def env_response(self, messages, state, **kwargs):
+        if state.get("setup_failed") or state.get("_backend") is None:
+            state["task_complete"] = True
+            return [{"role": "user", "content": "Environment setup failed; ending task."}]
         # gen_s = wall time the policy spent producing the message we are about to
         # process (includes server-side queue under concurrency -> per-turn latency).
         now = time.perf_counter()
@@ -232,10 +255,24 @@ class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
             )
             state["tb_outcome"] = result.outcome
             state["tb_reward"] = 1.0 if result.outcome == "pass" else 0.0
-            logger.info("task %s -> %s (reward=%s)", info.get("task_name"), result.outcome, state["tb_reward"])
+            # final test output + grader details (for inspection / debugging failures)
+            state["tb_message"] = result.message
+            state["tb_test_output"] = result.test_output
+            state["tb_exit_code"] = result.exit_code
+            state["tb_report"] = result.report
+            logger.info(
+                "task %s -> %s (reward=%s exit=%s)\n--- test output (tail) ---\n%s",
+                info.get("task_name"), result.outcome, state["tb_reward"], result.exit_code,
+                (result.test_output or "")[-2000:],
+            )
         except Exception:
             logger.warning("reward computation failed for %s", state.get("info", {}).get("task_name"), exc_info=True)
             state["tb_reward"] = 0.0
+            state.setdefault("tb_outcome", "env_error")
+            state.setdefault("tb_message", "reward computation raised")
+            state.setdefault("tb_test_output", "")
+            state.setdefault("tb_exit_code", None)
+            state.setdefault("tb_report", None)
         finally:
             try:
                 await asyncio.to_thread(backend.destroy)

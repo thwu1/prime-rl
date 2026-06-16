@@ -74,6 +74,32 @@ MAX_PULL_RETRIES = int(os.environ.get("VACLI_MAX_PULL_RETRIES", "10"))
 # "vacli died before tunnel was ready"), a transient thundering-herd failure at
 # high concurrency; jittered retry disperses the herd. See [[vacli-lease-race]].
 MAX_LEASE_RETRIES = int(os.environ.get("VACLI_LEASE_RETRIES", "4"))
+
+
+_THREADED_CHILD_WATCHER = None
+
+
+def _install_threaded_child_watcher() -> None:
+    """Make asyncio.get_child_watcher() return a stdlib ThreadedChildWatcher.
+
+    prime-rl installs uvloop as the global policy. uvloop's policy.get_child_watcher()
+    raises NotImplementedError, so a stdlib SelectorEventLoop (which we use for the
+    session loops) cannot spawn subprocesses (_make_subprocess_transport calls the
+    global get_child_watcher()). ThreadedChildWatcher is loop-agnostic and thread-safe
+    (one waiter thread per child), so it drives our SelectorEventLoops at high
+    concurrency. uvloop's own loops never call get_child_watcher(), so this is a
+    no-op for them. Idempotent; installed once.
+    """
+    global _THREADED_CHILD_WATCHER
+    if _THREADED_CHILD_WATCHER is not None:
+        return
+    _THREADED_CHILD_WATCHER = asyncio.ThreadedChildWatcher()
+
+    def _get_watcher():
+        return _THREADED_CHILD_WATCHER
+
+    asyncio.events.get_child_watcher = _get_watcher
+    asyncio.get_child_watcher = _get_watcher
 _lease_concurrency = threading.BoundedSemaphore(MAX_CONCURRENT_LEASES)
 
 # Tunnel mapping line emitted by vacli on stdout, e.g.:
@@ -416,11 +442,18 @@ def _pull_image_in_vm(sp, ssh_port, control_path, image):
         last = r.stdout.decode("utf-8", errors="replace") if r.stdout else ""
         if r.returncode == 0:
             return True, last
-        if "toomanyrequests" in last and attempt < MAX_PULL_RETRIES - 1:
-            wait = min(15 * (attempt + 1), 90)
+        # Retry ANY transient pull failure (rate-limit AND blob-copy/network drops,
+        # which are common at high concurrency), not just 429. Longer backoff for
+        # rate-limit; shorter for other transient errors.
+        if attempt < MAX_PULL_RETRIES - 1:
+            import random as _rnd
+            rate_limited = "toomanyrequests" in last
+            base = min(15 * (attempt + 1), 90) if rate_limited else min(5 * (attempt + 1), 30)
+            wait = base + _rnd.uniform(0.0, base)  # jitter: disperse the 80-VM pull herd
             logger.warning(
-                f"vacli: podman pull rate-limited for {image} "
-                f"(attempt {attempt + 1}/{MAX_PULL_RETRIES}), retrying in {wait}s"
+                f"vacli: podman pull failed for {image} "
+                f"(attempt {attempt + 1}/{MAX_PULL_RETRIES}, rate_limited={rate_limited}), "
+                f"retrying in {wait}s"
             )
             time.sleep(wait)
             continue
@@ -540,7 +573,13 @@ class VacliSession:
         start_script: str | None = None,
         max_buffer_size: int | None = None,
     ) -> None:
-        self._loop = asyncio.new_event_loop()
+        # Force the stdlib selector loop (NOT uvloop): prime-rl installs uvloop
+        # globally, and many uvloop loops spawning subprocesses concurrently race
+        # on uvloop's process-global child watcher ('Racing with another loop to
+        # spawn a process') at high concurrency. SelectorEventLoop uses the
+        # thread-safe ThreadedChildWatcher, so 128+ concurrent leases spawn cleanly.
+        _install_threaded_child_watcher()
+        self._loop = asyncio.SelectorEventLoop()
         self._thread = threading.Thread(
             target=self._loop.run_forever, daemon=True, name="vacli-session-loop"
         )

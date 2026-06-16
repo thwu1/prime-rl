@@ -62,7 +62,18 @@ for i, r in enumerate(rows):
         tt_html = (f'<details class="timing"><summary>per-turn timing ({len(tt)} turns &middot; '
                    f'gen {round(tot_gen,1)}s &middot; exec {round(tot_exec,1)}s &middot; {int(tot_tok)} gen-tok)</summary>'
                    f'<table>{head_row}{body_rows}{foot}</table></details>')
-    body = tt_html + body
+    # final test output (grader stdout) — present for runs with tb_* state columns
+    to = r.get('tb_test_output')
+    if to:
+        outcome = r.get('tb_outcome', '?')
+        ec = r.get('tb_exit_code', '?')
+        msg = r.get('tb_message', '')
+        to_html = (f'<details class="testout"><summary>final test output (outcome={esc(outcome)} '
+                   f'exit={esc(ec)})</summary><pre class="msg-line">{esc(msg)}</pre>'
+                   f'<pre>{esc(to)}</pre></details>')
+        body = tt_html + to_html + body
+    else:
+        body = tt_html + body
     badge = 'PASS' if ok else 'FAIL'
     bcls = 'pass' if ok else 'fail'
     head = (f'<span class="badge {bcls}">{badge}</span> <b>{esc(task)}</b> '
@@ -94,6 +105,10 @@ details.timing summary{{padding:6px 12px;color:#d29922;font-size:12px}}
 details.timing table{{width:100%;border-collapse:collapse;font:11px ui-monospace,monospace}}
 details.timing th,details.timing td{{border:1px solid #21262d;padding:2px 8px;text-align:right}}
 details.timing th{{background:#161b22;color:#8b949e}} details.timing tr.tot td{{background:#161b22;font-weight:700;color:#d29922}}
+details.testout{{margin:8px 0;border:1px solid #30363d;border-radius:6px;background:#1a1410}}
+details.testout summary{{padding:6px 12px;color:#ff9e64;font-size:12px}}
+details.testout pre{{margin:0;padding:8px 12px;white-space:pre-wrap;word-break:break-word;font:11px/1.4 ui-monospace,monospace}}
+details.testout pre.msg-line{{color:#8b949e;border-bottom:1px solid #21262d}}
 input{{margin-left:12px;padding:4px 8px;background:#0d1117;border:1px solid #30363d;color:#c9d1d9;border-radius:6px}}
 .controls{{margin-top:6px}} button{{background:#21262d;color:#c9d1d9;border:1px solid #30363d;border-radius:6px;padding:4px 10px;cursor:pointer;margin-right:6px}}
 </style>
