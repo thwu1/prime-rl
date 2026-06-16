@@ -742,35 +742,114 @@ class VacliVMVMBackend:
             # Bridge networking: the inherited http_proxy=0.0.0.0:8080 is wrong
             # in the container netns. Export the gateway proxy as the first thing
             # the (non-login) session does, so solve.sh subprocesses inherit it.
-            _gw = getattr(self, "_proxy_gateway", None)
-            _proxy_pre = (
-                ("export http_proxy=http://{gw}:8080 https_proxy=http://{gw}:8080 "
-                 "HTTP_PROXY=http://{gw}:8080 HTTPS_PROXY=http://{gw}:8080; ".format(gw=_gw)
-                 if _gw else "")
-                + "export HF_HUB_DISABLE_XET=1 HF_XET_DISABLE=1"
-            )
-            _us = config.start_script or ""
-            _eff = ("; ".join(x for x in (_proxy_pre, _us) if x)) or None
-            self._session = VacliSession(
-                command_args=_ssh_opts(self._ssh_port, self._control_path)
-                + [
-                    "root@localhost",
-                    f"podman exec -i {self._container_id} stdbuf -oL bash",
-                ],
-                timeout=config.session_timeout,
-                start_script=_eff,
-                max_buffer_size=config.max_session_buffer_size,
-            )
-            self._session.start()
-            if config.entrypoint_script:
-                # Run through the session so any state it sets up persists for
-                # subsequent run_bash calls.
-                self._session.communicate(config.entrypoint_script)
+            self._open_session(run_entrypoint=True)
         except Exception:
             # Roll back any partial state so an init failure doesn't leak a
             # leased VM.
             self.destroy()
             raise
+
+    def _open_session(self, run_entrypoint: bool = True) -> None:
+        """(Re)attach a persistent bash session to the current container over
+        the existing SSH master. Used by init AND by restart_session() — the
+        latter re-attaches to the SAME container (all the agent's work intact)
+        after a dropped ssh channel, WITHOUT re-leasing. When run_entrypoint is
+        False the task entrypoint_script is skipped (the container already holds
+        the solved state; only the proxy/env preamble is re-applied)."""
+        config = self.config
+        _gw = getattr(self, "_proxy_gateway", None)
+        _proxy_pre = (
+            ("export http_proxy=http://{gw}:8080 https_proxy=http://{gw}:8080 "
+             "HTTP_PROXY=http://{gw}:8080 HTTPS_PROXY=http://{gw}:8080; ".format(gw=_gw)
+             if _gw else "")
+            + "export HF_HUB_DISABLE_XET=1 HF_XET_DISABLE=1"
+        )
+        _us = config.start_script or ""
+        _eff = ("; ".join(x for x in (_proxy_pre, _us) if x)) or None
+        self._session = VacliSession(
+            command_args=_ssh_opts(self._ssh_port, self._control_path)
+            + [
+                "root@localhost",
+                f"podman exec -i {self._container_id} stdbuf -oL bash",
+            ],
+            timeout=config.session_timeout,
+            start_script=_eff,
+            max_buffer_size=config.max_session_buffer_size,
+        )
+        self._session.start()
+        if run_entrypoint and config.entrypoint_script:
+            # Run through the session so any state it sets up persists for
+            # subsequent run_bash calls.
+            self._session.communicate(config.entrypoint_script)
+
+    def restart_session(self) -> bool:
+        """Recover from a dropped ssh channel (e.g. ConnectionResetError during
+        grading) by re-attaching a fresh bash session to the SAME container over
+        the SAME lease. Nothing is re-leased and the container is never removed,
+        so the agent's full filesystem state is preserved and a subsequent
+        re-grade is valid. Returns True iff a live session is re-established.
+
+        Returns False (caller should give up and score env_error) when the box
+        is genuinely gone — lease/sshd dead or the container no longer running —
+        because there is then nothing to grade."""
+        if self._destroyed or self._container_id is None:
+            return False
+        # Drop the dead session.
+        if self._session is not None:
+            try:
+                self._session.stop()
+            except Exception:
+                pass
+            self._session = None
+        # Clear any stale ssh master socket, then re-open it via ControlMaster=auto.
+        try:
+            self._sp.run(
+                _ssh_opts(self._ssh_port, self._control_path)
+                + ["-O", "exit", "root@localhost"],
+                stdin=self._sp.DEVNULL,
+                stdout=self._sp.DEVNULL,
+                stderr=self._sp.DEVNULL,
+                timeout=10,
+            )
+        except Exception:
+            pass
+        try:
+            _wait_for_sshd(
+                self._ssh_port,
+                timeout=min(float(self.config.sshd_ready_timeout), 60.0),
+                control_path=self._control_path,
+                subprocess_mod=self.config.subprocess_mod,
+            )
+        except Exception as e:
+            logger.warning("vacli.restart_session: sshd not reachable: %s", e)
+            return False
+        # The container must still be running, else the agent's work is gone.
+        try:
+            chk = self._ssh_call_raw(
+                "podman inspect -f '{{.State.Running}}' " + str(self._container_id),
+                timeout=30,
+            )
+        except Exception as e:
+            logger.warning("vacli.restart_session: container check raised: %s", e)
+            return False
+        if chk.returncode != 0 or b"true" not in (chk.stdout or b"").lower():
+            logger.warning(
+                "vacli.restart_session: container %s not running (rc=%s) -- giving up",
+                self._container_id, chk.returncode,
+            )
+            return False
+        # Re-attach bash to the same container; skip the task entrypoint (state
+        # already exists) but re-apply the proxy/env preamble.
+        try:
+            self._open_session(run_entrypoint=False)
+        except Exception as e:
+            logger.warning("vacli.restart_session: re-open session failed: %s", e)
+            return False
+        logger.info(
+            "vacli.restart_session: re-attached to container %s on same lease",
+            self._container_id,
+        )
+        return True
 
     @property
     def duration(self) -> float:

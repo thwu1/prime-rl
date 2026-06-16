@@ -18,6 +18,10 @@ class TestResult:
     exit_code: int | None = None
     instance_id: str | None = None
     report: dict[str, Any] | None = None
+    # Structured infra-failure tag so every env_error records WHAT happened
+    # (e.g. grade/upload_conn_lost, grade/test_run, grade/reward_raise).
+    error_class: str | None = None
+    error_detail: str | None = None
 
 
 class Command(BaseModel):

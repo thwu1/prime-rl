@@ -109,6 +109,8 @@ class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
         state["parse_errors"] = 0
         state["task_complete"] = False
         state["setup_failed"] = False
+        state["tb_error_class"] = None
+        state["tb_error_detail"] = None
         state["turn_timings"] = []
         state["_turn_idx"] = 0
         state["_last_turn_end"] = time.perf_counter()
@@ -130,15 +132,26 @@ class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
             res = await asyncio.to_thread(backend.run_bash, f"cd {workdir} && pwd && ls -la", 30.0)
             initial_output = res.get("output", "") if isinstance(res, dict) else ""
         except Exception as e:
-            logger.warning(
-                "setup_state failed for %s (scored 0, eval continues): %s",
-                info.get("task_name"), str(e)[:200],
+            _em = str(e).lower()
+            if "pull" in _em or "image" in _em or "blob" in _em:
+                _cls = "setup/pull"
+            elif "sshd" in _em or "ssh" in _em:
+                _cls = "setup/sshd"
+            elif "lease" in _em or "tunnel" in _em or "tenant" in _em:
+                _cls = "setup/lease"
+            else:
+                _cls = "setup/other"
+            logger.error(
+                "SETUP infra-error for %s (scored 0, eval continues) class=%s: %s: %s",
+                info.get("task_name"), _cls, type(e).__name__, str(e)[:400],
             )
             state["_backend"] = None
             state["setup_failed"] = True
             state["tb_reward"] = 0.0
             state["tb_outcome"] = "env_error"
             state["tb_message"] = f"setup failed: {str(e)[:500]}"
+            state["tb_error_class"] = _cls
+            state["tb_error_detail"] = f"{type(e).__name__}: {e}"[:1000]
             state["tb_test_output"] = ""
             state["tb_exit_code"] = None
             state["tb_report"] = None
@@ -260,16 +273,27 @@ class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
             state["tb_test_output"] = result.test_output
             state["tb_exit_code"] = result.exit_code
             state["tb_report"] = result.report
+            state["tb_error_class"] = getattr(result, "error_class", None)
+            state["tb_error_detail"] = getattr(result, "error_detail", None)
+            if result.outcome == "env_error":
+                logger.error(
+                    "GRADE infra-error recorded for %s class=%s: %s",
+                    info.get("task_name"), getattr(result, "error_class", None),
+                    (getattr(result, "error_detail", None) or result.message or "")[:400],
+                )
             logger.info(
                 "task %s -> %s (reward=%s exit=%s)\n--- test output (tail) ---\n%s",
                 info.get("task_name"), result.outcome, state["tb_reward"], result.exit_code,
                 (result.test_output or "")[-2000:],
             )
-        except Exception:
-            logger.warning("reward computation failed for %s", state.get("info", {}).get("task_name"), exc_info=True)
+        except Exception as e:
+            logger.error("GRADE infra-error (reward computation raised) for %s class=grade/reward_raise: %s",
+                         state.get("info", {}).get("task_name"), e, exc_info=True)
             state["tb_reward"] = 0.0
             state.setdefault("tb_outcome", "env_error")
             state.setdefault("tb_message", "reward computation raised")
+            state["tb_error_class"] = "grade/reward_raise"
+            state["tb_error_detail"] = f"{type(e).__name__}: {e}"[:1000]
             state.setdefault("tb_test_output", "")
             state.setdefault("tb_exit_code", None)
             state.setdefault("tb_report", None)

@@ -15,6 +15,39 @@ from .task_utils import is_v2_format
 logger = getLogger()
 
 
+# Markers that mean the ssh channel to the leased VM dropped (vs. a real task
+# failure). When these appear during grading we can re-attach to the SAME
+# container (work intact) and re-grade, instead of scoring a bogus 0.
+_CONN_LOST_MARKERS = (
+    "connectionreseterror",
+    "connection reset",
+    "connection lost",
+    "broken pipe",
+    "broken_pipe",
+    "control socket",
+    "connection closed",
+    "session not initialized",
+)
+
+
+def _is_conn_lost(msg) -> bool:
+    m = (msg or "").lower()
+    return any(k in m for k in _CONN_LOST_MARKERS)
+
+
+def _classify_grade_err(msg) -> str:
+    """Tag a grading-stage infra failure so we always know WHAT broke."""
+    m = (msg or "").lower()
+    if _is_conn_lost(m):
+        return "grade/conn_lost"
+    if "upload" in m or "write chunk" in m or "extract" in m:
+        return "grade/upload"
+    if "timeout" in m:
+        return "grade/timeout"
+    return "grade/other"
+
+
+
 def _chunked_upload(backend, data_b64: str, dest_path: str, timeout: float = 60.0) -> str | None:
     """Upload base64 data in chunks to avoid ARG_MAX. Returns error message or None."""
     chunk_size = 50000
@@ -78,7 +111,7 @@ def _provision_infra_uv(backend) -> None:
         logger.warning("infra uv provision failed (%s): test will proceed", e)
 
 
-def run_terminal_bench_tests(
+def _grade_once(
     backend,
     task_path: Path,
     parser_name: str = "pytest",
@@ -118,7 +151,7 @@ def run_terminal_bench_tests(
         backend.run_bash(f"mkdir -p {test_mount} /logs/verifier", timeout=10.0)
         err = _chunked_upload(backend, project_b64, test_mount)
         if err:
-            return TestResult(outcome="env_error", message=f"Failed to upload test files: {err}", test_output="")
+            return TestResult(outcome="env_error", message=f"Failed to upload test files: {err}", test_output="", error_class=_classify_grade_err(err), error_detail=str(err)[:1000])
 
         # --- 2. chmod +x the test script ---
         # Harbor: chmod +x /tests/test.sh
@@ -205,6 +238,21 @@ def run_terminal_bench_tests(
                 logger.warning(f"Failed to parse reward.txt: {e}, content={repr(reward_txt_out)}")
 
         if rewards is None:
+            run_out = (result.get("output", "") or "")
+            run_err = result.get("error_type")
+            if run_err in ("broken_pipe", "other") or _is_conn_lost(run_out):
+                logger.warning(
+                    "No reward file AND session looked dropped during test run "
+                    "(error_type=%s) -> env_error", run_err,
+                )
+                return TestResult(
+                    outcome="env_error",
+                    message=f"Connection lost during test run: {run_out[-400:]}",
+                    test_output=test_output,
+                    exit_code=exit_code,
+                    error_class="grade/conn_lost",
+                    error_detail=(run_out[-1000:] or run_err or "session error"),
+                )
             logger.warning("No reward file found or parseable — treating as fail")
             return TestResult(
                 outcome="fail",
@@ -225,9 +273,64 @@ def run_terminal_bench_tests(
 
     except Exception as e:
         import traceback
-        logger.error(f"run_terminal_bench_tests error for {task_path.name}: {e}")
+        logger.error("run_terminal_bench_tests error for %s: %s\n%s",
+                     task_path.name, e, traceback.format_exc())
         return TestResult(
             outcome="env_error",
             message=f"Error running tests: {e}\n{traceback.format_exc()}",
             test_output="",
+            error_class=_classify_grade_err(str(e)),
+            error_detail=f"{type(e).__name__}: {e}"[:1000],
         )
+
+
+def run_terminal_bench_tests(
+    backend,
+    task_path: Path,
+    parser_name: str = "pytest",
+    test_timeout: float = 180.0,
+    timeout_multiplier: float = 1.0,
+    workdir: str = "/app",
+) -> TestResult:
+    """Grade the task, retrying on a *connection-loss* env_error.
+
+    A dropped ssh channel (ConnectionResetError, broken pipe) during grading
+    does NOT mean the work is lost: the leased VM and its container are still
+    alive with the agent's full filesystem state. backend.restart_session()
+    re-attaches a fresh bash session to the SAME container (no re-lease), so a
+    re-grade is valid. We try up to VMVM_TB_GRADE_RETRIES times; any non-conn
+    outcome (pass/fail/timeout, or an env_error we cannot recover from) returns
+    immediately. EVERY infra error is logged with its actual cause + class."""
+    max_attempts = max(1, int(os.environ.get("VMVM_TB_GRADE_RETRIES", "3")))
+    last = None
+    for attempt in range(max_attempts):
+        res = _grade_once(backend, task_path, parser_name, test_timeout,
+                          timeout_multiplier, workdir)
+        last = res
+        if res.outcome != "env_error":
+            return res
+        # Always record what the infra error actually was.
+        logger.error(
+            "GRADE infra-error for %s (attempt %d/%d) class=%s: %s",
+            task_path.name, attempt + 1, max_attempts,
+            res.error_class, (res.error_detail or res.message or "")[:500],
+        )
+        if not (_is_conn_lost(res.message) or res.error_class == "grade/conn_lost"):
+            return res  # non-transient infra error -> do not retry
+        if attempt + 1 >= max_attempts:
+            return res
+        ok = False
+        if hasattr(backend, "restart_session"):
+            try:
+                ok = backend.restart_session()
+            except Exception as e:
+                logger.warning("grade retry: restart_session raised: %s", e)
+                ok = False
+        logger.warning(
+            "GRADE conn-lost for %s -> restart_session(same box) ok=%s; %s",
+            task_path.name, ok,
+            "retrying re-grade" if ok else "box gone, giving up",
+        )
+        if not ok:
+            return res  # box genuinely gone -> nothing to grade
+    return last
