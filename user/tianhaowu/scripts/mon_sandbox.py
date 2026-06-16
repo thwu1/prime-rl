@@ -33,3 +33,6 @@ for label, base, drv in RUNS:
             len(re.findall(r'restart_session.same box. ok=True',t)),
             len(re.findall(r'box gone, giving up',t)),
             len(re.findall(r'GRADE infra-error',t))))
+        mr = re.findall(r'MID-ROLLOUT conn-lost.*ok=(True|False)', t)
+        print('  mid-rollout: drops=%d reconnected=%d box-gone=%d'%(
+            len(mr), mr.count('True'), mr.count('False')))

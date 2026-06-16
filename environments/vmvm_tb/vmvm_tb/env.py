@@ -14,6 +14,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import time
 from pathlib import Path
 
@@ -27,10 +28,13 @@ from .task_utils import (
     get_terminal_bench_vmvm_image_url,
     limit_output_length,
 )
-from .evaluation import run_terminal_bench_tests
+from .evaluation import run_terminal_bench_tests, _is_conn_lost
 from ._vacli.backend import VacliVMVMBackend, VacliVMVMConfig
 
 logger = logging.getLogger(__name__)
+
+# Cap mid-rollout reconnects so a chronically-flapping box can't loop forever.
+_MAX_MIDROLLOUT_RECONNECTS = int(os.environ.get("VMVM_TB_MIDROLLOUT_RECONNECTS", "5"))
 
 _NATIVE_SYS = NATIVE_SYSTEM_PROMPT + (
     "\n\nTo run a command, output EXACTLY one tool call and nothing else:\n"
@@ -111,6 +115,7 @@ class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
         state["setup_failed"] = False
         state["tb_error_class"] = None
         state["tb_error_detail"] = None
+        state["_reconnects"] = 0
         state["turn_timings"] = []
         state["_turn_idx"] = 0
         state["_last_turn_end"] = time.perf_counter()
@@ -222,21 +227,89 @@ class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
         backend = state["_backend"]
         outputs = []
         exec_total = 0.0
+        dropped = False
         for cmd in parsed.bash_commands:
             t0 = time.perf_counter()
             res = await asyncio.to_thread(backend.run_bash, cmd.keystrokes, cmd.timeout_sec)
             dt = time.perf_counter() - t0
             exec_total += dt
             out = res.get("output", "") if isinstance(res, dict) else str(res)
+            ec = res.get("exit_code") if isinstance(res, dict) else None
+            et = res.get("error_type") if isinstance(res, dict) else None
             outputs.append(out)
             rec["cmds"].append({
                 "cmd": (cmd.keystrokes or "")[:200],
                 "exec_s": round(dt, 3),
-                "exit_code": (res.get("exit_code") if isinstance(res, dict) else None),
+                "exit_code": ec,
                 "out_chars": len(out or ""),
             })
+            # A dropped ssh tunnel (transient x2p reset during a long rollout)
+            # surfaces as a SESSION-level error whose output carries a conn-lost
+            # marker. Distinguish from a normal command that merely PRINTS such a
+            # phrase: a real drop has our session-error sentinel (exit_code == -1
+            # or error_type broken_pipe/other); a normal command does not.
+            if _is_conn_lost(out) and (ec == -1 or et in ("broken_pipe", "other")):
+                dropped = True
+                break
         rec["exec_s"] = round(exec_total, 3)
-        rec["n_cmds"] = len(parsed.bash_commands)
+        rec["n_cmds"] = len(rec["cmds"])
+
+        if dropped:
+            # Reconnect to the SAME box (container + files intact). The in-flight
+            # command did NOT execute (the stdin write failed), so nothing is
+            # double-applied. Bounded so a chronically-flapping box can't loop.
+            state["_reconnects"] = state.get("_reconnects", 0) + 1
+            cap = _MAX_MIDROLLOUT_RECONNECTS
+            ok = False
+            if state["_reconnects"] <= cap and hasattr(backend, "restart_session"):
+                ok = await asyncio.to_thread(backend.restart_session)
+            logger.warning(
+                "MID-ROLLOUT conn-lost for %s (turn=%s, reconnect %d/%d) -> restart_session ok=%s",
+                state.get("info", {}).get("task_name"), rec.get("turn"),
+                state["_reconnects"], cap, ok,
+            )
+            if ok:
+                rec["kind"] = "reconnect"
+                state["turn_timings"].append(rec)
+                state["_turn_idx"] = state.get("_turn_idx", 0) + 1
+                state["_last_turn_end"] = time.perf_counter()
+                return [{
+                    "role": "user",
+                    "content": (
+                        "[infra] The connection to the environment dropped and was "
+                        "re-established on the SAME machine. Your files on disk are "
+                        "intact, but the shell was reset: the working directory is back "
+                        "to the default and any shell variables/functions you set are "
+                        "cleared. Re-establish your working directory (e.g. cd into your "
+                        "project) and re-issue your most recent command."
+                    ),
+                }]
+            # Box is genuinely gone (or reconnect budget exhausted): attribute as
+            # an infra error (NOT a task fail, which would silently depress pass@1)
+            # and end the rollout.
+            rec["kind"] = "box_gone"
+            state["turn_timings"].append(rec)
+            state["_turn_idx"] = state.get("_turn_idx", 0) + 1
+            state["_last_turn_end"] = time.perf_counter()
+            state["task_complete"] = True
+            state["tb_outcome"] = "env_error"
+            state["tb_reward"] = 0.0
+            state["tb_error_class"] = "rollout/box_gone"
+            state["tb_error_detail"] = (
+                "ssh tunnel lost mid-rollout; box unrecoverable after %d reconnect attempt(s)"
+                % state["_reconnects"]
+            )
+            state["tb_message"] = "Environment connection lost mid-rollout (box gone)"
+            state["tb_test_output"] = ""
+            state["tb_exit_code"] = None
+            state["tb_report"] = None
+            try:
+                await asyncio.to_thread(backend.destroy)
+            except Exception:
+                pass
+            state["_backend"] = None  # _finalize early-returns, keeping this attribution
+            return [{"role": "user", "content": "Environment connection lost permanently; ending task."}]
+
         state["turn_timings"].append(rec)
         state["_turn_idx"] = state.get("_turn_idx", 0) + 1
         state["_last_turn_end"] = time.perf_counter()
