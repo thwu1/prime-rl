@@ -685,6 +685,9 @@ class VacliVMVMBackend:
         )
         self._container_id: str | None = None
         self._session: VacliSession | None = None
+        # Structured record of transient bring-up retries (recovered) so the
+        # rollout's jsonl can show how many re-leases it took to come up.
+        self.bringup_retries: list = []
         try:
             # Retry lease bring-up with jittered backoff: concurrent launches
             # race on Configerator init -> "vacli died before tunnel was ready"
@@ -720,6 +723,9 @@ class VacliVMVMBackend:
                     logger.warning(
                         "vacli: bring-up failed (attempt %d/%d): %s -- retry in %.1fs"
                         % (_attempt + 1, MAX_LEASE_RETRIES, str(_e)[:150], _wait)
+                    )
+                    self.bringup_retries.append(
+                        {"attempt": _attempt + 1, "detail": str(_e)[:300]}
                     )
                     time.sleep(_wait)
                     _nonce = uuid.uuid4().hex[:8]

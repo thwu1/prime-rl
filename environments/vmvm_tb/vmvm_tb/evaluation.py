@@ -302,22 +302,29 @@ def run_terminal_bench_tests(
     outcome (pass/fail/timeout, or an env_error we cannot recover from) returns
     immediately. EVERY infra error is logged with its actual cause + class."""
     max_attempts = max(1, int(os.environ.get("VMVM_TB_GRADE_RETRIES", "3")))
+    events: list = []
     last = None
     for attempt in range(max_attempts):
         res = _grade_once(backend, task_path, parser_name, test_timeout,
                           timeout_multiplier, workdir)
         last = res
         if res.outcome != "env_error":
+            res.infra_events = events or None  # may be [] -> None if first try clean
             return res
-        # Always record what the infra error actually was.
+        # Always record what the infra error actually was (log + structured).
         logger.error(
             "GRADE infra-error for %s (attempt %d/%d) class=%s: %s",
             task_path.name, attempt + 1, max_attempts,
             res.error_class, (res.error_detail or res.message or "")[:500],
         )
+        events.append({"phase": "grade", "type": res.error_class or "env_error",
+                       "attempt": attempt + 1,
+                       "detail": (res.error_detail or res.message or "")[:300]})
         if not (_is_conn_lost(res.message) or res.error_class == "grade/conn_lost"):
+            res.infra_events = events
             return res  # non-transient infra error -> do not retry
         if attempt + 1 >= max_attempts:
+            res.infra_events = events
             return res
         ok = False
         if hasattr(backend, "restart_session"):
@@ -326,11 +333,16 @@ def run_terminal_bench_tests(
             except Exception as e:
                 logger.warning("grade retry: restart_session raised: %s", e)
                 ok = False
+        events.append({"phase": "grade", "type": "reconnect", "attempt": attempt + 1,
+                       "ok": bool(ok)})
         logger.warning(
             "GRADE conn-lost for %s -> restart_session(same box) ok=%s; %s",
             task_path.name, ok,
             "retrying re-grade" if ok else "box gone, giving up",
         )
         if not ok:
+            res.infra_events = events
             return res  # box genuinely gone -> nothing to grade
+    if last is not None:
+        last.infra_events = events
     return last

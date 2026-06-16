@@ -116,6 +116,7 @@ class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
         state["tb_error_class"] = None
         state["tb_error_detail"] = None
         state["_reconnects"] = 0
+        state["infra_events"] = []
         state["turn_timings"] = []
         state["_turn_idx"] = 0
         state["_last_turn_end"] = time.perf_counter()
@@ -134,6 +135,8 @@ class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
             )
             backend = await asyncio.to_thread(VacliVMVMBackend, cfg)
             state["_backend"] = backend
+            for _bre in getattr(backend, "bringup_retries", []):
+                state["infra_events"].append({"phase": "setup", "type": "bringup_retry", **_bre})
             res = await asyncio.to_thread(backend.run_bash, f"cd {workdir} && pwd && ls -la", 30.0)
             initial_output = res.get("output", "") if isinstance(res, dict) else ""
         except Exception as e:
@@ -157,6 +160,9 @@ class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
             state["tb_message"] = f"setup failed: {str(e)[:500]}"
             state["tb_error_class"] = _cls
             state["tb_error_detail"] = f"{type(e).__name__}: {e}"[:1000]
+            state.setdefault("infra_events", []).append(
+                {"phase": "setup", "type": "setup_fail", "class": _cls,
+                 "detail": f"{type(e).__name__}: {e}"[:300]})
             state["tb_test_output"] = ""
             state["tb_exit_code"] = None
             state["tb_report"] = None
@@ -268,6 +274,10 @@ class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
                 state.get("info", {}).get("task_name"), rec.get("turn"),
                 state["_reconnects"], cap, ok,
             )
+            state.setdefault("infra_events", []).append(
+                {"phase": "rollout", "turn": rec.get("turn"), "type": "drop",
+                 "reconnected": bool(ok),
+                 "class": "rollout/reconnect" if ok else "rollout/box_gone"})
             if ok:
                 rec["kind"] = "reconnect"
                 state["turn_timings"].append(rec)
@@ -348,6 +358,8 @@ class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
             state["tb_report"] = result.report
             state["tb_error_class"] = getattr(result, "error_class", None)
             state["tb_error_detail"] = getattr(result, "error_detail", None)
+            for _ge in (getattr(result, "infra_events", None) or []):
+                state.setdefault("infra_events", []).append(_ge)
             if result.outcome == "env_error":
                 logger.error(
                     "GRADE infra-error recorded for %s class=%s: %s",
@@ -367,6 +379,8 @@ class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
             state.setdefault("tb_message", "reward computation raised")
             state["tb_error_class"] = "grade/reward_raise"
             state["tb_error_detail"] = f"{type(e).__name__}: {e}"[:1000]
+            state.setdefault("infra_events", []).append(
+                {"phase": "grade", "type": "reward_raise", "detail": f"{type(e).__name__}: {e}"[:300]})
             state.setdefault("tb_test_output", "")
             state.setdefault("tb_exit_code", None)
             state.setdefault("tb_report", None)

@@ -22,6 +22,9 @@ class TestResult:
     # (e.g. grade/upload_conn_lost, grade/test_run, grade/reward_raise).
     error_class: str | None = None
     error_detail: str | None = None
+    # Per-grade infra events (conn-loss detected, reconnect attempts, recovery)
+    # so the jsonl records WHAT happened even when the final outcome is pass.
+    infra_events: list | None = None
 
 
 class Command(BaseModel):
