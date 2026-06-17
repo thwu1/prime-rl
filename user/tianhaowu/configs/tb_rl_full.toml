@@ -59,7 +59,7 @@ name = "tb-17k-full"
 
 [trainer.model]
 impl = "custom"
-attn = "flash_attention_3"
+attn = "sdpa"
 ep = 8
 cp = 2
 optimization_dtype = "bfloat16"
