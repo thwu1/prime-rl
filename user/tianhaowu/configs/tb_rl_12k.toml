@@ -62,6 +62,7 @@ impl = "custom"
 attn = "sdpa"
 ep = 8
 cp = 2
+cp_style = "ulysses"
 optimization_dtype = "bfloat16"
 reduce_dtype = "bfloat16"
 
