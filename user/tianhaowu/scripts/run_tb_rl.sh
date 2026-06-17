@@ -8,6 +8,7 @@ cd "$HOME/prime-rl"
 # vmvm-tb is an editable install that the sbatch's `uv sync` prunes; PYTHONPATH
 # (exported -> inherited by the rl job + its orchestrator) keeps it importable.
 export PYTHONPATH="$HOME/prime-rl/environments/vmvm_tb${PYTHONPATH:+:$PYTHONPATH}"
+export WANDB_MODE=offline
 OUTDIR=${OUTDIR:-/checkpoint/ram/tianhaowu/tb_rl_run}
 mkdir -p "$OUTDIR"
 echo "=== submitting RL training -> $OUTDIR ==="

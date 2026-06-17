@@ -48,7 +48,6 @@ interval = 20
 keep_last = 2
 
 [wandb]
-offline = true
 project = "tb-rl-qwen35"
 name = "tb-17k-full"
 
@@ -71,6 +70,7 @@ type = "adamw"
 lr = 1e-6
 
 [orchestrator]
+renderer = "None"
 batch_size = 512
 rollouts_per_example = 16
 max_off_policy_steps = 16
