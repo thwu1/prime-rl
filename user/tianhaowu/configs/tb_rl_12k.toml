@@ -19,7 +19,7 @@
 #     setting if not).
 
 max_steps = 500
-seq_len = 131072
+seq_len = 65536
 
 [log]
 level = "info"
@@ -145,7 +145,7 @@ lease_ttl = "11000s"
 gpu_memory_utilization = 0.85
 
 [inference.model]
-max_model_len = 131072
+max_model_len = 65536
 
 [inference.parallel]
 tp = 8
