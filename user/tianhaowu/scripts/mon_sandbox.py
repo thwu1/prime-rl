@@ -2,6 +2,7 @@ import json, glob, os, re
 RUNS = [
     ('h200 (8269569 old-infra)', '/checkpoint/ram/tianhaowu/vmvm_tb_multinode',    '/checkpoint/ram/tianhaowu/mn_eval_driver.log'),
     ('h200-v2 (8272804 LATEST)', '/checkpoint/ram/tianhaowu/vmvm_tb_multinode_v2', '/checkpoint/ram/tianhaowu/mn_eval_v2_driver.log'),
+    ('17k-full (8276720)', '/checkpoint/ram/tianhaowu/vmvm_tb_v2_17k', '/checkpoint/ram/tianhaowu/tb_17k_driver.log'),
     ('h100x4-v2 (8273175 LATEST)', '/checkpoint/ram/tianhaowu/vmvm_tb_multinode_h100_4n', '/checkpoint/ram/tianhaowu/mn_eval_h100_4n_driver.log'),
     ('h100x8 (old)', '/checkpoint/ram/tianhaowu/vmvm_tb_multinode_h100', '/checkpoint/ram/tianhaowu/mn_eval_h100_driver.log'),
 ]

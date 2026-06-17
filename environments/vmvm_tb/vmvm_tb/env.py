@@ -97,6 +97,7 @@ class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
         session_timeout: float = 300.0,
         lease_ttl: str = "800s",
         max_parse_retries: int = 5,
+        max_rollout_s: float = 3000.0,
         image_source: str = "vmvm_registry",  # or "task_toml" (docker.io from task.toml)
         **kwargs,
     ) -> None:
@@ -108,6 +109,7 @@ class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
         self.session_timeout = session_timeout
         self.lease_ttl = lease_ttl
         self.max_parse_retries = max_parse_retries
+        self.max_rollout_s = max_rollout_s
         self.image_source = image_source
 
     async def setup_state(self, state) -> "vf.State":
@@ -122,6 +124,7 @@ class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
         state["turn_timings"] = []
         state["_turn_idx"] = 0
         state["_last_turn_end"] = time.perf_counter()
+        state["_rollout_start"] = time.monotonic()
         workdir = info.get("workdir", "/app")
 
         # Resilience: a transient lease/image-pull failure here must score THIS task
@@ -198,6 +201,17 @@ class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
         if state.get("setup_failed") or state.get("_backend") is None:
             state["task_complete"] = True
             return [{"role": "user", "content": "Environment setup failed; ending task."}]
+        # Wall-clock cap on the agent loop: a slow/stuck rollout must not hold its
+        # auto-renewed VM open indefinitely and stall its GRPO group. On expiry, end
+        # the loop -> @vf.cleanup grades the current VM state (can still pass) then
+        # destroys the VM. Overshoot bounded by one in-flight turn (<= command_timeout).
+        if time.monotonic() - state.get("_rollout_start", time.monotonic()) > self.max_rollout_s:
+            state["task_complete"] = True
+            state.setdefault("infra_events", []).append(
+                {"phase": "rollout", "type": "walltime_cap", "detail": f">{self.max_rollout_s:.0f}s"})
+            logger.info("ROLLOUT walltime cap (>%.0fs) for %s; routing to grading",
+                        self.max_rollout_s, state.get("info", {}).get("task_name"))
+            return [{"role": "user", "content": "Wall-clock limit reached; ending task and grading."}]
         # gen_s = wall time the policy spent producing the message we are about to
         # process (includes server-side queue under concurrency -> per-turn latency).
         now = time.perf_counter()
@@ -439,7 +453,7 @@ def load_environment(
     tenant_id: str = "async_2347641",
     max_turns: int = 200,
     command_timeout: float = 300.0,
-    test_timeout: float = 300.0,
+    test_timeout: float = 900.0,
     **kwargs,
 ) -> vf.Environment:
     dataset = _load_dataset(dataset_path)

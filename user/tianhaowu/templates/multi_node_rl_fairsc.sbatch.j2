@@ -208,6 +208,15 @@ srun --kill-on-bad-exit=1 bash -c '
     IB_HCA=$(ibv_devinfo | sed -n -e "/hca_id/p" -e "/link_layer:/p" | grep -B1 InfiniBand | grep hca_id | sed -e "s/^hca_id://g" | tr -d "[[:blank:]]" |paste -sd,)
     export NCCL_IB_HCA=$IB_HCA
 
+    # Disable NCCL RAS diagnostic thread: segfaults ~1.5h in (ras/peers.cc bsearch
+    # on peer-socket churn), killing trainer+inference mid-run -- a mid-write kill
+    # also corrupts the vLLM AOT compile cache. RAS is monitoring-only; safe.
+    export NCCL_RAS_ENABLE=0
+    # Disable vLLM disk compile cache: corrupt/partial AOT artifacts (left by a
+    # mid-compile kill) make some ranks cold-recompile while cache-hit ranks wait,
+    # desyncing into a 600s c10d deadlock. In-memory compile keeps all ranks in sync.
+    export VLLM_DISABLE_COMPILE_CACHE=1
+
 {% if num_infer_nodes > 0 -%}
 
 if [ "$SLURM_PROCID" -lt "$NUM_INFER_NODES" ]; then

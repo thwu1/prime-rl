@@ -19,7 +19,7 @@
 #     setting if not).
 
 max_steps = 500
-seq_len = 65536
+seq_len = 131072
 
 [log]
 level = "info"
@@ -93,16 +93,17 @@ name = "tb-12k-opuspass"
 
 [orchestrator.train.env.args]
 dataset_path = "/checkpoint/ram/tianhaowu/datasets/terminal_bench/v2_train_12k_tr.jsonl"
-image_source = "task_toml"
-max_turns = 500
+max_rollout_s = 3000
+image_source = "vmvm_registry"  # mirror (no docker.io rate limit); docker.io is fallback
+max_turns = 200
 command_timeout = 300
 test_timeout = 900
 session_timeout = 3600
-lease_ttl = "11000s"
+lease_ttl = "2400s"
 
 [orchestrator.eval]
-interval = 20
-skip_first_step = false   # run a step-0 baseline eval
+interval = 10
+skip_first_step = true # run a step-0 baseline eval
 
 # Eval sampling matches the TB-2.0 reference so pass@k is meaningful (temp>0;
 # at temp 0 all rollouts are identical and pass@5 collapses to pass@1).
@@ -121,12 +122,13 @@ rollouts_per_example = 1
 
 [orchestrator.eval.env.args]
 dataset_path = "/checkpoint/ram/tianhaowu/datasets/terminal_bench/v2_heldout_200.jsonl"
-image_source = "task_toml"
-max_turns = 500
+max_rollout_s = 3000
+image_source = "vmvm_registry"  # mirror (no docker.io rate limit); docker.io is fallback
+max_turns = 300
 command_timeout = 300
 test_timeout = 900
 session_timeout = 3600
-lease_ttl = "11000s"
+lease_ttl = "2400s"
 
 # (2) TB ORIGINAL (terminal-bench-2, 80 tasks): avg-of-5, the reference protocol.
 [[orchestrator.eval.env]]
@@ -136,18 +138,19 @@ rollouts_per_example = 5
 
 [orchestrator.eval.env.args]
 dataset_path = "/checkpoint/ram/tianhaowu/datasets/terminal_bench/v2_harbor_pass80.jsonl"
+max_rollout_s = 3000
 image_source = "vmvm_registry"
-max_turns = 500
+max_turns = 300
 command_timeout = 300
 test_timeout = 900
 session_timeout = 3600
-lease_ttl = "11000s"
+lease_ttl = "2400s"
 
 [inference]
 gpu_memory_utilization = 0.85
 
 [inference.model]
-max_model_len = 65536
+max_model_len = 131072
 
 [inference.parallel]
 tp = 8
