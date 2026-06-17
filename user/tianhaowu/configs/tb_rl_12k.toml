@@ -50,8 +50,8 @@ time = "48:00:00"
 template_path = "/storage/home/tianhaowu/prime-rl/user/tianhaowu/templates/multi_node_rl_fairsc.sbatch.j2"
 
 [ckpt]
-interval = 20
-keep_last = 2
+interval = 10
+keep_last = 5
 
 [wandb]
 project = "tb-rl-qwen35"
@@ -124,7 +124,7 @@ rollouts_per_example = 1
 dataset_path = "/checkpoint/ram/tianhaowu/datasets/terminal_bench/v2_heldout_200.jsonl"
 max_rollout_s = 3000
 image_source = "vmvm_registry"  # mirror (no docker.io rate limit); docker.io is fallback
-max_turns = 300
+max_turns = 200
 command_timeout = 300
 test_timeout = 900
 session_timeout = 3600
@@ -140,7 +140,7 @@ rollouts_per_example = 5
 dataset_path = "/checkpoint/ram/tianhaowu/datasets/terminal_bench/v2_harbor_pass80.jsonl"
 max_rollout_s = 3000
 image_source = "vmvm_registry"
-max_turns = 300
+max_turns = 200
 command_timeout = 300
 test_timeout = 900
 session_timeout = 3600
