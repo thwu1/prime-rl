@@ -27,6 +27,11 @@ level = "info"
 [model]
 name = "/checkpoint/ram/tianhaowu/Qwen3.5-35B-A3B"
 
+[model.vlm]
+vision_encoder_attr = "model.visual"
+language_model_attr = "model.language_model"
+freeze_vision_encoder = true
+
 [weight_broadcast]
 type = "nccl"
 
