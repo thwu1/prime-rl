@@ -33,6 +33,7 @@ language_model_attr = "model.language_model"
 freeze_vision_encoder = true
 
 [weight_broadcast]
+quantize_in_weight_transfer = true
 type = "nccl"
 
 [deployment]
