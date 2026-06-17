@@ -70,10 +70,12 @@ type = "adamw"
 lr = 1e-6
 
 [orchestrator]
-renderer = "None"
 batch_size = 512
 rollouts_per_example = 16
 max_off_policy_steps = 16
+
+[orchestrator.renderer]
+name = "default"
 
 [[orchestrator.train.env]]
 id = "vmvm-tb"
