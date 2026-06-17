@@ -59,7 +59,7 @@ name = "tb-12k-opuspass"
 
 [trainer.model]
 impl = "custom"
-attn = "sdpa"
+attn = "flash_attention_3"
 ep = 8
 cp = 2
 cp_style = "ulysses"
