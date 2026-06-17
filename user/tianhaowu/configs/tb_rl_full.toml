@@ -79,7 +79,7 @@ id = "vmvm-tb"
 name = "tb-17k-full"
 
 [orchestrator.train.env.args]
-dataset_path = "/checkpoint/ram/tianhaowu/datasets/terminal_bench/v2_train_17k.jsonl"
+dataset_path = "/checkpoint/ram/tianhaowu/datasets/terminal_bench/v2_train_full_tr.jsonl"
 image_source = "task_toml"
 max_turns = 500
 command_timeout = 300
@@ -88,11 +88,38 @@ session_timeout = 3600
 lease_ttl = "11000s"
 
 [orchestrator.eval]
-interval = 25
+interval = 50
+skip_first_step = false   # run a step-0 baseline eval
 
+# Eval sampling matches the TB-2.0 reference so pass@k is meaningful (temp>0;
+# at temp 0 all rollouts are identical and pass@5 collapses to pass@1).
+[orchestrator.eval.sampling]
+temperature = 1.0
+top_p = 0.95
+top_k = 20
+max_tokens = 80000
+
+# (1) In-distribution HELD-OUT: 200 tasks sampled from the full 17k, excluded
+#     from training. 1 rollout/task.
+[[orchestrator.eval.env]]
+id = "vmvm-tb"
+name = "heldout-200"
+rollouts_per_example = 1
+
+[orchestrator.eval.env.args]
+dataset_path = "/checkpoint/ram/tianhaowu/datasets/terminal_bench/v2_heldout_200.jsonl"
+image_source = "task_toml"
+max_turns = 500
+command_timeout = 300
+test_timeout = 900
+session_timeout = 3600
+lease_ttl = "11000s"
+
+# (2) TB ORIGINAL (terminal-bench-2, 80 tasks): avg-of-5, the reference protocol.
 [[orchestrator.eval.env]]
 id = "vmvm-tb"
 name = "tb-pass80"
+rollouts_per_example = 5
 
 [orchestrator.eval.env.args]
 dataset_path = "/checkpoint/ram/tianhaowu/datasets/terminal_bench/v2_harbor_pass80.jsonl"
