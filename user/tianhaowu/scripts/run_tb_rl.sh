@@ -9,7 +9,11 @@ cd "$HOME/prime-rl"
 # (exported -> inherited by the rl job + its orchestrator) keeps it importable.
 export PYTHONPATH="$HOME/prime-rl/environments/vmvm_tb${PYTHONPATH:+:$PYTHONPATH}"
 export WANDB_MODE=offline
-OUTDIR=${OUTDIR:-/checkpoint/ram/tianhaowu/tb_rl_run}
+CFG=${CFG:-user/tianhaowu/configs/tb_rl_12k.toml}
+OUTDIR=${OUTDIR:-/checkpoint/ram/tianhaowu/tb_rl_12k}
 mkdir -p "$OUTDIR"
-echo "=== submitting RL training -> $OUTDIR ==="
-uv run --no-sync rl @ user/tianhaowu/configs/tb_rl.toml --output-dir "$OUTDIR"
+echo "=== submitting RL training: CFG=$CFG -> $OUTDIR ==="
+# --trainer.model.cp-style MUST be on the CLI: RLConfig's validator drops the
+# config cp_style, and the default `ring` CP is incompatible with Qwen3.5 hybrid/SSM
+# layers. NCCL_RAS_ENABLE=0 + VLLM_DISABLE_COMPILE_CACHE=1 live in the sbatch template.
+uv run --no-sync rl @ "$CFG" --output-dir "$OUTDIR" --trainer.model.cp-style ulysses
