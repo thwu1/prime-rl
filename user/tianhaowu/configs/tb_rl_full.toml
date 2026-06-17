@@ -110,7 +110,7 @@ skip_first_step = false   # run a step-0 baseline eval
 temperature = 1.0
 top_p = 0.95
 top_k = 20
-max_tokens = 80000
+max_tokens = 60000
 
 # (1) In-distribution HELD-OUT: 200 tasks sampled from the full 17k, excluded
 #     from training. 1 rollout/task.
