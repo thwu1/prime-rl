@@ -212,6 +212,13 @@ srun --kill-on-bad-exit=1 bash -c '
     # the vLLM AOT compile cache on a mid-write kill. RAS is monitoring-only; safe.
     export NCCL_RAS_ENABLE=0
 
+    # First-step torch.compile of the 35B MoE holds the GIL >480s, starving
+    # the NCCL heartbeat-monitor thread -> false "watchdog got stuck" SIGABRT
+    # on step 1 (dump showed 0 active collectives, enqueued==completed -> NOT a
+    # real hang). Give the one-time compile 1.5h of heartbeat headroom; monitoring
+    # stays ON so a genuine hang still aborts (just after 1.5h).
+    export TORCH_NCCL_HEARTBEAT_TIMEOUT_SEC=5400
+
 {% if num_infer_nodes > 0 -%}
 
 if [ "$SLURM_PROCID" -lt "$NUM_INFER_NODES" ]; then

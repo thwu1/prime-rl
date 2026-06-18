@@ -111,6 +111,10 @@ srun --kill-on-bad-exit=1 bash -c '
 
     export HF_HUB_OFFLINE=1
 
+    # First-step torch.compile (trainer) holds the GIL >480s -> NCCL heartbeat
+    # monitor false-fires 'watchdog stuck' -> SIGABRT. Raise timeout so it finishes.
+    export TORCH_NCCL_HEARTBEAT_TIMEOUT_SEC=5400
+
     # This is required for compilation to work correctly
     export PYTORCH_CUDA_ALLOC_CONF="expandable_segments:True"
 

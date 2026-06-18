@@ -168,6 +168,10 @@ srun --kill-on-bad-exit=1 bash -c '
     [ -n "$IB_HCA" ] && export NCCL_IB_HCA=$IB_HCA
     export NCCL_RAS_ENABLE=0  # disable RAS diagnostic thread (segfaults ~1.5h in; monitoring-only)
 
+    # First-step torch.compile (trainer) holds the GIL >480s -> NCCL heartbeat
+    # monitor false-fires 'watchdog stuck' -> SIGABRT. Raise timeout so it finishes.
+    export TORCH_NCCL_HEARTBEAT_TIMEOUT_SEC=5400
+
     INFER_NODE_RANK=$SLURM_PROCID
     LOCAL_IP=$(hostname -I | awk "{print \$1}")
 
