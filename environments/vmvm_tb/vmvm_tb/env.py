@@ -23,6 +23,8 @@ from datasets import Dataset
 
 from .prompt import NATIVE_SYSTEM_PROMPT, NATIVE_USER_PROMPT
 from .parsers import _parse_native_tool_call
+from .models import Command, CommandBatchResponse
+from verifiers.utils.tool_utils import convert_func_to_tool_def
 from .task_utils import (
     load_task_config,
     get_terminal_bench_vmvm_image_url,
@@ -32,6 +34,14 @@ from .evaluation import run_terminal_bench_tests, _is_conn_lost
 from ._vacli.backend import VacliVMVMBackend, VacliVMVMConfig
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+if not any(getattr(_h, "_vmvm_tag", False) for _h in logger.handlers):
+    _vmvm_h = logging.StreamHandler()
+    _vmvm_h.setLevel(logging.INFO)
+    _vmvm_h.setFormatter(logging.Formatter("%(asctime)s %(levelname)s vmvm_tb %(message)s"))
+    _vmvm_h._vmvm_tag = True
+    logger.addHandler(_vmvm_h)
+logger.propagate = False
 
 # Cap mid-rollout reconnects so a chronically-flapping box can't loop forever.
 _MAX_MIDROLLOUT_RECONNECTS = int(os.environ.get("VMVM_TB_MIDROLLOUT_RECONNECTS", "5"))
@@ -86,6 +96,83 @@ def _msg_content(m) -> str:
     return getattr(m, "content", "") or ""
 
 
+def bash(command: str) -> str:
+    """Run a bash command inside the task container; returns combined stdout/stderr.
+
+    Args:
+        command: The shell command to execute, e.g. "ls -la /app".
+    """
+    raise NotImplementedError  # schema only; the env executes commands via the VM backend
+
+
+def submit() -> str:
+    """Submit the task as complete. Call this only once the task is fully solved."""
+    raise NotImplementedError  # schema only
+
+
+_TOOL_DEFS = [convert_func_to_tool_def(bash), convert_func_to_tool_def(submit)]
+
+
+def _structured_tool_calls(m):
+    """Tool calls the renderer parsed off the assistant turn (object- or dict-form)."""
+    tcs = getattr(m, "tool_calls", None)
+    if tcs is None and isinstance(m, dict):
+        tcs = m.get("tool_calls")
+    return tcs or []
+
+
+def _tc_name_args(tc):
+    if isinstance(tc, dict):
+        fn = tc.get("function") or {}
+        name = tc.get("name") or fn.get("name")
+        raw = tc.get("arguments")
+        if raw is None:
+            raw = fn.get("arguments")
+    else:
+        name = getattr(tc, "name", None)
+        raw = getattr(tc, "arguments", None)
+        if name is None and hasattr(tc, "function"):
+            name = getattr(tc.function, "name", None)
+            raw = getattr(tc.function, "arguments", None)
+    if isinstance(raw, str):
+        try:
+            args = json.loads(raw) if raw.strip() else {}
+        except Exception:
+            args = {}
+    elif isinstance(raw, dict):
+        args = raw
+    else:
+        args = {}
+    return name, args
+
+
+def _parse_structured_tool_calls(tool_calls, command_timeout):
+    """Build a CommandBatchResponse from renderer-structured tool_calls.
+
+    Same return contract as _parse_native_tool_call so env_response is unchanged
+    downstream: (CommandBatchResponse | None, err_str).
+    """
+    cmds = []
+    is_complete = False
+    for tc in tool_calls:
+        name, args = _tc_name_args(tc)
+        if name == "submit":
+            is_complete = True
+        elif name == "bash":
+            c = (args or {}).get("command", "") or ""
+            if c:
+                cmds.append(Command(
+                    keystrokes=c if c.endswith("\n") else c + "\n",
+                    is_blocking=True,
+                    timeout_sec=command_timeout,
+                ))
+    if not cmds and not is_complete:
+        return None, "tool_calls present but no usable bash/submit call"
+    return CommandBatchResponse(
+        state_analysis="", explanation="", bash_commands=cmds, is_task_complete=is_complete,
+    ), ""
+
+
 class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
     def __init__(
         self,
@@ -99,9 +186,13 @@ class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
         max_parse_retries: int = 5,
         max_rollout_s: float = 3000.0,
         image_source: str = "vmvm_registry",  # or "task_toml" (docker.io from task.toml)
+        native_tools: bool = False,  # True: declare tool_defs -> renderer/eval emit <function=> XML, env reads structured tool_calls
         **kwargs,
     ) -> None:
+        if native_tools:
+            kwargs.setdefault("tool_defs", _TOOL_DEFS)
         super().__init__(**kwargs)
+        self.native_tools = native_tools
         self.tenant_id = tenant_id
         self.command_timeout = command_timeout
         self.test_timeout = test_timeout
@@ -185,8 +276,9 @@ class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
             state["task_complete"] = True  # nothing to run; rollout ends immediately
             initial_output = ""
 
+        _sys = NATIVE_SYSTEM_PROMPT if getattr(self, "native_tools", False) else _NATIVE_SYS
         state["prompt"] = [
-            {"role": "system", "content": _NATIVE_SYS},
+            {"role": "system", "content": _sys},
             {
                 "role": "user",
                 "content": NATIVE_USER_PROMPT.format(
@@ -232,7 +324,14 @@ class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
             "kind": "exec",
         }
 
-        parsed, _err = _parse_native_tool_call(content, self.command_timeout)
+        # Renderer path (training) parses <tool_call> off the assistant turn into
+        # structured tool_calls; chat-completions eval leaves it in content. Read
+        # structured first, fall back to text -> identical behavior on both paths.
+        _tcs = _structured_tool_calls(last)
+        if _tcs:
+            parsed, _err = _parse_structured_tool_calls(_tcs, self.command_timeout)
+        else:
+            parsed, _err = _parse_native_tool_call(content, self.command_timeout)
 
         if parsed is None:
             state["parse_errors"] = state.get("parse_errors", 0) + 1
@@ -393,10 +492,15 @@ class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
                     info.get("task_name"), getattr(result, "error_class", None),
                     (getattr(result, "error_detail", None) or result.message or "")[:400],
                 )
+            _tt = state.get("turn_timings", [])
+            _cmds = " | ".join(c.get("cmd", "") for _r in _tt for c in _r.get("cmds", []))[:1500]
+            _kinds = [_r.get("kind") for _r in _tt]
             logger.info(
-                "task %s -> %s (reward=%s exit=%s)\n--- test output (tail) ---\n%s",
-                info.get("task_name"), result.outcome, state["tb_reward"], result.exit_code,
-                (result.test_output or "")[-2000:],
+                "ROLLOUT DONE task=%s reward=%s outcome=%s turns=%d parse_errors=%d kinds=%s\n"
+                "  cmds: %s\n--- test output (tail) ---\n%s",
+                info.get("task_name"), state["tb_reward"], result.outcome,
+                len(_tt), state.get("parse_errors", 0), _kinds, _cmds,
+                (result.test_output or "")[-200:],
             )
         except Exception as e:
             logger.error("GRADE infra-error (reward computation raised) for %s class=grade/reward_raise: %s",

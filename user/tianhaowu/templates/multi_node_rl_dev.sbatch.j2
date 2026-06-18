@@ -5,7 +5,7 @@
 #SBATCH --ntasks-per-node=1
 #SBATCH --gres=gpu:{{ gpus_per_node }}
 #SBATCH --partition={{ partition }}
-#SBATCH --qos=h200_ram_high
+#SBATCH --qos=h200_dev
 {%- if account %}
 #SBATCH --account={{ account }}
 {%- endif %}

@@ -1,3 +1,7 @@
+# QUICK-DEBUG variant of tb_rl_12k.toml: 64k ctx, batch 64, 40 turns, short
+# env timeouts -> fast iteration to validate watchdog fix + unified reward.
+# Differs ONLY in speed knobs; same model/mesh/format as the full run.
+
 # RL training: Qwen3.5-35B-A3B on tb_v2 (17k terminal-bench tasks).
 # Modeled on examples/qwen30b_swe/rl.toml + configs/general_agent/rl_qwen3_30b_a3b.toml
 # (both 30B-A3B MoE agentic). Reward = the vmvm-tb env's TB-test pass@1 (same env
@@ -18,8 +22,8 @@
 #     PYTHONPATH; confirm the orchestrator picks up id="vmvm-tb" (add an env-dir
 #     setting if not).
 
-max_steps = 500
-seq_len = 131072
+max_steps = 30
+seq_len = 65536
 
 [log]
 level = "info"
@@ -37,16 +41,16 @@ type = "nccl"
 
 [deployment]
 type = "multi_node"
-num_train_nodes = 4
-num_infer_nodes = 2
+num_train_nodes = 1
+num_infer_nodes = 1
 
 [slurm]
-job_name = "tb-rl-12k"
+job_name = "tb-rl-debug"
 project_dir = "/storage/home/tianhaowu/prime-rl"
 partition = "h200"
 account = "ram"
-time = "48:00:00"
-template_path = "/storage/home/tianhaowu/prime-rl/user/tianhaowu/templates/multi_node_rl_fairsc.sbatch.j2"
+time = "3:00:00"
+template_path = "/storage/home/tianhaowu/prime-rl/user/tianhaowu/templates/multi_node_rl_dev.sbatch.j2"
 
 [ckpt]
 interval = 10
@@ -54,10 +58,9 @@ keep_last = 5
 
 [wandb]
 project = "tb-rl-qwen35"
-name = "tb-12k-opuspass"
+name = "tb-debug-64k"
 
-[trainer]
-dist_timeout_seconds = 3600  # 600s default too tight for first-step compile stagger across ranks (v1 SIGABRT at SeqNum=174)
+dist_timeout_seconds = 1800
 
 [trainer.model]
 impl = "custom"
@@ -65,6 +68,7 @@ attn = "flash_attention_3"
 ep = 8
 cp = 2
 cp_style = "ulysses"
+optim_cpu_offload = true
 optimization_dtype = "bfloat16"
 reduce_dtype = "bfloat16"
 
@@ -81,10 +85,10 @@ type = "adamw"
 lr = 1e-6
 
 [orchestrator]
-batch_size = 512
-rollouts_per_example = 16
+batch_size = 64
+rollouts_per_example = 8
 max_off_policy_steps = 16
-max_inflight_rollouts = 128
+max_inflight_rollouts = 64
 
 [orchestrator.renderer]
 name = "qwen3.5"
@@ -97,13 +101,13 @@ name = "tb-12k-opuspass"
 [orchestrator.train.env.args]
 dataset_path = "/checkpoint/ram/tianhaowu/datasets/terminal_bench/v2_train_12k_tr.jsonl"
 native_tools = true
-max_rollout_s = 3000
+max_rollout_s = 1200
 image_source = "task_toml"  # docker.io: 12k/heldout images live on docker.io, NOT vmvm-registry
-max_turns = 200
-command_timeout = 300
-test_timeout = 900
-session_timeout = 3600
-lease_ttl = "2400s"
+max_turns = 50
+command_timeout = 120
+test_timeout = 300
+session_timeout = 900
+lease_ttl = "900s"
 
 [orchestrator.eval]
 interval = 10
@@ -115,7 +119,7 @@ skip_first_step = true  # skip the step-0 eval -> reach the first gradient step 
 temperature = 1.0
 top_p = 0.95
 top_k = 20
-max_tokens = 60000
+max_tokens = 16000
 
 # (1) In-distribution HELD-OUT: 200 tasks sampled from the full 17k, excluded
 #     from training. 1 rollout/task.
@@ -127,13 +131,13 @@ rollouts_per_example = 1
 [orchestrator.eval.env.args]
 dataset_path = "/checkpoint/ram/tianhaowu/datasets/terminal_bench/v2_heldout_200.jsonl"
 native_tools = true
-max_rollout_s = 3000
+max_rollout_s = 1200
 image_source = "task_toml"  # docker.io: 12k/heldout images live on docker.io, NOT vmvm-registry
-max_turns = 200
-command_timeout = 300
-test_timeout = 900
-session_timeout = 3600
-lease_ttl = "2400s"
+max_turns = 50
+command_timeout = 120
+test_timeout = 300
+session_timeout = 900
+lease_ttl = "900s"
 
 # (2) TB ORIGINAL (terminal-bench-2, 80 tasks): avg-of-5, the reference protocol.
 [[orchestrator.eval.env]]
@@ -144,19 +148,19 @@ rollouts_per_example = 5
 [orchestrator.eval.env.args]
 dataset_path = "/checkpoint/ram/tianhaowu/datasets/terminal_bench/v2_harbor_pass80.jsonl"
 native_tools = true
-max_rollout_s = 3000
+max_rollout_s = 1200
 image_source = "vmvm_registry"
-max_turns = 200
-command_timeout = 300
-test_timeout = 900
-session_timeout = 3600
-lease_ttl = "2400s"
+max_turns = 50
+command_timeout = 120
+test_timeout = 300
+session_timeout = 900
+lease_ttl = "900s"
 
 [inference]
 gpu_memory_utilization = 0.85
 
 [inference.model]
-max_model_len = 131072
+max_model_len = 65536
 
 [inference.parallel]
 tp = 8

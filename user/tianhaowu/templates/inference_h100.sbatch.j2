@@ -196,6 +196,10 @@ srun --kill-on-bad-exit=1 bash -c '
     export VLLM_MOE_USE_DEEP_GEMM=1
 {%- endif %}
     export PYTORCH_CUDA_ALLOC_CONF="expandable_segments:False"
+
+    # First-step torch.compile (trainer) holds the GIL >480s -> NCCL heartbeat
+    # monitor false-fires 'watchdog stuck' -> SIGABRT. Raise timeout so it finishes.
+    export TORCH_NCCL_HEARTBEAT_TIMEOUT_SEC=5400
     # Bind gloo to the interface that owns LOCAL_IP (the rendezvous IP) — NIC
     # names vary across clusters (bond0, eth0, ...). If the lookup fails, leave
     # GLOO_SOCKET_IFNAME unset so gloo falls back to its own detection.

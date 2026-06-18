@@ -12,9 +12,9 @@ export VACLI_LEASE_RETRIES=10 VACLI_MAX_PULL_RETRIES=12
 # prunes the editable vmvm_tb install -> make the env importable via PYTHONPATH
 # (immune to uv sync; inherited by the vf-eval env-server subprocess).
 export PYTHONPATH="$HOME/prime-rl/environments/vmvm_tb${PYTHONPATH:+:$PYTHONPATH}"
-CFG=user/tianhaowu/configs/qwen35_infer_multinode.toml
-DATASET=/checkpoint/ram/tianhaowu/datasets/terminal_bench/v2_harbor_pass80.jsonl
-OUTDIR=/checkpoint/ram/tianhaowu/vmvm_tb_multinode_v2
+CFG=${CFG:-user/tianhaowu/configs/qwen35_infer_multinode.toml}
+DATASET=${DATASET:-/checkpoint/ram/tianhaowu/datasets/terminal_bench/v2_harbor_pass80.jsonl}
+OUTDIR=${OUTDIR:-/checkpoint/ram/tianhaowu/vmvm_tb_multinode_v2}
 ROUTER_PORT=8000
 mkdir -p "$OUTDIR"
 
@@ -52,7 +52,7 @@ uv run --no-sync vf-eval vmvm-tb \
   --api-client-type openai_chat_completions \
   -n 80 --rollouts-per-example 5 --max-concurrent 128 \
   --sampling-args '{"max_tokens":80000,"temperature":1.0,"top_p":0.95,"top_k":20}' \
-  --env-args "{\"dataset_path\":\"$DATASET\",\"max_turns\":500,\"command_timeout\":300,\"test_timeout\":900,\"session_timeout\":3600,\"lease_ttl\":\"11000s\"}" \
+  --env-args "{\"dataset_path\":\"$DATASET\",\"native_tools\":${NATIVE_TOOLS:-false},\"max_rollout_s\":${MAX_ROLLOUT_S:-3000},\"max_turns\":500,\"command_timeout\":300,\"test_timeout\":900,\"session_timeout\":3600,\"lease_ttl\":\"11000s\"}" \
   --state-columns turn_timings,tb_outcome,tb_error_class,tb_error_detail,infra_events,tb_test_output,tb_message,tb_exit_code,tb_report \
   --output-dir "$OUTDIR" \
   --save-results --disable-tui --env-dir-path environments
