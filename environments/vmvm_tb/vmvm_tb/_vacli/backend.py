@@ -68,12 +68,12 @@ MAX_CONCURRENT_LEASES = int(os.environ.get("VACLI_MAX_CONCURRENT_LEASES", "16"))
 # Retries for `podman pull` inside the VM when DockerHub returns 429
 # (toomanyrequests). The vmvm-registry mirror path needs no retries; this only
 # matters for the docker.io fallback used when an image is not yet mirrored.
-MAX_PULL_RETRIES = int(os.environ.get("VACLI_MAX_PULL_RETRIES", "10"))
+MAX_PULL_RETRIES = int(os.environ.get("VACLI_MAX_PULL_RETRIES", "20"))
 # Retries for the vacli lease bring-up itself. Concurrent launches race on
 # Configerator/JustKnobs init ("isConfigeratorAvailable() returned false" ->
 # "vacli died before tunnel was ready"), a transient thundering-herd failure at
 # high concurrency; jittered retry disperses the herd. See [[vacli-lease-race]].
-MAX_LEASE_RETRIES = int(os.environ.get("VACLI_LEASE_RETRIES", "4"))
+MAX_LEASE_RETRIES = int(os.environ.get("VACLI_LEASE_RETRIES", "20"))
 
 
 _THREADED_CHILD_WATCHER = None
@@ -1075,4 +1075,3 @@ class VacliVMVMBackend:
             stderr=self._sp.STDOUT,
             timeout=timeout,
         )
-
