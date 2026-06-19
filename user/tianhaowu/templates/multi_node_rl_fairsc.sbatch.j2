@@ -148,7 +148,12 @@ echo "MASTER_PORT=${MASTER_PORT}"
 cd $PROJECT_DIR
 [ -f .env ] && source .env
 source .venv/bin/activate
-uv sync --all-extras
+# uv sync --all-extras  # disabled: run `uv sync` on login node before submitting; compute nodes may lack GitHub access
+
+    # Unset HTTP proxy for intra-cluster communication — the proxy rejects
+    # compute-node hostnames (403 "Domain not in allowlist"), breaking the
+    # orchestrator→inference health check and admin calls.
+    unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy
 
 {% if pre_run_command %}
 # Pre-run command
@@ -380,7 +385,7 @@ else
 
     echo $HOSTNAMES_STR | tee $OUTPUT_DIR/logs/trainer/node_${TRAIN_NODE_RANK}.log
 
-    WANDB_SHARED_LABEL=trainer uv run torchrun \
+    WANDB_SHARED_LABEL=trainer uv run --no-sync torchrun \
         --role=trainer \
         --nnodes=$NUM_TRAIN_NODES \
         --nproc-per-node=$GPUS_PER_NODE \
@@ -406,7 +411,7 @@ if [ "$SLURM_PROCID" -eq "$ORCH_PROCID" ]; then
     ORCHESTRATOR_ARGS="$ORCHESTRATOR_ARGS --student.client.base-url $INFER_URLS"
     ORCHESTRATOR_ARGS="$ORCHESTRATOR_ARGS --student.client.admin-base-url $ADMIN_URLS"
     {% if use_nccl_broadcast %}ORCHESTRATOR_ARGS="$ORCHESTRATOR_ARGS --weight_broadcast.host $MASTER_ADDR"
-    {% endif %}WANDB_SHARED_LABEL=orchestrator uv run orchestrator $ORCHESTRATOR_ARGS \
+    {% endif %}WANDB_SHARED_LABEL=orchestrator uv run --no-sync orchestrator $ORCHESTRATOR_ARGS \
         2>&1 | tee $OUTPUT_DIR/logs/orchestrator.log &
 fi
 {% endif %}

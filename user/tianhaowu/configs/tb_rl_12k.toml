@@ -46,6 +46,7 @@ project_dir = "/storage/home/tianhaowu/prime-rl"
 partition = "h200"
 account = "ram"
 time = "48:00:00"
+exclude = "h200-137-004-254,h200-137-209-182"
 template_path = "/storage/home/tianhaowu/prime-rl/user/tianhaowu/templates/multi_node_rl_fairsc.sbatch.j2"
 
 [ckpt]
