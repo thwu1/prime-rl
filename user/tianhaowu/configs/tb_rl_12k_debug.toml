@@ -23,7 +23,7 @@
 #     setting if not).
 
 max_steps = 30
-seq_len = 65536
+seq_len = 32768
 
 [log]
 level = "info"
@@ -60,6 +60,7 @@ keep_last = 5
 project = "tb-rl-qwen35"
 name = "tb-debug-64k"
 
+[trainer]
 dist_timeout_seconds = 1800
 
 [trainer.model]
@@ -68,7 +69,7 @@ attn = "flash_attention_3"
 ep = 8
 cp = 2
 cp_style = "ulysses"
-optim_cpu_offload = true
+fsdp_cpu_offload = true
 optimization_dtype = "bfloat16"
 reduce_dtype = "bfloat16"
 
@@ -160,7 +161,7 @@ lease_ttl = "900s"
 gpu_memory_utilization = 0.85
 
 [inference.model]
-max_model_len = 65536
+max_model_len = 32768
 
 [inference.parallel]
 tp = 8
