@@ -13,7 +13,7 @@ ROUTER_PORT=8000
 mkdir -p "$OUTDIR"
 
 echo "=== submit inference deployment ==="
-SUB=$(uv run --no-sync inference @ "$CFG" 2>&1); echo "$SUB"
+SUB=$(uv run --no-sync inference @ "$CFG" --model.tool-call-parser qwen3_xml --output-dir "$OUTDIR/inference" 2>&1); echo "$SUB"
 JOBID=$(echo "$SUB" | grep -oE 'Submitted batch job [0-9]+' | grep -oE '[0-9]+$')
 [ -n "$JOBID" ] || { echo "FAILED to submit deployment"; exit 1; }
 echo "deployment job: $JOBID"
@@ -46,7 +46,7 @@ uv run --no-sync vf-eval vmvm-tb \
   --api-client-type openai_chat_completions \
   -n 200 --rollouts-per-example 1 --max-concurrent 128 \
   --sampling-args '{"max_tokens":256000,"temperature":1.0,"top_p":0.95,"top_k":20}' \
-  --env-args '{"dataset_path":"/checkpoint/ram/tianhaowu/datasets/terminal_bench/v2_heldout_200.jsonl","native_tools":true,"max_rollout_s":7200,"max_turns":300,"command_timeout":300,"test_timeout":900,"session_timeout":3600,"lease_ttl":"11000s"}' \
+  --env-args '{"dataset_path":"/checkpoint/ram/tianhaowu/datasets/terminal_bench/v2_heldout_200.jsonl","native_tools":true,"max_rollout_s":7200,"max_turns":300,"command_timeout":300,"test_timeout":900,"session_timeout":3600,"lease_ttl":"11000s","image_source":"task_toml"}' \
   --state-columns turn_timings,tb_outcome,tb_error_class,tb_error_detail,infra_events,tb_test_output,tb_message,tb_exit_code,tb_report \
   --output-dir "$OUTDIR/heldout-200" \
   --save-results --disable-tui --env-dir-path environments

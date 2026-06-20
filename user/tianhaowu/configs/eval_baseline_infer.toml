@@ -24,8 +24,6 @@ policy = "consistent_hash"
 language_model_only = true
 gdn_prefill_backend = "triton"
 enable_prefix_caching = true
-enable_auto_tool_choice = true
-tool_call_parser = "hermes"
 
 [slurm]
 job_name = "eval-baseline"
