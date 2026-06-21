@@ -405,6 +405,9 @@ else
 # trainer nodes. Top-level (after the role if/else) so the wait -n teardown covers it.
 {% if orchestrator_on_inference %}ORCH_PROCID=$((NUM_INFER_NODES - 1)){% else %}ORCH_PROCID=$NUM_INFER_NODES{% endif %}
 if [ "$SLURM_PROCID" -eq "$ORCH_PROCID" ]; then
+    # fair-sc math-python: local subprocess sandbox (no Prime cloud / PRIME_API_KEY)
+    export MATH_PYTHON_LOCAL_SANDBOX="${MATH_PYTHON_LOCAL_SANDBOX:-1}"
+    export MATH_PYTHON_LOCAL_MAX_CONCURRENCY="${MATH_PYTHON_LOCAL_MAX_CONCURRENCY:-64}"
     ORCHESTRATOR_ARGS="@ $CONFIG_DIR/orchestrator.toml"
     ORCHESTRATOR_ARGS="$ORCHESTRATOR_ARGS --student.client.base-url $INFER_URLS"
     ORCHESTRATOR_ARGS="$ORCHESTRATOR_ARGS --student.client.admin-base-url $ADMIN_URLS"
