@@ -4,9 +4,21 @@
 
 # ruff: noqa
 import asyncio
+import logging
 import subprocess
+import threading
 from typing import Optional, List
 import sys
+
+_LOGGER = logging.getLogger(__name__)
+
+
+def _leak_watch() -> str:
+    """Snapshot of live session-loop threads. A rising vacli_session_loops count
+    across LEAK-WATCH lines means communicate() calls are leaking their loop
+    threads again (the bug Fix A closes)."""
+    loops = sum(1 for t in threading.enumerate() if t.name == "vacli-session-loop")
+    return f"threads_total={threading.active_count()} vacli_session_loops={loops}"
 
 if sys.version_info >= (3, 9):
     from typing import TypedDict, Literal  # Python 3.9+
@@ -179,8 +191,18 @@ class AsyncSession:
 
         eff_timeout = timeout if timeout is not None else self.timeout
         try:
-            await self._send(command)
-            read_output = await asyncio.wait_for(self._read(), timeout=eff_timeout)
+            # FIX A: bound send+read TOGETHER, not just read. A frozen VM behind
+            # the x2p tunnel makes stdin.drain() in _send() block forever (SSH
+            # keepalives are answered by the local tunnel, so the dead VM is never
+            # detected). Wrapping only _read() left _send() unbounded ->
+            # communicate() hung -> the to_thread worker that ran run_bash leaked
+            # permanently -> pool starvation -> whole RL run stalls. wait_for here
+            # cancels the coroutine on expiry, so a hung drain() unwinds cleanly.
+            async def _send_then_read():
+                await self._send(command)
+                return await self._read()
+
+            read_output = await asyncio.wait_for(_send_then_read(), timeout=eff_timeout)
             if sanitize:
                 read_output = sanitize_fn(read_output)
             output = SessionOutput(
@@ -193,6 +215,13 @@ class AsyncSession:
                 error_type = "exit"
             else:
                 error_type = "timeout"
+            # LEAK-WATCH: with Fix A this fires instead of hanging forever. A
+            # climbing vacli_session_loops across these lines = leakage recurring.
+            _LOGGER.warning(
+                "LEAK-WATCH: communicate timed out after %.1fs (error_type=%s) "
+                "cmd=%r | %s",
+                eff_timeout, error_type, command[:80], _leak_watch(),
+            )
             output = SessionOutput(
                 status="error",
                 output=read_output,
