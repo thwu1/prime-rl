@@ -29,8 +29,10 @@ echo "=== submitting RL training ==="
 echo "  CFG:    $CFG"
 echo "  OUTDIR: $OUTDIR"
 echo "  WANDB:  $RUN_NAME"
+echo "  SLURM:  $RUN_NAME"
 # NCCL_RAS_ENABLE=0 + VLLM_DISABLE_COMPILE_CACHE=1 live in the sbatch template.
 uv run --no-sync rl @ "$CFG" \
   --output-dir "$OUTDIR" \
   --wandb.name "$RUN_NAME" \
+  --slurm.job-name "$RUN_NAME" \
   "$@"
