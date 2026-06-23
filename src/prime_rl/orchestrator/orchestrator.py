@@ -734,7 +734,12 @@ class Orchestrator:
             inflight_part += " | " + ", ".join(f"{n}={v}" for n, v in env_pairs)
         inflight_part += ")"
 
-        body = train_batch_part + eval_batch_part + "; " + inflight_part
+        drop_part = self.train_sink.drop_summary()
+        partial_part = self.train_sink.partial_group_summary()
+        body = (
+            train_batch_part + eval_batch_part + "; " + inflight_part
+            + " | " + drop_part + " | " + partial_part
+        )
 
         payload: dict[str, float] = {**disp_gauges, **disp_drain, **watcher_gauges}
         if lag_stats.n > 0:
@@ -745,6 +750,10 @@ class Orchestrator:
             payload["event_loop_lag/p99"] = lag_stats.p99
             payload["event_loop_lag/max"] = lag_stats.max
             payload["event_loop_lag/n"] = float(lag_stats.n)
+        payload["train_sink/groups_finalized"] = float(self.train_sink.groups_finalized)
+        payload["train_sink/groups_dropped_all_failed"] = float(self.train_sink.groups_dropped_all_failed)
+        payload["train_sink/groups_dropped_partial_scored"] = float(self.train_sink.groups_dropped_partial_scored)
+        payload["train_sink/pre_filter_dropped"] = float(self.train_sink.pre_filter_dropped)
         return body, payload
 
     def log_train_batch(self, batch: TrainBatch, *, step: int, step_time: float) -> None:

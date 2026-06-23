@@ -203,6 +203,23 @@ class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
         self.max_rollout_s = max_rollout_s
         self.image_source = image_source
 
+    def _emit_rollout_state(self, state, st, sub=""):
+        # Design-C per-rollout lifecycle beacon (log-only, never raises).
+        try:
+            import time as _t
+            info = state.get("info", {})
+            rs = state.get("_rollout_start"); sd = state.get("_setup_done")
+            now = _t.monotonic()
+            t_setup = (now - rs) if rs else 0.0
+            t_run = (now - sd) if sd else 0.0
+            logger.info(
+                "ROLLOUT_STATE rid=%s gid=%s task=%s state=%s turn=%d t_setup=%.1f t_run=%.1f timeout=%s sub=%s",
+                id(state), info.get("_group_id"), info.get("task_name"), st, state.get("_turn_idx", 0),
+                t_setup, t_run, getattr(self, "max_rollout_s", ""), sub,
+            )
+        except Exception:
+            pass
+
     async def setup_state(self, state) -> "vf.State":
         info = state["info"]
         state["parse_errors"] = 0
@@ -216,6 +233,7 @@ class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
         state["_turn_idx"] = 0
         state["_last_turn_end"] = time.perf_counter()
         state["_rollout_start"] = time.monotonic()
+        self._emit_rollout_state(state, "setup")
         workdir = info.get("workdir", "/app")
 
         # Resilience: a transient lease/image-pull failure here must score THIS task
@@ -246,6 +264,8 @@ class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
                 state["infra_events"].append({"phase": "setup", "type": "bringup_retry", **_bre})
             res = await asyncio.to_thread(backend.run_bash, f"cd {workdir} && pwd && ls -la", 30.0)
             initial_output = res.get("output", "") if isinstance(res, dict) else ""
+            state["_setup_done"] = time.monotonic()
+            self._emit_rollout_state(state, "running", sub="start")
         except Exception as e:
             _em = str(e).lower()
             if "pull" in _em or "image" in _em or "blob" in _em:
@@ -360,6 +380,7 @@ class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
         outputs = []
         exec_total = 0.0
         dropped = False
+        self._emit_rollout_state(state, "running", sub="exec")
         for cmd in parsed.bash_commands:
             t0 = time.perf_counter()
             res = await asyncio.to_thread(backend.run_bash, cmd.keystrokes, cmd.timeout_sec)
@@ -449,6 +470,7 @@ class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
         state["turn_timings"].append(rec)
         state["_turn_idx"] = state.get("_turn_idx", 0) + 1
         state["_last_turn_end"] = time.perf_counter()
+        self._emit_rollout_state(state, "running", sub="turn")
 
         combined = limit_output_length("\n".join(outputs), self.max_output_length)
         return [{"role": "user", "content": f"Current terminal state:\n{combined}"}]
@@ -468,6 +490,7 @@ class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
             return
         try:
             info = state["info"]
+            self._emit_rollout_state(state, "grading")
             result = await asyncio.to_thread(
                 run_terminal_bench_tests,
                 backend,
@@ -496,9 +519,9 @@ class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
             _cmds = " | ".join(c.get("cmd", "") for _r in _tt for c in _r.get("cmds", []))[:1500]
             _kinds = [_r.get("kind") for _r in _tt]
             logger.info(
-                "ROLLOUT DONE task=%s reward=%s outcome=%s turns=%d parse_errors=%d kinds=%s\n"
+                "ROLLOUT DONE gid=%s task=%s reward=%s outcome=%s turns=%d parse_errors=%d kinds=%s\n"
                 "  cmds: %s\n--- test output (tail) ---\n%s",
-                info.get("task_name"), state["tb_reward"], result.outcome,
+                info.get("_group_id"), info.get("task_name"), state["tb_reward"], result.outcome,
                 len(_tt), state.get("parse_errors", 0), _kinds, _cmds,
                 (result.test_output or "")[-200:],
             )

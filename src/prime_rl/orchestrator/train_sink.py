@@ -14,6 +14,7 @@ save_rollouts, monitor.log, teacher logprobs) live on the orchestrator.
 from __future__ import annotations
 
 import asyncio
+import time
 import uuid
 from collections import defaultdict
 
@@ -71,6 +72,15 @@ class TrainSink:
         self.pre_filter_dropped = 0
         self.pre_filter_dropped_by_name: dict[str, int] = {}
 
+        # Lifetime group-finalization accounting (logging only) so a
+        # slow/empty train batch is explainable instead of guessed at.
+        self.groups_finalized = 0
+        self.groups_dropped_all_failed = 0
+        self.groups_dropped_partial_scored = 0
+        self.survivors_appended = 0
+        # First-arrival monotonic ts per pending group -> oldest stall.
+        self._group_started: dict[uuid.UUID, float] = {}
+
         # Per-env arrival / error counters since the last ship; reset in
         # ``process_batch``. Fuel for the per-env success log breakdown
         self.arrivals_by_env: dict[str, int] = defaultdict(int)
@@ -122,6 +132,40 @@ class TrainSink:
             counts[r.env_name] += 1
         return dict(counts)
 
+    def drop_summary(self) -> str:
+        """One-line group accounting (logging only)."""
+        return (
+            f"groups fin={self.groups_finalized} "
+            f"drop(all_failed={self.groups_dropped_all_failed}, "
+            f"partial_scored={self.groups_dropped_partial_scored}, "
+            f"pre_filtered={self.pre_filter_dropped}) surv={self.survivors_appended}"
+        )
+
+    def partial_group_summary(self) -> str:
+        """Fill histogram + oldest-stall age for in-progress groups. A
+        batch that won't fill is almost always groups stuck a straggler
+        or two short — this makes that visible."""
+        from collections import Counter as _C
+        now = time.monotonic()
+        oldest = 0.0
+        miss: _C = _C()
+        n = 0
+        for gid, g in self.pending_groups.items():
+            if not g:
+                continue
+            n += 1
+            gs = self.group_size_for(g[0].env_name)
+            short = gs - len(g)
+            if short > 0:
+                miss[short] += 1
+            started = self._group_started.get(gid)
+            if started is not None:
+                oldest = max(oldest, now - started)
+        if n == 0:
+            return "partial=0"
+        dist = " ".join(f"-{k}:{v}" for k, v in sorted(miss.items()))
+        return f"partial={n} (missing {dist or 'none'}; oldest_stall={oldest:.0f}s)"
+
     async def add(self, rollout: TrainRollout) -> TrainBatch | None:
         """Process one arrival; finalize the group on the ``group_size``-th
         arrival; return a ``TrainBatch`` if the batch threshold is met."""
@@ -131,6 +175,8 @@ class TrainSink:
         if rollout.error is not None:
             self.errors_by_env[env_name] += 1
         self.pending_groups[rollout.group_id].append(rollout)
+        if len(self.pending_groups[rollout.group_id]) == 1:
+            self._group_started[rollout.group_id] = time.monotonic()
         if len(self.pending_groups[rollout.group_id]) >= self.group_size_for(env_name):
             self.process_group(rollout.group_id)
         ready = (
@@ -175,6 +221,8 @@ class TrainSink:
         group = self.pending_groups.pop(group_id, [])
         if not group:
             return
+        self._group_started.pop(group_id, None)
+        self.groups_finalized += 1
         env_name = group[0].env_name
         example_id = group[0].example_id
         survivors = [r for r in group if r.error is None]
@@ -184,12 +232,14 @@ class TrainSink:
         # (computed relative to the missing ones)
         env = self.train_envs.get(env_name)
         if num_errored > 0 and env.requires_group_scoring:
+            self.groups_dropped_partial_scored += 1
             get_logger().debug(
                 f"Finished group | env={env_name} example_id={example_id} | "
                 f"rollouts={len(group)} (errored={num_errored}) | dropped: group-scored partial"
             )
             return
         if not survivors:
+            self.groups_dropped_all_failed += 1
             get_logger().debug(
                 f"Finished group | env={env_name} example_id={example_id} | "
                 f"rollouts={len(group)} (errored={num_errored}) | dropped: all failed"
@@ -229,6 +279,7 @@ class TrainSink:
             r.filter_results = {}
             r.is_filtered = False
             self.pending_batch.append(r)
+            self.survivors_appended += 1
 
         # Per-group summary. One line per finalized group; per-filter
         # detection breakdown lives at debug level in ``apply_filters``
