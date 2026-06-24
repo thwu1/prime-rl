@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import asyncio
 import atexit
+import ctypes
 import io
 import json
 import logging
@@ -59,8 +60,24 @@ DEFAULT_TUNNEL_READY_TIMEOUT = (
 )
 DEFAULT_SSHD_READY_TIMEOUT = 180.0  # seconds to wait for sshd inside the leased VM
 DEFAULT_VACLI_CLEANUP_TIMEOUT = (
-    30.0  # seconds to wait for vacli to release before SIGKILL
+    45.0  # seconds to wait for vacli to release before SIGKILL (measured ~33s)
 )
+
+_PR_SET_PDEATHSIG = 1
+try:
+    _libc = ctypes.CDLL("libc.so.6", use_errno=True)
+except OSError:
+    _libc = None
+
+
+def _child_pdeathsig() -> None:
+    """preexec_fn for the vacli child: one prctl syscall (fork-safe).
+    PR_SET_PDEATHSIG makes the kernel send this child SIGTERM the moment its
+    parent (the env worker) dies -- even on a hard SIGKILL of the worker -- so
+    vacli's --release-on-exit fires and the VM is freed instead of orphaned.
+    """
+    if _libc is not None:
+        _libc.prctl(_PR_SET_PDEATHSIG, signal.SIGTERM)
 
 # Cap concurrent in-flight vacli leases per process: bursts of simultaneous
 # lease attempts trigger FAAS tunnel-setup timeouts. Tune via env if needed.
@@ -237,12 +254,16 @@ class VacliLease:
                 # `preexec_fn=os.setsid` because preexec_fn runs in the forked
                 # child between fork() and exec() and is not safe in multi-
                 # threaded processes (we are).
-                self.proc = self._sp.Popen(
-                    cmd,
+                _popen_kwargs = dict(
                     stdout=log_fh,
                     stderr=self._sp.STDOUT,
                     process_group=0,
                 )
+                if self._sp is subprocess:
+                    # real subprocess only (test mocks may not accept preexec_fn):
+                    # kernel SIGTERMs vacli if the worker dies -> --release-on-exit
+                    _popen_kwargs["preexec_fn"] = _child_pdeathsig
+                self.proc = self._sp.Popen(cmd, **_popen_kwargs)
         except Exception:
             self._release_concurrency_slot()
             raise
@@ -311,6 +332,10 @@ class VacliLease:
             try:
                 os.killpg(os.getpgid(self.proc.pid), signal.SIGKILL)
             except (ProcessLookupError, PermissionError):
+                pass
+            try:
+                self.proc.wait(timeout=5)  # reap so vacli doesn't linger as a zombie
+            except Exception:
                 pass
         # Defensive: release if start() succeeded but wait_for_tunnel never ran.
         self._release_concurrency_slot()

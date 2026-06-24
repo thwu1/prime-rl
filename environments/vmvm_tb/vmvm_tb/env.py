@@ -32,6 +32,7 @@ from .task_utils import (
 )
 from .evaluation import run_terminal_bench_tests, _is_conn_lost
 from ._vacli.backend import VacliVMVMBackend, VacliVMVMConfig
+from ._vacli.reaper import start_reaper_once
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -583,6 +584,7 @@ def load_environment(
     test_timeout: float = 900.0,
     **kwargs,
 ) -> vf.Environment:
+    start_reaper_once()  # reap orphaned vacli leases left by hard-killed workers
     dataset = _load_dataset(dataset_path)
     return VMVMTerminalBenchEnv(
         tenant_id=tenant_id,

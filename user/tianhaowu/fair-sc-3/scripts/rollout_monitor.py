@@ -102,7 +102,9 @@ def run_one(arg, topn, window):
         rows = []
         for gid, g in groups.items():
             lv = g["live"]; sc = Counter(x["state"] for x in lv)
-            oldest = max((x["t_run"] if x["state"] == "running" else x["t_setup"]) for x in lv) if lv else 0.0
+            # t_setup = total elapsed since rollout start (setup+run) for ALL states,
+            # so "oldest" is TOTAL runtime of the longest-lived rollout, not run-phase only
+            oldest = max(x["t_setup"] for x in lv) if lv else 0.0
             turns = sorted((x["turn"] for x in lv if x["state"] == "running"), reverse=True)
             rows.append(dict(gid=gid[:8], task=(g["task"] or "?")[:26], active=len(lv),
                              setup=sc.get("setup",0), run=sc.get("running",0), grade=sc.get("grading",0),
