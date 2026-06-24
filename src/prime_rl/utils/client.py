@@ -270,7 +270,7 @@ async def check_health(
         logger.debug("Starting pinging /health to check health")
         while wait_time < timeout:
             try:
-                await admin_client.get("/health")
+                await admin_client.get("/health", timeout=httpx.Timeout(5.0))
                 logger.debug(f"Inference pool is ready after {wait_time} seconds")
                 return
             except NotFoundError:

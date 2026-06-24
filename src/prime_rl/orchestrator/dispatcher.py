@@ -358,6 +358,14 @@ class RolloutDispatcher:
             return False
         gid = uuid.uuid4()
         self.groups[gid] = fresh
+        # Stamp group id into the example info so the env per-rollout
+        # beacon can attribute each gen to its group (logging only).
+        try:
+            _info = fresh.example.setdefault("info", {})
+            if isinstance(_info, dict):
+                _info["_group_id"] = str(gid)
+        except Exception:
+            pass
         return await self.schedule_group_rollout(gid, fresh)
 
     def next_fresh_group(self, kind: RolloutKind, envs) -> GroupState | None:

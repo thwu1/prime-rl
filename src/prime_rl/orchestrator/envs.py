@@ -145,6 +145,10 @@ class Env:
                 **vf.pool_serve_kwargs(self.config.pool),
                 address="tcp://127.0.0.1:0",
                 address_queue=address_queue,
+                # Raised from the 30s default: a slow-but-alive worker shouldn't be
+                # hard-killed (a kill orphans its ~256 vacli leases -> leaked VMs).
+                # Truly-dead workers are still caught immediately by is_alive().
+                worker_heartbeat_timeout=120.0,
                 **server_kwargs,
             ),
             daemon=False,
