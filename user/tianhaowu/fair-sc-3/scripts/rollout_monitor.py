@@ -1,15 +1,21 @@
 #!/usr/bin/env python3
-# Design-C external monitor. Parses a run's orchestrator.log into per-rollout +
-# PER-GROUP dashboards. Uses ROLLOUT_STATE beacons (env.py, now with gid=) to
-# join each gen to its group, so you can see how many groups are in flight, how
-# many members each has finished, and what every live gen is doing.
-# Usage: rollout_monitor.py [run_outdir_or_orchestrator.log] [--groups N]
+# Design-C external monitor (v2: time-windowed live set).
+# Parses a run's orchestrator.log into per-rollout + per-EXAMPLE dashboards.
+# "live" = rollouts whose last ROLLOUT_STATE beacon is within WINDOW seconds of
+# the newest beacon, so completed/stale rollouts drop out (fixes the inflated
+# done/live counts). Rows are keyed by gid; note gid is stamped on the shared
+# example dict, so a row aggregates concurrent groups of the SAME example
+# (labelled per-example). Aggregates (pass rate, turns, pulls) are exact.
+# Usage: rollout_monitor.py [outdir_or_log ...] [--groups N] [--window S]
 import sys, re, glob, os
 from collections import Counter, defaultdict
 import statistics
+from datetime import datetime
+
+WINDOW = 400  # seconds: a beacon older than this (vs newest) = not live
 
 ANSI = re.compile(r"\x1b\[[0-9;]*m")
-# new format carries gid=; old format (pre-patch) does not -> gid=None
+TS = re.compile(r"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})")
 RS_NEW = re.compile(r"ROLLOUT_STATE rid=(\d+) gid=(\S+) task=(\S+) state=(\S+) turn=(\d+) "
                     r"t_setup=([\d.]+) t_run=([\d.]+) timeout=(\S+) sub=(\S*)")
 RS_OLD = re.compile(r"ROLLOUT_STATE rid=(\d+) task=(\S+) state=(\S+) turn=(\d+) "
@@ -30,31 +36,44 @@ def resolve(arg):
         return c[0] if c else os.path.join(arg, "logs/orchestrator.log")
     return arg
 
-def run_one(arg, topn=20):
+def parse_ts(line):
+    m = TS.search(line)
+    if not m:
+        return None
+    try:
+        return datetime.strptime(m.group(1), "%Y-%m-%d %H:%M:%S").timestamp()
+    except Exception:
+        return None
+
+def run_one(arg, topn, window):
     log = resolve(arg)
     if not os.path.exists(log):
         print(f"[no log: {log}]"); return
-    lines = open(log, errors="replace").read().splitlines()[-300000:]
-    live, pulling, threads = {}, {}, None      # live[rid] -> latest beacon
+    lines = open(log, errors="replace").read().splitlines()[-400000:]
+    live, pulling, threads = {}, {}, None
     done = []
     done_by_gid = Counter()
+    newest = 0.0
     for ln in lines:
         m = RS_NEW.search(ln)
+        gid = None
         if m:
-            rid, gid, task, st, turn, ts, tr, to, sub = m.groups()
+            rid, gid, task, st, turn, ts_s, tr, to, sub = m.groups()
         else:
             m = RS_OLD.search(ln)
             if m:
-                rid, task, st, turn, ts, tr, to, sub = m.groups(); gid = None
+                rid, task, st, turn, ts_s, tr, to, sub = m.groups()
         if m:
+            t = parse_ts(ln) or 0.0
+            newest = max(newest, t)
             live[rid] = dict(gid=gid, task=task, state=st, turn=int(turn),
-                             t_setup=float(ts), t_run=float(tr), sub=sub)
+                             t_setup=float(ts_s), t_run=float(tr), sub=sub, ts=t)
             continue
         c = ANSI.sub("", ln)
         d = DONE_NEW.search(c)
         if d:
-            gid, task, rew, out, turns = d.groups()
-            done.append((task, rew, out, int(turns))); done_by_gid[gid] += 1
+            g, task, rew, out, turns = d.groups()
+            done.append((task, rew, out, int(turns))); done_by_gid[g] += 1
             continue
         d = DONE_OLD.search(c)
         if d:
@@ -65,74 +84,62 @@ def run_one(arg, topn=20):
         t = re.search(r"threads_total=(\d+)", ln)
         if t: threads = int(t.group(1))
 
-    print("="*92)
-    print(f"ROLLOUT MONITOR  {os.path.basename(os.path.dirname(os.path.dirname(log)))}/{os.path.basename(os.path.dirname(log))}")
-    print("="*92)
+    # window the live set to genuinely-active rollouts
+    if newest and any(v["ts"] for v in live.values()):
+        live = {r: v for r, v in live.items() if v["ts"] >= newest - window}
 
-    # ---- PER-GROUP view (join live beacons by gid) ----
+    print("="*94)
+    print(f"ROLLOUT MONITOR  {os.path.basename(os.path.dirname(os.path.dirname(log)))}/{os.path.basename(os.path.dirname(log))}"
+          f"   (live = beacon within {window}s; rows are per-example)")
+    print("="*94)
+
     have_gid = any(v["gid"] for v in live.values())
-    if have_gid:
+    if have_gid and live:
         groups = defaultdict(lambda: {"live": [], "task": None})
         for v in live.values():
-            if v["state"] == "grading":
-                # treat grading as effectively done for fill purposes but still show
-                pass
             if v["gid"]:
-                groups[v["gid"]]["live"].append(v)
-                groups[v["gid"]]["task"] = v["task"]
+                groups[v["gid"]]["live"].append(v); groups[v["gid"]]["task"] = v["task"]
         rows = []
         for gid, g in groups.items():
-            lv = g["live"]
-            doneN = done_by_gid.get(gid, 0)
-            sc = Counter(x["state"] for x in lv)
+            lv = g["live"]; sc = Counter(x["state"] for x in lv)
             oldest = max((x["t_run"] if x["state"] == "running" else x["t_setup"]) for x in lv) if lv else 0.0
             turns = sorted((x["turn"] for x in lv if x["state"] == "running"), reverse=True)
-            rows.append(dict(gid=gid[:8], task=(g["task"] or "?")[:26], done=doneN, live=len(lv),
-                             seen=doneN+len(lv), setup=sc.get("setup",0), run=sc.get("running",0),
-                             grade=sc.get("grading",0), oldest=oldest, turns=turns))
-        rows.sort(key=lambda r: r["oldest"], reverse=True)
-        print(f"GROUPS IN FLIGHT: {len(rows)}  (showing {min(topn,len(rows))} most-stalled; target=16/group)\n")
-        print(f"{'gid':<9}{'task':<27}{'done':>4}{'live':>5}{'setup':>6}{'run':>4}{'grade':>6}{'oldest':>8}  live turns")
+            rows.append(dict(gid=gid[:8], task=(g["task"] or "?")[:26], active=len(lv),
+                             setup=sc.get("setup",0), run=sc.get("running",0), grade=sc.get("grading",0),
+                             oldest=oldest, turns=turns))
+        rows.sort(key=lambda r: r["active"], reverse=True)
+        active_total = sum(r["active"] for r in rows)
+        print(f"ACTIVE rollouts: {active_total} across {len(rows)} examples in flight "
+              f"(showing top {min(topn,len(rows))} by activity)\n")
+        print(f"{'gid':<9}{'example':<27}{'actv':>5}{'setup':>6}{'run':>4}{'grade':>6}{'oldest':>8}  run turns")
         for r in rows[:topn]:
-            tt = ",".join(str(x) for x in r["turns"][:8])
-            print(f"{r['gid']:<9}{r['task']:<27}{r['done']:>4}{r['live']:>5}{r['setup']:>6}{r['run']:>4}{r['grade']:>6}{r['oldest']:>7.0f}s  {tt}")
-        # drill-down: the single most-stalled group's members
-        if rows:
-            g0 = rows[0]["gid"]
-            mem = [v for v in live.values() if v["gid"] and v["gid"][:8] == g0]
-            print(f"\nMOST-STALLED GROUP {g0} ({rows[0]['task']}) members:")
-            for v in sorted(mem, key=lambda x: -(x['t_run'] if x['state']=='running' else x['t_setup'])):
-                age = v['t_run'] if v['state']=='running' else v['t_setup']
-                print(f"  state={v['state']:<8} turn={v['turn']:<4} sub={v['sub']:<6} age={age:.0f}s")
+            print(f"{r['gid']:<9}{r['task']:<27}{r['active']:>5}{r['setup']:>6}{r['run']:>4}{r['grade']:>6}"
+                  f"{r['oldest']:>7.0f}s  {','.join(str(x) for x in r['turns'][:8])}")
+    elif live:
+        print("(no gid= on beacons — pre-patch run)")
     else:
-        print("(no gid= on beacons — pre-patch run; per-group view unavailable)")
+        print("(no live beacons in window)")
 
-    # ---- per-rollout state counts ----
     if live:
-        st_counts = Counter(v["state"] + ("/"+v["sub"] if v["sub"] else "") for v in live.values())
-        print("\nLIVE per-state:", dict(st_counts))
-
+        sc = Counter(v["state"] + ("/"+v["sub"] if v["sub"] else "") for v in live.values())
+        print("\nLIVE per-state:", dict(sc))
     if pulling:
         nrl = sum(1 for _, (_, _, rl) in pulling.items() if rl.lower() == "true")
-        print(f"\nPULLING (recent, by attempt#): {len(pulling)} tasks  rate_limited={nrl}")
-        for task, (att, mx, rl) in sorted(pulling.items(), key=lambda kv: kv[1][0], reverse=True)[:8]:
-            print(f"  {task[:42]:<44} attempt {att}/{mx}  rate_limited={rl}")
+        print(f"PULLING (recent): {len(pulling)} tasks  rate_limited={nrl}")
     if done:
-        turns = [d[3] for d in done]
-        npass = sum(1 for d in done if d[2] == "pass")
-        print(f"\nCOMPLETED(window): {len(done)} | pass {npass} ({100*npass/len(done):.0f}%) | "
+        turns = [d[3] for d in done]; npass = sum(1 for d in done if d[2] == "pass")
+        print(f"COMPLETED(window): {len(done)} | pass {npass} ({100*npass/len(done):.0f}%) | "
               f"turns med={int(statistics.median(turns))} max={max(turns)}")
-    print(f"threads_total(leak-watch): {threads}")
+    print(f"threads_total: {threads}")
 
 raw = sys.argv[1:]
-topn = 20
-args = []
-_i = 0
-while _i < len(raw):
-    if raw[_i] == "--groups":
-        topn = int(raw[_i+1]); _i += 2; continue
-    args.append(raw[_i]); _i += 1
+topn, window, args = 12, WINDOW, []
+i = 0
+while i < len(raw):
+    if raw[i] == "--groups": topn = int(raw[i+1]); i += 2; continue
+    if raw[i] == "--window": window = int(raw[i+1]); i += 2; continue
+    args.append(raw[i]); i += 1
 targets = args or [d for d in (latest("tb_rl_12k_200k_lr1e5_dtype32_rr"),
                                latest("tb_rl_17k_200k_lr1e5_dtype32_rr")) if d]
 for t in targets:
-    run_one(t, topn)
+    run_one(t, topn, window)

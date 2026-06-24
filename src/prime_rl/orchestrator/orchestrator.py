@@ -24,6 +24,7 @@ import asyncio
 import ctypes
 import logging
 import os
+import threading
 import time
 from typing import TYPE_CHECKING
 
@@ -177,6 +178,14 @@ class Orchestrator:
         # Previous ``TrainBatch`` arrival timestamp; reset every ship so
         # ``step_time`` in the success log is real sink-to-sink cycle time
         self.last_batch_at = None
+        # Liveness: stamp (wall-clock) of the last rollout pulled off the
+        # dispatcher queue. A dedicated heartbeat thread logs its age every
+        # 30s so a wedged rollout intake is visible even when the process
+        # otherwise looks alive (env subprocesses keep emitting beacons).
+        self.last_rollout_received_at: float | None = None
+        self.rollouts_received_total = 0
+        self._hb_stop = threading.Event()
+        self._hb_thread: threading.Thread | None = None
         # Trigger timestamps so eval success logs can report epoch duration
         self.eval_triggered_at = {}
         self.consecutive_empty_batches = 0
@@ -452,6 +461,13 @@ class Orchestrator:
             asyncio.create_task(self.watcher.start(), name="watcher"),
         ]
 
+        # Liveness heartbeat on a dedicated thread (survives event-loop stalls):
+        # logs the age of the last received rollout every 30s.
+        self._hb_thread = threading.Thread(
+            target=self._run_heartbeat, name="orch-heartbeat", daemon=True
+        )
+        self._hb_thread.start()
+
         # Default step-0 base-model eval — fires before any train rollouts
         # unless ``eval.skip_first_step=True`` (or this is a resume)
         self.maybe_trigger_eval(self.progress.step)
@@ -468,6 +484,7 @@ class Orchestrator:
             await self._drain_token_export_metrics()
             clean_exit = True
         finally:
+            self._hb_stop.set()
             elapsed = format_time(time.perf_counter() - start_time)
             if clean_exit:
                 get_logger().success(f"Orchestrator step loop done in {elapsed}")
@@ -487,6 +504,33 @@ class Orchestrator:
             except Exception as e:
                 get_logger().debug(f"malloc_trim(0) failed: {e}")
 
+    def _run_heartbeat(self) -> None:
+        """Emit a liveness heartbeat every 30s from a dedicated thread.
+
+        Reports the age of the last rollout received from the dispatcher. If
+        that age keeps climbing while the process is otherwise up, the rollout
+        intake is wedged (e.g. the env client connection dropped and in-flight
+        rollouts were orphaned). Runs on its own thread so it keeps reporting
+        even if the asyncio event loop stalls.
+        """
+        logger = get_logger()
+        while not self._hb_stop.is_set():
+            last = self.last_rollout_received_at
+            if last is None:
+                age_str = "n/a (none received yet)"
+            else:
+                age = time.time() - last
+                age_str = f"{age:.0f}s (last={time.strftime('%H:%M:%S', time.localtime(last))})"
+            try:
+                inflight = len(self.dispatcher.inflight)
+            except Exception:
+                inflight = -1
+            logger.info(
+                f"ORCH_HEARTBEAT last_rollout_age={age_str} "
+                f"received_total={self.rollouts_received_total} inflight={inflight}"
+            )
+            self._hb_stop.wait(30.0)
+
     async def main_loop(self) -> None:
         """Consume ``FinishedRollout``\\ s from the dispatcher and route them
         to the train / eval sink. Both sinks return a finalized batch (or
@@ -501,6 +545,9 @@ class Orchestrator:
                 rollout: FinishedRollout = await asyncio.wait_for(self.dispatcher.out_q.get(), timeout=0.5)
             except asyncio.TimeoutError:
                 continue
+
+            self.last_rollout_received_at = time.time()
+            self.rollouts_received_total += 1
 
             if isinstance(rollout, EvalRollout):
                 assert self.eval_sink is not None  # eval rollouts only emitted when eval is configured
