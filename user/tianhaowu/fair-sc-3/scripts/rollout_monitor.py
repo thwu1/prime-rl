@@ -20,7 +20,7 @@ RS_NEW = re.compile(r"ROLLOUT_STATE rid=(\d+) gid=(\S+) task=(\S+) state=(\S+) t
                     r"t_setup=([\d.]+) t_run=([\d.]+) timeout=(\S+) sub=(\S*)")
 RS_OLD = re.compile(r"ROLLOUT_STATE rid=(\d+) task=(\S+) state=(\S+) turn=(\d+) "
                     r"t_setup=([\d.]+) t_run=([\d.]+) timeout=(\S+) sub=(\S*)")
-DONE_NEW = re.compile(r"ROLLOUT DONE gid=(\S+) task=(\S+) reward=(\S+) outcome=(\S+) turns=(\d+)")
+DONE_NEW = re.compile(r"ROLLOUT DONE (?:rid=(\S+) )?gid=(\S+) task=(\S+) reward=(\S+) outcome=(\S+) turns=(\d+)")
 DONE_OLD = re.compile(r"ROLLOUT DONE task=(\S+) reward=(\S+) outcome=(\S+) turns=(\d+)")
 PULL = re.compile(r"podman pull (?:failed for )?\S*[/:]([a-z0-9._-]+?)(?::latest)?\b"
                   r".*?attempt (\d+)/(\d+).*?rate_limited=(\w+)")
@@ -72,7 +72,7 @@ def run_one(arg, topn, window):
         c = ANSI.sub("", ln)
         d = DONE_NEW.search(c)
         if d:
-            g, task, rew, out, turns = d.groups()
+            _rid_d, g, task, rew, out, turns = d.groups()
             done.append((task, rew, out, int(turns))); done_by_gid[g] += 1
             continue
         d = DONE_OLD.search(c)
@@ -84,8 +84,17 @@ def run_one(arg, topn, window):
         t = re.search(r"threads_total=(\d+)", ln)
         if t: threads = int(t.group(1))
 
-    # window the live set to genuinely-active rollouts
+    # Exclude completed rollouts (state=done beacon) from the live set.
+    # Before the done-beacon patch, these appeared as "stuck in grading" because
+    # ROLLOUT DONE only logged gid, making per-rid completion invisible.
+    done_rids = {r for r, v in live.items() if v["state"] == "done"}
+    all_rids = dict(live)  # keep a copy for wedged analysis
+    live = {r: v for r, v in live.items() if r not in done_rids}
+
+    # Window the live set to genuinely-active rollouts
+    wedged = {}
     if newest and any(v["ts"] for v in live.values()):
+        wedged = {r: v for r, v in live.items() if v["ts"] < newest - window}
         live = {r: v for r, v in live.items() if v["ts"] >= newest - window}
 
     print("="*94)
@@ -125,6 +134,11 @@ def run_one(arg, topn, window):
     if live:
         sc = Counter(v["state"] + ("/"+v["sub"] if v["sub"] else "") for v in live.values())
         print("\nLIVE per-state:", dict(sc))
+    if wedged:
+        wsc = Counter(v["state"] for v in wedged.values())
+        oldest_w = max((newest - v["ts"]) for v in wedged.values()) if wedged else 0
+        state_str = ", ".join(f"{s}={c}" for s, c in sorted(wsc.items(), key=lambda x: -x[1]))
+        print(f"WEDGED (outside window, no done beacon): {len(wedged)}  oldest={oldest_w:.0f}s  [{state_str}]")
     if pulling:
         nrl = sum(1 for _, (_, _, rl) in pulling.items() if rl.lower() == "true")
         print(f"PULLING (recent): {len(pulling)} tasks  rate_limited={nrl}")
