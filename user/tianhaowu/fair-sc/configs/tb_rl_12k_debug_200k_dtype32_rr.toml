@@ -161,6 +161,7 @@ session_timeout = 900
 lease_ttl = "900s"
 
 [inference]
+enable_return_routed_experts = true
 gpu_memory_utilization = 0.85
 
 [inference.model]
