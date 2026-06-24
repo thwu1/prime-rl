@@ -39,10 +39,10 @@ export NODES_PER_PREFILL_REPLICA=$((NUM_PREFILL_NODES / NUM_PREFILL_REPLICAS))
 export NODES_PER_DECODE_REPLICA=$((NUM_DECODE_NODES / NUM_DECODE_REPLICAS))
 export PREFILL_PORT={{ prefill_port }}
 export DECODE_PORT={{ decode_port }}
-export ROUTER_PORT={{ router_port }}
+export ROUTER_PORT={{ router.port }}
 export RPC_PORT={{ data_parallel_rpc_port }}
 {%- elif num_nodes > 1 %}
-export ROUTER_PORT={{ router_port }}
+export ROUTER_PORT={{ router.port }}
 export BACKEND_PORT={{ backend_port }}
 export RPC_PORT={{ data_parallel_rpc_port }}
 {%- endif %}
