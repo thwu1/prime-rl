@@ -488,6 +488,7 @@ class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
     async def _finalize(self, state):
         backend = state.get("_backend")
         if backend is None:
+            self._emit_rollout_state(state, "done")
             return
         try:
             info = state["info"]
@@ -516,13 +517,14 @@ class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
                     info.get("task_name"), getattr(result, "error_class", None),
                     (getattr(result, "error_detail", None) or result.message or "")[:400],
                 )
+            self._emit_rollout_state(state, "done")
             _tt = state.get("turn_timings", [])
             _cmds = " | ".join(c.get("cmd", "") for _r in _tt for c in _r.get("cmds", []))[:1500]
             _kinds = [_r.get("kind") for _r in _tt]
             logger.info(
-                "ROLLOUT DONE gid=%s task=%s reward=%s outcome=%s turns=%d parse_errors=%d kinds=%s\n"
+                "ROLLOUT DONE rid=%s gid=%s task=%s reward=%s outcome=%s turns=%d parse_errors=%d kinds=%s\n"
                 "  cmds: %s\n--- test output (tail) ---\n%s",
-                info.get("_group_id"), info.get("task_name"), state["tb_reward"], result.outcome,
+                id(state), info.get("_group_id"), info.get("task_name"), state["tb_reward"], result.outcome,
                 len(_tt), state.get("parse_errors", 0), _kinds, _cmds,
                 (result.test_output or "")[-200:],
             )
@@ -539,6 +541,7 @@ class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
             state.setdefault("tb_test_output", "")
             state.setdefault("tb_exit_code", None)
             state.setdefault("tb_report", None)
+            self._emit_rollout_state(state, "done")
         finally:
             try:
                 await asyncio.to_thread(backend.destroy)
