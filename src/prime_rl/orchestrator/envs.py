@@ -91,6 +91,10 @@ class Env:
                 json_logging=json_logging,
                 console_logging=False,
                 num_workers=num_workers,
+                # Raised from the 30s default: a slow-but-alive worker shouldn't be
+                # hard-killed (a kill orphans its ~256 vacli leases -> leaked VMs).
+                # Truly-dead workers are still caught immediately by is_alive().
+                worker_heartbeat_timeout=120.0,
             ),
             daemon=False,
         )

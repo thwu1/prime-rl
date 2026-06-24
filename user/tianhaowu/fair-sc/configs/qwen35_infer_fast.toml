@@ -1,0 +1,17 @@
+gpu_memory_utilization = 0.90
+
+[model]
+name = "/checkpoint/ram/tianhaowu/Qwen3.5-35B-A3B"
+max_model_len = 262144
+
+[parallel]
+tp = 8
+
+[deployment]
+type = "single_node"
+gpus_per_node = 8
+
+[vllm_extra]
+language_model_only = true
+enable_prefix_caching = true
+gdn_prefill_backend = "triton"
