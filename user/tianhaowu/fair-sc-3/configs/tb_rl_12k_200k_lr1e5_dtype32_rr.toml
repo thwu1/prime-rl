@@ -99,7 +99,7 @@ max_turns = 300
 command_timeout = 300
 test_timeout = 900
 session_timeout = 3600
-lease_ttl = "2400s"
+lease_ttl = "5600s"
 
 [orchestrator.eval]
 interval = 10
@@ -129,7 +129,7 @@ max_turns = 300
 command_timeout = 300
 test_timeout = 900
 session_timeout = 3600
-lease_ttl = "2400s"
+lease_ttl = "5600s"
 
 # (2) TB ORIGINAL (terminal-bench-2, 80 tasks): avg-of-5, the reference protocol.
 [[orchestrator.eval.env]]
@@ -146,7 +146,7 @@ max_turns = 300
 command_timeout = 300
 test_timeout = 900
 session_timeout = 3600
-lease_ttl = "2400s"
+lease_ttl = "5600s"
 
 [inference]
 enable_return_routed_experts = true

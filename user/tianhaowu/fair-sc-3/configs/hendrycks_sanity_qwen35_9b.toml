@@ -1,0 +1,61 @@
+# Hendrycks Sanity Check: RL on Qwen3.5-9B (dense).
+# Single-node 8 GPU (4 train + 4 infer).
+
+max_steps = 5000
+
+[model]
+name = "Qwen/Qwen3.5-9B"
+
+[deployment]
+num_train_gpus = 4
+num_infer_gpus = 4
+
+[slurm]
+job_name = "hendrycks-sanity-qwen35-9b"
+project_dir = "/storage/home/tianhaowu/prime-rl"
+partition = "h200"
+account = "ram"
+time = "24:00:00"
+template_path = "/storage/home/tianhaowu/prime-rl/user/tianhaowu/fair-sc-3/templates/single_node_rl_fairsc.sbatch.j2"
+
+[ckpt]
+interval = 500
+keep_last = 3
+
+[wandb]
+project = "hendrycks-sanity"
+name = "hendrycks-sanity"
+
+[orchestrator]
+batch_size = 512
+group_size = 8
+seq_len = 8192
+
+[orchestrator.renderer]
+name = "default"
+reasoning_parser = "think"
+
+[orchestrator.train.sampling]
+temperature = 0.6
+max_completion_tokens = 8192
+
+[[orchestrator.train.env]]
+id = "math-env"
+name = "hendrycks-math"
+args = { dataset_name = "mikasenghaas/Sanity-Test-R1D-1.5B", dataset_subset = "default" }
+
+[orchestrator.eval]
+interval = 50
+
+[[orchestrator.eval.env]]
+name = "aime2024"
+taskset = { id = "aime24-v1" }
+group_size = 32
+
+[trainer.model]
+seq_len = 16384
+
+[trainer.model.ac]
+
+[inference.model]
+max_model_len = 8192

@@ -1,0 +1,93 @@
+# Hendrycks Sanity Check: RL on Qwen3.5-35B-A3B (MoE).
+# Multi-node (2 train + 4 infer). Same sanity check dataset but with the
+# 35B MoE model. Note: the dataset was filtered for the 1.5B model's solve
+# rate, so difficulty may not be calibrated for this model.
+
+max_steps = 5000
+
+[model]
+name = "/checkpoint/ram/tianhaowu/Qwen3.5-35B-A3B"
+
+[deployment]
+type = "multi_node"
+num_train_nodes = 1
+num_infer_nodes = 2
+
+[slurm]
+job_name = "hendrycks-sanity-35b"
+project_dir = "/storage/home/tianhaowu/prime-rl"
+partition = "h200"
+account = "ram"
+time = "120:00:00"
+template_path = "/storage/home/tianhaowu/prime-rl/user/tianhaowu/fair-sc/templates/multi_node_rl_fairsc.sbatch.j2"
+
+[ckpt]
+interval = 500
+keep_last = 3
+
+[wandb]
+project = "hendrycks-sanity"
+name = "hendrycks-sanity-35b"
+
+[weight_broadcast]
+type = "nccl"
+
+[trainer]
+enable_router_replay = true
+
+[trainer.model]
+impl = "custom"
+attn = "flash_attention_3"
+ep = 8
+fsdp_cpu_offload = false
+fused_lm_head_token_chunk_size = 8192
+optimization_dtype = "float32"
+reduce_dtype = "float32"
+seq_len = 16384
+
+[trainer.model.ac]
+freq = 1
+
+[trainer.model.ac_offloading]
+max_inflight_activations = 5
+
+[orchestrator]
+batch_size = 2048
+group_size = 8
+seq_len = 16384
+
+[orchestrator.renderer]
+name = "qwen3.5"
+preserve_all_thinking = true
+
+[orchestrator.train.sampling]
+temperature = 1.0
+max_completion_tokens = 8192
+
+[[orchestrator.train.env]]
+id = "math-env"
+name = "hendrycks-math"
+args = { dataset_name = "mikasenghaas/Sanity-Test-R1D-1.5B", dataset_subset = "default" }
+
+[orchestrator.eval]
+interval = 50
+
+[[orchestrator.eval.env]]
+name = "aime2024"
+taskset = { id = "aime24-v1" }
+group_size = 32
+
+[inference]
+enable_return_routed_experts = true
+gpu_memory_utilization = 0.85
+
+[inference.model]
+max_model_len = 16384
+
+[inference.parallel]
+tp = 8
+
+[inference.vllm_extra]
+language_model_only = true
+gdn_prefill_backend = "triton"
+enable_prefix_caching = true
