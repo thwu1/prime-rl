@@ -14,16 +14,52 @@ rows = [json.loads(l) for l in open(R) if l.strip()]
 def esc(s):
     return html.escape(str(s)).replace('</script>', '<\\/script>')
 
+def _tool_cmd(tc):
+    """Render one tool_call as '$ name: command'. Handles OpenAI {function:{name,arguments}}
+    and flat {name, arguments} shapes; arguments may be a JSON string or dict."""
+    fn = tc.get('function') or {}
+    name = tc.get('name') or fn.get('name') or 'tool'
+    args = tc.get('arguments', fn.get('arguments', ''))
+    cmd = args
+    if isinstance(args, str):
+        try:
+            a = json.loads(args)
+            cmd = a.get('command') if isinstance(a, dict) and 'command' in a else args
+        except Exception:
+            cmd = args
+    elif isinstance(args, dict):
+        cmd = args.get('command') if 'command' in args else json.dumps(args)
+    return f'<pre class="toolcall">$ {esc(name)}: {esc(cmd)}</pre>'
+
 def msg_html(m):
-    role = m.get('role', '?') if isinstance(m, dict) else '?'
-    content = m.get('content', '') if isinstance(m, dict) else str(m)
+    if not isinstance(m, dict):
+        return f'<div class="msg other"><div class="role">?</div><pre>{esc(m)}</pre></div>'
+    role = m.get('role', '?')
+    cls = {'system': 'sys', 'user': 'user', 'assistant': 'asst', 'tool': 'tool'}.get(role, 'other')
+    parts = []
+    rc = m.get('reasoning_content')
+    if rc:
+        parts.append(f'<pre class="reasoning">{esc(rc)}</pre>')
+    content = m.get('content', '')
     if isinstance(content, list):  # multimodal -> flatten text parts
         content = '\n'.join(p.get('text', '') if isinstance(p, dict) else str(p) for p in content)
-    cls = {'system': 'sys', 'user': 'user', 'assistant': 'asst', 'tool': 'tool'}.get(role, 'other')
-    return f'<div class="msg {cls}"><div class="role">{esc(role)}</div><pre>{esc(content)}</pre></div>'
+    if content:
+        parts.append(f'<pre>{esc(content)}</pre>')
+    for tc in (m.get('tool_calls') or []):
+        parts.append(_tool_cmd(tc))
+    return f'<div class="msg {cls}"><div class="role">{esc(role)}</div>{"".join(parts) or "<pre></pre>"}</div>'
+
+def infra_flags(traj):
+    """Orthogonal infra tags from message content (independent of reward):
+    reconnect count, permanent loss, eventual wall-clock timeout."""
+    txt = "\n".join((str(m.get('content') or '') if isinstance(m, dict) else str(m)) for m in traj)
+    return (txt.count('dropped and was re-established'),
+            'connection lost permanently' in txt,
+            'Wall-clock limit reached' in txt)
 
 cards = []
 n_pass = sum(1 for r in rows if (r.get('reward') or 0) >= 1.0)
+n_recon = n_lost = n_tout = 0
 by = {}
 for r in rows:
     t = (r.get('info') or {}).get('task_name') or r.get('example_id') or '?'
@@ -74,12 +110,22 @@ for i, r in enumerate(rows):
         body = tt_html + to_html + body
     else:
         body = tt_html + body
+    rc, lost, tout = infra_flags(traj)
+    if rc: n_recon += 1
+    if lost: n_lost += 1
+    if tout: n_tout += 1
     badge = 'PASS' if ok else 'FAIL'
     bcls = 'pass' if ok else 'fail'
-    head = (f'<span class="badge {bcls}">{badge}</span> <b>{esc(task)}</b> '
+    ibadges = ''
+    if rc:   ibadges += f'<span class="badge recon">reconnect&times;{rc}</span> '
+    if lost: ibadges += '<span class="badge lost">lost-perm</span> '
+    if tout: ibadges += '<span class="badge tout">timeout</span> '
+    head = (f'<span class="badge {bcls}">{badge}</span> {ibadges}<b>{esc(task)}</b> '
             f'<span class="meta">reward={rew} &middot; turns={turns} &middot; stop={esc(stop)} &middot; '
             f'truncated={trunc} &middot; tokens={tok.get("total", "?")}</span>')
-    cards.append(f'<details class="task {bcls}"><summary>{head}</summary><div class="conv">{body}</div></details>')
+    attrs = (f'data-pass="{int(ok)}" data-recon="{int(bool(rc))}" '
+             f'data-lost="{int(lost)}" data-tout="{int(tout)}"')
+    cards.append(f'<details class="task {bcls}" {attrs}><summary>{head}</summary><div class="conv">{body}</div></details>')
 
 HTML = f'''<!doctype html><meta charset="utf-8"><title>vmvm-tb trajectories</title>
 <style>
@@ -93,6 +139,7 @@ summary{{cursor:pointer;padding:10px 14px;list-style:none}}
 summary::-webkit-details-marker{{display:none}}
 .badge{{font-weight:700;padding:1px 8px;border-radius:10px;font-size:11px}}
 .badge.pass{{background:#15331d;color:#3fb950}} .badge.fail{{background:#3a1417;color:#ff7b72}}
+.badge.recon{{background:#3a2e10;color:#e3b341}} .badge.lost{{background:#3a1417;color:#ff9e64}} .badge.tout{{background:#241a3a;color:#b392f0}}
 .meta{{color:#8b949e;font-size:12px;margin-left:8px}}
 .conv{{padding:6px 14px 14px}}
 .msg{{margin:8px 0;border-radius:6px;overflow:hidden;border:1px solid #21262d}}
@@ -100,6 +147,8 @@ summary::-webkit-details-marker{{display:none}}
 .msg pre{{margin:0;padding:10px 12px;white-space:pre-wrap;word-break:break-word;font:12px/1.45 ui-monospace,Menlo,monospace}}
 .msg.sys pre{{background:#1c2128}} .msg.user pre{{background:#0d1f2d}}
 .msg.asst pre{{background:#12261a}} .msg.tool pre{{background:#251c0d}}
+.msg pre.reasoning{{background:#1a1726;color:#a99bd6;font-style:italic;border-left:2px solid #6e5fa3}}
+.msg pre.toolcall{{background:#0b1f1f;color:#7ee0c8;border-left:2px solid #2ea7a0}}
 details.timing{{margin:8px 0;border:1px solid #30363d;border-radius:6px;background:#10151c}}
 details.timing summary{{padding:6px 12px;color:#d29922;font-size:12px}}
 details.timing table{{width:100%;border-collapse:collapse;font:11px ui-monospace,monospace}}
@@ -114,12 +163,25 @@ input{{margin-left:12px;padding:4px 8px;background:#0d1117;border:1px solid #303
 </style>
 <header>
 <h1>vmvm-tb &middot; Qwen3.5-35B-A3B &middot; terminal-bench trajectories</h1>
-<div class="summary">{len(rows)} rollouts &middot; pass@1 raw {n_pass}/{len(rows)} &middot; pass@2(any) {solved}/{len(by)} tasks &middot; source: {esc(R)}</div>
+<div class="summary">{len(rows)} rollouts &middot; pass@1 raw {n_pass}/{len(rows)} &middot; pass@2(any) {solved}/{len(by)} tasks &middot; <span style="color:#e3b341">reconnected {n_recon}</span> &middot; <span style="color:#ff9e64">lost-perm {n_lost}</span> &middot; <span style="color:#b392f0">timeout {n_tout}</span> &middot; source: {esc(R)}</div>
 <div class="controls">
 <button onclick="document.querySelectorAll('details').forEach(d=>d.open=true)">expand all</button>
 <button onclick="document.querySelectorAll('details').forEach(d=>d.open=false)">collapse all</button>
+<button onclick="ff('')">all</button>
+<button onclick="ff('recon')">reconnected</button>
+<button onclick="ff('lost')">lost-perm</button>
+<button onclick="ff('tout')">timeout</button>
+<button onclick="ff('clean')">clean (no infra)</button>
 <input id="f" placeholder="filter task name..." oninput="for(const d of document.querySelectorAll('details.task')){{d.style.display=d.querySelector('summary').textContent.toLowerCase().includes(this.value.toLowerCase())?'':'none'}}">
 </div>
+<script>
+function ff(k){{document.querySelectorAll('details.task').forEach(d=>{{
+  let s=true;
+  if(k==='clean') s=(d.dataset.recon==='0'&&d.dataset.lost==='0'&&d.dataset.tout==='0');
+  else if(k) s=(d.dataset[k]==='1');
+  d.style.display=s?'':'none';
+}});}}
+</script>
 </header>
 <div class="wrap">{''.join(cards)}</div>
 '''
