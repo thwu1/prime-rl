@@ -1,0 +1,145 @@
+# Qwen3.5-9B (DENSE) RL on terminal-bench, vmvm-tb-v1 env.
+# Copied from tb_rl_12k_100k_lr1e6_v1.toml (35B-A3B) and re-sized for the dense 9B.
+# 9B-specific changes vs the 35B config are marked  # 9B  below.
+# NOTE: no _rr variant -- router-replay / routed-experts are MoE-only; the 9B is dense.
+# VERIFY before a long run: (a) does Qwen3.5-9B fit 102144 ctx at tp=2 (else bump tp
+# or lower gpu_memory_utilization); (b) gdn_prefill_backend only matters if the 9B is
+# GDN-hybrid like the 35B -- drop it if vLLM errors at load.
+
+max_steps = 500
+seq_len = 102144
+
+[log]
+level = "info"
+
+[model]
+name = "Qwen/Qwen3.5-9B"
+
+[weight_broadcast]
+type = "nccl"
+
+[deployment]
+type = "multi_node"
+num_train_nodes = 1
+num_infer_nodes = 4
+
+[slurm]
+job_name = "tb-rl-9b"
+project_dir = "/storage/home/tianhaowu/prime-rl"
+partition = "h200"
+account = "ram"
+time = "120:00:00"
+template_path = "/storage/home/tianhaowu/prime-rl/user/tianhaowu/fair-sc/templates/multi_node_rl_fairsc.sbatch.j2"
+
+[ckpt]
+interval = 5
+keep_last = 10
+
+[wandb]
+project = "tb-rl-qwen35"
+name = "tb-12k-9b"
+
+[trainer]
+dist_timeout_seconds = 3600  # 600s default too tight for first-step compile stagger across ranks
+
+[trainer.model]
+ep = 4
+fsdp_cpu_offload = false
+optimization_dtype = "float32"
+reduce_dtype = "float32"
+
+[trainer.model.ac]
+freq = 1                    # activation checkpointing kept for the 102144 long context
+
+# (dropped [trainer.model.ac_offloading]: activation offload needs fsdp_cpu_offload)
+
+[trainer.optim]
+type = "adamw"
+lr = 1e-6
+
+[orchestrator]
+batch_size = 256
+rollouts_per_example = 32
+max_off_policy_steps = 16
+max_inflight_rollouts = 512
+
+[orchestrator.renderer]
+name = "qwen3.5"
+preserve_all_thinking = true
+
+[[orchestrator.train.env]]
+id = "vmvm-tb-v1"
+name = "vmvm-tb-v1"
+
+[orchestrator.train.env.args]
+dataset_path = "/checkpoint/ram/tianhaowu/datasets/terminal_bench/v2_train_12k_tr.jsonl"
+native_tools = true
+max_rollout_s = 3600
+image_source = "vmvm_registry"
+max_turns = 200
+command_timeout = 300
+test_timeout = 900
+session_timeout = 3600
+lease_ttl = "5600s"
+
+[orchestrator.eval]
+interval = 10
+skip_first_step = false
+
+# Eval sampling matches the TB-2.0 reference so pass@k is meaningful (temp>0;
+# at temp 0 all rollouts are identical and pass@5 collapses to pass@1).
+[orchestrator.eval.sampling]
+temperature = 1.0
+top_p = 0.95
+top_k = 20
+max_tokens = 100000
+
+# (1) In-distribution HELD-OUT: 200 tasks sampled from the full 17k, excluded
+#     from training. 1 rollout/task.
+[[orchestrator.eval.env]]
+id = "vmvm-tb-v1"
+name = "heldout-200"
+rollouts_per_example = 1
+
+[orchestrator.eval.env.args]
+raise_on_infra = false
+dataset_path = "/checkpoint/ram/tianhaowu/datasets/terminal_bench/v2_heldout_200.jsonl"
+native_tools = true
+max_rollout_s = 3600
+image_source = "vmvm_registry"  # heldout images mirrored to vmvm-registry; docker.io kept as fallback
+max_turns = 200
+command_timeout = 300
+test_timeout = 900
+session_timeout = 3600
+lease_ttl = "5600s"
+
+# (2) TB ORIGINAL (terminal-bench-2, 80 tasks): avg-of-5, the reference protocol.
+[[orchestrator.eval.env]]
+id = "vmvm-tb-v1"
+name = "tb-pass80"
+rollouts_per_example = 5
+
+[orchestrator.eval.env.args]
+raise_on_infra = false
+dataset_path = "/checkpoint/ram/tianhaowu/datasets/terminal_bench/v2_harbor_pass80.jsonl"
+native_tools = true
+max_rollout_s = 3600
+image_source = "vmvm_registry"
+max_turns = 200
+command_timeout = 300
+test_timeout = 900
+session_timeout = 3600
+lease_ttl = "5600s"
+
+[inference]
+gpu_memory_utilization = 0.9   # 9B leaves more room for KV at long ctx (was 0.85)
+
+[inference.model]
+max_model_len = 102144
+
+[inference.parallel]
+tp = 2   # 9B (was 8); tp=2 for 102144 KV headroom -- bump if OOM, drop to 1 if plenty
+
+[inference.vllm_extra]
+gdn_prefill_backend = "triton"  # Qwen3.5 GDN-hybrid prefill; drop if 9B is not GDN
+enable_prefix_caching = true

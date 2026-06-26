@@ -9,9 +9,10 @@
 #   W&B name:   <cfg-stem>-<YYYYMMDD-HHMMSS>
 set -uo pipefail
 cd "$HOME/prime-rl"
-# vmvm-tb is an editable install that the sbatch's `uv sync` prunes; PYTHONPATH
-# (exported -> inherited by the rl job + its orchestrator) keeps it importable.
-export PYTHONPATH="$HOME/prime-rl/environments/vmvm_tb${PYTHONPATH:+:$PYTHONPATH}"
+# vmvm-tb / vmvm-tb-v1 are editable installs that the sbatch's `uv sync` prunes;
+# PYTHONPATH (exported -> inherited by the rl job + its orchestrator) keeps both
+# importable so a config can pick either env id (vmvm-tb or vmvm-tb-v1).
+export PYTHONPATH="$HOME/prime-rl/environments/vmvm_tb:$HOME/prime-rl/environments/vmvm_tb_v1${PYTHONPATH:+:$PYTHONPATH}"
 export WANDB_MODE=online
 
 if [ $# -lt 1 ]; then
