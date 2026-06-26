@@ -1412,10 +1412,16 @@ class VacliVMVMBackend:
         try:
             _wait_for_sshd(
                 self._ssh_port,
-                # Fast-fail on the (likely dead) original port: a real drop won't
-                # self-heal, and the resume path below is the actual recovery. A
-                # long wait here just delays recovery on every drop.
-                timeout=min(float(self.config.sshd_ready_timeout), 15.0),
+                # Wait on the ORIGINAL tunnel first (vacli not yet killed) so a
+                # transient x2p blip can SELF-HEAL -- production data showed ~2/3 of
+                # mid-rollout drops recover within ~60s if we just wait, vs failing
+                # the SIGKILL+resume path ("sshd unreachable after resume") while the
+                # blip is still ongoing. 60s matches v0's original-port wait; only
+                # after it stays dead do we SIGKILL + resume below (the fallback for a
+                # genuinely-gone VM). Costs up to ~60s extra on a truly-dead box, but
+                # those rollouts are dropped anyway, and it converts the common
+                # self-healing blips into clean seamless recoveries.
+                timeout=min(float(self.config.sshd_ready_timeout), 60.0),
                 control_path=self._control_path,
                 subprocess_mod=self.config.subprocess_mod,
             )
