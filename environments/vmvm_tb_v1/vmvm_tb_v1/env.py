@@ -87,8 +87,66 @@ async def tb_reward(state, **kwargs) -> float:
     return float(state.get("tb_reward", 0.0))
 
 
+def _infra_summary(state) -> dict:
+    """Derive SCALAR infra metrics from the state the env recorded during the
+    rollout (drops, recoveries, and WHICH turn). Cached on state so the rubric's
+    metric funcs share one computation. Scalars only: the orchestrator means every
+    rubric metric, so a list/string would crash the step.
+
+    v1 recovery is invisible to the model (no trajectory text), so these metrics are
+    the ONLY structured signal that a rollout hit / recovered / died from an x2p drop.
+    The full per-event list is logged to the env log by `_log_infra` for deep dives."""
+    cached = state.get("_infra_summary")
+    if cached is not None:
+        return cached
+    events = state.get("infra_events", []) or []
+    drops = [e for e in events if e.get("type") == "drop"]
+    drop_turns = sorted({e["turn"] for e in drops if isinstance(e.get("turn"), int)})
+    box_gone_turns = [e.get("turn") for e in drops if e.get("class") == "rollout/box_gone"]
+    ec = state.get("tb_error_class")
+    lost = box_gone_turns[0] if box_gone_turns and isinstance(box_gone_turns[0], int) else -1
+    s = {
+        "infra_drops": float(state.get("infra_drops", 0)),
+        "infra_recovered": float(state.get("infra_recovered_drops", 0)),
+        "infra_reconnect_attempts": float(state.get("_reconnects", 0)),
+        "infra_n_turns_dropped": float(len(drop_turns)),
+        "infra_first_drop_turn": float(drop_turns[0]) if drop_turns else -1.0,
+        "infra_last_drop_turn": float(drop_turns[-1]) if drop_turns else -1.0,
+        "infra_box_gone": 1.0 if ec == "rollout/box_gone" else 0.0,
+        "infra_state_lost": 1.0 if ec == "rollout/state_lost" else 0.0,
+        "infra_env_error": 1.0 if state.get("tb_outcome") == "env_error" else 0.0,
+        "infra_lost_turn": float(lost),  # turn the rollout died on (box_gone), else -1
+    }
+    state["_infra_summary"] = s
+    return s
+
+
+async def infra_drops(state, **kw) -> float: return _infra_summary(state)["infra_drops"]
+async def infra_recovered(state, **kw) -> float: return _infra_summary(state)["infra_recovered"]
+async def infra_reconnect_attempts(state, **kw) -> float: return _infra_summary(state)["infra_reconnect_attempts"]
+async def infra_n_turns_dropped(state, **kw) -> float: return _infra_summary(state)["infra_n_turns_dropped"]
+async def infra_first_drop_turn(state, **kw) -> float: return _infra_summary(state)["infra_first_drop_turn"]
+async def infra_last_drop_turn(state, **kw) -> float: return _infra_summary(state)["infra_last_drop_turn"]
+async def infra_box_gone(state, **kw) -> float: return _infra_summary(state)["infra_box_gone"]
+async def infra_state_lost(state, **kw) -> float: return _infra_summary(state)["infra_state_lost"]
+async def infra_env_error(state, **kw) -> float: return _infra_summary(state)["infra_env_error"]
+async def infra_lost_turn(state, **kw) -> float: return _infra_summary(state)["infra_lost_turn"]
+
+
+# Metric-only (weight 0): recorded in each rollout's `metrics` (-> dumped into
+# train_rollouts.jsonl and auto-aggregated to wandb as metrics/<env>/<name>), but
+# they do NOT affect reward (which stays == tb_reward).
+_INFRA_METRIC_FUNCS = [
+    infra_drops, infra_recovered, infra_reconnect_attempts,
+    infra_box_gone, infra_state_lost, infra_env_error,
+    infra_first_drop_turn, infra_last_drop_turn, infra_n_turns_dropped, infra_lost_turn,
+]
+
+
 def _build_rubric() -> vf.Rubric:
-    return vf.Rubric(funcs=[tb_reward], weights=[1.0])
+    funcs = [tb_reward] + _INFRA_METRIC_FUNCS
+    weights = [1.0] + [0.0] * len(_INFRA_METRIC_FUNCS)
+    return vf.Rubric(funcs=funcs, weights=weights)
 
 
 def _msg_content(m) -> str:
@@ -560,8 +618,34 @@ class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
     async def _stop_parse_errors(self, state) -> bool:
         return state.get("parse_errors", 0) > self.max_parse_retries
 
+    def _log_infra(self, state):
+        """Per-rollout fine-grained infra record -> env log. Captures the FULL list
+        of which turns dropped and whether each recovered or died (the part that
+        can't go in scalar metrics). Only logs when the rollout actually hit a drop.
+        Pairs with the scalar `infra_*` metrics dumped into train_rollouts.jsonl."""
+        try:
+            events = state.get("infra_events", []) or []
+            drops = [e for e in events if e.get("type") == "drop"]
+            if not drops:
+                return
+            s = _infra_summary(state)
+            info = state.get("info", {})
+            logger.info(
+                "ROLLOUT INFRA rid=%s task=%s outcome=%s drops=%d recovered=%d "
+                "turns_dropped=%s lost_turn=%s events=%s",
+                id(state), info.get("task_name"), state.get("tb_outcome"),
+                int(s["infra_drops"]), int(s["infra_recovered"]),
+                sorted({e.get("turn") for e in drops if isinstance(e.get("turn"), int)}),
+                (int(s["infra_lost_turn"]) if s["infra_lost_turn"] >= 0 else None),
+                [{"turn": e.get("turn"), "recovered": e.get("recovered"), "class": e.get("class")}
+                 for e in drops],
+            )
+        except Exception:
+            pass
+
     @vf.cleanup
     async def _finalize(self, state):
+        self._log_infra(state)  # full per-turn drop detail (incl. box_gone rollouts) -> env log
         backend = state.get("_backend")
         if backend is None:
             self._emit_rollout_state(state, "done")
