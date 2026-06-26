@@ -19,6 +19,7 @@ import time
 from pathlib import Path
 
 import verifiers as vf
+from verifiers.errors import SandboxError
 from datasets import Dataset
 
 from .prompt import NATIVE_SYSTEM_PROMPT, NATIVE_USER_PROMPT
@@ -246,12 +247,14 @@ class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
         max_rollout_s: float = 3000.0,
         image_source: str = "vmvm_registry",  # or "task_toml" (docker.io from task.toml)
         native_tools: bool = False,  # True: declare tool_defs -> renderer/eval emit <function=> XML, env reads structured tool_calls
+        raise_on_infra: bool = True,  # True: on unrecoverable infra (box_gone/state_lost/setup_fail) RAISE -> prime-rl marks has_error and DROPS the rollout (not trained). False: graceful reward-0 env_error completion (kept in batch; for eval analysis).
         **kwargs,
     ) -> None:
         if native_tools:
             kwargs.setdefault("tool_defs", _TOOL_DEFS)
         super().__init__(**kwargs)
         self.native_tools = native_tools
+        self.raise_on_infra = raise_on_infra
         self.tenant_id = tenant_id
         self.command_timeout = command_timeout
         self.test_timeout = test_timeout
@@ -346,6 +349,12 @@ class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
                 "SETUP infra-error for %s (scored 0, eval continues) class=%s: %s: %s",
                 info.get("task_name"), _cls, type(e).__name__, str(e)[:400],
             )
+            _b = state.get("_backend")
+            if _b is not None:
+                try:
+                    await asyncio.to_thread(_b.destroy)  # release the VM before we bail
+                except Exception:
+                    pass
             state["_backend"] = None
             state["setup_failed"] = True
             state["tb_reward"] = 0.0
@@ -360,6 +369,14 @@ class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
             state["tb_exit_code"] = None
             state["tb_report"] = None
             state["task_complete"] = True  # nothing to run; rollout ends immediately
+            # Option A: raise so prime-rl's dispatcher marks has_error and the
+            # train_sink DROPS this rollout (vs training a reward-0 sample that
+            # corrupts GRPO). The VM is already released above; cleanup() still runs
+            # via the driver's `finally`, so nothing leaks.
+            if self.raise_on_infra:
+                raise SandboxError(
+                    f"setup infra failure [{_cls}]: {type(e).__name__}: {str(e)[:200]}"
+                )
             initial_output = ""
 
         _sys = NATIVE_SYSTEM_PROMPT if getattr(self, "native_tools", False) else _NATIVE_SYS
@@ -597,9 +614,19 @@ class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
                 await asyncio.to_thread(backend.destroy)
             except Exception:
                 pass
-            state["_backend"] = None  # _finalize early-returns, keeping this attribution
-            # Neutral end -- this rollout is filtered via tb_outcome, so the content is
-            # irrelevant to training; the model is given no reconnect/re-issue hint.
+            state["_backend"] = None  # _finalize skips grading on this rollout
+            self._log_infra(state)  # log full per-turn drop detail now (idempotent)
+            # Option A: raise so prime-rl's dispatcher marks has_error and the
+            # train_sink DROPS this rollout (vs training a reward-0 sample that
+            # corrupts GRPO). The VM is already destroyed above, and cleanup() still
+            # runs via the driver's `finally`, so nothing leaks.
+            if self.raise_on_infra:
+                raise SandboxError(
+                    "%s after %d reconnect attempt(s)"
+                    % (state.get("tb_error_class", "rollout/infra"), state.get("_reconnects", 0))
+                )
+            # Graceful mode (raise_on_infra=False): keep the rollout as a reward-0
+            # env_error (e.g. for eval analysis); the model gets no reconnect hint.
             return [{"role": "user", "content": "Environment error; ending task."}]
 
         state["turn_timings"].append(rec)
@@ -626,8 +653,9 @@ class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
         try:
             events = state.get("infra_events", []) or []
             drops = [e for e in events if e.get("type") == "drop"]
-            if not drops:
+            if not drops or state.get("_infra_logged"):
                 return
+            state["_infra_logged"] = True
             s = _infra_summary(state)
             info = state.get("info", {})
             logger.info(
