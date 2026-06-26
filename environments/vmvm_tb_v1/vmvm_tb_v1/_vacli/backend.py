@@ -1207,12 +1207,20 @@ class VacliVMVMBackend:
             return _bash_result(
                 "error", f"[vacli] connection lost during wait: {e}", "broken_pipe", exit_code=-1
             )
-        raw = r.stdout or b""
+        return self._parse_fifo_reply(r.returncode, r.stdout or b"")
+
+    def _parse_fifo_reply(self, returncode: int, raw: bytes) -> BashResult:
+        """Parse a framed reply: a leading `__VACLI_STATUS__ <st> <ec>` line, the
+        command output, then a trailing `__VACLI_END__` line. A nonzero ssh rc or a
+        missing/truncated frame means a drop cut the reply -> broken_pipe (recovery
+        re-reads). Shared by _fifo_wait_read (recovery) and _fifo_exec_combined (hot
+        path)."""
+        maxb = self.config.max_session_buffer_size or (480 * 1024)
         si = raw.find(b"__VACLI_STATUS__")
         ei = raw.rfind(b"\n__VACLI_END__")
-        if r.returncode != 0 or si < 0 or ei < 0 or si >= ei:
+        if returncode != 0 or si < 0 or ei < 0 or si >= ei:
             return _bash_result(
-                "error", f"[vacli] connection lost (rc={r.returncode}, truncated reply)",
+                "error", f"[vacli] connection lost (rc={returncode}, truncated reply)",
                 "broken_pipe", exit_code=-1,
             )
         nl = raw.find(b"\n", si)
@@ -1239,6 +1247,47 @@ class VacliVMVMBackend:
             return _bash_result("error", output, "exit", exit_code=ec)
         return _bash_result("success", output, "none", exit_code=ec)
 
+    def _fifo_exec_combined(self, seq: int, command: str, timeout: float) -> BashResult:
+        """Happy-path fast lane: stage body + push token + wait + emit in ONE
+        `podman exec` (4 x2p round-trips -> 1; ~4x lower per-command latency). Also
+        frees the previous seq's files so disk stays bounded. On any drop the framed
+        reply is absent -> broken_pipe with _pending kept, and recover_last() finishes
+        the command via the careful separate path (the in-memory monotonic reader
+        guard makes a re-push safe -> still exactly-once). Staging failure aborts
+        before the token is pushed (exit 91 -> broken_pipe -> recover re-stages)."""
+        maxb = self.config.max_session_buffer_size or (480 * 1024)
+        t = max(1, int(timeout if timeout else self.config.session_timeout))
+        body = command if command.strip() else ":"
+        script = (
+            'D={D}; s={s}; p={p}; '
+            'rm -f "$D/c$p" "$D/o$p" "$D/e$p" "$D/d$p" "$D/s$p" 2>/dev/null; '   # bound disk: prev seq
+            'rm -f "$D/s$s" "$D/o$s" "$D/e$s" "$D/d$s" 2>/dev/null; '            # fresh markers (anti-forge)
+            'cat > "$D/c$s.tmp" && mv -f "$D/c$s.tmp" "$D/c$s" || exit 91; '     # stage body (stdin)
+            'printf "\\n%s\\n" "$s" > "$D/cmd"; '                                # push token
+            'deadline=$(( $(date +%s) + {t} )); '
+            'while :; do '
+            '[ -e "$D/d$s" ] && {{ st=ok; break; }}; '
+            '[ "$(date +%s)" -ge "$deadline" ] && {{ st=timeout; break; }}; '
+            'sleep 0.1; done; '
+            'printf "__VACLI_STATUS__ %s %s\\n" "$st" "$(cat "$D/e$s" 2>/dev/null)"; '
+            'head -c {mb1} "$D/o$s" 2>/dev/null; '
+            'printf "\\n__VACLI_END__\\n"'
+        ).format(D=shlex.quote(self._sess_dir), s=seq, p=seq - 1, t=t, mb1=maxb + 1)
+        argv = _ssh_opts(self._ssh_port, self._control_path) + [
+            "root@localhost",
+            "podman exec -i " + str(self._container_id) + " bash -c " + shlex.quote(script),
+        ]
+        try:
+            r = self._sp.run(
+                argv, input=body.encode("utf-8"), stdout=self._sp.PIPE,
+                stderr=self._sp.DEVNULL, timeout=t + 40,
+            )
+        except Exception as e:
+            return _bash_result(
+                "error", f"[vacli] connection lost during exec: {e}", "broken_pipe", exit_code=-1
+            )
+        return self._parse_fifo_reply(r.returncode, r.stdout or b"")
+
     def _fifo_finish(self, seq: int, res: BashResult) -> BashResult:
         """Common post-read handling: clear pending, clean up per-command files,
         and on a real timeout reset the shell (legacy parity: kill the runaway +
@@ -1254,28 +1303,29 @@ class VacliVMVMBackend:
         return res
 
     def _fifo_run(self, command: str, timeout: float) -> BashResult:
-        """Stage + trigger + collect one command. On a tunnel drop at any step,
-        leaves `_pending` set so recover_last() can finish it WITHOUT re-executing
-        (recovery gates on the in-container s<seq> marker, not on ssh return codes)."""
+        """Stage + trigger + collect one command in a SINGLE podman exec (hot path).
+        On a tunnel drop the framed reply is absent -> broken_pipe with `_pending`
+        kept, so recover_last() finishes it WITHOUT re-executing (the in-memory
+        monotonic reader guard makes a re-push safe)."""
         self._cmd_seq += 1
         seq = self._cmd_seq
         start = time.monotonic()
         self._pending = (seq, command, timeout, start)
-        if not self._fifo_stage(seq, command, fresh=True):
-            # Body never staged -> command cannot have run; recover re-stages.
-            return _bash_result(
-                "error", "[vacli] connection lost (stage failed)", "broken_pipe", exit_code=-1
-            )
-        if not self._fifo_push(seq):
-            # Trigger push failed: the token MAY already have reached the reader.
-            # recover_last() checks s<seq> before re-pushing, so no double-exec.
-            return _bash_result(
-                "error", "[vacli] connection lost (trigger push failed)", "broken_pipe", exit_code=-1
-            )
-        res = self._fifo_wait_read(seq, timeout)
+        res = self._fifo_exec_combined(seq, command, timeout)
         if res["error_type"] == "broken_pipe":
             return res  # _pending kept; recover_last() finishes it
-        return self._fifo_finish(seq, res)
+        # Completed (success/exit/timeout/too_long): clear pending; on a real timeout
+        # reset the shell (legacy parity: kill the runaway + fresh cwd/env). Per-command
+        # files are freed by the NEXT command's combined call (prev-seq cleanup) and by
+        # destroy()'s teardown, so no extra round-trip here.
+        self._pending = None
+        if res["error_type"] == "timeout":
+            self._teardown_fifo_shell()
+            try:
+                self._setup_fifo_shell(run_entrypoint=False, run_start_script=True)
+            except Exception as e:
+                logger.warning("fifo: shell recreate after timeout failed: %s", e)
+        return res
 
     def recover_last(self) -> "BashResult | None":
         """After restart_session() re-establishes the tunnel, finish the command
