@@ -1010,15 +1010,28 @@ class VacliVMVMBackend:
         self._ssh_call_raw("podman exec -d " + cid + " bash -c " + shlex.quote(hold), timeout=30)
         # 3) reader loop: records its pgid, then forever reads an integer seq from
         #    the fifo and runs the staged body for that seq in THIS shell.
+        # Reader-internal vars are namespaced (__vacli_*) so a task command sourced in
+        # THIS shell that uses common names (D, seq, last) cannot clobber the loop's
+        # control state. __vacli_last is the AUTHORITATIVE exactly-once gate: it lives
+        # in the reader's memory (not a file the command can delete/forge), and seq is
+        # strictly increasing, so any re-pushed / torn-then-completed / duplicate token
+        # for a seq <= the last STARTED seq is dropped -- a tunnel drop can never
+        # double-execute a command no matter what recover_last re-pushes. `set +e` each
+        # iteration neutralizes a prior body's `set -e` so a builtin returning non-zero
+        # (e.g. the -le test, which is false on the normal path) can't kill the reader.
         reader = (
-            'D={D}; echo $$ > "$D/pgid"; '
-            'while IFS= read -r seq; do '
-            'case "$seq" in (""|*[!0-9]*) continue ;; esac; '
-            ': > "$D/s$seq"; '
-            'source "$D/c$seq" < /dev/null > "$D/o$seq" 2>&1; '
-            'printf %s "$?" > "$D/e$seq"; '
-            ': > "$D/d$seq"; '
-            'done < "$D/cmd"'
+            '__vacli_d={D}; echo $$ > "$__vacli_d/pgid"; __vacli_last=0; '
+            'while IFS= read -r __vacli_seq; do '
+            'set +e; '
+            'case "$__vacli_seq" in (""|*[!0-9]*) continue ;; esac; '
+            'if [ "$__vacli_seq" -le "$__vacli_last" ] 2>/dev/null; then continue; fi; '
+            '__vacli_last="$__vacli_seq"; '
+            ': > "$__vacli_d/s$__vacli_seq"; '
+            'source "$__vacli_d/c$__vacli_seq" < /dev/null > "$__vacli_d/o$__vacli_seq" 2>&1; '
+            '__vacli_rc=$?; '
+            'printf %s "$__vacli_rc" > "$__vacli_d/e$__vacli_seq"; '
+            ': > "$__vacli_d/d$__vacli_seq"; '
+            'done < "$__vacli_d/cmd"'
         ).format(D=qD)
         self._ssh_call_raw(
             "podman exec -d " + cid + " setsid bash -c " + shlex.quote(reader), timeout=30
@@ -1083,11 +1096,18 @@ class VacliVMVMBackend:
         self._sess_dir = ""
         self._pending = None
 
-    def _fifo_stage(self, seq: int, command: str) -> bool:
+    def _fifo_stage(self, seq: int, command: str, fresh: bool = False) -> bool:
         """Stage the command body into c<seq> atomically (write tmp + rename), via
-        stdin so size is bounded only by VM disk. Idempotent. Returns ssh-ok."""
+        stdin so size is bounded only by VM disk. Idempotent. Returns ssh-ok.
+
+        When `fresh` (initial run of a brand-new seq), first remove any pre-existing
+        s/o/e/d<seq> markers so a task command that forged the NEXT seq's done/output
+        files can't make _fifo_wait_read return stale/forged data before the reader
+        runs. Recovery re-stages with fresh=False so it never wipes the real markers
+        it needs to decide whether the command already ran."""
         body = command if command.strip() else ":"
-        script = ('D={D}; cat > "$D/c{s}.tmp" && mv -f "$D/c{s}.tmp" "$D/c{s}"').format(
+        pre = ('rm -f "$D/s{s}" "$D/o{s}" "$D/e{s}" "$D/d{s}"; ' if fresh else "").format(s=seq)
+        script = ('D={D}; ' + pre + 'cat > "$D/c{s}.tmp" && mv -f "$D/c{s}.tmp" "$D/c{s}"').format(
             D=shlex.quote(self._sess_dir), s=seq)
         remote = "podman exec -i " + str(self._container_id) + " bash -c " + shlex.quote(script)
         argv = _ssh_opts(self._ssh_port, self._control_path) + ["root@localhost", remote]
@@ -1241,7 +1261,7 @@ class VacliVMVMBackend:
         seq = self._cmd_seq
         start = time.monotonic()
         self._pending = (seq, command, timeout, start)
-        if not self._fifo_stage(seq, command):
+        if not self._fifo_stage(seq, command, fresh=True):
             # Body never staged -> command cannot have run; recover re-stages.
             return _bash_result(
                 "error", "[vacli] connection lost (stage failed)", "broken_pipe", exit_code=-1

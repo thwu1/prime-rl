@@ -230,6 +230,13 @@ class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
         state["tb_error_detail"] = None
         state["_reconnects"] = 0
         state["infra_events"] = []
+        # Aggregate infra counters for trajectory filtering: infra_drops = mid-rollout
+        # x2p drops detected; infra_recovered_drops = of those, how many were finished
+        # transparently (model never saw them). A rollout is GOOD for training even
+        # with infra_drops>0 as long as tb_outcome != "env_error" (all drops recovered);
+        # filter out only tb_outcome == "env_error".
+        state["infra_drops"] = 0
+        state["infra_recovered_drops"] = 0
         state["turn_timings"] = []
         state["_turn_idx"] = 0
         state["_last_turn_end"] = time.perf_counter()
@@ -381,7 +388,7 @@ class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
         outputs = []
         exec_total = 0.0
         box_gone = False
-        legacy_reset = False
+        state_lost = False
         self._emit_rollout_state(state, "running", sub="exec")
         cmds = parsed.bash_commands
         idx = 0
@@ -396,11 +403,13 @@ class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
             et = res.get("error_type") if isinstance(res, dict) else None
 
             # A dropped ssh tunnel (transient x2p reset during a long rollout)
-            # surfaces as a SESSION-level error whose output carries a conn-lost
-            # marker. Distinguish from a normal command that merely PRINTS such a
-            # phrase: a real drop has our session-error sentinel (exit_code == -1
-            # or error_type broken_pipe/other); a normal command does not.
-            if not (_is_conn_lost(out) and (ec == -1 or et in ("broken_pipe", "other"))):
+            # surfaces as a SESSION-level error with our drop sentinel error_type
+            # (broken_pipe/other). Gate on error_type ONLY -- NOT exit_code==-1,
+            # which a real timeout/too_long also carries: a timed-out command whose
+            # partial output happens to contain a conn-lost phrase must NOT be
+            # misread as an x2p drop (that would burn the reconnect budget and lose
+            # the real result). A normal command never sets these sentinel types.
+            if not (_is_conn_lost(out) and et in ("broken_pipe", "other")):
                 outputs.append(out)
                 rec["cmds"].append({
                     "cmd": (cmd.keystrokes or "")[:200],
@@ -415,9 +424,12 @@ class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
             # finish the command transparently. The v1 backend's shell lives
             # INSIDE the container (FIFO-backed), so cwd/env + the in-flight
             # command survive the drop; recover_last() returns the command's real
-            # result and the agent never sees the blip (terminal unchanged). The
-            # inner loop retries through a tunnel that flaps repeatedly during
+            # result and the AGENT NEVER SEES THE BLIP (no message, terminal
+            # unchanged -- it looks like one continuous session). The under-the-hood
+            # recovery is recorded ONLY in env metadata (infra_events + counters).
+            # The inner loop retries through a tunnel that flaps repeatedly during
             # recovery WITHOUT re-executing the command. ---
+            state["infra_drops"] = state.get("infra_drops", 0) + 1
             while True:
                 state["_reconnects"] = state.get("_reconnects", 0) + 1
                 cap = _MAX_MIDROLLOUT_RECONNECTS
@@ -441,19 +453,21 @@ class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
                 if hasattr(backend, "recover_last"):
                     rec_res = await asyncio.to_thread(backend.recover_last)
                 if rec_res is None:
-                    # Legacy backend (fifo-incapable image): the shell was reset,
-                    # so we cannot transparently recover -- fall back to the old
-                    # contract (ask the agent to re-cd + re-issue its last command).
+                    # Recovery could NOT be transparent: the in-container shell had to
+                    # be rebuilt (state lost), or the image is fifo-incapable. We do
+                    # NOT message the model (no v0-style "re-issue" prompt that would
+                    # pollute the trajectory); instead mark this rollout as an infra
+                    # failure so it is filtered out of training (handled below).
                     state.setdefault("infra_events", []).append(
                         {"phase": "rollout", "turn": rec.get("turn"), "type": "drop",
                          "reconnected": True, "recovered": False,
-                         "class": "rollout/reconnect"})
-                    legacy_reset = True
+                         "class": "rollout/state_lost"})
+                    state_lost = True
                     break
                 r_out = rec_res.get("output", "") if isinstance(rec_res, dict) else str(rec_res)
                 r_ec = rec_res.get("exit_code") if isinstance(rec_res, dict) else None
                 r_et = rec_res.get("error_type") if isinstance(rec_res, dict) else None
-                if _is_conn_lost(r_out) and (r_ec == -1 or r_et in ("broken_pipe", "other")):
+                if _is_conn_lost(r_out) and r_et in ("broken_pipe", "other"):
                     # Dropped AGAIN during recovery; loop to reconnect (the command
                     # is still in flight and is NOT re-executed -- recover_last
                     # re-reads it).
@@ -463,11 +477,13 @@ class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
                          "class": "rollout/reconnect"})
                     continue
                 # Recovered: cmds[idx] completed; deliver its real output. From the
-                # agent's view the terminal is unchanged (cwd/env preserved).
+                # agent's view the terminal is unchanged (cwd/env preserved) and NO
+                # message is sent -- the recovery exists only in env metadata.
                 state.setdefault("infra_events", []).append(
                     {"phase": "rollout", "turn": rec.get("turn"), "type": "drop",
                      "reconnected": True, "recovered": True,
                      "class": "rollout/reconnect"})
+                state["infra_recovered_drops"] = state.get("infra_recovered_drops", 0) + 1
                 rec["recovered_drops"] = rec.get("recovered_drops", 0) + 1
                 outputs.append(r_out)
                 rec["cmds"].append({
@@ -480,29 +496,42 @@ class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
                 idx += 1
                 break
 
-            if box_gone or legacy_reset:
+            if box_gone or state_lost:
                 break
 
         rec["exec_s"] = round(exec_total, 3)
         rec["n_cmds"] = len(rec["cmds"])
 
-        if box_gone:
-            # Box is genuinely gone (or reconnect budget exhausted): attribute as
-            # an infra error (NOT a task fail, which would silently depress pass@1)
-            # and end the rollout.
-            rec["kind"] = "box_gone"
+        if box_gone or state_lost:
+            # Non-transparent outcome: either the box is genuinely gone (reconnect
+            # failed / budget exhausted) or the connection came back but the shell
+            # state was lost (in-flight command unrecoverable). Either way we attribute
+            # an INFRA error (NOT a task fail -- that would silently depress pass@1) so
+            # the trajectory is filtered out of training, and the model is told nothing
+            # specific (it never learns a "we reconnected" pattern). Filter signal:
+            # tb_outcome == "env_error".
+            rec["kind"] = "box_gone" if box_gone else "state_lost"
             state["turn_timings"].append(rec)
             state["_turn_idx"] = state.get("_turn_idx", 0) + 1
             state["_last_turn_end"] = time.perf_counter()
             state["task_complete"] = True
             state["tb_outcome"] = "env_error"
             state["tb_reward"] = 0.0
-            state["tb_error_class"] = "rollout/box_gone"
-            state["tb_error_detail"] = (
-                "ssh tunnel lost mid-rollout; box unrecoverable after %d reconnect attempt(s)"
-                % state.get("_reconnects", 0)
-            )
-            state["tb_message"] = "Environment connection lost mid-rollout (box gone)"
+            if box_gone:
+                state["tb_error_class"] = "rollout/box_gone"
+                state["tb_error_detail"] = (
+                    "ssh tunnel lost mid-rollout; box unrecoverable after %d reconnect attempt(s)"
+                    % state.get("_reconnects", 0)
+                )
+                state["tb_message"] = "Environment connection lost mid-rollout (box gone)"
+            else:
+                state["tb_error_class"] = "rollout/state_lost"
+                state["tb_error_detail"] = (
+                    "connection recovered but in-container shell state was lost mid-rollout "
+                    "(in-flight command unrecoverable) after %d reconnect attempt(s)"
+                    % state.get("_reconnects", 0)
+                )
+                state["tb_message"] = "Environment shell state lost mid-rollout (unrecoverable)"
             state["tb_test_output"] = ""
             state["tb_exit_code"] = None
             state["tb_report"] = None
@@ -511,26 +540,9 @@ class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
             except Exception:
                 pass
             state["_backend"] = None  # _finalize early-returns, keeping this attribution
-            return [{"role": "user", "content": "Environment connection lost permanently; ending task."}]
-
-        if legacy_reset:
-            # Legacy fallback only (fifo-incapable image): reconnected to the same
-            # box, but the streamed shell was reset. Keep the old "re-issue" contract.
-            rec["kind"] = "reconnect"
-            state["turn_timings"].append(rec)
-            state["_turn_idx"] = state.get("_turn_idx", 0) + 1
-            state["_last_turn_end"] = time.perf_counter()
-            return [{
-                "role": "user",
-                "content": (
-                    "[infra] The connection to the environment dropped and was "
-                    "re-established on the SAME machine. Your files on disk are "
-                    "intact, but the shell was reset: the working directory is back "
-                    "to the default and any shell variables/functions you set are "
-                    "cleared. Re-establish your working directory (e.g. cd into your "
-                    "project) and re-issue your most recent command."
-                ),
-            }]
+            # Neutral end -- this rollout is filtered via tb_outcome, so the content is
+            # irrelevant to training; the model is given no reconnect/re-issue hint.
+            return [{"role": "user", "content": "Environment error; ending task."}]
 
         state["turn_timings"].append(rec)
         state["_turn_idx"] = state.get("_turn_idx", 0) + 1
