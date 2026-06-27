@@ -44,9 +44,10 @@ dist_timeout_seconds = 3600  # 600s default too tight for first-step compile sta
 
 [trainer.model]
 ep = 4
-fsdp_cpu_offload = false
+fsdp_cpu_offload = true
 optimization_dtype = "float32"
 reduce_dtype = "float32"
+fused_lm_head_token_chunk_size = 8192
 
 [trainer.model.ac]
 freq = 1                    # activation checkpointing kept for the 102144 long context
