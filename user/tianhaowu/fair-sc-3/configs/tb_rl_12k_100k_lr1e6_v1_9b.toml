@@ -43,7 +43,7 @@ name = "tb-12k-9b"
 dist_timeout_seconds = 3600  # 600s default too tight for first-step compile stagger across ranks
 
 [trainer.model]
-ep = 4
+ep = 1  # Qwen3.5-9B is dense (no experts); EP>1 builds an empty "ep" mesh and crashes grad-clip
 fsdp_cpu_offload = true
 optimization_dtype = "float32"
 reduce_dtype = "float32"
