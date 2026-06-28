@@ -24,8 +24,8 @@ time = "120:00:00"
 template_path = "/storage/home/tianhaowu/prime-rl/user/tianhaowu/fair-sc/templates/multi_node_rl_fairsc.sbatch.j2"
 
 [ckpt]
-interval = 5
-keep_last = 10
+interval = 25
+keep_last = 20
 
 [wandb]
 project = "tb-rl-qwen35"
@@ -79,7 +79,7 @@ session_timeout = 3600
 lease_ttl = "5600s"
 
 [orchestrator.eval]
-interval = 10
+interval = 25
 skip_first_step = false
 
 # Eval sampling matches the TB-2.0 reference so pass@k is meaningful (temp>0;
