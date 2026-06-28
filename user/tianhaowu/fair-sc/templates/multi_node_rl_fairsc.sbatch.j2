@@ -327,7 +327,7 @@ if [ "$SLURM_PROCID" -lt "$NUM_INFER_NODES" ]; then
     # Start the router on the first node of each replica (PD mode, external LB across per-rank endpoints)
     if [ "$RANK_IN_REPLICA" -eq 0 ]; then
         REPLICA_ROUTER_ARGS=$(echo "$ALL_ROUTER_ARGS" | cut -d"|" -f$((REPLICA_IDX + 1)))
-        launch_router pd "$REPLICA_ROUTER_ARGS" "$ROUTER_PORT" consistent_hash "$OUTPUT_DIR/logs/inference/router_${REPLICA_IDX}.log" "$REPLICA_IDX"
+        launch_router pd "$REPLICA_ROUTER_ARGS" "$ROUTER_PORT" {{ router.policy }} "$OUTPUT_DIR/logs/inference/router_${REPLICA_IDX}.log" "$REPLICA_IDX"
     fi
 
     # External-LB: one vLLM API server per local DP rank (PORT + k), each pinned to its TP
@@ -345,7 +345,7 @@ if [ "$SLURM_PROCID" -lt "$NUM_INFER_NODES" ]; then
     # Start the router on the first node of each replica
     if [ "$RANK_IN_REPLICA" -eq 0 ]; then
         REPLICA_ROUTER_ARGS=$(echo "$ALL_ROUTER_ARGS" | cut -d"|" -f$((REPLICA_IDX + 1)))
-        launch_router regular "$REPLICA_ROUTER_ARGS" "$ROUTER_PORT" consistent_hash "$OUTPUT_DIR/logs/inference/router_${REPLICA_IDX}.log" "$REPLICA_IDX"
+        launch_router regular "$REPLICA_ROUTER_ARGS" "$ROUTER_PORT" {{ router.policy }} "$OUTPUT_DIR/logs/inference/router_${REPLICA_IDX}.log" "$REPLICA_IDX"
     fi
 
     # External-LB: one vLLM API server per DP rank on this node (BACKEND_PORT + d),
