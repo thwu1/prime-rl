@@ -102,6 +102,10 @@ class TrainBatchMetrics:
     samples_shipped: int
     arrivals_by_env: dict[str, int] = field(default_factory=dict)
     errors_by_env: dict[str, int] = field(default_factory=dict)
+    # Sum of each ``infra_``-prefixed rollout metric over ALL arrivals (errored
+    # included), per env. Lets MetricsBuilder emit per-class infra rates over the
+    # full population — survivor-only aggregation misses dropped rollouts.
+    infra_sums_by_env: dict[str, dict[str, float]] = field(default_factory=dict)
 
 
 @dataclass

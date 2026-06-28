@@ -4,6 +4,7 @@
 import base64
 import os
 import json
+import math
 import tarfile
 import tempfile
 from logging import getLogger
@@ -231,7 +232,9 @@ def _grade_once(
                 rewards = json.loads(reward_json_out)
             except (json.JSONDecodeError, ValueError) as e:
                 logger.warning(f"Failed to parse reward.json: {e}, content={repr(reward_json_out)}")
-        elif reward_txt_out:
+        # reward.txt is a TRUE fallback: also used when reward.json existed but was
+        # unparseable (a corrupt reward.json must not shadow a valid reward.txt).
+        if rewards is None and reward_txt_out:
             try:
                 rewards = {"reward": float(reward_txt_out)}
             except ValueError as e:
@@ -253,15 +256,37 @@ def _grade_once(
                     error_class="grade/conn_lost",
                     error_detail=(run_out[-1000:] or run_err or "session error"),
                 )
-            logger.warning("No reward file found or parseable — treating as fail")
+            logger.warning(
+                "No reward file written/parseable and no conn-loss -> grade/no_reward "
+                "(verifier failed to produce a verdict; treated as infra, not a real fail)"
+            )
             return TestResult(
-                outcome="fail",
-                message=f"No reward file written by test script\n{test_output[-500:]}",
+                outcome="env_error",
+                message=f"No reward file written by test script (exec failure)\n{test_output[-500:]}",
                 test_output=test_output,
                 exit_code=exit_code,
+                error_class="grade/no_reward",
+                error_detail=(test_output[-1000:] or "no reward file"),
             )
 
-        passed = rewards.get("reward", 0) >= 1.0
+        # A parseable reward that is NOT a dict carrying a finite numeric "reward"
+        # (e.g. {}, {"score":1}, a bare scalar/list, or NaN/inf) is a verifier
+        # malfunction, not a real verdict -> treat as infra (grade/no_reward) so it is
+        # dropped, never trained as a fake reward-0 fail. (Mirrors the no-file case.)
+        reward_val = rewards.get("reward") if isinstance(rewards, dict) else None
+        if not isinstance(reward_val, (int, float)) or not math.isfinite(reward_val):
+            logger.warning(
+                "Reward present but not a finite numeric 'reward' (%r) -> grade/no_reward", rewards
+            )
+            return TestResult(
+                outcome="env_error",
+                message=f"Reward file present but no usable numeric 'reward': {rewards!r}\n{test_output[-500:]}",
+                test_output=test_output,
+                exit_code=exit_code,
+                error_class="grade/no_reward",
+                error_detail=str(rewards)[:1000],
+            )
+        passed = reward_val >= 1.0
         logger.info(f"Reward parsed: {rewards} -> passed={passed}")
 
         return TestResult(

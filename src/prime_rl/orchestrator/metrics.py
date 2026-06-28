@@ -9,6 +9,18 @@ import pandas as pd
 from prime_rl.configs.orchestrator import OrchestratorConfig
 from prime_rl.orchestrator.types import Progress, Rollout, TrainBatchMetrics
 
+# Infra metrics that fire ONLY on dropped (has_error) rollouts. Those rollouts are
+# excluded from the survivor metric aggregation, so these would read ~0 (misleading)
+# under metrics/<env>/. We suppress them there and instead emit them as
+# infra/<env>/<name> averaged over ALL arrivals (see build()). Survivor-meaningful
+# infra metrics (infra_drops, infra_recovered, rollout_wall_s, ...) are NOT listed
+# here and stay under metrics/<env>/.
+_DROP_ONLY_INFRA = frozenset({
+    "infra_box_gone", "infra_state_lost", "infra_env_error", "infra_lost_turn", "test_timeout",
+    "infra_setup_fail", "infra_grade_conn_lost", "infra_grade_upload", "infra_grade_no_reward",
+    "infra_grade_reward_raise", "infra_grade_finalize_timeout", "infra_grade_timeout",
+})
+
 
 class MetricsBuilder:
     def __init__(self, config: OrchestratorConfig) -> None:
@@ -161,11 +173,27 @@ class MetricsBuilder:
                 to_log[f"stop_condition/{env}/{sc}"] = rate
             env_metrics_df = metrics_df.loc[env_df.index] if not metrics_df.empty else metrics_df
             for metric in metrics_df.columns:
+                # Drop-only infra metrics read ~0 over survivors; emitted as
+                # infra/<env>/<name> over arrivals below instead.
+                if metric in _DROP_ONLY_INFRA:
+                    continue
                 to_log[f"metrics/{env}/{metric}"] = env_metrics_df.groupby(env_df["group_id"])[metric].mean().mean()
             to_log[f"filters/{env}/is_filtered"] = env_df.is_filtered.astype(float).mean()
             env_filter_df = filter_df.loc[env_df.index] if not filter_df.empty else filter_df
             for name in filter_df.columns:
                 to_log[f"filters/{env}/{name}"] = env_filter_df[name].astype(float).mean()
+
+        # Per-env infra-class drop rate over ARRIVALS (errored rollouts included).
+        # These fire on dropped rollouts that never reach `rollouts` (survivors), so we
+        # aggregate the sums the sink accumulated over all arrivals. value = mean over
+        # arrivals (= drop rate for the 0/1 class indicators).
+        for env, sums in metrics.infra_sums_by_env.items():
+            n_arrivals = metrics.arrivals_by_env.get(env, 0)
+            if n_arrivals <= 0:
+                continue
+            for name, total in sums.items():
+                if name in _DROP_ONLY_INFRA:
+                    to_log[f"infra/{env}/{name}"] = total / n_arrivals
 
         # Dispatcher / watcher gauges live on the ``_timestamp`` axis via
         # the periodic logger — keep this dict step-axis only

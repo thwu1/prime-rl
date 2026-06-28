@@ -106,6 +106,10 @@ def _infra_summary(state) -> dict:
     box_gone_turns = [e.get("turn") for e in drops if e.get("class") == "rollout/box_gone"]
     ec = state.get("tb_error_class")
     lost = box_gone_turns[0] if box_gone_turns and isinstance(box_gone_turns[0], int) else -1
+    rs = state.get("_rollout_start")
+    # _rollout_end stamped at loop exit (in _finalize) so grading time isn't counted;
+    # fall back to now if the rollout never reached cleanup.
+    re_ = state.get("_rollout_end") or (time.monotonic() if rs else None)
     s = {
         "infra_drops": float(state.get("infra_drops", 0)),
         "infra_recovered": float(state.get("infra_recovered_drops", 0)),
@@ -117,6 +121,23 @@ def _infra_summary(state) -> dict:
         "infra_state_lost": 1.0 if ec == "rollout/state_lost" else 0.0,
         "infra_env_error": 1.0 if state.get("tb_outcome") == "env_error" else 0.0,
         "infra_lost_turn": float(lost),  # turn the rollout died on (box_gone), else -1
+        # Granular per-class partition derived from tb_error_class (ec). Exactly one
+        # fires per dropped rollout; do NOT derive from tb_outcome (env_error is a
+        # superset of box_gone/state_lost/setup/grade-* -> would double-count).
+        "infra_setup_fail": 1.0 if (ec or "").startswith("setup/") else 0.0,
+        "infra_grade_conn_lost": 1.0 if ec == "grade/conn_lost" else 0.0,
+        "infra_grade_upload": 1.0 if ec == "grade/upload" else 0.0,
+        "infra_grade_no_reward": 1.0 if ec == "grade/no_reward" else 0.0,
+        "infra_grade_reward_raise": 1.0 if ec == "grade/reward_raise" else 0.0,
+        "infra_grade_finalize_timeout": 1.0 if ec == "grade/finalize_timeout" else 0.0,
+        "infra_grade_timeout": 1.0 if ec == "grade/timeout" else 0.0,
+        # test_timeout: grading exceeded test_timeout (outcome=="timeout"), distinct from
+        # the agent-loop walltime_cap below and from env_error. (== infra_grade_timeout.)
+        "test_timeout": 1.0 if state.get("tb_outcome") == "timeout" else 0.0,
+        # max_rollout_s wall-clock cap: 1.0 if the agent loop was cut short by it.
+        "walltime_cap": 1.0 if any(e.get("type") == "walltime_cap" for e in events) else 0.0,
+        # agent-loop wall time (excludes grading); -1 if never started.
+        "rollout_wall_s": float(re_ - rs) if rs and re_ else -1.0,
     }
     state["_infra_summary"] = s
     return s
@@ -132,15 +153,32 @@ async def infra_box_gone(state, **kw) -> float: return _infra_summary(state)["in
 async def infra_state_lost(state, **kw) -> float: return _infra_summary(state)["infra_state_lost"]
 async def infra_env_error(state, **kw) -> float: return _infra_summary(state)["infra_env_error"]
 async def infra_lost_turn(state, **kw) -> float: return _infra_summary(state)["infra_lost_turn"]
+async def walltime_cap(state, **kw) -> float: return _infra_summary(state)["walltime_cap"]
+async def rollout_wall_s(state, **kw) -> float: return _infra_summary(state)["rollout_wall_s"]
+async def test_timeout(state, **kw) -> float: return _infra_summary(state)["test_timeout"]
+async def infra_setup_fail(state, **kw) -> float: return _infra_summary(state)["infra_setup_fail"]
+async def infra_grade_conn_lost(state, **kw) -> float: return _infra_summary(state)["infra_grade_conn_lost"]
+async def infra_grade_upload(state, **kw) -> float: return _infra_summary(state)["infra_grade_upload"]
+async def infra_grade_no_reward(state, **kw) -> float: return _infra_summary(state)["infra_grade_no_reward"]
+async def infra_grade_reward_raise(state, **kw) -> float: return _infra_summary(state)["infra_grade_reward_raise"]
+async def infra_grade_finalize_timeout(state, **kw) -> float: return _infra_summary(state)["infra_grade_finalize_timeout"]
+async def infra_grade_timeout(state, **kw) -> float: return _infra_summary(state)["infra_grade_timeout"]
 
 
-# Metric-only (weight 0): recorded in each rollout's `metrics` (-> dumped into
-# train_rollouts.jsonl and auto-aggregated to wandb as metrics/<env>/<name>), but
-# they do NOT affect reward (which stays == tb_reward).
+# Metric-only (weight 0): recorded in each rollout's `metrics`; they do NOT affect
+# reward (which stays == tb_reward). CAVEAT: prime-rl aggregates metrics/<env>/<name>
+# and writes train_rollouts.jsonl over SURVIVORS only (has_error rollouts are dropped
+# before both). So metrics that fire ONLY on a dropped rollout (test_timeout,
+# infra_env_error, infra_box_gone, infra_state_lost) read ~0 in wandb; they are
+# meaningful for RECOVERED drops that survive (e.g. infra_drops>0, tb_outcome!=env_error).
+# Total dropped-rollout count is in prime-rl's `dispatcher/errored/<env>` counter.
 _INFRA_METRIC_FUNCS = [
     infra_drops, infra_recovered, infra_reconnect_attempts,
     infra_box_gone, infra_state_lost, infra_env_error,
     infra_first_drop_turn, infra_last_drop_turn, infra_n_turns_dropped, infra_lost_turn,
+    walltime_cap, rollout_wall_s, test_timeout,
+    infra_setup_fail, infra_grade_conn_lost, infra_grade_upload, infra_grade_no_reward,
+    infra_grade_reward_raise, infra_grade_finalize_timeout, infra_grade_timeout,
 ]
 
 
@@ -248,6 +286,8 @@ class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
         image_source: str = "vmvm_registry",  # or "task_toml" (docker.io from task.toml)
         native_tools: bool = False,  # True: declare tool_defs -> renderer/eval emit <function=> XML, env reads structured tool_calls
         raise_on_infra: bool = True,  # True: on unrecoverable infra (box_gone/state_lost/setup_fail) RAISE -> prime-rl marks has_error and DROPS the rollout (not trained). False: graceful reward-0 env_error completion (kept in batch; for eval analysis).
+        drop_test_timeout: bool = True,  # True: a grading test-timeout marks the rollout errored (state["error"], like Option A) -> prime-rl DROPS it (not trained), since a timed-out grader is a budget/flaky signal, not a real reward-0 outcome. False: keep as a reward-0 "timeout" completion.
+        drop_grade_env_error: bool = True,  # True: a grade-time env_error (conn-loss/upload/exec failure recovery couldn't fix, incl. grade/no_reward + grade/reward_raise) marks the rollout errored -> DROPPED. These are untrustworthy verdicts, not real fails. False: keep as reward-0 env_error completion (eval analysis). (Mid-rollout unrecoverable drops already raise directly via raise_on_infra.)
         **kwargs,
     ) -> None:
         if native_tools:
@@ -255,6 +295,8 @@ class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
         super().__init__(**kwargs)
         self.native_tools = native_tools
         self.raise_on_infra = raise_on_infra
+        self.drop_test_timeout = drop_test_timeout
+        self.drop_grade_env_error = drop_grade_env_error
         self.tenant_id = tenant_id
         self.command_timeout = command_timeout
         self.test_timeout = test_timeout
@@ -673,6 +715,7 @@ class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
 
     @vf.cleanup
     async def _finalize(self, state):
+        state["_rollout_end"] = time.monotonic()  # agent-loop end (before grading) for rollout_wall_s
         self._log_infra(state)  # full per-turn drop detail (incl. box_gone rollouts) -> env log
         backend = state.get("_backend")
         if backend is None:
@@ -681,12 +724,21 @@ class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
         try:
             info = state["info"]
             self._emit_rollout_state(state, "grading")
-            result = await asyncio.to_thread(
-                run_terminal_bench_tests,
-                backend,
-                Path(info["task_path"]),
-                "pytest",
-                self.test_timeout,
+            # Outer cap on grading: run_terminal_bench_tests retries conn-loss up to
+            # VMVM_TB_GRADE_RETRIES, each backend run_bash self-bounded (~test_timeout+40).
+            # A wedged grade must not pin the VM/permit indefinitely (max_rollout_s only
+            # guards the agent loop, not cleanup). to_thread isn't truly cancellable, but
+            # the wait_for frees the loop and the `finally` destroy() unwinds the worker.
+            _grade_retries = max(1, int(os.environ.get("VMVM_TB_GRADE_RETRIES", "3")))
+            result = await asyncio.wait_for(
+                asyncio.to_thread(
+                    run_terminal_bench_tests,
+                    backend,
+                    Path(info["task_path"]),
+                    "pytest",
+                    self.test_timeout,
+                ),
+                timeout=self.test_timeout * _grade_retries + 120,
             )
             state["tb_outcome"] = result.outcome
             state["tb_reward"] = 1.0 if result.outcome == "pass" else 0.0
@@ -716,6 +768,21 @@ class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
                 len(_tt), state.get("parse_errors", 0), _kinds, _cmds,
                 (result.test_output or "")[-200:],
             )
+        except asyncio.TimeoutError:
+            logger.error(
+                "GRADE finalize timeout for %s -> grade/finalize_timeout (outer cap hit)",
+                state.get("info", {}).get("task_name"),
+            )
+            state["tb_reward"] = 0.0
+            state["tb_outcome"] = "env_error"
+            state.setdefault("tb_message", "grade finalize timeout (outer cap)")
+            state["tb_error_class"] = "grade/finalize_timeout"
+            state.setdefault("infra_events", []).append(
+                {"phase": "grade", "type": "finalize_timeout", "detail": "grade exceeded outer cap"})
+            state.setdefault("tb_test_output", "")
+            state.setdefault("tb_exit_code", None)
+            state.setdefault("tb_report", None)
+            self._emit_rollout_state(state, "done")
         except Exception as e:
             logger.error("GRADE infra-error (reward computation raised) for %s class=grade/reward_raise: %s",
                          state.get("info", {}).get("task_name"), e, exc_info=True)
@@ -736,6 +803,39 @@ class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
             except Exception:
                 pass
             state["_backend"] = None
+
+        # Remove infra-caused samples from training. A grade-time env_error (conn-loss /
+        # upload / exec failure that recovery couldn't fix, incl. grade/no_reward and
+        # grade/reward_raise) or a grade test-timeout is NOT a trustworthy pass/fail
+        # signal, so mark the rollout errored (state["error"], like the mid-rollout
+        # raise_on_infra Option A) -> prime-rl's train_sink DROPS it. We set state["error"]
+        # rather than raise: raising from @vf.cleanup escapes rollout() uncaught, whereas
+        # state["error"] serializes into the trace (-> has_error -> dropped). Mid-rollout
+        # unrecoverable drops already raise directly in env_response.
+        # TRACKING: dropped (has_error) rollouts are NOT written to train_rollouts.jsonl
+        # (save_rollouts persists survivors only) and the weight-0 rubric metrics aggregate
+        # over survivors, so they read ~0 in wandb. The drop IS counted coarsely via
+        # prime-rl's per-env `dispatcher/errored/<env>` wandb counter; the per-class cause
+        # is recoverable only from the env-log line emitted just below.
+        _outcome = state.get("tb_outcome")
+        _drop = (self.drop_test_timeout and _outcome == "timeout") or (
+            self.drop_grade_env_error and _outcome == "env_error"
+        )
+        if _drop and state.get("error") is None:
+            _cls = state.get("tb_error_class") or f"grade/{_outcome}"
+            state["tb_error_class"] = _cls
+            state.setdefault("infra_events", []).append(
+                {"phase": "grade", "type": "infra_drop", "detail": f"{_outcome} [{_cls}]"}
+            )
+            logger.info(
+                "ROLLOUT INFRA-DROP rid=%s gid=%s task=%s outcome=%s class=%s -> dropped from training",
+                id(state), state.get("info", {}).get("_group_id"),
+                state.get("info", {}).get("task_name"), _outcome, _cls,
+            )
+            state["error"] = SandboxError(
+                f"grade infra drop: outcome={_outcome} [{_cls}] "
+                f"task={state.get('info', {}).get('task_name')}"
+            )
 
 
 def _load_dataset(dataset_path: str) -> Dataset:

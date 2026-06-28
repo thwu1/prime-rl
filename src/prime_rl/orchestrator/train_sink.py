@@ -83,6 +83,11 @@ class TrainSink:
         # ``process_batch``. Fuel for the per-env success log breakdown
         self.arrivals_by_env: dict[str, int] = defaultdict(int)
         self.errors_by_env: dict[str, int] = defaultdict(int)
+        # Sum of each ``infra_``-prefixed rollout metric over all arrivals (errored
+        # included), per env; reset in ``process_batch``. Lets the orchestrator emit
+        # per-class infra rates over the full population (dropped rollouts are filtered
+        # out of the survivor metric aggregation).
+        self.infra_sums_by_env: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(float))
 
     def group_size_for(self, env_name: str) -> int:
         return self.train_envs.get(env_name).config.group_size
@@ -168,6 +173,11 @@ class TrainSink:
         self.arrivals_by_env[env_name] += 1
         if rollout.has_error:
             self.errors_by_env[env_name] += 1
+        # Accumulate infra_* metrics over EVERY arrival (before the survivors filter)
+        # so per-class infra rates can be emitted over the full population.
+        for k, v in rollout.metrics.items():
+            if k.startswith("infra_"):
+                self.infra_sums_by_env[env_name][k] += float(v)
         self.pending_groups[rollout.group_id].append(rollout)
         if len(self.pending_groups[rollout.group_id]) == 1:
             self._group_started[rollout.group_id] = time.monotonic()
@@ -338,9 +348,11 @@ class TrainSink:
             samples_shipped=len(samples),
             arrivals_by_env=dict(self.arrivals_by_env),
             errors_by_env=dict(self.errors_by_env),
+            infra_sums_by_env={e: dict(d) for e, d in self.infra_sums_by_env.items()},
         )
         self.arrivals_by_env.clear()
         self.errors_by_env.clear()
+        self.infra_sums_by_env.clear()
         return TrainBatch(rollouts=cohort, samples=samples, metrics=metrics)
 
     def reset_pre_filter_stats(self) -> None:
