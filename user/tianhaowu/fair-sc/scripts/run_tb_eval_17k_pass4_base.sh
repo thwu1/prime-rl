@@ -51,6 +51,7 @@ uv run --no-sync vf-eval vmvm-tb \
   -m /checkpoint/ram/tianhaowu/Qwen3.5-35B-A3B \
   --api-base-url "$ROUTER" --api-key-var OPENAI_API_KEY \
   --api-client-type openai_chat_completions \
+  --header-from-state "X-Session-ID: trajectory_id" \
   -n "$N" --rollouts-per-example "$ROLLOUTS" --max-concurrent 512 \
   --sampling-args '{"max_tokens":80000,"temperature":1.0,"top_p":0.95,"top_k":20}' \
   --env-args "{\"dataset_path\":\"$DATASET\",\"image_source\":\"task_toml\",\"max_turns\":300,\"command_timeout\":300,\"test_timeout\":900,\"session_timeout\":3600,\"max_rollout_s\":7200,\"lease_ttl\":\"11000s\"}" \
