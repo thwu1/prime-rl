@@ -209,7 +209,13 @@ def setup_clients(
             if client_config.dp_rank_count > 1:
                 headers["X-data-parallel-rank"] = str(dp_rank)
             clients.append(
-                config_cls(base_url=base_url, api_key_var=client_config.api_key_var, headers=headers, **renderer_extra)
+                config_cls(
+                    base_url=base_url,
+                    api_key_var=client_config.api_key_var,
+                    headers=headers,
+                    extra_headers_from_state=client_config.extra_headers_from_state,
+                    **renderer_extra,
+                )
             )
     return clients
 
