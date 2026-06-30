@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(squeue *)",
+      "Bash(sleep *)",
+      "Bash(git -C *)",
+      "Bash(git fetch *)",
+      "Bash(git stash *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(git add *)",
+      "Bash(git rebase *)",
+      "Bash(scancel *)",
+      "Bash(sacct *)",
+      "Bash(sinfo *)",
+      "Bash(scontrol *)",
+      "Bash(chmod *)",
+      "Bash(cp *)",
+      "mcp__plugin_meta_mux__search_files",
+      "mcp__plugin_meta_mux__knowledge_load",
+      "mcp__plugin_meta_mux__knowledge_filtered_search",
+      "mcp__plugin_meta_mux__get_diff_details"
+    ]
+  }
+}
