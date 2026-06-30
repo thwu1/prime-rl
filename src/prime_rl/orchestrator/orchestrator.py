@@ -399,7 +399,9 @@ class Orchestrator:
             pre_filters=pre_filters,
             post_filters=post_filters,
         )
-        self.eval_sink = EvalSink(eval_envs=self.eval_envs) if self.eval_envs is not None else None
+        self.eval_sink = (
+            EvalSink(eval_envs=self.eval_envs, max_seq_len=config.seq_len) if self.eval_envs is not None else None
+        )
         self.watcher = WeightWatcher(
             config,
             policy=self.policy,

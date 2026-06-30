@@ -14,7 +14,7 @@ Same shape as ``TrainSink``, but no tokenization / advantages / filters:
 from __future__ import annotations
 
 import uuid
-from collections import defaultdict
+from collections import Counter, defaultdict
 
 from prime_rl.orchestrator.envs import EvalEnvs
 from prime_rl.orchestrator.eval_utils import compute_pass_at_k
@@ -25,12 +25,55 @@ from prime_rl.utils.logger import get_logger
 class EvalSink:
     """Constructed only when eval is configured."""
 
-    def __init__(self, *, eval_envs: EvalEnvs) -> None:
+    def __init__(self, *, eval_envs: EvalEnvs, max_seq_len: int) -> None:
         self.eval_envs = eval_envs
+        self.max_seq_len = max_seq_len
         self.pending_groups: dict[uuid.UUID, list[Rollout]] = defaultdict(list)
         # Bucket size IS the arrival count — ``process_group`` flushes
         # everything in without filtering
         self.pending_batches: dict[tuple[str, int], list[Rollout]] = defaultdict(list)
+
+    def _is_context_truncated(self, r: Rollout) -> bool:
+        """The rollout's last model turn filled the context window — a legitimate
+        context-exhaustion failure (the model ran out of room mid-turn), not an infra
+        fault. Eval responses carry no token ids, so use provider-reported ``usage``.
+        vLLM masks this as ``finish_reason="tool_calls"`` when a partial tool call is
+        parsed, so ``Trace.is_truncated`` misses it — this detects it directly."""
+        if not self.max_seq_len:
+            return False
+        last = r._last_assistant()
+        usage = last.usage if last is not None else None
+        if usage is None:
+            return False
+        return usage.prompt_tokens + usage.completion_tokens >= self.max_seq_len
+
+    def _failure_category(self, r: Rollout) -> str:
+        """Coarse per-rollout outcome for the failure breakdown."""
+        if r.reward >= 1.0:
+            return "solved"
+        if r.has_error:
+            if self._is_context_truncated(r):
+                return "context_truncated"
+            if r.error is not None and r.error.type == "Cancelled":
+                return "cancelled"
+            return "infra_error"
+        if r.stop_condition == "context_length" or self._is_context_truncated(r):
+            return "context_truncated"
+        if r.stop_condition == "max_turns_reached":
+            return "max_turns"
+        if r.stop_condition == "max_output_tokens":
+            return "max_output_tokens"
+        if r.stop_condition == "_stop_parse_errors":
+            return "parse_errors"
+        return "tests_failed"
+
+    def _completion_len(self, r: Rollout) -> int:
+        """Completion length in tokens. ``Trace.completion_len`` is token-id based and
+        reads 0 on the eval (chat-completions) path, which returns no token ids — fall
+        back to provider-reported ``usage`` so eval completion-length metrics aren't 0."""
+        if r.completion_len:
+            return r.completion_len
+        return r.usage.completion_tokens if r.usage is not None else 0
 
     def add(self, rollout: Rollout) -> EvalBatch | None:
         """Process one arrival; finalize the group on the ``group_size``-th
@@ -112,32 +155,42 @@ class EvalSink:
 
     def process_batch(self, key: tuple[str, int]) -> EvalBatch:
         """Build ``EvalBatchMetrics`` and return the finalized ``EvalBatch``.
-        Errored rollouts (env failures, cancellations, task exceptions) are
-        excluded from reward / pass@k / seq_len aggregation (including them
-        at reward=0 would bias the score down) and surfaced separately as
-        ``n_cancelled`` / ``n_errored``."""
+        Genuine infra errors (env failures, cancellations, grading drops) are excluded
+        from reward / pass@k aggregation (counting them at reward=0 would bias the score
+        down) and surfaced separately as ``n_cancelled`` / ``n_errored``. Context-exhaustion
+        errors are NOT infra — the model ran out of context mid-turn — so they are kept at
+        their real reward (see ``_is_context_truncated``). ``failure_breakdown`` records the
+        per-outcome counts over the whole batch."""
         env_name, step = key
         rollouts = self.pending_batches.pop(key, [])
 
         n_total = len(rollouts)
         n_cancelled = sum(1 for r in rollouts if r.has_error and r.error.type == "Cancelled")
-        n_errored = sum(1 for r in rollouts if r.has_error) - n_cancelled
-        valid = [r for r in rollouts if not r.has_error]
+        # Context-exhaustion errors are legitimate failures (the model ran out of context
+        # mid-turn, often after already solving), not infra faults — keep them in
+        # reward/pass@k at their real reward instead of dropping. Genuine infra errors
+        # (conn loss, setup, grading drops, cancellations) stay excluded.
+        truncated_errors = [r for r in rollouts if r.has_error and self._is_context_truncated(r)]
+        n_errored = sum(1 for r in rollouts if r.has_error) - n_cancelled - len(truncated_errors)
+        valid = [r for r in rollouts if not r.has_error] + truncated_errors
         metrics = EvalBatchMetrics(
             n_rollouts=n_total,
             n_cancelled=n_cancelled,
             n_errored=n_errored,
+            failure_breakdown=dict(Counter(self._failure_category(r) for r in rollouts)),
         )
 
         if valid:
             rewards = [r.reward for r in valid]
-            lens = [r.completion_len for r in valid]
+            lens = [self._completion_len(r) for r in valid]
             metrics.group_size = self.group_size_for(env_name)
             metrics.reward_mean = float(sum(rewards) / len(rewards))
             metrics.completion_len_mean = float(sum(lens) / len(lens))
             metrics.completion_len_max = float(max(lens))
             metrics.completion_len_min = float(min(lens))
-            metrics.truncation_rate = float(sum(1 for r in valid if r.is_truncated) / len(valid))
+            truncated = [r for r in valid if r.is_truncated or self._is_context_truncated(r)]
+            metrics.n_truncated = len(truncated)
+            metrics.truncation_rate = float(len(truncated) / len(valid))
             metrics.no_response_rate = float(sum(1 for r in valid if not r.has_response) / len(valid))
             num_turns = [r.num_turns for r in valid]
             metrics.num_turns_mean = float(sum(num_turns) / len(num_turns))
