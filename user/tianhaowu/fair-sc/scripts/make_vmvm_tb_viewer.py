@@ -56,6 +56,47 @@ def msg_html(m):
         parts.append(_tool_cmd(tc))
     return f'<div class="msg {cls}"><div class="role">{esc(role)}</div>{"".join(parts) or "<pre></pre>"}</div>'
 
+def _cmd_preview(m):
+    """Short one-line preview of an assistant turn's first tool command, for the turn summary."""
+    for tc in (m.get('tool_calls') or []):
+        fn = tc.get('function') or tc
+        args = fn.get('arguments', '')
+        cmd = args
+        if isinstance(args, str):
+            try:
+                a = json.loads(args)
+                cmd = a.get('command', args) if isinstance(a, dict) else args
+            except Exception:
+                cmd = args
+        elif isinstance(args, dict):
+            cmd = args.get('command', json.dumps(args))
+        return ' '.join(str(cmd).split())[:90]
+    return ' '.join(str(m.get('content') or '').split())[:90]
+
+def turns_html(msgs):
+    """Group the conversation into collapsible turns (new turn at each assistant message;
+    the leading system+task is the 'prompt' group). First turn is open, the rest collapsed."""
+    groups, cur = [], []
+    for m in msgs:
+        role = m.get('role') if isinstance(m, dict) else '?'
+        if role == 'assistant' and cur:
+            groups.append(cur); cur = []
+        cur.append(m)
+    if cur:
+        groups.append(cur)
+    out = []
+    for i, g in enumerate(groups):
+        label = 'prompt' if i == 0 else f'turn {i}'
+        prev = ''
+        for m in g:
+            if isinstance(m, dict) and m.get('role') == 'assistant':
+                prev = _cmd_preview(m); break
+        inner = ''.join(msg_html(m) for m in g)
+        op = ' open' if i == 0 else ''
+        out.append(f'<details class="turn"{op}><summary>{esc(label)}'
+                   f'<span class="tprev">{esc(prev)}</span></summary>{inner}</details>')
+    return ''.join(out)
+
 def infra_flags(traj):
     """v0 infra tags from message content (independent of reward):
     reconnect count, permanent loss, eventual wall-clock timeout."""
@@ -224,7 +265,7 @@ for i, v in enumerate(views):
     task = v['task']
     oc_label, oc_cls = v['outcome'], v['ocls']
     turns, stop, tok = v['turns'], v['stop'], v['tokens']
-    body = ''.join(msg_html(m) for m in v['traj'])
+    body = turns_html(v['traj'])
     tt = v['turn_timings']
     tt_html = ''
     if tt:
@@ -297,6 +338,10 @@ summary::-webkit-details-marker{{display:none}}
 .badge.lim{{background:#0d2230;color:#58a6ff}} .badge.infra{{background:#21262d;color:#8b949e}}
 .meta{{color:#8b949e;font-size:12px;margin-left:8px}}
 .conv{{padding:6px 14px 14px}}
+details.turn{{margin:6px 0;border:1px solid #21262d;border-radius:6px;background:#0d1117}}
+details.turn>summary{{padding:5px 12px;color:#8b949e;font-size:12px;font-weight:600;cursor:pointer}}
+details.turn[open]>summary{{border-bottom:1px solid #21262d}}
+.tprev{{color:#6e7681;font-weight:400;margin-left:10px;font:11px ui-monospace,Menlo,monospace}}
 .msg{{margin:8px 0;border-radius:6px;overflow:hidden;border:1px solid #21262d}}
 .msg .role{{font-size:11px;text-transform:uppercase;letter-spacing:.5px;padding:3px 10px;color:#8b949e;background:#0d1117}}
 .msg pre{{margin:0;padding:10px 12px;white-space:pre-wrap;word-break:break-word;font:12px/1.45 ui-monospace,Menlo,monospace}}
