@@ -152,74 +152,77 @@ def to_view(r):
         turn_timings=r.get('turn_timings') or [], tb=tb,
         has_error=False, err_msg='', infra=inf)
 
-# Fine-grained failure classification mirroring the tb_v1 taxonomy. Returns
-# (label, category) where category drives color + the filter buttons.
-#   pass    : solved (reward>=1)
-#   dropped : has_error -> excluded from wandb reward/pass@k (ModelError, grade/* drops)
-#   ctx     : context-window overflow (kept as reward-0)
-#   budget  : hit a turn/output/walltime cap (kept as reward-0)
-#   infra   : env/test infra failure that survived
-#   parse   : malformed tool-call output
-#   fail    : genuine model failure (task_complete but tests red)
-def classify_failure(v):
+# Two-tier badge model:
+#   Tier 1 outcome — PASS / FAIL by reward, UNLESS the rollout is an infra failure
+#     (gray INFRA, no pass/fail: the outcome was infra-determined, not the model's doing).
+#   Tier 2 chips — orthogonal "what was abnormal" attributes, shown only when present.
+def is_truncate(v):
+    # ran out of token budget: filled the context window, or stopped on context_length /
+    # max_output_tokens (both are token-budget truncation, kept by the fixed eval_sink).
+    return v.get('ctx_tokens', 0) >= CTX_CAP or v['stop'] in ('context_length', 'max_output_tokens')
+
+def is_infra(v):
     inf = v['infra']
-    if (v['reward'] or 0) >= 1.0:
-        return ('pass', 'pass')
-    if v['has_error']:
-        # Context-exhaustion: the last turn filled the window -> a legit reward-0 (or
-        # already-solved) failure the fixed eval_sink keeps, NOT an infra drop. Detect via
-        # real usage, before the infra/model-error checks.
-        if v.get('ctx_tokens', 0) >= CTX_CAP:
-            return ('context-truncated', 'ctx')
-        msg = v['err_msg'] or 'error'
-        if msg == 'ModelError':
-            return ('model-error', 'dropped')  # non-context model/inference error (rare)
-        for key, lab in [('grade_conn_lost', 'grade/conn_lost'), ('grade_upload', 'grade/upload'),
-                         ('grade_no_reward', 'grade/no_reward'), ('grade_reward_raise', 'grade/reward_raise'),
-                         ('grade_finalize_timeout', 'grade/finalize_timeout'), ('grade_timeout', 'grade/timeout')]:
-            if inf.get(key):
-                return (lab, 'dropped')
-        if inf['box_gone']:   return ('box-gone', 'dropped')
-        if inf['state_lost']: return ('state-lost', 'dropped')
-        if inf['setup_fail']: return ('setup-fail', 'dropped')
-        return (msg[:32], 'dropped')
-    stop = v['stop']            # survivors with reward 0
-    if stop == 'context_length':     return ('ctx-length', 'ctx')
-    if stop == 'max_turns_reached':  return ('max-turns', 'budget')
-    if stop == 'max_output_tokens':  return ('max-output-tok', 'budget')
-    if stop == '_stop_parse_errors': return ('parse-errors', 'parse')
-    if inf['test_timeout']:          return ('test-timeout', 'infra')
-    if inf['env_error']:             return ('env-error', 'infra')
-    if inf['walltime_cap']:          return ('walltime-cap', 'budget')
-    return ('tests-failed', 'fail')
+    if v['has_error'] and not is_truncate(v):
+        return True                                      # genuine error, excluded from metric
+    return bool(inf['env_error'] or inf['test_timeout'])  # infra outcome even if kept
+
+def outcome(v):
+    if is_infra(v):
+        return ('INFRA', 'infra')                        # gray, no pass/fail
+    return ('PASS', 'pass') if (v['reward'] or 0) >= 1.0 else ('FAIL', 'fail')
+
+def chips(v):
+    """Tier-2 attribute chips: (label, css_class, filter_key). Shown only when present."""
+    inf = v['infra']; out = []
+    if is_truncate(v):                    out.append(('truncate', 'lim', 'truncate'))
+    if v['stop'] == 'max_turns_reached':  out.append(('max-turns', 'lim', 'maxturns'))
+    if inf['walltime_cap']:               out.append(('walltime', 'lim', 'walltime'))
+    if v['stop'] == '_stop_parse_errors': out.append(('parse-err', 'tout', 'parse'))
+    if is_infra(v):
+        reason = ('model-error' if v['err_msg'] == 'ModelError'
+                  else 'grade/conn_lost' if inf['grade_conn_lost']
+                  else 'grade/timeout' if inf['grade_timeout']
+                  else 'grade/upload' if inf['grade_upload']
+                  else 'box-gone' if inf['box_gone']
+                  else 'state-lost' if inf['state_lost']
+                  else 'setup-fail' if inf['setup_fail']
+                  else 'env-error' if inf['env_error']
+                  else 'test-timeout' if inf['test_timeout']
+                  else (v['err_msg'][:24] if v['err_msg'] else 'infra'))
+        out.append((reason, 'infra', 'infra'))
+    elif inf['drops']:                    # recovered infra — model still produced an outcome
+        lt = f" lost@{inf['lost_turn']}" if inf['lost_turn'] >= 0 else ""
+        out.append((f"drop×{inf['drops']}·rec{inf['recovered']}{lt}", 'recon', 'infradrop'))
+    elif inf['recon']:
+        out.append((f"reconnect×{inf['recon']}", 'recon', 'infradrop'))
+    return out
 
 views = [to_view(r) for r in rows]
 for v in views:
-    v['fail_label'], v['fail_cat'] = classify_failure(v)
+    v['outcome'], v['ocls'] = outcome(v)
+    v['chips'] = chips(v)
 FMT = views[0]['fmt'] if views else 'v0'
 
 cards = []
 from collections import Counter
-n_pass = sum(1 for v in views if v['fail_cat'] == 'pass')
-n_drop = sum(1 for v in views if v['has_error'])               # excluded from wandb reward/pass@k
-n_surv = len(views) - n_drop
-avg_surv = (n_pass / n_surv) if n_surv else 0.0                # micro reward over survivors == wandb avg@k
-hist = Counter(v['fail_label'] for v in views if v['fail_cat'] != 'pass')   # failure-type breakdown
-by = {}                                                         # pass@any per task, over survivors only
+n_pass = sum(1 for v in views if v['ocls'] == 'pass')
+n_fail = sum(1 for v in views if v['ocls'] == 'fail')
+n_infra = sum(1 for v in views if v['ocls'] == 'infra')
+n_dropped = sum(1 for v in views if v['has_error'] and not is_truncate(v))  # excluded from wandb metric
+n_kept = len(views) - n_dropped
+avg_kept = (n_pass / n_kept) if n_kept else 0.0                              # == wandb avg@k
+hist = Counter(k for v in views for (_, _, k) in v['chips'])                 # chip frequencies (overlapping)
+by = {}                                                                      # solved(any) per task over kept
 for v in views:
-    if v['has_error']:
+    if v['has_error'] and not is_truncate(v):
         continue
-    by.setdefault(v['task_key'], []).append(v['fail_cat'] == 'pass')
+    by.setdefault(v['task_key'], []).append(v['ocls'] == 'pass')
 solved = sum(1 for vv in by.values() if any(vv))
-
-# fail-category -> badge color class (reuses existing palette + two new ones)
-BCLS = {'pass': 'pass', 'fail': 'fail', 'dropped': 'drop', 'ctx': 'ctx',
-        'budget': 'tout', 'infra': 'lost', 'parse': 'recon'}
 
 for i, v in enumerate(views):
     task = v['task']
-    cat, label = v['fail_cat'], v['fail_label']
-    ok = cat == 'pass'
+    oc_label, oc_cls = v['outcome'], v['ocls']
     turns, stop, tok = v['turns'], v['stop'], v['tokens']
     body = ''.join(msg_html(m) for m in v['traj'])
     tt = v['turn_timings']
@@ -251,46 +254,30 @@ for i, v in enumerate(views):
         body = tt_html + to_html + body
     else:
         body = tt_html + body
-    inf = v['infra']
-    bcls = BCLS.get(cat, 'fail')
-    badge = f'<span class="badge {bcls}">{esc(label.upper())}</span>'
-    ibadges = '<span class="badge drop">DROPPED</span> ' if v['has_error'] else ''
-    if inf['recon']:
-        ibadges += f'<span class="badge recon">reconnect&times;{inf["recon"]}</span> '
-    if inf['drops']:
-        lt = f" lost@turn{inf['lost_turn']}" if inf['lost_turn'] >= 0 else ""
-        ibadges += f'<span class="badge recon">drop&times;{inf["drops"]} &middot; recovered {inf["recovered"]}{lt}</span> '
-    if inf['box_gone']:
-        ibadges += '<span class="badge lost">box-gone</span> '
-    if inf['state_lost']:
-        ibadges += '<span class="badge lost">state-lost</span> '
-    # meta: no reward (badge already says it); show est context size; surface error msg for drops
+    badge = f'<span class="badge {oc_cls}">{oc_label}</span>'
+    chip_html = ''.join(f'<span class="badge {c}">{esc(lab)}</span> ' for lab, c, _ in v['chips'])
+    # meta: outcome badge already carries pass/fail; show turns, stop, context size, error text
     tot = tok.get('total') if isinstance(tok, dict) else None
     parts = [f'turns={turns}', f'stop={esc(stop)}']
     if tot:
         parts.append(f'ctx&asymp;{int(tot):,} tok')
     if v['has_error'] and v['err_msg']:
-        parts.append(f'<span style="color:#ff7b72">{esc(v["err_msg"][:48])}</span>')
-    head = (f'{badge} {ibadges}<b>{esc(task)}</b> '
+        parts.append(f'<span style="color:#8b949e">{esc(v["err_msg"][:48])}</span>')
+    head = (f'{badge} {chip_html}<b>{esc(task)}</b> '
             f'<span class="meta">{" &middot; ".join(parts)}</span>')
-    card_cls = 'pass' if ok else ('drop' if v['has_error'] else 'fail')
-    attrs = (f'data-pass="{int(ok)}" data-cat="{cat}" data-drop="{int(v["has_error"])}" '
-             f'data-fail="{esc(label)}"')
-    cards.append(f'<details class="task {card_cls}" {attrs}><summary>{head}</summary><div class="conv">{body}</div></details>')
+    attr_keys = ' '.join(sorted({k for _, _, k in v['chips']}))
+    attrs = f'data-outcome="{oc_cls}" data-attrs="{attr_keys}"'
+    cards.append(f'<details class="task {oc_cls}" {attrs}><summary>{head}</summary><div class="conv">{body}</div></details>')
 
 _src_label = esc(R.split('rollouts/')[-1] if FMT == 'v1' else R)
 _title = ('vmvm-tb-v1 &middot; rollouts' if FMT == 'v1' else 'vmvm-tb &middot; eval trajectories')
-_note = (' &middot; <i>has_error rollouts are excluded from wandb reward/pass@k</i>' if FMT == 'v1' else '')
-# failure-type histogram, most common first, as colored chips
-_HCLS = {'tests-failed': 'fail', 'ctx-length': 'ctx', 'max-turns': 'tout', 'max-output-tok': 'tout',
-         'walltime-cap': 'tout', 'parse-errors': 'recon', 'test-timeout': 'lost', 'env-error': 'lost'}
-def _hcls(lbl):
-    if lbl.startswith(('model-error', 'grade/', 'box-', 'state-', 'setup-')):
-        return 'drop'
-    return _HCLS.get(lbl, 'fail')
+_note = (' &middot; <i>INFRA = excluded from wandb reward/pass@k</i>' if FMT == 'v1' else '')
+# attribute-frequency histogram (clickable). Rollouts may have >1 chip, so counts overlap.
+_KCSS = {'truncate': 'lim', 'maxturns': 'lim', 'walltime': 'lim', 'parse': 'tout', 'infra': 'infra', 'infradrop': 'recon'}
+_KLAB = {'truncate': 'truncate', 'maxturns': 'max-turns', 'walltime': 'walltime', 'parse': 'parse-err', 'infra': 'infra', 'infradrop': 'drop·rec'}
 _hist_html = ' '.join(
-    f'<button class="badge {_hcls(lbl)}" onclick="ff(\'fail:{esc(lbl)}\')">{esc(lbl)} {n}</button>'
-    for lbl, n in hist.most_common())
+    f'<button class="badge {_KCSS.get(k, "fail")}" onclick="ff(\'attr:{k}\')">{_KLAB.get(k, k)} {n}</button>'
+    for k, n in hist.most_common())
 
 HTML = f'''<!doctype html><meta charset="utf-8"><title>vmvm-tb trajectories</title>
 <style>
@@ -300,13 +287,14 @@ h1{{margin:0 0 4px;font-size:16px}} .summary{{color:#8b949e;font-size:13px}}
 .wrap{{padding:16px 20px;max-width:1100px;margin:0 auto}}
 details.task{{border:1px solid #30363d;border-radius:8px;margin:8px 0;background:#161b22}}
 details.task.pass{{border-left:4px solid #2ea043}} details.task.fail{{border-left:4px solid #f85149}}
-details.task.drop{{border-left:4px dashed #6e7681;opacity:.85}}
+details.task.infra{{border-left:4px dashed #6e7681;opacity:.85}}
 summary{{cursor:pointer;padding:10px 14px;list-style:none}}
 summary::-webkit-details-marker{{display:none}}
 .badge{{font-weight:700;padding:1px 8px;border-radius:10px;font-size:11px;border:0;cursor:pointer}}
 .badge.pass{{background:#15331d;color:#3fb950}} .badge.fail{{background:#3a1417;color:#ff7b72}}
 .badge.recon{{background:#3a2e10;color:#e3b341}} .badge.lost{{background:#3a1417;color:#ff9e64}} .badge.tout{{background:#241a3a;color:#b392f0}}
 .badge.ctx{{background:#0d2230;color:#58a6ff}} .badge.drop{{background:#21262d;color:#8b949e}}
+.badge.lim{{background:#0d2230;color:#58a6ff}} .badge.infra{{background:#21262d;color:#8b949e}}
 .meta{{color:#8b949e;font-size:12px;margin-left:8px}}
 .conv{{padding:6px 14px 14px}}
 .msg{{margin:8px 0;border-radius:6px;overflow:hidden;border:1px solid #21262d}}
@@ -331,27 +319,29 @@ input{{margin-left:12px;padding:4px 8px;background:#0d1117;border:1px solid #303
 </style>
 <header>
 <h1>{_title} &middot; Qwen3.5-35B-A3B</h1>
-<div class="summary">{len(rows)} rollouts &middot; pass {n_pass} &middot; raw pass@1 {n_pass}/{len(rows)} = {n_pass/len(rows):.3f} &middot; <b>survivor avg {n_pass}/{n_surv} = {avg_surv:.3f}</b> (=wandb) &middot; <span style="color:#8b949e">dropped {n_drop}</span> &middot; solved(any) {solved}/{len(by)} tasks{_note} &middot; source: {_src_label}</div>
+<div class="summary">{len(rows)} rollouts &middot; <span style="color:#3fb950">PASS {n_pass}</span> / <span style="color:#ff7b72">FAIL {n_fail}</span> / <span style="color:#8b949e">INFRA {n_infra}</span> &middot; raw pass@1 {n_pass}/{len(rows)} = {n_pass/len(rows):.3f} &middot; <b>survivor avg {avg_kept:.3f}</b> (=wandb) &middot; dropped {n_dropped} &middot; solved(any) {solved}/{len(by)} tasks{_note} &middot; source: {_src_label}</div>
 <div class="hist">{_hist_html}</div>
 <div class="controls">
 <button onclick="document.querySelectorAll('details.task').forEach(d=>d.open=true)">expand all</button>
 <button onclick="document.querySelectorAll('details.task').forEach(d=>d.open=false)">collapse all</button>
 <button onclick="ff('')">all</button>
-<button onclick="ff('pass')">pass</button>
-<button onclick="ff('cat:fail')">tests-failed</button>
-<button onclick="ff('cat:dropped')">dropped</button>
-<button onclick="ff('cat:ctx')">ctx</button>
-<button onclick="ff('cat:budget')">budget</button>
-<button onclick="ff('cat:infra')">infra</button>
-<button onclick="ff('cat:parse')">parse</button>
+<button onclick="ff('out:pass')">PASS</button>
+<button onclick="ff('out:fail')">FAIL</button>
+<button onclick="ff('out:infra')">INFRA</button>
+<button onclick="ff('attr:truncate')">truncate</button>
+<button onclick="ff('attr:maxturns')">max-turns</button>
+<button onclick="ff('attr:walltime')">walltime</button>
+<button onclick="ff('attr:parse')">parse-err</button>
+<button onclick="ff('attr:infradrop')">drop·rec</button>
+<button onclick="ff('clean')">clean</button>
 <input id="f" placeholder="filter task name..." oninput="for(const d of document.querySelectorAll('details.task')){{d.style.display=d.querySelector('summary').textContent.toLowerCase().includes(this.value.toLowerCase())?'':'none'}}">
 </div>
 <script>
 function ff(k){{document.querySelectorAll('details.task').forEach(d=>{{
   let s=true;
-  if(k==='pass') s=(d.dataset.pass==='1');
-  else if(k.startsWith('cat:')) s=(d.dataset.cat===k.slice(4));
-  else if(k.startsWith('fail:')) s=(d.dataset.fail===k.slice(5));
+  if(k.startsWith('out:')) s=(d.dataset.outcome===k.slice(4));
+  else if(k.startsWith('attr:')) s=((' '+d.dataset.attrs+' ').includes(' '+k.slice(5)+' '));
+  else if(k==='clean') s=(d.dataset.attrs===''&&d.dataset.outcome!=='infra');
   d.style.display=s?'':'none';
 }});}}
 </script>
