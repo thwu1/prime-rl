@@ -47,22 +47,29 @@ class EvalSink:
             return False
         return usage.prompt_tokens + usage.completion_tokens >= self.max_seq_len
 
+    def _is_infra(self, r: Rollout) -> bool:
+        """Genuine infra failure — outcome determined by infra, not the model: an unrecovered
+        error that isn't context-truncation, or an env_error / test-timeout completion (kept on
+        the rollout because raise_on_infra=False). Excluded from reward/pass@k so infra doesn't
+        penalize the model. Recovered infra drops (tb_outcome stays pass/fail) are NOT infra
+        failures and remain counted."""
+        if r.has_error and not self._is_context_truncated(r):
+            return True
+        m = r.metrics or {}
+        return bool(m.get("infra_env_error") or m.get("test_timeout"))
+
     def _failure_category(self, r: Rollout) -> str:
         """Coarse per-rollout outcome for the failure breakdown."""
         if r.reward >= 1.0:
             return "solved"
-        if r.has_error:
-            if self._is_context_truncated(r):
-                return "context_truncated"
+        if self._is_infra(r):
             if r.error is not None and r.error.type == "Cancelled":
                 return "cancelled"
             return "infra_error"
-        if r.stop_condition == "context_length" or self._is_context_truncated(r):
+        if self._is_context_truncated(r) or r.stop_condition in ("context_length", "max_output_tokens"):
             return "context_truncated"
         if r.stop_condition == "max_turns_reached":
             return "max_turns"
-        if r.stop_condition == "max_output_tokens":
-            return "max_output_tokens"
         if r.stop_condition == "_stop_parse_errors":
             return "parse_errors"
         return "tests_failed"
@@ -166,13 +173,12 @@ class EvalSink:
 
         n_total = len(rollouts)
         n_cancelled = sum(1 for r in rollouts if r.has_error and r.error.type == "Cancelled")
-        # Context-exhaustion errors are legitimate failures (the model ran out of context
-        # mid-turn, often after already solving), not infra faults — keep them in
-        # reward/pass@k at their real reward instead of dropping. Genuine infra errors
-        # (conn loss, setup, grading drops, cancellations) stay excluded.
-        truncated_errors = [r for r in rollouts if r.has_error and self._is_context_truncated(r)]
-        n_errored = sum(1 for r in rollouts if r.has_error) - n_cancelled - len(truncated_errors)
-        valid = [r for r in rollouts if not r.has_error] + truncated_errors
+        # Exclude genuine infra failures (unrecovered non-truncation errors, and
+        # env_error / test-timeout completions) from reward/pass@k — infra shouldn't penalize
+        # the model. Context-exhaustion (the model ran out of context) IS kept at its real
+        # reward, and so are recovered infra drops.
+        valid = [r for r in rollouts if not self._is_infra(r)]
+        n_errored = sum(1 for r in rollouts if self._is_infra(r)) - n_cancelled
         metrics = EvalBatchMetrics(
             n_rollouts=n_total,
             n_cancelled=n_cancelled,
