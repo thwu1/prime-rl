@@ -1116,6 +1116,14 @@ def setup_model(
     # save/resume. No-op for models without a sparse indexer.
     freeze_sparse_indexer(model)
 
+    # A VLM's vision tower is dead weight when training text-only (config.vlm is None): it
+    # never receives gradients, so it carries no optimizer state. Leaving it trainable breaks
+    # strict checkpoint resume (DCP materializes state for every requires_grad param at load,
+    # mismatching the saved state). Freeze it for symmetry. No-op for text-only models (no
+    # vision encoder) and for real VLM training (config.vlm set, handled at load time).
+    if config.vlm is None and get_vision_encoder(model) is not None:
+        freeze_vision_encoder(model)
+
     if config.debug.force_balanced_routing:
         apply_force_balanced_routing(model)
 
