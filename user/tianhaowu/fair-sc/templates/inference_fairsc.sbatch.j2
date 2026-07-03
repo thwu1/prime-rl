@@ -277,7 +277,7 @@ srun --kill-on-bad-exit=1 bash -c '
     # Start the router on the first prefill node of each replica (external LB across per-rank endpoints)
     if [ "$RANK_IN_REPLICA" -eq 0 ]; then
         REPLICA_ROUTER_ARGS=$(echo "$ALL_ROUTER_ARGS" | cut -d"|" -f$((REPLICA_IDX + 1)))
-        launch_router pd "$REPLICA_ROUTER_ARGS" "$ROUTER_PORT" "{{ router_policy }}" "$OUTPUT_DIR/logs/inference/router_${REPLICA_IDX}.log" "$REPLICA_IDX"
+        launch_router pd "$REPLICA_ROUTER_ARGS" "$ROUTER_PORT" "{{ router.policy }}" "$OUTPUT_DIR/logs/inference/router_${REPLICA_IDX}.log" "$REPLICA_IDX"
     fi
 
     # External-LB: one vLLM API server per local DP rank (PORT + k), each pinned to its TP
@@ -302,7 +302,7 @@ srun --kill-on-bad-exit=1 bash -c '
 
     # Start the router on node 0 (balances across per-rank endpoints — no intra-node DP header)
     if [ "$INFER_NODE_RANK" -eq 0 ]; then
-        launch_router regular "$ROUTER_ARGS" "$ROUTER_PORT" "{{ router_policy }}" "$OUTPUT_DIR/logs/inference/router.log"
+        launch_router regular "$ROUTER_ARGS" "$ROUTER_PORT" "{{ router.policy }}" "$OUTPUT_DIR/logs/inference/router.log"
     fi
 
     # External-LB: one vLLM API server per DP rank on this node (BACKEND_PORT + dp_local),

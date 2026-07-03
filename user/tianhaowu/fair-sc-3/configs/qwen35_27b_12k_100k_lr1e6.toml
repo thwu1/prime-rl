@@ -101,7 +101,6 @@ name = "heldout-200"
 rollouts_per_example = 1
 
 [orchestrator.eval.env.args]
-raise_on_infra = false
 dataset_path = "/checkpoint/ram/tianhaowu/datasets/terminal_bench/v2_heldout_200.jsonl"
 native_tools = true
 max_rollout_s = 7200
@@ -118,7 +117,6 @@ name = "tb-pass80"
 rollouts_per_example = 5
 
 [orchestrator.eval.env.args]
-raise_on_infra = false
 dataset_path = "/checkpoint/ram/tianhaowu/datasets/terminal_bench/v2_harbor_pass80.jsonl"
 native_tools = true
 max_rollout_s = 7200

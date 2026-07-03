@@ -67,8 +67,8 @@ name = "qwen3.6"
 preserve_all_thinking = true
 
 [[orchestrator.train.env]]
-id = "vmvm-tb-v1"
-name = "vmvm-tb-v1"
+id = "vmvm-tb-v2"
+name = "vmvm-tb"
 
 [orchestrator.train.env.args]
 dataset_path = "/checkpoint/ram/tianhaowu/datasets/terminal_bench/v2_train_12k_tr.jsonl"
@@ -96,7 +96,7 @@ max_tokens = 100000
 # (1) In-distribution HELD-OUT: 200 tasks sampled from the full 17k, excluded
 #     from training. 1 rollout/task.
 [[orchestrator.eval.env]]
-id = "vmvm-tb-v1"
+id = "vmvm-tb-v2"
 name = "heldout-200"
 rollouts_per_example = 1
 
@@ -112,7 +112,7 @@ session_timeout = 3600
 lease_ttl = "9600s"
 
 [[orchestrator.eval.env]]
-id = "vmvm-tb-v1"
+id = "vmvm-tb-v2"
 name = "tb-pass80"
 rollouts_per_example = 5
 
