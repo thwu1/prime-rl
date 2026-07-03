@@ -17,7 +17,7 @@ set -uo pipefail
 cd "$HOME/prime-rl"
 # vmvm-tb / vmvm-tb-v1 are editable installs that `uv sync` prunes; PYTHONPATH (exported ->
 # inherited by the rl job + its orchestrator via sbatch --export=ALL) keeps both importable.
-export PYTHONPATH="$HOME/prime-rl/environments/vmvm_tb:$HOME/prime-rl/environments/vmvm_tb_v1${PYTHONPATH:+:$PYTHONPATH}"
+export PYTHONPATH="$HOME/prime-rl/environments/vmvm_tb:$HOME/prime-rl/environments/vmvm_tb_v1:$HOME/prime-rl/environments/vmvm_tb_v2${PYTHONPATH:+:$PYTHONPATH}"
 export WANDB_MODE=online
 # Same CUDA env as run_tb_rl.sh (kept identical so either script works for any model).
 # CUDA_HOME points at a COMPLETE micromamba CUDA 12.9 toolkit (nvcc + cudart + cccl + cuBLAS/

@@ -20,5 +20,5 @@ X2P_CFG="${X2P_CFG_ENV:-CLOUD}"
 srun --partition=cpu --qos=cpu_lowest --account=ram --time=02:00:00 \
      --nodes=1 --ntasks=1 --export=ALL --pty \
      bash -lc "export X2P_PROXY_URL='${X2P_URL}' X2P_ENV='${X2P_E}' X2P_CFG_ENV='${X2P_CFG}'; \
-       cd $REPO && PYTHONPATH=environments/vmvm_tb:environments/vmvm_tb_v1 \
+       cd $REPO && PYTHONPATH=environments/vmvm_tb:environments/vmvm_tb_v1:environments/vmvm_tb_v2 \
        uv run --no-sync python -u user/tianhaowu/fair-sc-3/scripts/_env_repl.py $*"

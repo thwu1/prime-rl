@@ -11,8 +11,8 @@ set -uo pipefail
 cd "$HOME/prime-rl"
 # vmvm-tb / vmvm-tb-v1 are editable installs that the sbatch's `uv sync` prunes;
 # PYTHONPATH (exported -> inherited by the rl job + its orchestrator) keeps both
-# importable so a config can pick either env id (vmvm-tb or vmvm-tb-v1).
-export PYTHONPATH="$HOME/prime-rl/environments/vmvm_tb:$HOME/prime-rl/environments/vmvm_tb_v1${PYTHONPATH:+:$PYTHONPATH}"
+# importable so a config can pick either env id (vmvm-tb, vmvm-tb-v1, or vmvm-tb-v2).
+export PYTHONPATH="$HOME/prime-rl/environments/vmvm_tb:$HOME/prime-rl/environments/vmvm_tb_v1:$HOME/prime-rl/environments/vmvm_tb_v2${PYTHONPATH:+:$PYTHONPATH}"
 export WANDB_MODE=online
 # fla gated-delta (Qwen3.5/3.6) needs tilelang kernels on Hopper: fla's triton path is
 # disabled for Triton>=3.4 on H200 (bug #640), and tilelang JITs FP8 UE8M0 CUDA needing

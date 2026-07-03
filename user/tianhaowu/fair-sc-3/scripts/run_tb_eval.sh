@@ -9,7 +9,7 @@
 set -uo pipefail
 cd "$HOME/prime-rl"
 # Same env as run_tb_rl.sh (editable envs on PYTHONPATH; CUDA 12.9 toolkit; HF offline).
-export PYTHONPATH="$HOME/prime-rl/environments/vmvm_tb:$HOME/prime-rl/environments/vmvm_tb_v1${PYTHONPATH:+:$PYTHONPATH}"
+export PYTHONPATH="$HOME/prime-rl/environments/vmvm_tb:$HOME/prime-rl/environments/vmvm_tb_v1:$HOME/prime-rl/environments/vmvm_tb_v2${PYTHONPATH:+:$PYTHONPATH}"
 export CUDA_HOME=/checkpoint/ram-h100-2/tianhaowu/envs/cuda129
 export PATH="$CUDA_HOME/bin:$PATH"
 export HF_HUB_OFFLINE=1
