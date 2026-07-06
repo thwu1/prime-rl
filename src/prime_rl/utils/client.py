@@ -212,6 +212,11 @@ def setup_clients(
                 config_cls(
                     base_url=base_url,
                     api_key_var=client_config.api_key_var,
+                    timeout=client_config.timeout,
+                    connect_timeout=client_config.connect_timeout,
+                    max_connections=client_config.max_connections,
+                    max_keepalive_connections=client_config.max_keepalive_connections,
+                    max_retries=client_config.max_retries,
                     headers=headers,
                     extra_headers_from_state=client_config.extra_headers_from_state,
                     **renderer_extra,

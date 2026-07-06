@@ -70,6 +70,16 @@ enable_token_export = true
 
 Leave it unset for normal training. When enabled, it exports every sequence from each exporting rank.
 
+## Model Client Transport
+
+Model endpoint transport is configured under `[orchestrator.client]`. `connect_timeout`
+controls how long client creation waits for a TCP connection to an inference server/router
+(default `30.0`, raised above SDK defaults for bursty local inference). `timeout` controls
+the overall model request timeout; the default `None` leaves long generations bounded by
+rollout timeouts instead of the HTTP client. `max_retries`, `max_connections`, and
+`max_keepalive_connections` are also forwarded to verifier train/eval clients and the legacy
+v0 bridge.
+
 ## Key files
 
 - `packages/prime-rl-configs/src/prime_rl/` — config classes under `configs/`; `utils/config.py` re-exports `BaseConfig` and `cli`

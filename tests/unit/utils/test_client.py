@@ -55,6 +55,11 @@ def test_setup_clients_assigns_renderer_and_dp_rank_headers():
     client_config = ClientConfig(
         base_url=["http://worker-a:8000/v1"],
         api_key_var="PRIME_API_KEY",
+        timeout=7200.0,
+        connect_timeout=45.0,
+        max_connections=1024,
+        max_keepalive_connections=512,
+        max_retries=7,
         headers={"X-Test": "test"},
         dp_rank_count=2,
         extra_headers_from_state={"X-Session-ID": "session_id"},
@@ -73,6 +78,11 @@ def test_setup_clients_assigns_renderer_and_dp_rank_headers():
     assert [client.base_url for client in clients] == ["http://worker-a:8000/v1"] * 2
     assert [client.headers["X-data-parallel-rank"] for client in clients] == ["0", "1"]
     assert clients[0].headers["X-Test"] == "test"
+    assert [client.timeout for client in clients] == [7200.0, 7200.0]
+    assert [client.connect_timeout for client in clients] == [45.0, 45.0]
+    assert [client.max_connections for client in clients] == [1024, 1024]
+    assert [client.max_keepalive_connections for client in clients] == [512, 512]
+    assert [client.max_retries for client in clients] == [7, 7]
 
 
 def test_setup_clients_assigns_renderer_model_name():
@@ -106,5 +116,10 @@ def test_setup_clients_preserves_chat_client_defaults():
             api_key_var="PRIME_API_KEY",
             base_url="http://worker-a:8000/v1",
             headers={},
+            timeout=None,
+            connect_timeout=30.0,
+            max_connections=28000,
+            max_keepalive_connections=28000,
+            max_retries=10,
         )
     ]

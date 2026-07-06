@@ -195,7 +195,7 @@ class EnvConfig(vf.EnvServerConfig):
     def resolve_legacy_env_kwargs(self):
         """For a v0/legacy env, surface the v1 knobs the legacy bridge applies via
         ``extra_env_kwargs`` (``env.set_kwargs(...)``): the per-rollout wall-clock timeout and
-        the multi-turn completion-token budget. (``max_seq_len`` is added per train run in
+        the multi-turn completion-token budget. (``max_seq_len`` is added per train/eval env in
         ``OrchestratorConfig.resolve_env_config``, which knows ``seq_len``.)"""
         if self.is_legacy:
             if self.timeout.rollout is not None:
@@ -822,15 +822,18 @@ class OrchestratorConfig(BaseConfig):
 
     @model_validator(mode="after")
     def resolve_env_config(self):
-        """Set vLLM sampling defaults on each train env from top-level fields."""
-        if self.training_mode == "sft":
-            return self
-        for env in self.train.env:
-            env.sampling.extra_body.setdefault("top_k", -1)
-            env.sampling.extra_body.setdefault("min_p", 0.0)
-            env.sampling.extra_body.setdefault("return_token_ids", True)
-            if env.is_legacy:
-                # v0 env: cap per-turn response tokens to the training budget (the legacy
-                # bridge applies extra_env_kwargs via env.set_kwargs).
-                env.extra_env_kwargs["max_seq_len"] = self.seq_len
+        """Set train sampling defaults and legacy env sequence caps."""
+        if self.training_mode != "sft":
+            for env in self.train.env:
+                env.sampling.extra_body.setdefault("top_k", -1)
+                env.sampling.extra_body.setdefault("min_p", 0.0)
+                env.sampling.extra_body.setdefault("return_token_ids", True)
+                if env.is_legacy:
+                    # v0 env: cap per-turn response tokens to the training budget (the legacy
+                    # bridge applies extra_env_kwargs via env.set_kwargs).
+                    env.extra_env_kwargs["max_seq_len"] = self.seq_len
+        if self.eval is not None:
+            for env in self.eval.env:
+                if env.is_legacy:
+                    env.extra_env_kwargs["max_seq_len"] = self.seq_len
         return self
