@@ -47,6 +47,7 @@ logger.propagate = False
 
 # Cap mid-rollout reconnects so a chronically-flapping box can't loop forever.
 _MAX_MIDROLLOUT_RECONNECTS = int(os.environ.get("VMVM_TB_MIDROLLOUT_RECONNECTS", "5"))
+_DEFAULT_FORMAT_REWARD_PENALTY = float(os.environ.get("VMVM_TB_FORMAT_REWARD_PENALTY", "0.05"))
 
 _NATIVE_SYS = NATIVE_SYSTEM_PROMPT + (
     "\n\nTo run a command, output EXACTLY one tool call and nothing else:\n"
@@ -101,6 +102,40 @@ def _count_tokens(text: str) -> int:
 async def tb_reward(state, **kwargs) -> float:
     """pass@1 reward, computed during cleanup (before the VM is destroyed)."""
     return float(state.get("tb_reward", 0.0))
+
+
+def _has_middle_parse_error(state) -> bool:
+    return _midturn_parse_error_count(state) > 0
+
+
+def _parse_error_type(err: str) -> str:
+    if err == "No <tool_call> found in response":
+        return "no_tool"
+    return "tool_parse_error"
+
+
+def _midturn_parse_error_count(state, typ: str | None = None) -> int:
+    records = state.get("turn_timings", []) or []
+    records = [rec for rec in records[:-1] if rec.get("kind") == "parse_error"]
+    if typ is None:
+        return len(records)
+    return sum(1 for rec in records if rec.get("parse_error_type") == typ)
+
+
+async def format_midturn_parse_error(state, **kwargs) -> float:
+    return float(_midturn_parse_error_count(state))
+
+
+async def format_midturn_parse_error_any(state, **kwargs) -> float:
+    return 1.0 if _has_middle_parse_error(state) else 0.0
+
+
+async def format_midturn_no_tool(state, **kwargs) -> float:
+    return float(_midturn_parse_error_count(state, "no_tool"))
+
+
+async def format_midturn_tool_parse_error(state, **kwargs) -> float:
+    return float(_midturn_parse_error_count(state, "tool_parse_error"))
 
 
 def _infra_summary(state) -> dict:
@@ -195,11 +230,13 @@ _INFRA_METRIC_FUNCS = [
     infra_setup_fail, infra_grade_conn_lost, infra_grade_upload, infra_grade_no_reward,
     infra_grade_reward_raise, infra_grade_finalize_timeout, infra_grade_timeout,
 ]
-
-
+_FORMAT_METRIC_FUNCS = [
+    format_midturn_parse_error, format_midturn_parse_error_any,
+    format_midturn_no_tool, format_midturn_tool_parse_error,
+]
 def _build_rubric() -> vf.Rubric:
-    funcs = [tb_reward] + _INFRA_METRIC_FUNCS
-    weights = [1.0] + [0.0] * len(_INFRA_METRIC_FUNCS)
+    funcs = [tb_reward] + _FORMAT_METRIC_FUNCS + _INFRA_METRIC_FUNCS
+    weights = [1.0] + [0.0] * (len(_FORMAT_METRIC_FUNCS) + len(_INFRA_METRIC_FUNCS))
     return vf.Rubric(funcs=funcs, weights=weights)
 
 
@@ -303,6 +340,7 @@ class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
         raise_on_infra: bool = True,  # True: on unrecoverable infra (box_gone/state_lost/setup_fail) RAISE -> prime-rl marks has_error and DROPS the rollout (not trained). False: graceful reward-0 env_error completion (kept in batch; for eval analysis).
         drop_test_timeout: bool = True,  # True: a grading test-timeout marks the rollout errored (state["error"], like Option A) -> prime-rl DROPS it (not trained), since a timed-out grader is a budget/flaky signal, not a real reward-0 outcome. False: keep as a reward-0 "timeout" completion.
         drop_grade_env_error: bool = True,  # True: a grade-time env_error (conn-loss/upload/exec failure recovery couldn't fix, incl. grade/no_reward + grade/reward_raise) marks the rollout errored -> DROPPED. These are untrustworthy verdicts, not real fails. False: keep as reward-0 env_error completion (eval analysis). (Mid-rollout unrecoverable drops already raise directly via raise_on_infra.)
+        format_reward_penalty: float = _DEFAULT_FORMAT_REWARD_PENALTY,
         **kwargs,
     ) -> None:
         if native_tools:
@@ -321,6 +359,7 @@ class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
         self.max_parse_retries = max_parse_retries
         self.max_rollout_s = max_rollout_s
         self.image_source = image_source
+        self.format_reward_penalty = format_reward_penalty
 
     def _emit_rollout_state(self, state, st, sub=""):
         # Design-C per-rollout lifecycle beacon (log-only, never raises).
@@ -496,6 +535,8 @@ class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
         if parsed is None:
             state["parse_errors"] = state.get("parse_errors", 0) + 1
             rec["kind"] = "parse_error"
+            rec["parse_error_type"] = _parse_error_type(_err)
+            rec["parse_error_msg"] = _err
             state["turn_timings"].append(rec)
             state["_turn_idx"] = state.get("_turn_idx", 0) + 1
             state["_last_turn_end"] = time.perf_counter()
@@ -754,6 +795,8 @@ class VMVMTerminalBenchEnv(vf.MultiTurnEnv):
             )
             state["tb_outcome"] = result.outcome
             state["tb_reward"] = 1.0 if result.outcome == "pass" else 0.0
+            if self.format_reward_penalty and _has_middle_parse_error(state):
+                state["tb_reward"] -= self.format_reward_penalty
             # final test output + grader details (for inspection / debugging failures)
             state["tb_message"] = result.message
             state["tb_test_output"] = result.test_output

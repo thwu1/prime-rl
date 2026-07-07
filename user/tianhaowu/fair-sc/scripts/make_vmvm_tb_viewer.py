@@ -17,9 +17,33 @@ R = sys.argv[1] if len(sys.argv) > 1 else sorted(
 OUT = sys.argv[2] if len(sys.argv) > 2 else os.path.expanduser('~/vmvm_tb_trajectories.html')
 
 rows = [json.loads(l) for l in open(R) if l.strip()]
+PARSE_FEEDBACK = "Your last message could not be parsed as a valid tool call"
 
 def esc(s):
     return html.escape(str(s)).replace('</script>', '<\\/script>')
+
+def _content_text(m):
+    c = m.get('content', '') if isinstance(m, dict) else str(m)
+    if isinstance(c, list):
+        return '\n'.join(p.get('text', '') if isinstance(p, dict) else str(p) for p in c)
+    return str(c or '')
+
+def _is_parse_feedback(m):
+    return PARSE_FEEDBACK in _content_text(m)
+
+def _tool_name(tc):
+    if not isinstance(tc, dict):
+        return ''
+    fn = tc.get('function') or {}
+    return tc.get('name') or (fn.get('name') if isinstance(fn, dict) else '') or ''
+
+def _assistant_no_tool(m):
+    return isinstance(m, dict) and m.get('role') == 'assistant' and not (m.get('tool_calls') or [])
+
+def _assistant_bad_tool(m):
+    if not isinstance(m, dict) or m.get('role') != 'assistant':
+        return False
+    return any(_tool_name(tc) not in ('bash', 'submit') for tc in (m.get('tool_calls') or []))
 
 def _tool_cmd(tc):
     """Render one tool_call as '$ name: command'. Handles OpenAI {function:{name,arguments}}
@@ -43,6 +67,12 @@ def msg_html(m):
         return f'<div class="msg other"><div class="role">?</div><pre>{esc(m)}</pre></div>'
     role = m.get('role', '?')
     cls = {'system': 'sys', 'user': 'user', 'assistant': 'asst', 'tool': 'tool'}.get(role, 'other')
+    if _is_parse_feedback(m):
+        cls += ' parsefeedback'
+    if _assistant_no_tool(m):
+        cls += ' notool'
+    if _assistant_bad_tool(m):
+        cls += ' badtool'
     parts = []
     rc = m.get('reasoning_content')
     if rc:
@@ -93,7 +123,21 @@ def turns_html(msgs):
                 prev = _cmd_preview(m); break
         inner = ''.join(msg_html(m) for m in g)
         op = ' open' if i == 0 else ''
-        out.append(f'<details class="turn"{op}><summary>{esc(label)}'
+        has_parse = any(isinstance(m, dict) and _is_parse_feedback(m) for m in g)
+        has_no_tool = any(_assistant_no_tool(m) for m in g)
+        has_bad_tool = any(_assistant_bad_tool(m) for m in g)
+        turn_classes = ['turn']
+        tags = []
+        if has_no_tool:
+            turn_classes.append('notool')
+            tags.append('<span class="turntag notool">no-tool</span>')
+        if has_bad_tool:
+            turn_classes.append('badtool')
+            tags.append('<span class="turntag badtool">bad-tool</span>')
+        if has_parse:
+            turn_classes.append('parseerr')
+            tags.append('<span class="turntag parseerr">parse-error</span>')
+        out.append(f'<details class="{" ".join(turn_classes)}"{op}><summary>{esc(label)}{"".join(tags)}'
                    f'<span class="tprev">{esc(prev)}</span></summary>{inner}</details>')
     return ''.join(out)
 
@@ -339,14 +383,24 @@ summary::-webkit-details-marker{{display:none}}
 .meta{{color:#8b949e;font-size:12px;margin-left:8px}}
 .conv{{padding:6px 14px 14px}}
 details.turn{{margin:6px 0;border:1px solid #21262d;border-radius:6px;background:#0d1117}}
+details.turn.notool{{border-color:#d29922}}
+details.turn.badtool{{border-color:#b392f0}}
+details.turn.parseerr{{border-color:#f85149}}
 details.turn>summary{{padding:5px 12px;color:#8b949e;font-size:12px;font-weight:600;cursor:pointer}}
 details.turn[open]>summary{{border-bottom:1px solid #21262d}}
+.turntag{{display:inline-block;margin-left:8px;padding:1px 7px;border-radius:10px;font-size:10px;font-weight:700}}
+.turntag.notool{{background:#3a2e10;color:#e3b341;border:1px solid #6b5716}}
+.turntag.badtool{{background:#241a3a;color:#d2b7ff;border:1px solid #4f3b76}}
+.turntag.parseerr{{background:#3a1417;color:#ff7b72;border:1px solid #6e252a}}
 .tprev{{color:#6e7681;font-weight:400;margin-left:10px;font:11px ui-monospace,Menlo,monospace}}
 .msg{{margin:8px 0;border-radius:6px;overflow:hidden;border:1px solid #21262d}}
 .msg .role{{font-size:11px;text-transform:uppercase;letter-spacing:.5px;padding:3px 10px;color:#8b949e;background:#0d1117}}
 .msg pre{{margin:0;padding:10px 12px;white-space:pre-wrap;word-break:break-word;font:12px/1.45 ui-monospace,Menlo,monospace}}
 .msg.sys pre{{background:#1c2128}} .msg.user pre{{background:#0d1f2d}}
 .msg.asst pre{{background:#12261a}} .msg.tool pre{{background:#251c0d}}
+.msg.notool pre{{background:#2b250d;color:#ffdf8a;border-left:2px solid #d29922}}
+.msg.badtool pre.toolcall{{background:#241a3a;color:#d2b7ff;border-left:2px solid #b392f0}}
+.msg.parsefeedback pre{{background:#3a1417;color:#ffdad7;border-left:2px solid #f85149}}
 .msg pre.reasoning{{background:#1a1726;color:#a99bd6;font-style:italic;border-left:2px solid #6e5fa3}}
 .msg pre.toolcall{{background:#0b1f1f;color:#7ee0c8;border-left:2px solid #2ea7a0}}
 details.timing{{margin:8px 0;border:1px solid #30363d;border-radius:6px;background:#10151c}}
