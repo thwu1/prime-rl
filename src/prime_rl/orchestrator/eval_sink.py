@@ -58,9 +58,14 @@ class EvalSink:
         m = r.metrics or {}
         return bool(m.get("infra_env_error") or m.get("test_timeout"))
 
+    def _is_solved(self, r: Rollout) -> bool:
+        if "tb_reward" in (r.metrics or {}):
+            return r.reward > 0.0
+        return r.reward >= 1.0
+
     def _failure_category(self, r: Rollout) -> str:
         """Coarse per-rollout outcome for the failure breakdown."""
-        if r.reward >= 1.0:
+        if self._is_solved(r):
             return "solved"
         if self._is_infra(r):
             if r.error is not None and r.error.type == "Cancelled":
@@ -203,14 +208,22 @@ class EvalSink:
             metrics.num_turns_min = float(min(num_turns))
             metrics.num_turns_max = float(max(num_turns))
 
-            # pass@k: errored attempts don't count toward k tries
+            # pass@k: errored attempts don't count toward k tries.
             by_example: dict[int, list[float]] = {}
             for r in valid:
                 by_example.setdefault(r.task.idx, []).append(r.reward)
             metrics.n_examples = len(by_example)
             unique_rewards = {float(r) for r in rewards}
-            if unique_rewards.issubset({0.0, 1.0}) and by_example:
-                pass_at_k_per_example = [compute_pass_at_k(rs) for rs in by_example.values()]
+            if unique_rewards.issubset({0.0, 1.0}):
+                pass_at_k_rewards = by_example
+            elif all("tb_reward" in (r.metrics or {}) for r in valid):
+                pass_at_k_rewards = {}
+                for r in valid:
+                    pass_at_k_rewards.setdefault(r.task.idx, []).append(1.0 if self._is_solved(r) else 0.0)
+            else:
+                pass_at_k_rewards = {}
+            if pass_at_k_rewards:
+                pass_at_k_per_example = [compute_pass_at_k(rs) for rs in pass_at_k_rewards.values()]
                 keys = set().union(*(d.keys() for d in pass_at_k_per_example))
                 for k in keys:
                     values = [d[k] for d in pass_at_k_per_example if k in d]

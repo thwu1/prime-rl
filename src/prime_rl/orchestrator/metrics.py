@@ -22,6 +22,15 @@ _DROP_ONLY_INFRA = frozenset({
 })
 
 
+def _compute_solve_rates(df: pd.DataFrame, env_group_size: dict[str, int]) -> tuple[float, float, float]:
+    grouped = df.assign(is_solved=df.reward > 0.0).groupby("group_id")
+    solved_per_problem = grouped.is_solved.sum()
+    solve_none = (solved_per_problem == 0).mean()
+    expected = grouped.env_name.first().map(env_group_size)
+    solve_all = (solved_per_problem == expected).mean()
+    return solve_none, solve_all, 1 - solve_none - solve_all
+
+
 class MetricsBuilder:
     def __init__(self, config: OrchestratorConfig) -> None:
         self.config = config
@@ -70,16 +79,8 @@ class MetricsBuilder:
         # can override the top-level group_size).
         env_group_size = {env.resolved_name: env.group_size for env in self.config.train.env}
 
-        def compute_solve_rates(df):
-            grouped = df.groupby("group_id")
-            reward_per_problem = grouped.reward.sum()
-            solve_none = (reward_per_problem == 0).mean()
-            expected = grouped.env_name.first().map(env_group_size)
-            solve_all = (reward_per_problem == expected).mean()
-            return solve_none, solve_all, 1 - solve_none - solve_all
-
         by_example = results_df.groupby("group_id")
-        solve_none, solve_all, effective_batch_size = compute_solve_rates(results_df)
+        solve_none, solve_all, effective_batch_size = _compute_solve_rates(results_df, env_group_size)
 
         to_log: dict[str, Any] = {
             "progress/tokens": num_tokens,
@@ -162,7 +163,7 @@ class MetricsBuilder:
             to_log[f"reward/{env}/mean"] = env_by_example.reward.mean().mean()
             to_log[f"reward/{env}/max"] = env_by_example.reward.mean().max()
             to_log[f"reward/{env}/min"] = env_by_example.reward.mean().min()
-            sn, sa, eb = compute_solve_rates(env_df)
+            sn, sa, eb = _compute_solve_rates(env_df, env_group_size)
             to_log[f"solve_none/{env}"] = sn
             to_log[f"solve_all/{env}"] = sa
             to_log[f"effective_batch_size/{env}"] = eb
