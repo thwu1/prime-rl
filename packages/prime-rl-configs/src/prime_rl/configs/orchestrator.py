@@ -530,6 +530,11 @@ class OrchestratorConfig(BaseConfig):
     """Filters applied *after* a batch has been assembled. Each filter annotates each rollout;
     rollouts flagged by an enforcing filter are still recorded but not shipped to the trainer."""
 
+    drop_context_limits_before_advantage: bool = False
+    """Drop context-limit training rollouts before computing group advantages. This removes
+    ``context_length``/``prompt_too_long``/``max_input_tokens`` rollouts and rollouts whose
+    final usage reaches ``seq_len``."""
+
     log: LogConfig = LogConfig()
 
     wandb: WandbWithExtrasConfig | None = None

@@ -756,6 +756,9 @@ class Orchestrator:
         payload["train_sink/groups_finalized"] = float(self.train_sink.groups_finalized)
         payload["train_sink/groups_dropped_all_failed"] = float(self.train_sink.groups_dropped_all_failed)
         payload["train_sink/groups_dropped_partial_scored"] = float(self.train_sink.groups_dropped_partial_scored)
+        payload["train_sink/context_limited_before_advantage_total"] = float(
+            self.train_sink.context_limited_before_advantage_total
+        )
         payload["train_sink/pre_filter_dropped"] = float(self.train_sink.pre_filter_dropped)
         return body, payload
 

@@ -216,6 +216,8 @@ threshold = 0.4
 
 Filtered rollouts still appear in W&B distributions, just not in the trainer batch — useful for spotting whether filtering is doing its job.
 
+Set `drop_context_limits_before_advantage = true` to discard context-limit rollouts before advantage calculation. It matches `context_length` / `prompt_too_long` / `max_input_tokens` and final response usage at `seq_len`; it does not drop timeouts or max-turn stops. The cumulative count of excluded context-limit rollouts, including ones already marked as rollout errors, is logged as `train_sink/context_limited_before_advantage_total`.
+
 ## Difficulty Pools
 
 Difficulty pools gradually retire problems the model has solved or never solves. After each rollout, the average reward across a problem's group is compared to two thresholds:

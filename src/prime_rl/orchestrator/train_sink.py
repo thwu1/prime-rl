@@ -27,6 +27,10 @@ from prime_rl.orchestrator.types import Rollout, TrainBatch, TrainBatchMetrics
 from prime_rl.transport import TrainingSample
 from prime_rl.utils.logger import get_logger
 
+_CONTEXT_LIMIT_STOP_CONDITIONS = frozenset(
+    {"context_length", "prompt_too_long", "max_input_tokens"}
+)
+
 
 class TrainSink:
     """Three-level train sink. Constructed once, fed via ``add(rollout)``."""
@@ -75,6 +79,7 @@ class TrainSink:
         self.groups_finalized = 0
         self.groups_dropped_all_failed = 0
         self.groups_dropped_partial_scored = 0
+        self.context_limited_before_advantage_total = 0
         self.survivors_appended = 0
         # First-arrival monotonic ts per pending group -> oldest stall.
         self._group_started: dict[uuid.UUID, float] = {}
@@ -137,6 +142,7 @@ class TrainSink:
             f"groups fin={self.groups_finalized} "
             f"drop(all_failed={self.groups_dropped_all_failed}, "
             f"partial_scored={self.groups_dropped_partial_scored}, "
+            f"ctx_limit_pre_adv={self.context_limited_before_advantage_total}, "
             f"pre_filtered={self.pre_filter_dropped}) surv={self.survivors_appended}"
         )
 
@@ -145,6 +151,7 @@ class TrainSink:
         batch that won't fill is almost always groups stuck a straggler
         or two short — this makes that visible."""
         from collections import Counter as _C
+
         now = time.monotonic()
         oldest = 0.0
         miss: _C = _C()
@@ -207,10 +214,18 @@ class TrainSink:
         )
         rollout.samples = samples or []
 
+    def _is_context_limited(self, rollout: Rollout) -> bool:
+        if rollout.stop_condition in _CONTEXT_LIMIT_STOP_CONDITIONS:
+            return True
+        last = rollout._last_assistant()
+        usage = last.usage if last is not None else None
+        return usage is not None and usage.prompt_tokens + usage.completion_tokens >= self.config.seq_len
+
     def process_group(self, group_id: uuid.UUID) -> None:
         """Finalize one GRPO group: drop errored rollouts (the whole group
-        when ``requires_group_scoring`` and any failed), assign advantages,
-        run pre-batch filters, append survivors to ``pending_batch``."""
+        when ``requires_group_scoring`` and any failed), drop configured
+        pre-advantage context-limit rollouts, assign advantages, run
+        pre-batch filters, append survivors to ``pending_batch``."""
         group = self.pending_groups.pop(group_id, [])
         if not group:
             return
@@ -220,6 +235,10 @@ class TrainSink:
         task_idx = group[0].task.idx
         survivors = [r for r in group if not r.has_error]
         num_errored = len(group) - len(survivors)
+        context_filtered = 0
+        if self.config.drop_context_limits_before_advantage:
+            context_filtered = sum(1 for r in group if self._is_context_limited(r))
+            self.context_limited_before_advantage_total += context_filtered
 
         # Group-scoring envs: any failure makes survivors' rewards unsafe
         # (computed relative to the missing ones)
@@ -238,6 +257,29 @@ class TrainSink:
                 f"rollouts={len(group)} (errored={num_errored}) | dropped: all failed"
             )
             return
+
+        if self.config.drop_context_limits_before_advantage:
+            kept: list[Rollout] = []
+            for r in survivors:
+                if self._is_context_limited(r):
+                    continue
+                kept.append(r)
+            if context_filtered and env.requires_group_scoring:
+                self.groups_dropped_partial_scored += 1
+                get_logger().debug(
+                    f"Finished group | env={env_name} task_idx={task_idx} | "
+                    f"rollouts={len(group)} (errored={num_errored}, context_limited={context_filtered}) | "
+                    "dropped: group-scored context-limited"
+                )
+                return
+            survivors = kept
+            if not survivors:
+                get_logger().debug(
+                    f"Finished group | env={env_name} task_idx={task_idx} | "
+                    f"rollouts={len(group)} (errored={num_errored}, context_limited={context_filtered}) | "
+                    "dropped: all context-limited before advantage"
+                )
+                return
 
         assign_advantages(survivors, env.advantage_fn)
 
@@ -283,7 +325,8 @@ class TrainSink:
         filter_str = ", ".join(f"{n}={c}" for n, c in filtered_by_name.items()) if filtered_by_name else "—"
         get_logger().debug(
             f"Finished group | env={env_name} task_idx={task_idx} | "
-            f"rollouts={len(group)} (errored={num_errored}, filtered={num_filtered}) | "
+            f"rollouts={len(group)} (errored={num_errored}, context_limited={context_filtered}, "
+            f"filtered={num_filtered}) | "
             f"reward={avg_reward:.4f} | filters: {filter_str}"
         )
 
