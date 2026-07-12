@@ -1,0 +1,24 @@
+# Unified eval config (consumed by scripts/run_tb_eval.sh).
+# Serves checkpoint 175 from qwen35_35b_12k_100k_lr1e6_penalty_v2 and runs vf-eval on
+# the same tb-pass80 set as the baseline eval.
+
+# Deployment: reuse the working multi-node inference config; override the served model to the ckpt.
+infer_config = "user/tianhaowu/fair-sc-3/configs/qwen35_infer_multinode_120h.toml"
+
+[infer_overrides]                # emitted verbatim as CLI overrides to `uv run inference @ infer_config`
+"model.name" = "/checkpoint/ram/tianhaowu/qwen35_35b_12k_100k_lr1e6_penalty_v2/20260706-172828/weights/step_175"
+"model.max-model-len" = 250000 # match the ckpt evals for comparability
+
+[eval]
+output_dir = "/checkpoint/ram/tianhaowu/eval/qwen35_35b_12k_100k_lr1e6_penalty_v2-20260706-172828-ckpt175"
+max_concurrent = 512
+model = "/checkpoint/ram/tianhaowu/qwen35_35b_12k_100k_lr1e6_penalty_v2/20260706-172828/weights/step_175"  # -m for vf-eval (served model name)
+sampling = '{"max_tokens":250000,"temperature":1.0,"top_p":0.95,"top_k":20}'
+
+# terminal-bench-2 reference set, 10 rollouts/task (pass@10). env_args mirror the run's [orchestrator.eval] for comparability.
+[[eval.env]]
+vf_env = "vmvm-tb-v2"
+name = "tb-pass80"
+rollouts_per_example = 10
+dataset_path = "/checkpoint/ram/tianhaowu/datasets/terminal_bench/v2_harbor_pass80.jsonl"
+env_args = '{"native_tools":true,"image_source":"vmvm_registry","max_turns":200,"command_timeout":300,"test_timeout":900,"session_timeout":3600,"max_rollout_s":7200,"lease_ttl":"9600s","raise_on_infra":true}'
