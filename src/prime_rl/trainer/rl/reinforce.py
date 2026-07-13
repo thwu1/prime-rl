@@ -30,23 +30,28 @@ def reinforce_loss_fn(
 
     policy_loss = -importance_ratio.detach() * trainer_logprobs * target_weight
 
+    forward_kl = importance_ratio * log_importance_ratio - importance_ratio + 1
+    backward_kl = -log_importance_ratio + importance_ratio - 1
+
     if forward_kl_approx:
-        forward_kl = importance_ratio * log_importance_ratio - importance_ratio + 1
+        forward_kl_loss = forward_kl
     else:
-        forward_kl = (importance_ratio * log_importance_ratio).detach() * trainer_logprobs
+        forward_kl_loss = (importance_ratio * log_importance_ratio).detach() * trainer_logprobs
 
     if backward_kl_approx:
-        backward_kl = -log_importance_ratio + importance_ratio - 1
+        backward_kl_loss = backward_kl
     else:
-        backward_kl = -trainer_logprobs
+        backward_kl_loss = -trainer_logprobs
 
-    per_token_loss = policy_loss + forward_kl_coef * forward_kl + backward_kl_coef * backward_kl
+    per_token_loss = policy_loss + forward_kl_coef * forward_kl_loss + backward_kl_coef * backward_kl_loss
     loss = (loss_mask * per_token_loss).sum()
 
     metrics = {
         "policy_loss": _safe_mean(policy_loss, loss_mask),
         "forward_kl": _safe_mean(forward_kl, loss_mask),
         "backward_kl": _safe_mean(backward_kl, loss_mask),
+        "forward_kl_loss": _safe_mean(forward_kl_loss, loss_mask),
+        "backward_kl_loss": _safe_mean(backward_kl_loss, loss_mask),
         "importance_ratio": _safe_mean(importance_ratio, loss_mask),
         "target_weight": _safe_mean(target_weight, loss_mask),
     }
