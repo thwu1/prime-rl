@@ -1,0 +1,21 @@
+# Pass 2 — second independent pass over the 12k split (fresh trajectory_ids @ temp 1.0 → new samples).
+# Separate output_dir so pass-1 dumps (kimi-k26-12k-think) are NOT overwritten.
+# Same shared LiteLLM router, native Kimi tool-calling, thinking preserved (client patch).
+
+[router]
+api_base       = "http://cpu-085-176:8100/v1"
+model          = "Kimi-K2.6"
+api_key        = "sk-model-proxy-key"
+sticky_header  = "x-litellm-session-id"
+
+[eval]
+output_dir           = "/checkpoint/ram/tianhaowu/eval/kimi-k26-12k-think-pass2"
+max_concurrent       = 512
+rollouts_per_example = 1
+n                    = -1
+sampling = '{"max_tokens":32768,"temperature":1.0,"top_p":0.95,"extra_body":{"chat_template_kwargs":{"thinking":true,"preserve_thinking":true}}}'
+
+[[eval.env]]
+vf_env       = "vmvm-tb-v2"
+dataset_path = "/checkpoint/ram/tianhaowu/datasets/terminal_bench/v2_train_12k_tr.jsonl"
+env_args     = '{"native_tools":true,"image_source":"vmvm_registry","max_turns":200,"command_timeout":300,"test_timeout":900,"session_timeout":3600,"max_rollout_s":7200,"lease_ttl":"9600s","raise_on_infra":false}'

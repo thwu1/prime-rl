@@ -1,0 +1,18 @@
+# Resume shard 3: tasks lacking 4 rollouts after the original 48h run.
+[router]
+api_base      = "http://cpu-076-028:8100/v1"
+model         = "Kimi-K2.6"
+api_key       = "sk-model-proxy-key"
+sticky_header = "x-litellm-session-id"
+
+[eval]
+output_dir           = "/checkpoint/ram/tianhaowu/eval/kimi-k26-17k-think-r4/shard3_resume"
+max_concurrent       = 128
+rollouts_per_example = 4
+n                    = -1
+sampling = '{"max_tokens":32768,"temperature":1.0,"top_p":0.95,"extra_body":{"chat_template_kwargs":{"thinking":true,"preserve_thinking":true}}}'
+
+[[eval.env]]
+vf_env       = "vmvm-tb-v2"
+dataset_path = "/checkpoint/ram/tianhaowu/datasets/terminal_bench/v2_train_full_tr_shard3_resume.jsonl"
+env_args     = '{"native_tools":true,"image_source":"vmvm_registry","max_turns":200,"command_timeout":300,"test_timeout":900,"session_timeout":3600,"max_rollout_s":7200,"lease_ttl":"9600s","raise_on_infra":false}'

@@ -20,10 +20,9 @@ export WANDB_MODE=online
 # CUDA 12.9 toolkit (matches torch cu129) that has the e8m0 headers. No-op for non-fla models.
 export CUDA_HOME=/checkpoint/ram-h100-2/tianhaowu/envs/cuda129
 export PATH="$CUDA_HOME/bin:$PATH"
-# The rl entrypoint pre-downloads the model on the LOGIN node, whose proxy blocks HF
-# (403 Domain not in allowlist). Models are pre-cached under $HF_HOME, so resolve offline.
-# (The sbatch template already sets HF_HUB_OFFLINE=1 for the compute-node job.)
-export HF_HUB_OFFLINE=1
+# The rl entrypoint pre-downloads uncached models before submitting the SLURM job.
+# Compute-node processes still set HF_HUB_OFFLINE=1 in the sbatch template.
+export HF_HUB_OFFLINE=0
 
 if [ $# -lt 1 ]; then
   echo "usage: $0 <config.toml> [extra rl args...]" >&2

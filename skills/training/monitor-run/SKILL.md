@@ -47,6 +47,14 @@ tmux send-keys -t "$SESSION:Launcher" 'your command here' Enter
 
 After a restart, verify all processes are back up and progress resumed before the next check-in.
 
+### Deferred handoffs
+
+Do not rely on an assistant session or IDE timer for a deferred launch. Submit a small
+SLURM watcher that persists its status and launched job IDs on shared storage. Coverage
+gates must include every original, resumed, and replacement output directory; prefer a
+recursive result-file scan over a fixed list of run suffixes. Make the target launcher
+idempotent so a requeued watcher cannot submit duplicate jobs.
+
 ---
 
 ## Reference
@@ -139,7 +147,7 @@ curl -s http://localhost:8000/metrics | grep -E "num_requests|gpu_cache_usage"
 
 ```bash
 wc -l {output_dir}/rollouts/step_42/train_rollouts.jsonl
-head -1 {output_dir}/rollouts/step_42/train_rollouts.jsonl | python -m json.tool
+head -1 {output_dir}/rollouts/step_42/train_rollouts.jsonl | uv run python -m json.tool
 jq '.reward' {output_dir}/rollouts/step_42/train_rollouts.jsonl
 ```
 

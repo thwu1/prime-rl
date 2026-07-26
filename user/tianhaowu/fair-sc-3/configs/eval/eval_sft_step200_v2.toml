@@ -1,0 +1,22 @@
+# Eval SFT checkpoint step_200 (val loss ~0.390) on tb-pass80. Brackets the val minimum (step_150,
+# 0.3874) together with step_100. IDENTICAL eval setup to eval_sft_step600_v2.toml.
+# Uses the p1-val run (the one with the measured val curve).
+
+infer_config = "user/tianhaowu/fair-sc-3/configs/qwen35_infer_multinode_120h.toml"
+
+[infer_overrides]
+"model.name" = "/checkpoint/ram/tianhaowu/sft_kimi12k/outputs/qwen35-35b-kimi12k-p1-val/weights/step_200"
+"model.max-model-len" = 250000
+
+[eval]
+output_dir = "/checkpoint/ram/tianhaowu/eval/sft-kimi12k-step200-pass80"
+max_concurrent = 512
+model = "/checkpoint/ram/tianhaowu/sft_kimi12k/outputs/qwen35-35b-kimi12k-p1-val/weights/step_200"
+sampling = '{"max_tokens":250000,"temperature":1.0,"top_p":0.95,"top_k":20}'
+
+[[eval.env]]
+vf_env = "vmvm-tb-v2"
+name = "tb-pass80"
+rollouts_per_example = 10
+dataset_path = "/checkpoint/ram/tianhaowu/datasets/terminal_bench/v2_harbor_pass80.jsonl"
+env_args = '{"native_tools":true,"image_source":"vmvm_registry","max_turns":200,"command_timeout":300,"test_timeout":900,"session_timeout":3600,"max_rollout_s":7200,"lease_ttl":"9600s","raise_on_infra":true}'
