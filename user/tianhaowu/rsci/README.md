@@ -1,0 +1,62 @@
+# RSCI GSM-Infinite data pipeline
+
+This directory generates the arithmetic graph problems used by *On the Interplay of Pre-Training, Mid-Training, and RL on Reasoning Language Models*. It vendors the released Interplay/GSM-Infinite generator at commit `ab728f0` and wraps it with reproducible sampling, exact operation counts, stable content IDs, deduplication, and JSONL files that can feed prime-rl SFT work.
+
+## Smoke generation
+
+Run commands from the prime-rl repository root:
+
+```bash
+uv run user/tianhaowu/rsci/generate.py \
+  --output-dir /tmp/rsci-gsm-infinite-smoke \
+  --ops 2 3 \
+  --train-per-op 2 \
+  --validation-per-op 1 \
+  --test-per-op 1
+```
+
+The output contains `train.jsonl`, `validation.jsonl`, `test.jsonl`, `manifest.json`, and a SQLite deduplication index. Existing managed files are never replaced unless `--overwrite` is passed.
+
+To reproduce the paper's 99% zoo / 1% teacher context mixture, request enough samples for the minority allocation to be nonzero:
+
+```bash
+uv run user/tianhaowu/rsci/generate.py \
+  --output-dir /checkpoint/ram/tianhaowu/rsci/context-99-1 \
+  --ops 2 3 4 5 6 7 8 9 10 \
+  --train-per-op 10000 \
+  --validation-per-op 1000 \
+  --test-per-op 1000 \
+  --context-mixture zoo=0.99,teacher=0.01
+```
+
+Supported context names are `zoo`, `teacher`, and `movie`; these map to the upstream templates `crazy_zootopia`, `teachers_in_school`, and `movie_festival_awards`. The two generation modes are `forward` and `reverse`.
+
+## Schema
+
+Every row retains the upstream `problem`, `question`, `solution`, `op`, `template`, `mode`, `length`, and `d` fields. It additionally contains:
+
+- `op_count`: the paper's difficulty measure—the number of dependency edges used by the solution. It is not the identity of an arithmetic operator.
+- `op_class`: an exact classification label such as `op_02`.
+- `generalization_split`: `id` through `--id-max-op` (10 by default), otherwise `ood`.
+- `operator_types` and `solution_operator_counts`: arithmetic symbols present in the gold rationale.
+- `graph_relation_counts`: addition, subtraction, multiplication, copy, and constant relations recovered from the generated graph.
+- `answer`: the final answer parsed from the gold solution.
+- `prompt`, `completion`, `text`, and `messages`: paper-compatible tags and prime-rl-friendly training views.
+
+The paper-format sequence is:
+
+```text
+<question> {problem} {question} </question> <solution> {rationale} </solution> <answer> {answer} </answer>
+```
+
+The requested and realized mixtures, per-split/per-operation counts, retry statistics, source revision, and SHA-256 file hashes are recorded in `manifest.json`.
+
+## Included eval fixture
+
+`examples/eval_op2_10_10.jsonl` contains 10 deterministic in-distribution examples over the pretraining operation support `op=2..10`. Every operation appears once and midpoint `op=6` appears twice to reach 10 rows. Forward and reverse modes contribute five rows each. The 99% zoo / 1% teacher target rounds to 10 zoo rows at this sample size; exact counts and the file hash are recorded in the adjacent manifest.
+
+## Scope
+
+This first pipeline produces the released `zero_context` medium (`d=2`) or hard (`d=3`) problems for operations 2–20. The released operation-to-generator schedule is used automatically. Values outside that range require an explicit `--generator-op-max` because the paper code does not publish a calibrated schedule for them.
+
+Generation is rejection sampling. `AssertionError`, `ValueError`, and a small set of arithmetic/index errors are counted as expected rejected proposals; unexpected exceptions stop the run. Partial JSONL files remain marked `.partial` so a failed run cannot look complete.
