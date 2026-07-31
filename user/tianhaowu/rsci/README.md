@@ -102,8 +102,10 @@ uv run user/tianhaowu/rsci/prepare_sft_data.py \
 Then launch through prime-rl so the resolved TOML and SLURM script are captured:
 
 ```bash
-uv run sft @ user/tianhaowu/rsci/configs/sft/figure3_op11_14_smoke.toml
-uv run sft @ user/tianhaowu/rsci/configs/sft/figure3_op11_14_200k_1epoch.toml
+bash user/tianhaowu/rsci/scripts/run_sft.sh \
+  user/tianhaowu/rsci/configs/sft/figure3_op11_14_smoke.toml
+bash user/tianhaowu/rsci/scripts/run_sft.sh \
+  user/tianhaowu/rsci/configs/sft/figure3_op11_14_200k_1epoch.toml
 ```
 
 The SFT configs select `templates/single_node_sft_offline.sbatch.j2`. It uses
@@ -111,7 +113,8 @@ the already-synchronized project environment with `uv run --no-sync` because
 the compute nodes cannot fetch the optional ARM vLLM wheel and SFT does not use
 vLLM. Unset `SBATCH_OUTPUT` and `SBATCH_ERROR` when launching if the login
 environment defines them, so the experiment-local log path in the template is
-honored.
+honored. `scripts/run_sft.sh` applies those launch settings and forwards any
+additional CLI overrides after the config path.
 
 After the four checkpoint directories are stable, launch their matched ID and
 OOD-mid evaluations with:

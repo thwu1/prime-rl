@@ -101,12 +101,12 @@ sbatch user/tianhaowu/rsci/scripts/run_eval.sbatch \
 SFT dry-run, smoke, and main run:
 
 ```bash
-env -u SBATCH_OUTPUT -u SBATCH_ERROR HF_HUB_OFFLINE=1 \
-  uv run sft @ user/tianhaowu/rsci/configs/sft/figure3_op11_14_smoke.toml --dry-run
-env -u SBATCH_OUTPUT -u SBATCH_ERROR HF_HUB_OFFLINE=1 \
-  uv run sft @ user/tianhaowu/rsci/configs/sft/figure3_op11_14_smoke.toml
-env -u SBATCH_OUTPUT -u SBATCH_ERROR HF_HUB_OFFLINE=1 \
-  uv run sft @ user/tianhaowu/rsci/configs/sft/figure3_op11_14_200k_1epoch.toml
+bash user/tianhaowu/rsci/scripts/run_sft.sh \
+  user/tianhaowu/rsci/configs/sft/figure3_op11_14_smoke.toml --dry-run
+bash user/tianhaowu/rsci/scripts/run_sft.sh \
+  user/tianhaowu/rsci/configs/sft/figure3_op11_14_smoke.toml
+bash user/tianhaowu/rsci/scripts/run_sft.sh \
+  user/tianhaowu/rsci/configs/sft/figure3_op11_14_200k_1epoch.toml
 bash user/tianhaowu/rsci/scripts/run_sft_checkpoint_evals.sh
 ```
 

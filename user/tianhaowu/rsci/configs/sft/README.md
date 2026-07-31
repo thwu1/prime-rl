@@ -8,7 +8,8 @@ packing and resolves one epoch to 248 optimizer updates. Loss is applied only
 to the solution and answer. The 200-step config is a fixed-update ablation.
 
 Run the one-step config first whenever the model or prime-rl revision changes.
-All configs launch through `uv run sft`, which writes the resolved config and
-generated SLURM script beneath the configured output directory. They select
-the RSCI offline template so compute jobs use the already-synchronized project
+All configs launch through `scripts/run_sft.sh`, which delegates to
+`uv run sft`, writes the resolved config and generated SLURM script beneath the
+configured output directory, and forwards CLI overrides. They select the RSCI
+offline template so compute jobs use the already-synchronized project
 environment without attempting unrelated dependency downloads.
