@@ -1,0 +1,38 @@
+#!/bin/bash
+
+#SBATCH --job-name={{ job_name }}
+#SBATCH --qos=h100_ram_high
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --gres=gpu:{{ gpus_per_node }}
+#SBATCH --exclusive
+#SBATCH --partition={{ partition }}
+{%- if account %}
+#SBATCH --account={{ account }}
+{%- endif %}
+{%- if time %}
+#SBATCH --time={{ time }}
+{%- endif %}
+{%- if nodelist %}
+#SBATCH --nodelist={{ nodelist }}
+{%- endif %}
+{%- if exclude %}
+#SBATCH --exclude={{ exclude }}
+{%- endif %}
+#SBATCH --output={{ output_dir }}/job_%j.log
+#SBATCH --error={{ output_dir }}/job_%j.log
+
+set -e
+
+export PROJECT_DIR={{ project_dir }}
+export HF_HUB_OFFLINE=1
+unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy
+
+cd "$PROJECT_DIR"
+[ -f .env ] && source .env
+source .venv/bin/activate
+
+{% if pre_run_command %}
+{{ pre_run_command }}
+{% endif %}
+uv run --no-sync sft @ {{ config_path }}

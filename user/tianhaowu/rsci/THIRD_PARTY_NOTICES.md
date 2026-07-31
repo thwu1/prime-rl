@@ -5,3 +5,8 @@
 The vendored files retain the upstream generation logic. Imports were made package-relative, visualization-only dependencies were made lazy, terminal coloring was replaced by a local no-op helper, parameter-node hashing was made process-stable, and an upstream `exit(0)` failure path now raises a proposal-rejection error.
 
 The upstream project is distributed under the MIT License; see `vendor/gsm_infinite/LICENSE`.
+
+`solution_graph.py` is a focused adaptation of the upstream
+`utils/solution_dependency_graph.py` strict verifier at the same commit. Its
+parse and graph semantics are preserved; visualization-only conversion code
+was omitted. The same MIT license applies.

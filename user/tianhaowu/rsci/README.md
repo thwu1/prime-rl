@@ -2,6 +2,10 @@
 
 This directory generates the arithmetic graph problems used by *On the Interplay of Pre-Training, Mid-Training, and RL on Reasoning Language Models*. It vendors the released Interplay/GSM-Infinite generator at commit `ab728f0` and wraps it with reproducible sampling, exact operation counts, stable content IDs, deduplication, and JSONL files that can feed prime-rl SFT work.
 
+It also contains the config-driven Figure 3 reproduction and one-off SFT
+treatment. See `EXPERIMENT.md` for the frozen protocol, job ledger, exact
+commands, and measured results.
+
 ## Smoke generation
 
 Run commands from the prime-rl repository root:
@@ -54,6 +58,67 @@ The requested and realized mixtures, per-split/per-operation counts, retry stati
 ## Included eval fixture
 
 `examples/eval_op2_10_10.jsonl` contains 10 deterministic in-distribution examples over the pretraining operation support `op=2..10`. Every operation appears once and midpoint `op=6` appears twice to reach 10 rows. Forward and reverse modes contribute five rows each. The 99% zoo / 1% teacher target rounds to 10 zoo rows at this sample size; exact counts and the file hash are recorded in the adjacent manifest.
+
+## Figure 3 reproduction
+
+Fetch the authors' released composition base, op11-14 RL checkpoint, validation
+set, and held-out SFT pool with:
+
+```bash
+unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy
+uv run user/tianhaowu/rsci/fetch_interplay_artifacts.py \
+  --cache-dir /checkpoint/ram-h100-2/tianhaowu/rsci/hf/hub
+```
+
+Figure 3 evaluation uses 200 prompts per operation, 128 samples per prompt,
+temperature 0.7, top-p 1.0, and the paper's strict dependency-graph verifier.
+Both ordered empirical pass@k (the released strict aggregation) and the
+unbiased pass@k estimator are emitted. Launch a config on one eight-GPU node:
+
+```bash
+sbatch user/tianhaowu/rsci/scripts/run_eval.sbatch \
+  user/tianhaowu/rsci/configs/eval/figure3_base_id_op2_10.toml
+```
+
+Every eval output includes `configs/eval.toml`, the fully resolved
+`configs/inference.toml`, source hashes, `generations.jsonl`,
+`strict_results.jsonl`, and `metrics.json`. Incomplete generations are resumed
+by operation, row index, and sample rank.
+
+## SFT treatment
+
+Convert all 50K held-out examples for each of op11-14 into a local Hugging Face
+parquet directory:
+
+```bash
+uv run user/tianhaowu/rsci/prepare_sft_data.py \
+  --input-dir /checkpoint/ram-h100-2/tianhaowu/rsci/hf/hub/datasets--Interplay-LM-Reasoning--composition/snapshots/a09d5c14c02bfa339143fb00a93274d1a84aa31d/heldout \
+  --output-dir /checkpoint/ram-h100-2/tianhaowu/rsci/data/sft/op11-14-200k \
+  --operations 11 12 13 14 \
+  --examples-per-operation 50000 \
+  --tokenizer /checkpoint/ram-h100-2/tianhaowu/rsci/hf/hub/models--Interplay-LM-Reasoning--extrapolation_rl/snapshots/4861bd030e6fb92d94be3a1cecab89c2fac4b94a/id2-10_0.2easy_0.3medium_0.5hard/base
+```
+
+Then launch through prime-rl so the resolved TOML and SLURM script are captured:
+
+```bash
+uv run sft @ user/tianhaowu/rsci/configs/sft/figure3_op11_14_smoke.toml
+uv run sft @ user/tianhaowu/rsci/configs/sft/figure3_op11_14_200k_1epoch.toml
+```
+
+The SFT configs select `templates/single_node_sft_offline.sbatch.j2`. It uses
+the already-synchronized project environment with `uv run --no-sync` because
+the compute nodes cannot fetch the optional ARM vLLM wheel and SFT does not use
+vLLM. Unset `SBATCH_OUTPUT` and `SBATCH_ERROR` when launching if the login
+environment defines them, so the experiment-local log path in the template is
+honored.
+
+After the four checkpoint directories are stable, launch their matched ID and
+OOD-mid evaluations with:
+
+```bash
+bash user/tianhaowu/rsci/scripts/run_sft_checkpoint_evals.sh
+```
 
 ## Scope
 
