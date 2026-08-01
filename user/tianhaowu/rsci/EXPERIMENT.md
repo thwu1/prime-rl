@@ -250,6 +250,13 @@ from the fixed original op2-10 pretrained model—not the previous trained
 weights—and trains for one packed epoch on that cumulative dataset. The trained
 round model is preserved and becomes the teacher that generates opN+1.
 
+Checkpoint selection uses validation loss on an additional 5K accepted
+trajectories from a deterministic, prompt-disjoint stream with the same
+operation, prompt distribution, teacher, sampling, and answer/strict filter as
+the round's 50K training shard. Validation trajectories never enter training.
+Every matched validation/checkpoint interval is preserved; the minimum-loss
+checkpoint becomes the post-eval model and next-operation teacher.
+
 The answer track gates continuation on answer-only unbiased pass@1; the strict
 track gates on strict-graph unbiased pass@1. The fixed 200-prompt validation set
 records both verifiers at pass@1, 2, 4, 8, 16, 32, 64, and 128 before each
@@ -301,3 +308,95 @@ values. The 128-row smoke repeats its tiny shard across eight accumulation
 microbatches (`progress/epoch=8`) and predictably overfits; its scores are wiring
 diagnostics, not scientific estimates. Both end-to-end smoke states finalized
 at 2026-08-01 08:19 UTC.
+
+The minimum-validation extension was then exercised from fresh roots. In v3,
+both 64-row held-out shards were correctly prompt-disjoint, but validation at
+micro-batch 4 could not fill one 8,192-token pack on every rank. Answer SFT job
+`9809458` therefore logged `Validation at step 1 had no valid tokens`; the
+selector produced no result, as intended. The v3 watchers `9809281`/`9809282`
+and remaining strict validation job `9809459` were cancelled without altering
+their artifacts. This added a pre-training token-capacity guard and changed the
+smoke-only validation micro-batch to 1.
+
+The corrected v4 smoke completed end to end:
+
+| Jobs | Treatment/phase | Result |
+| --- | --- | --- |
+| `9809504`, `9809505` | answer/strict watchers | Complete; both states are `max_operation_exhausted` |
+| `9809545`, `9809544` | 128-trace training collection | Exactly 128 accepted in each track |
+| `9809575`, `9809574` | 64-trace held-out collection | Offset 1,000,000; zero prompt-digest overlap in each track |
+| `9809747`, `9809752` | one-step SFT + final validation | Finite losses 0.21474494 / 0.22230619; stable step-1 checkpoints |
+| `9809783`, `9809784` | selected-checkpoint post-eval | Complete with all pass@k metrics |
+
+The answer and strict selectors each found exactly the expected step-1
+candidate, verified its `STABLE` marker, and recorded it as `trained_model`.
+Their two-prompt post-evals measured answer/strict pass@1 of 5.08%/0% and
+3.12%/0%, respectively. Those scores reflect deliberate one-step overfitting
+on 128 traces; the important result is that collection, disjointness audit,
+cumulative validation data, finite final-step loss, stable checkpoint
+selection, and selected-model evaluation all completed without bypasses.
+
+### Production iterative ledger
+
+The preserved op11 training shards were generated with `f415de55d`. Production
+uses 50,000 accepted training traces, 5,000 prompt-disjoint same-distribution
+held-out traces, and 200 fixed evaluation prompts per operation.
+
+![Iterative frontier SFT progress](figures/frontier_progress.svg)
+
+*Regenerated from the live manifests and metrics. The current post-SFT panel is
+the superseded final-checkpoint diagnostic; it will be replaced by the
+minimum-validation-loss checkpoints after retraining.*
+
+| Watcher job | Treatment | Root | Status |
+| --- | --- | --- | --- |
+| `9808634` | answer-correct | `frontier-sft/answer-correct` | Paused for min-val checkpoint selection; op11 answer gate 85.42% |
+| `9808635` | strict-correct | `frontier-sft/strict-correct` | Paused for min-val checkpoint selection; op11 strict gate 48.52% |
+
+The audited op11 baseline was materialized under each root with provenance to
+the original 200-prompt Figure 3 artifact. Answer collection job `9808666` and
+strict collection job `9808667` were submitted at 08:23 UTC; both target
+exactly 50,000 accepted traces with 128 samples per generated prompt.
+
+Answer op11 collection completed with exactly 50,000 selected traces from
+67,584 generations over 528 prompts. All selected traces have the correct final
+answer, but only 28,157 (56.31%) pass the strict graph verifier. This measured
+43.69-point contamination rate is the intended difference between the two
+treatments, not a verifier or filtering bug. Its exact cumulative parquet has
+50,000 rows, zero overlength rows, and a 73-step packed one-epoch plan. SFT job
+`9808808` completed from the fixed original base with final loss 0.1145, no
+NaNs, `progress/epoch=1`, and stable checkpoint `weights/step_73`.
+
+The 200-prompt answer-track post-eval (`9808874`) measured answer pass@1
+45.74% and strict pass@1 16.91%, down from the base's 85.42% / 48.52% on op11.
+Pass@128 remains 96.5% answer and 77.0% strict. The treatment therefore
+overfits/degrades op11 despite using answer-correct traces. A plausible
+mechanism is the combination of only 528 unique prompts represented by 50K
+trajectories and 43.69% graph-incorrect accepted traces; the matched strict
+treatment separates those factors.
+
+Strict op11 collection completed with exactly 50,000 strict traces from 118,784
+generations over 928 prompts. All 50,000 pass both answer and graph checks. The
+unfiltered pool contained 88,756 answer-correct but only 50,062 strict-correct
+generations, independently confirming the large answer/reasoning gap measured
+in the answer-filtered shard. Its exact cumulative parquet has 50,000 rows,
+zero overlength rows, and a 72-step packed one-epoch plan. Reset-from-base SFT
+job `9808836` completed with final loss 0.1290, no NaNs,
+`progress/epoch=1`, and stable checkpoint `weights/step_72`. Both matched
+post-SFT evaluations completed successfully.
+
+The strict-track 200-prompt post-eval (`9808928`) measured answer pass@1
+42.29% and strict pass@1 13.55%, with pass@128 86.0% / 52.0%. Strict filtering
+therefore did not prevent the op11 collapse and was slightly worse than the
+answer track's 45.74% / 16.91% pass@1. Verifier contamination alone is not a
+sufficient explanation; repeated trajectories from fewer than 1K unique
+prompts and the one-epoch SFT dynamics remain confounded. These diagnostics
+triggered the checkpoint-selection correction below.
+
+These op11 post-evals used the final one-epoch checkpoints and are retained as
+diagnostics, not selected-model results. On the researcher's clarification,
+watchers `9808634`/`9808635`, answer op12 collection `9808998`, and strict op12
+pre-eval `9808972` were cancelled at 08:46 UTC before further data entered the
+loop. The valid 50K op11 shards and all diagnostics are preserved. Production
+resumes only after same-distribution held-out validation and minimum-loss
+checkpoint selection are implemented and audited.

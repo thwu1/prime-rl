@@ -181,7 +181,8 @@ def generate_prompt(
     existing_digests: set[str],
     quiet_output: TextIO,
 ) -> dict[str, Any]:
-    context, mode, cell_index = generation_cell(prompt_index)
+    stream_index = prompt_index + int(eval_config.get("prompt_stream_offset", 0))
+    context, mode, cell_index = generation_cell(stream_index)
     task = GenerationTask(
         split=f"frontier-op{int(eval_config['operation'])}",
         op=int(eval_config["operation"]),
@@ -206,6 +207,7 @@ def generate_prompt(
             continue
         existing_digests.add(digest)
         row["prompt_index"] = prompt_index
+        row["prompt_stream_index"] = stream_index
         row["generation_attempt"] = attempt
         row["content_sha256"] = digest
         return row
@@ -298,6 +300,7 @@ def accepted_row(
         "id": f"frontier_{trace_hash[:24]}",
         "prompt_id": str(prompt["id"]),
         "prompt_index": int(prompt["prompt_index"]),
+        "prompt_stream_index": int(prompt.get("prompt_stream_index", prompt["prompt_index"])),
         "sample_rank": int(generation["sample_rank"]),
         "template": str(prompt["template"]),
         "mode": str(prompt["mode"]),
@@ -445,6 +448,14 @@ async def collect(config_path: Path, config: dict[str, Any]) -> dict[str, Any]:
         "accepted_counts_by_template": dict(sorted(accepted_counts_by_template.items())),
         "accepted_counts_by_mode": dict(sorted(accepted_counts_by_mode.items())),
         "samples_per_prompt": samples_per_prompt,
+        "prompt_seed": int(eval_config["prompt_seed"]),
+        "prompt_stream_offset": int(eval_config.get("prompt_stream_offset", 0)),
+        "generator": {
+            "number_range": int(eval_config.get("number_range", 5)),
+            "depth": int(eval_config.get("depth", 2)),
+            "id_max_op": int(eval_config.get("id_max_op", 10)),
+            "generator_op_max": eval_config.get("generator_op_max"),
+        },
         "sampling": {
             "temperature": eval_config["temperature"],
             "top_p": eval_config["top_p"],

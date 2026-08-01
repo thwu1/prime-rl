@@ -119,6 +119,11 @@ def load_frontier_config(path: Path) -> dict[str, Any]:
         "stop_pass1",
         "examples_per_eval_operation",
         "target_accepted",
+        "validation_accepted",
+        "validation_prompt_stream_offset",
+        "validation_interval_divisor",
+        "validation_batch_size",
+        "validation_micro_batch_size",
         "max_prompts",
         "prompt_batch_size",
         "prompt_seed",
@@ -148,6 +153,12 @@ def load_frontier_config(path: Path) -> dict[str, Any]:
         raise ValueError(f"filter_mode={frontier['filter_mode']} requires gate_metric={expected_gate}")
     if int(frontier["samples_per_prompt"]) != 128:
         raise ValueError("The frontier protocol requires samples_per_prompt=128")
+    if int(frontier["validation_accepted"]) < 1:
+        raise ValueError("validation_accepted must be positive")
+    if int(frontier["validation_prompt_stream_offset"]) < int(frontier["max_prompts"]):
+        raise ValueError("validation_prompt_stream_offset must exceed the entire training prompt stream")
+    if int(frontier["validation_interval_divisor"]) < 1:
+        raise ValueError("validation_interval_divisor must be positive")
     if int(frontier["start_operation"]) > int(frontier["max_operation"]):
         raise ValueError("start_operation must be <= max_operation")
     return frontier
@@ -227,14 +238,17 @@ def collection_config(
     model: str,
     infer_path: Path,
     output_dir: Path,
+    target_accepted: int,
+    prompt_stream_offset: int,
 ) -> dict[str, Any]:
     eval_config = {
         "operation": operation,
         "filter_mode": str(frontier["filter_mode"]),
-        "target_accepted": int(frontier["target_accepted"]),
+        "target_accepted": target_accepted,
         "max_prompts": int(frontier["max_prompts"]),
         "prompt_batch_size": int(frontier["prompt_batch_size"]),
         "prompt_seed": int(frontier["prompt_seed"]),
+        "prompt_stream_offset": prompt_stream_offset,
         "number_range": int(frontier.get("number_range", 5)),
         "depth": int(frontier.get("depth", 2)),
         "id_max_op": int(frontier.get("id_max_op", 10)),
@@ -267,10 +281,13 @@ def sft_config(
     frontier: dict[str, Any],
     operation: int,
     dataset_dir: Path,
+    validation_dataset_dir: Path,
     model_dir: Path,
     max_steps: int,
 ) -> dict[str, Any]:
     warmup_steps = int(max_steps * float(frontier["warmup_ratio"]))
+    validation_interval = max(1, max_steps // int(frontier["validation_interval_divisor"]))
+    candidate_count = len(range(validation_interval, max_steps, validation_interval)) + 1
     return {
         "output_dir": str(model_dir),
         "max_steps": max_steps,
@@ -296,6 +313,21 @@ def sft_config(
             "seed": 0,
             "loss_mask": {"system": False, "user": False, "assistant": True, "tool": False},
         },
+        "val": {
+            "interval": validation_interval,
+            "eval_on_start": False,
+            "data": {
+                "type": "sft",
+                "name": str(validation_dataset_dir),
+                "seq_len": int(frontier["seq_len"]),
+                "batch_size": int(frontier["validation_batch_size"]),
+                "micro_batch_size": int(frontier["validation_micro_batch_size"]),
+                "pack_function": "cat",
+                "shuffle": False,
+                "seed": 0,
+                "loss_mask": {"system": False, "user": False, "assistant": True, "tool": False},
+            },
+        },
         "optim": {
             "type": "adamw",
             "lr": float(frontier["learning_rate"]),
@@ -310,9 +342,9 @@ def sft_config(
             "min_lr": float(frontier["min_learning_rate"]),
         },
         "ckpt": {
-            "interval": max_steps,
+            "interval": validation_interval,
             "weights_only": True,
-            "keep_last": 1,
+            "keep_last": candidate_count,
             "weights": {"save_sharded": True, "save_format": "safetensors"},
         },
         "deployment": {
@@ -321,7 +353,7 @@ def sft_config(
             "gpus_per_node": int(frontier["world_size"]),
         },
         "slurm": {
-            "job_name": f"rsci-{frontier['track']}-op{operation}-sft",
+            "job_name": f"rsci-{frontier['track']}-op{operation}-sft-val",
             "account": str(frontier.get("slurm_account", "ram")),
             "partition": str(frontier.get("slurm_partition", "h100")),
             "time": str(frontier.get("sft_time", "04:00:00")),
@@ -475,6 +507,21 @@ def initialize_state(frontier: dict[str, Any], config_path: Path, root: Path) ->
             state["source_config_sha256"] = config_sha256
             write_json(state_path, state)
         return state
+    implementation_sha256 = {
+        name: file_sha256(Path(__file__).with_name(name))
+        for name in (
+            "figure3_eval.py",
+            "frontier_build_dataset.py",
+            "frontier_collect.py",
+            "frontier_loop.py",
+            "frontier_select_checkpoint.py",
+            "generate.py",
+            "solution_graph.py",
+        )
+    }
+    implementation_sha256["src/prime_rl/trainer/sft/train.py"] = file_sha256(
+        Path(__file__).resolve().parents[3] / "src/prime_rl/trainer/sft/train.py"
+    )
     state = {
         "track": frontier["track"],
         "filter_mode": frontier["filter_mode"],
@@ -486,17 +533,7 @@ def initialize_state(frontier: dict[str, Any], config_path: Path, root: Path) ->
         "jobs": {},
         "iterations": {},
         "created_at": now(),
-        "implementation_sha256": {
-            name: file_sha256(Path(__file__).with_name(name))
-            for name in (
-                "figure3_eval.py",
-                "frontier_build_dataset.py",
-                "frontier_collect.py",
-                "frontier_loop.py",
-                "generate.py",
-                "solution_graph.py",
-            )
-        },
+        "implementation_sha256": implementation_sha256,
     }
     write_json(state_path, state)
     append_status(root, "track initialized", {"track": frontier["track"], "operation": state["current_operation"]})
@@ -599,20 +636,35 @@ def phase_collection(
     iteration_dir: Path,
     operation: int,
     model: str,
+    collection_name: str,
+    target_accepted: int,
+    prompt_stream_offset: int,
     poll_seconds: int,
 ) -> Path:
     config_dir = iteration_dir / "configs"
-    output_dir = iteration_dir / "collection"
-    infer_path = config_dir / "inference_collection.toml"
-    collect_path = config_dir / "collection.toml"
-    write_toml_once(infer_path, inference_config(frontier, model, output_dir / "server"))
-    write_toml_once(collect_path, collection_config(frontier, operation, model, infer_path, output_dir))
+    output_dir = iteration_dir / collection_name
     manifest_path = output_dir / "manifest.json"
     if manifest_path.exists():
         return manifest_path
-    key = f"op{operation}.collection"
-    name = f"rsci-{frontier['track']}-o{operation}-collect"
-    log_path = iteration_dir / "slurm-collection-%j.log"
+    infer_path = config_dir / f"inference_{collection_name}.toml"
+    collect_path = config_dir / f"{collection_name}.toml"
+    write_toml_once(infer_path, inference_config(frontier, model, output_dir / "server"))
+    write_toml_once(
+        collect_path,
+        collection_config(
+            frontier,
+            operation,
+            model,
+            infer_path,
+            output_dir,
+            target_accepted,
+            prompt_stream_offset,
+        ),
+    )
+    key = f"op{operation}.{collection_name}"
+    job_suffix = "collect" if collection_name == "collection" else "valcollect"
+    name = f"rsci-{frontier['track']}-o{operation}-{job_suffix}"
+    log_path = iteration_dir / f"slurm-{collection_name}-%j.log"
     new_attempt = False
     while True:
         job_id = submit_eval(
@@ -634,13 +686,22 @@ def phase_collection(
                 raise
             append_status(
                 Path(frontier["experiment_root"]),
-                f"op{operation} collection retry",
+                f"op{operation} {collection_name} retry",
                 {"failed_job": job_id, "state": error.state, "next_attempt": attempts + 1},
             )
             new_attempt = True
 
 
-def build_dataset(frontier: dict[str, Any], root: Path, operation: int, output_dir: Path) -> dict[str, Any]:
+def build_dataset(
+    frontier: dict[str, Any],
+    root: Path,
+    operation: int,
+    output_dir: Path,
+    collection_name: str,
+    examples_per_operation: int,
+    batch_size: int,
+    micro_batch_size: int,
+) -> dict[str, Any]:
     manifest_path = output_dir / "manifest.json"
     if not manifest_path.exists():
         run(
@@ -658,18 +719,114 @@ def build_dataset(frontier: dict[str, Any], root: Path, operation: int, output_d
                 "--through-operation",
                 str(operation),
                 "--examples-per-operation",
-                str(frontier["target_accepted"]),
+                str(examples_per_operation),
+                "--collection-name",
+                collection_name,
                 "--seq-len",
                 str(frontier["seq_len"]),
                 "--world-size",
                 str(frontier["world_size"]),
                 "--batch-size",
-                str(frontier["batch_size"]),
+                str(batch_size),
                 "--micro-batch-size",
-                str(frontier["micro_batch_size"]),
+                str(micro_batch_size),
             ]
         )
     return json.loads(manifest_path.read_text(encoding="utf-8"))
+
+
+def prompt_digests(path: Path) -> set[str]:
+    return {
+        str(json.loads(line)["content_sha256"])
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    }
+
+
+def audit_held_out_collection(
+    training_manifest_path: Path,
+    validation_manifest_path: Path,
+    expected_validation_offset: int,
+    output_path: Path,
+) -> dict[str, Any]:
+    if output_path.exists():
+        return json.loads(output_path.read_text(encoding="utf-8"))
+    training_manifest = json.loads(training_manifest_path.read_text(encoding="utf-8"))
+    validation_manifest = json.loads(validation_manifest_path.read_text(encoding="utf-8"))
+    for field in ("operation", "filter_mode", "samples_per_prompt", "sampling", "source_model"):
+        if training_manifest[field] != validation_manifest[field]:
+            raise ValueError(f"Held-out collection differs from training on {field}")
+
+    with Path(training_manifest["config"]).open("rb") as handle:
+        training_config = tomllib.load(handle)["eval"]
+    with Path(validation_manifest["config"]).open("rb") as handle:
+        validation_config = tomllib.load(handle)["eval"]
+    distribution_fields = (
+        "operation",
+        "filter_mode",
+        "prompt_seed",
+        "number_range",
+        "depth",
+        "id_max_op",
+        "samples_per_prompt",
+        "max_tokens",
+        "temperature",
+        "top_p",
+        "top_k",
+        "stop",
+        "skip_special_tokens",
+        "seq_len",
+        "model",
+        "tokenizer",
+    )
+    for field in distribution_fields:
+        if training_config.get(field) != validation_config.get(field):
+            raise ValueError(f"Held-out collection config differs from training on {field}")
+    if int(training_config.get("prompt_stream_offset", 0)) != 0:
+        raise ValueError("Training collection must use prompt_stream_offset=0")
+    if int(validation_config.get("prompt_stream_offset", 0)) != expected_validation_offset:
+        raise ValueError("Held-out collection used an unexpected prompt stream offset")
+
+    training_prompts_path = training_manifest_path.parent / "prompts.jsonl"
+    validation_prompts_path = validation_manifest_path.parent / "prompts.jsonl"
+    training_digests = prompt_digests(training_prompts_path)
+    validation_digests = prompt_digests(validation_prompts_path)
+    overlap = training_digests & validation_digests
+    if overlap:
+        raise ValueError(f"Training and held-out collections share {len(overlap)} prompts")
+    payload = {
+        "same_distribution_fields": list(distribution_fields),
+        "training_manifest": str(training_manifest_path.resolve()),
+        "validation_manifest": str(validation_manifest_path.resolve()),
+        "training_prompt_stream_offset": 0,
+        "validation_prompt_stream_offset": expected_validation_offset,
+        "training_prompts": len(training_digests),
+        "validation_prompts": len(validation_digests),
+        "overlapping_prompt_digests": 0,
+        "training_prompts_sha256": file_sha256(training_prompts_path),
+        "validation_prompts_sha256": file_sha256(validation_prompts_path),
+    }
+    write_json(output_path, payload)
+    return payload
+
+
+def select_checkpoint(model_dir: Path, validation_manifest: Path, output_path: Path) -> dict[str, Any]:
+    if not output_path.exists():
+        run(
+            [
+                "uv",
+                "run",
+                "--no-sync",
+                "user/tianhaowu/rsci/frontier_select_checkpoint.py",
+                "--sft-output",
+                str(model_dir),
+                "--validation-manifest",
+                str(validation_manifest),
+                "--output",
+                str(output_path),
+            ]
+        )
+    return json.loads(output_path.read_text(encoding="utf-8"))
 
 
 def execute(config_path: Path, poll_seconds: int) -> None:
@@ -720,7 +877,16 @@ def execute(config_path: Path, poll_seconds: int) -> None:
             return
 
         collection_manifest_path = phase_collection(
-            frontier, state, state_path, iteration_dir, operation, teacher_model, poll_seconds
+            frontier,
+            state,
+            state_path,
+            iteration_dir,
+            operation,
+            teacher_model,
+            "collection",
+            int(frontier["target_accepted"]),
+            0,
+            poll_seconds,
         )
         collection_manifest = json.loads(collection_manifest_path.read_text(encoding="utf-8"))
         if int(collection_manifest["accepted"]) != int(frontier["target_accepted"]):
@@ -742,8 +908,61 @@ def execute(config_path: Path, poll_seconds: int) -> None:
                 },
             )
 
+        validation_collection_manifest_path = phase_collection(
+            frontier,
+            state,
+            state_path,
+            iteration_dir,
+            operation,
+            teacher_model,
+            "validation_collection",
+            int(frontier["validation_accepted"]),
+            int(frontier["validation_prompt_stream_offset"]),
+            poll_seconds,
+        )
+        validation_collection_manifest = json.loads(validation_collection_manifest_path.read_text(encoding="utf-8"))
+        if int(validation_collection_manifest["accepted"]) != int(frontier["validation_accepted"]):
+            raise ValueError(f"Validation collection did not produce exactly {frontier['validation_accepted']} traces")
+        if int(validation_collection_manifest["prompt_stream_offset"]) != int(
+            frontier["validation_prompt_stream_offset"]
+        ):
+            raise ValueError("Validation collection used the wrong prompt stream")
+        held_out_audit_path = iteration_dir / "held_out_audit.json"
+        held_out_audit = audit_held_out_collection(
+            collection_manifest_path,
+            validation_collection_manifest_path,
+            int(frontier["validation_prompt_stream_offset"]),
+            held_out_audit_path,
+        )
+        record_validation_collection_status = not iteration.get("validation_collection_status_recorded", False)
+        iteration["validation_collection_manifest"] = str(validation_collection_manifest_path)
+        iteration["held_out_audit"] = str(held_out_audit_path)
+        iteration["validation_collection_status_recorded"] = True
+        write_json(state_path, state)
+        if record_validation_collection_status:
+            append_status(
+                root,
+                f"op{operation} held-out collection complete",
+                {
+                    "accepted": validation_collection_manifest["accepted"],
+                    "prompts": validation_collection_manifest["prompts_generated"],
+                    "generations": validation_collection_manifest["generations"],
+                    "prompt_stream_offset": validation_collection_manifest["prompt_stream_offset"],
+                    "overlapping_prompts": held_out_audit["overlapping_prompt_digests"],
+                },
+            )
+
         dataset_dir = iteration_dir / "cumulative_dataset"
-        dataset_manifest = build_dataset(frontier, root, operation, dataset_dir)
+        dataset_manifest = build_dataset(
+            frontier,
+            root,
+            operation,
+            dataset_dir,
+            "collection",
+            int(frontier["target_accepted"]),
+            int(frontier["batch_size"]),
+            int(frontier["micro_batch_size"]),
+        )
         max_steps = int(dataset_manifest["training_plan"]["optimizer_steps_for_one_epoch"])
         record_dataset_status = not iteration.get("dataset_status_recorded", False)
         iteration["dataset_manifest"] = str(dataset_dir / "manifest.json")
@@ -757,16 +976,56 @@ def execute(config_path: Path, poll_seconds: int) -> None:
                 {"rows": dataset_manifest["rows"], "operations": dataset_manifest["operations"], "steps": max_steps},
             )
 
-        model_dir = iteration_dir / "model"
+        validation_dataset_dir = iteration_dir / "cumulative_validation_dataset"
+        validation_dataset_manifest = build_dataset(
+            frontier,
+            root,
+            operation,
+            validation_dataset_dir,
+            "validation_collection",
+            int(frontier["validation_accepted"]),
+            int(frontier["validation_batch_size"]),
+            int(frontier["validation_micro_batch_size"]),
+        )
+        minimum_validation_tokens = (
+            int(frontier["world_size"]) * int(frontier["validation_micro_batch_size"]) * int(frontier["seq_len"])
+        )
+        if int(validation_dataset_manifest["token_count_including_eos"]) < minimum_validation_tokens:
+            raise ValueError(
+                "Held-out dataset cannot fill one validation micro-batch on every rank: "
+                f"{validation_dataset_manifest['token_count_including_eos']} < {minimum_validation_tokens} tokens"
+            )
+        record_validation_dataset_status = not iteration.get("validation_dataset_status_recorded", False)
+        iteration["validation_dataset_manifest"] = str(validation_dataset_dir / "manifest.json")
+        iteration["validation_dataset_status_recorded"] = True
+        write_json(state_path, state)
+        if record_validation_dataset_status:
+            append_status(
+                root,
+                f"op{operation} cumulative held-out dataset ready",
+                {
+                    "rows": validation_dataset_manifest["rows"],
+                    "operations": validation_dataset_manifest["operations"],
+                },
+            )
+
+        model_dir = iteration_dir / "model_min_val"
         sft_path = write_versioned_toml(
             iteration_dir / "configs",
-            "sft",
-            sft_config(frontier, operation, dataset_dir, model_dir, max_steps),
+            "sft_min_val",
+            sft_config(
+                frontier,
+                operation,
+                dataset_dir,
+                validation_dataset_dir,
+                model_dir,
+                max_steps,
+            ),
         )
         stable_path = model_dir / "weights" / f"step_{max_steps}" / "STABLE"
         if not stable_path.exists():
-            key = f"op{operation}.sft"
-            name = f"rsci-{frontier['track']}-op{operation}-sft"
+            key = f"op{operation}.sft_min_val"
+            name = f"rsci-{frontier['track']}-op{operation}-sft-val"
             new_attempt = False
             while True:
                 job_id = submit_sft(state, state_path, key, name, sft_path, new_attempt)
@@ -783,22 +1042,44 @@ def execute(config_path: Path, poll_seconds: int) -> None:
                         {"failed_job": job_id, "state": error.state, "next_attempt": attempts + 1},
                     )
                     new_attempt = True
-        trained_model = str(stable_path.parent)
+
+        selection_path = iteration_dir / "checkpoint_selection.json"
+        selection = select_checkpoint(
+            model_dir,
+            validation_dataset_dir / "manifest.json",
+            selection_path,
+        )
+        trained_model = str(selection["selected_checkpoint"])
         record_sft_status = not iteration.get("sft_status_recorded", False)
         iteration["trained_model"] = trained_model
+        iteration["checkpoint_selection"] = str(selection_path)
+        iteration["selected_step"] = int(selection["selected_step"])
+        iteration["selected_validation_loss"] = float(selection["selected_validation_loss"])
         iteration["sft_status_recorded"] = True
         write_json(state_path, state)
         if record_sft_status:
             append_status(
                 root,
                 f"op{operation} SFT complete",
-                {"model": trained_model, "optimizer_steps": max_steps},
+                {
+                    "model": trained_model,
+                    "optimizer_steps": max_steps,
+                    "selected_step": selection["selected_step"],
+                    "selected_validation_loss": selection["selected_validation_loss"],
+                },
             )
 
         post_metrics_path = phase_eval(
-            frontier, state, state_path, iteration_dir, operation, trained_model, "post", poll_seconds
+            frontier,
+            state,
+            state_path,
+            iteration_dir,
+            operation,
+            trained_model,
+            "post_selected",
+            poll_seconds,
         )
-        iteration["post_eval_metrics"] = str(post_metrics_path)
+        iteration["post_selected_eval_metrics"] = str(post_metrics_path)
         post_metrics = json.loads(post_metrics_path.read_text(encoding="utf-8"))
         append_status(
             root,
@@ -808,6 +1089,8 @@ def execute(config_path: Path, poll_seconds: int) -> None:
                 "cumulative_rows": dataset_manifest["rows"],
                 "optimizer_steps": max_steps,
                 "model": trained_model,
+                "selected_step": selection["selected_step"],
+                "selected_validation_loss": selection["selected_validation_loss"],
                 "post_answer_pass@1": post_metrics["answer_only"]["total"]["unbiased"]["pass@1"],
                 "post_strict_pass@1": post_metrics["strict_graph"]["total"]["unbiased"]["pass@1"],
             },
@@ -847,7 +1130,14 @@ def main() -> None:
         )
         rows, _ = load_rows(eval_payload["eval"])
         SFTConfig.model_validate(
-            sft_config(frontier, operation, root / "validation" / "data", root / "validation" / "model", 62)
+            sft_config(
+                frontier,
+                operation,
+                root / "validation" / "data",
+                root / "validation" / "held_out_data",
+                root / "validation" / "model",
+                62,
+            )
         )
         print(
             json.dumps(

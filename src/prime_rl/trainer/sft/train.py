@@ -325,7 +325,7 @@ def train(config: SFTConfig):
         if mean_loss != mean_loss:
             logger.warning(f"Validation at step {step} had no valid tokens")
         else:
-            logger.success(f"Validation | Step {step} | Loss {mean_loss:.4f}")
+            logger.success(f"Validation | Step {step} | Loss {mean_loss:.8f}")
         monitor.log({"val/loss": mean_loss, "step": step}, step=step)
 
     gc_handler = GarbageCollection(config.gc.interval) if config.gc else None
@@ -587,6 +587,9 @@ def train(config: SFTConfig):
         # Send heartbeat if configured
         if heart is not None:
             heart.beat()
+
+    if config.val is not None:
+        run_validation(progress.step)
 
     if config.trace_path:
         prof.__exit__(None, None, None)

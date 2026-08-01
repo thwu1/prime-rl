@@ -22,6 +22,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--start-operation", type=int, default=11)
     parser.add_argument("--through-operation", type=int, required=True)
     parser.add_argument("--examples-per-operation", type=int, default=50_000)
+    parser.add_argument("--collection-name", default="collection")
     parser.add_argument("--seq-len", type=int, default=2048)
     parser.add_argument("--world-size", type=int, default=8)
     parser.add_argument("--batch-size", type=int, default=256)
@@ -81,7 +82,7 @@ def main() -> None:
     source_sha256_by_op: dict[str, str] = {}
     source_paths_by_op: dict[str, str] = {}
     for operation in operations:
-        source = args.track_root / "iterations" / f"op{operation}" / "collection" / "accepted.jsonl"
+        source = args.track_root / "iterations" / f"op{operation}" / args.collection_name / "accepted.jsonl"
         source_rows = load_shard(source, operation, args.examples_per_operation, args.seq_len)
         rows.extend(source_rows)
         source_sha256_by_op[str(operation)] = file_sha256(source)
@@ -107,6 +108,7 @@ def main() -> None:
         "format": "prime-rl messages SFT parquet",
         "chat_template": CHAT_TEMPLATE,
         "track_root": str(args.track_root.resolve()),
+        "collection_name": args.collection_name,
         "operations": operations,
         "examples_per_operation": args.examples_per_operation,
         "rows": len(rows),
