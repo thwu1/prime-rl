@@ -509,12 +509,15 @@ fields to change, and resumed both states at op21 under protocol
 original SFT initialization remain unchanged.
 
 Persistent continuation watchers `9821398` (answer) and `9821400` (strict)
-started at 19:45 UTC. The completed op21 results are:
+started at 19:45 UTC. Completed continuation rounds through 23:02 UTC are:
 
 | Track | Op | Pre gate | Selected step / held-out loss | Post answer | Post strict | Sampled prompts / represented prompts / generations | Strict share of 50K shard |
 | --- | ---: | ---: | --- | ---: | ---: | --- | ---: |
 | answer | 21 | 14.36% | 850 / 0.05377709 | 15.67% | 0.00% | 2,384 / 999 / 305,152 | 0.00% |
 | strict | 21 | 9.41% | 797 / 0.05702638 | 32.35% | 11.23% | 5,040 / 1,122 / 645,120 | 100% |
+| answer | 22 | 17.67% | 941 / 0.05150718 | 17.91% | 0.00% | 2,352 / 967 / 301,056 | 0.00% |
+| strict | 22 | 9.07% | 783 / 0.05322517 | 31.60% | 10.23% | 4,960 / 1,039 / 634,880 | 100% |
+| answer | 23 | 16.63% | 1,027 / 0.04923049 | 16.44% | 0.00% | 2,512 / 1,036 / 321,536 | 0.00% |
 
 Every sampled problem receives 128 completions, and every accepted completion
 may enter the 50K shard. Op21 exposes strong problem-level polarization. For
@@ -528,8 +531,22 @@ the last over-target batch is deterministically trimmed to 50K traces. This
 easy-problem duplication is a material limitation of trajectory-level
 collection and is preserved rather than rebalanced.
 
-Both op21 gates remain above 1%, so the loops advanced to op22. Pre-SFT op22
-pass@1 is 17.67% answer / 0% strict for the answer track and 30.49% answer /
-9.07% strict for the strict track. Answer op22 collection completed with 50K
-accepted traces from 301,056 generations over 2,352 prompts; strict op22
-collection and answer op22 reset-from-base SFT are in progress.
+The op22 and answer-filter op23 gates also remain above 1%. Answer-only
+feedback continues to preserve roughly 16-18% answer pass@1 while producing
+no strict trajectories: the strict share of all three continuation shards and
+strict post-SFT pass@1 are exactly zero. Strict filtering retained 10.23%
+strict post-SFT pass@1 at op22; its next op23 gate is 5.95% strict (27.40%
+answer), so it too remains above threshold. Minimum-loss selection mattered at
+strict op22: step 783 beat both step 870 and the final step 879.
+
+All op21-23 audits completed so far report zero prompt-digest overlap between
+training, held-out checkpoint validation, and the 200-problem frontier set.
+Answer op23 validation collection encountered one random internal-port
+collision (`EADDRINUSE`) before the inference server became ready. The watcher
+recorded the failed artifact-free attempt and automatically reran the same
+stage successfully on a different node; the final held-out shard contains
+exactly 5,000 accepted traces.
+
+Current live state: answer-filter op24 pre-evaluation and strict-filter op23
+50K collection are in progress. Neither loop has reached the requested 1%
+next-frontier gate.
