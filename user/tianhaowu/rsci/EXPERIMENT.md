@@ -352,8 +352,8 @@ diagnostics are retained on disk but are not plotted.*
 | --- | --- | --- | --- |
 | `9808634` | answer-correct | `frontier-sft/answer-correct` | Cancelled after superseded final-checkpoint diagnostic |
 | `9808635` | strict-correct | `frontier-sft/strict-correct` | Cancelled after superseded final-checkpoint diagnostic |
-| `9809870` | answer-correct | `frontier-sft/answer-correct` | Running minimum-validation protocol from preserved op11 shard |
-| `9809892` | strict-correct | `frontier-sft/strict-correct` | Running minimum-validation protocol from preserved op11 shard |
+| `9809870` | answer-correct | `frontier-sft/answer-correct` | Complete through op20; `max_operation_exhausted` |
+| `9809892` | strict-correct | `frontier-sft/strict-correct` | Complete through op20; `max_operation_exhausted` |
 
 The audited op11 baseline was materialized under each root with provenance to
 the original 200-prompt Figure 3 artifact. Answer collection job `9808666` and
@@ -429,43 +429,54 @@ selection rule. The superseded op12 directories were preserved as
 `op12_final_checkpoint_v1`; clean op12 pre-evals `9810203`/`9810205` use the
 selected `model_min_val` checkpoints.
 
-### Live op12-19 frontier results
+### Final op11-20 frontier results
 
-The selected-checkpoint loop has completed answer-filter op19 and strict-filter
-op18; answer op20 and strict op19 are starting. Values below are unbiased pass@1. “Gate” is answer accuracy for
-the answer track and strict accuracy for the strict track.
+Both production loops completed the released op11-20 range. Values below are
+unbiased pass@1 from 200 prompts and 128 samples per prompt. “Pre gate” is
+answer accuracy for the answer-filter track and strict accuracy for the
+strict-filter track. Both post-training verifiers are reported for every
+minimum-held-out-loss checkpoint.
 
-| Track | Op | Pre gate | Selected step / held-out loss | Post gate | Training prompts / generations | Strict share of 50K shard |
-| --- | ---: | ---: | --- | ---: | --- | ---: |
-| answer | 11 | 85.42% | 73 / 0.11748475 | 45.22% | 528 / 67,584 | 56.31% |
-| answer | 12 | 29.56% | 143 / 0.10994613 | 34.03% | 800 / 102,400 | 36.53% |
-| answer | 13 | 28.62% | 216 / 0.10077211 | 31.63% | 1,120 / 143,360 | 19.19% |
-| answer | 14 | 25.66% | 292 / 0.08912811 | 27.11% | 1,616 / 206,848 | 3.47% |
-| answer | 15 | 17.83% | **370 / 0.07924649** | 18.75% | 1,904 / 243,712 | **0.184%** |
-| answer | 16 | 21.56% | 448 / 0.07206764 | 21.54% | 2,048 / 262,144 | **0.068%** |
-| answer | 17 | 17.29% | 528 / 0.06683663 | 18.95% | 2,128 / 272,384 | **0.002%** |
-| answer | 18 | 19.50% | **610 / 0.06268419** | 19.52% | 2,256 / 288,768 | **0.000%** |
-| answer | 19 | 16.39% | 691 / 0.05903623 | 16.60% | 2,224 / 284,672 | **0.000%** |
-| strict | 11 | 48.52% | 72 / 0.13402714 | 13.43% | 928 / 118,784 | 100% |
-| strict | 12 | 5.10% | **126 / 0.12522373** | 11.05% | 1,424 / 182,272 | 100% |
-| strict | 13 | 7.17% | **189 / 0.11890249** | 8.02% | 1,584 / 202,752 | 100% |
-| strict | 14 | 6.90% | **270 / 0.10584254** | 9.49% | 1,952 / 249,856 | 100% |
-| strict | 15 | 7.42% | **340 / 0.09525359** | 9.80% | 2,336 / 299,008 | 100% |
-| strict | 16 | 4.36% | 416 / 0.08538000 | 6.08% | 2,688 / 344,064 | 100% |
-| strict | 17 | 4.12% | **480 / 0.07790303** | 5.02% | 3,472 / 444,416 | 100% |
-| strict | 18 | 4.30% | **504 / 0.07165689** | 5.57% | 4,432 / 567,296 | 100% |
+| Track | Op | Pre gate | Selected step / held-out loss | Post answer | Post strict | Training prompts / generations | Strict share of 50K shard |
+| --- | ---: | ---: | --- | ---: | ---: | --- | ---: |
+| answer | 11 | 85.42% | 73 / 0.11748475 | 45.22% | 16.56% | 528 / 67,584 | 56.31% |
+| answer | 12 | 29.56% | 143 / 0.10994613 | 34.03% | 5.95% | 800 / 102,400 | 36.53% |
+| answer | 13 | 28.62% | 216 / 0.10077211 | 31.62% | 2.15% | 1,120 / 143,360 | 19.19% |
+| answer | 14 | 25.66% | 292 / 0.08912811 | 27.11% | 0.68% | 1,616 / 206,848 | 3.47% |
+| answer | 15 | 17.83% | 370 / 0.07924649 | 18.75% | 0.06% | 1,904 / 243,712 | 0.184% |
+| answer | 16 | 21.56% | 448 / 0.07206764 | 21.54% | 0.00% | 2,048 / 262,144 | 0.068% |
+| answer | 17 | 17.29% | 528 / 0.06683663 | 18.95% | 0.00% | 2,128 / 272,384 | 0.002% |
+| answer | 18 | 19.50% | 610 / 0.06268419 | 19.52% | 0.00% | 2,256 / 288,768 | 0.000% |
+| answer | 19 | 16.39% | 691 / 0.05903623 | 16.60% | 0.00% | 2,224 / 284,672 | 0.000% |
+| answer | 20 | 16.54% | 774 / 0.05606105 | 17.28% | 0.00% | 2,512 / 321,536 | 0.000% |
+| strict | 11 | 48.52% | 72 / 0.13402714 | 41.39% | 13.43% | 928 / 118,784 | 100% |
+| strict | 12 | 5.10% | 126 / 0.12522373 | 36.26% | 11.05% | 1,424 / 182,272 | 100% |
+| strict | 13 | 7.17% | 189 / 0.11890249 | 33.43% | 8.02% | 1,584 / 202,752 | 100% |
+| strict | 14 | 6.90% | 270 / 0.10584254 | 38.53% | 9.49% | 1,952 / 249,856 | 100% |
+| strict | 15 | 7.42% | 340 / 0.09525359 | 35.17% | 9.80% | 2,336 / 299,008 | 100% |
+| strict | 16 | 4.36% | 416 / 0.08538000 | 27.62% | 6.08% | 2,688 / 344,064 | 100% |
+| strict | 17 | 4.12% | 480 / 0.07790303 | 28.68% | 5.02% | 3,472 / 444,416 | 100% |
+| strict | 18 | 4.30% | 504 / 0.07165689 | 27.57% | 5.57% | 4,432 / 567,296 | 100% |
+| strict | 19 | 1.41% | 639 / 0.06623063 | 22.98% | 1.84% | 4,896 / 626,688 | 100% |
+| strict | 20 | 4.32% | 718 / 0.06133161 | 22.91% | 4.67% | 5,568 / 712,704 | 100% |
 
-The minimum-loss rule materially changes the strict teacher: steps 126, 189,
-270, 340, 480, and 504 beat the respective final steps 142, 210, 278, 348, 487,
-and 562;
-answer step 370 beats final step 374 and step 610 beats final step 611. The
-answer track's final-answer gate remains far above 1%, while dependency-graph
-quality in its accepted feedback collapses monotonically from 56.31% through
-0.068% and 0.002% to zero at op18.
-This is direct empirical support for the verifier-contamination concern: an
-apparently viable answer-only improvement loop increasingly trains on traces
-that the strict process verifier rejects. In contrast, the strict gate has not
-improved monotonically or reached the 1% bound, but its feedback remains clean
-by construction. From op16 onward the answer teacher has zero strict pass@1 on
-the fixed evaluation while retaining roughly 16–22% answer pass@1. Both
-persistent watchers remain active.
+Minimum-validation selection was consequential: several intermediate
+checkpoints beat the final one-epoch checkpoint, including strict steps 126,
+189, 270, 340, 480, 504, and 639, and answer steps 370 and 610. Validation ran
+inside SFT at each matching checkpoint interval; the selector reads those
+logged losses rather than reevaluating checkpoints afterward.
+
+The answer-filter feedback becomes almost entirely graph-invalid: its strict
+share falls from 56.31% at op11 to zero at op18-20, and the selected model has
+zero strict pass@1 from op16 onward while retaining 16-22% answer pass@1. This
+is direct empirical evidence for verifier contamination under answer-only
+feedback. Strict filtering keeps every training trajectory graph-correct, but
+its strict frontier is non-monotonic and does not improve indefinitely: post
+strict pass@1 is 1.84% at op19 and rebounds to 4.67% at op20.
+
+Neither track reaches the requested 1% stopping threshold before the released
+validation distribution ends at op20. Both states therefore terminate as
+`max_operation_exhausted`, not `threshold_reached`. The observed result bounds
+this experiment only over released op11-20; it does not establish a model
+capacity bound beyond op20. Extending the claim requires defining and auditing
+an op21+ held-out benchmark rather than extrapolating from these files.
