@@ -507,3 +507,29 @@ and post-eval artifact, permitted only the op30 maximum and generated-data
 fields to change, and resumed both states at op21 under protocol
 `min_val_generated_eval_v3`. Training/filtering/sampling settings and the fixed
 original SFT initialization remain unchanged.
+
+Persistent continuation watchers `9821398` (answer) and `9821400` (strict)
+started at 19:45 UTC. The completed op21 results are:
+
+| Track | Op | Pre gate | Selected step / held-out loss | Post answer | Post strict | Sampled prompts / represented prompts / generations | Strict share of 50K shard |
+| --- | ---: | ---: | --- | ---: | ---: | --- | ---: |
+| answer | 21 | 14.36% | 850 / 0.05377709 | 15.67% | 0.00% | 2,384 / 999 / 305,152 | 0.00% |
+| strict | 21 | 9.41% | 797 / 0.05702638 | 32.35% | 11.23% | 5,040 / 1,122 / 645,120 | 100% |
+
+Every sampled problem receives 128 completions, and every accepted completion
+may enter the 50K shard. Op21 exposes strong problem-level polarization. For
+the answer filter, 1,384/2,384 problems (58.05%) have zero passing completions,
+while 49 (2.06%) have 128/128; the mean solve rate is 16.40% but the median is
+zero. For the completed strict generation pool, 3,915/5,040 problems (77.68%)
+have zero strict completions, none have 128/128, the mean strict solve rate is
+7.77%, and both the median and 75th percentile are zero. The final exact shard
+contains 999 answer-filter and 1,122 strict-filter distinct prompt IDs because
+the last over-target batch is deterministically trimmed to 50K traces. This
+easy-problem duplication is a material limitation of trajectory-level
+collection and is preserved rather than rebalanced.
+
+Both op21 gates remain above 1%, so the loops advanced to op22. Pre-SFT op22
+pass@1 is 17.67% answer / 0% strict for the answer track and 30.49% answer /
+9.07% strict for the strict track. Answer op22 collection completed with 50K
+accepted traces from 301,056 generations over 2,352 prompts; strict op22
+collection and answer op22 reset-from-base SFT are in progress.
