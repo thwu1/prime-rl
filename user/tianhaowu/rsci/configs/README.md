@@ -5,7 +5,8 @@ Configs are grouped by workflow so experiment variants do not accumulate in the 
 - `inference/`: reusable prime-rl inference server configs.
 - `eval/`: model, dataset, decoding, and output settings consumed by `scripts/run_eval.sh`.
 - `sft/`: supervised fine-tuning variants.
-- `rl/`: reinforcement-learning and iterative-frontier variants.
+- `frontier/`: answer-filtered and strict-filtered iterative SFT tracks.
+- `rl/`: reinforcement-learning variants.
 
 Use descriptive filenames that identify the starting checkpoint, data range, and important treatment. Keep stable shared settings in a base config and use separate files for experimental variants.
 

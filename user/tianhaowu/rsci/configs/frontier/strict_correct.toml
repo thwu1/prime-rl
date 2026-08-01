@@ -1,0 +1,48 @@
+[frontier]
+track = "strict-correct"
+filter_mode = "strict"
+gate_metric = "strict_graph"
+experiment_root = "/checkpoint/ram-h100-2/tianhaowu/rsci/frontier-sft/strict-correct"
+base_model = "/checkpoint/ram-h100-2/tianhaowu/rsci/hf/hub/models--Interplay-LM-Reasoning--extrapolation_rl/snapshots/4861bd030e6fb92d94be3a1cecab89c2fac4b94a/id2-10_0.2easy_0.3medium_0.5hard/base"
+tokenizer = "/checkpoint/ram-h100-2/tianhaowu/rsci/hf/hub/models--Interplay-LM-Reasoning--extrapolation_rl/snapshots/4861bd030e6fb92d94be3a1cecab89c2fac4b94a/id2-10_0.2easy_0.3medium_0.5hard/base"
+validation_data_dir = "/checkpoint/ram-h100-2/tianhaowu/rsci/hf/hub/datasets--Interplay-LM-Reasoning--composition/snapshots/a09d5c14c02bfa339143fb00a93274d1a84aa31d/val"
+initial_eval_metrics = "/checkpoint/ram-h100-2/tianhaowu/rsci/evals/figure3/base/ood-mid-op11-14/metrics.json"
+
+start_operation = 11
+max_operation = 20
+stop_pass1 = 0.01
+examples_per_eval_operation = 200
+
+target_accepted = 50000
+max_prompts = 100000
+prompt_batch_size = 16
+prompt_seed = 20260801
+samples_per_prompt = 128
+number_range = 5
+depth = 2
+id_max_op = 10
+
+max_tokens = 2048
+temperature = 0.7
+top_p = 1.0
+top_k = -1
+request_timeout_seconds = 3600.0
+max_concurrent_prompts = 16
+max_retries = 2
+gpu_memory_utilization = 0.8
+max_num_seqs = 256
+
+seq_len = 2048
+world_size = 8
+batch_size = 256
+micro_batch_size = 4
+learning_rate = 1e-4
+weight_decay = 0.1
+warmup_ratio = 0.15
+min_learning_rate = 3e-5
+
+slurm_account = "ram"
+slurm_partition = "h100"
+eval_time = "06:00:00"
+collection_time = "12:00:00"
+sft_time = "06:00:00"

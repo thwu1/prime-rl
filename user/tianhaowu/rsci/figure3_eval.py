@@ -22,6 +22,10 @@ ANSWER_RE = re.compile(r"<answer>\s*([-+]?\d+(?:\.\d+)?)", re.IGNORECASE)
 GOLD_ANSWER_RE = re.compile(r"Answer:\s*([-+]?\d+(?:\.\d+)?)")
 
 
+def file_sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("config", type=Path)
@@ -60,6 +64,9 @@ def load_config(path: Path) -> dict[str, Any]:
         raise ValueError("eval.max_tokens must be positive")
     if eval_config["max_concurrent_prompts"] < 1:
         raise ValueError("eval.max_concurrent_prompts must be positive")
+    prompt_limit = eval_config.get("prompt_limit_per_operation")
+    if prompt_limit is not None and not 1 <= int(prompt_limit) <= int(eval_config["examples_per_operation"]):
+        raise ValueError("eval.prompt_limit_per_operation must be in [1, examples_per_operation]")
     pass_at = eval_config.get("pass_at", PASS_AT_DEFAULT)
     if any(k < 1 or k > eval_config["samples_per_prompt"] for k in pass_at):
         raise ValueError("Every eval.pass_at value must be in [1, samples_per_prompt]")
@@ -90,6 +97,8 @@ def load_rows(eval_config: dict[str, Any]) -> tuple[list[dict[str, Any]], dict[s
         operation_rows = [json.loads(line) for line in raw.decode().splitlines() if line.strip()]
         if len(operation_rows) != expected:
             raise ValueError(f"Expected {expected} rows in {path}, found {len(operation_rows)}")
+        if "prompt_limit_per_operation" in eval_config:
+            operation_rows = operation_rows[: int(eval_config["prompt_limit_per_operation"])]
         for index, row in enumerate(operation_rows):
             required = {"problem", "question", "solution", "op", "id", "template"}
             missing = sorted(required - row.keys())
@@ -355,6 +364,10 @@ def score(config: dict[str, Any], rows: list[dict[str, Any]], hashes: dict[str, 
             "max_tokens": eval_config["max_tokens"],
             "stop": eval_config["stop"],
             "skip_special_tokens": eval_config["skip_special_tokens"],
+        },
+        "implementation_sha256": {
+            "figure3_eval.py": file_sha256(Path(__file__)),
+            "solution_graph.py": file_sha256(Path(__file__).with_name("solution_graph.py")),
         },
     }
     metrics_partial = metrics_path.with_suffix(".json.partial")

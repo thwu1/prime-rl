@@ -123,6 +123,19 @@ OOD-mid evaluations with:
 bash user/tianhaowu/rsci/scripts/run_sft_checkpoint_evals.sh
 ```
 
+## Iterative frontier SFT
+
+`configs/frontier/` defines two resumable self-improvement tracks. Both sample
+128 solutions per generated opN prompt and retain exactly 50K trajectories per
+round. The answer track checks only the final answer; the strict track also
+requires the released dependency-graph verifier. Each round accumulates all
+earlier accepted shards, trains a fresh model from the original pretrained
+checkpoint for one packed epoch, preserves the model and pass@1–128 metrics,
+and advances until the next frontier's track-specific pass@1 is at most 1%.
+
+See `configs/frontier/README.md` for the frozen semantics, launch commands, and
+artifact layout.
+
 ## Scope
 
 This first pipeline produces the released `zero_context` medium (`d=2`) or hard (`d=3`) problems for operations 2–20. The released operation-to-generator schedule is used automatically. Values outside that range require an explicit `--generator-op-max` because the paper code does not publish a calibrated schedule for them.
