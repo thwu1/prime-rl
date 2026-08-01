@@ -344,14 +344,16 @@ held-out traces, and 200 fixed evaluation prompts per operation.
 
 ![Iterative frontier SFT progress](figures/frontier_progress.svg)
 
-*Regenerated from the live manifests and metrics. The current post-SFT panel is
-the superseded final-checkpoint diagnostic; it will be replaced by the
-minimum-validation-loss checkpoints after retraining.*
+*Regenerated from the live manifests and metrics. The post-SFT panel uses the
+minimum-held-out-validation-loss checkpoints; superseded final-checkpoint
+diagnostics are retained on disk but are not plotted.*
 
 | Watcher job | Treatment | Root | Status |
 | --- | --- | --- | --- |
-| `9808634` | answer-correct | `frontier-sft/answer-correct` | Paused for min-val checkpoint selection; op11 answer gate 85.42% |
-| `9808635` | strict-correct | `frontier-sft/strict-correct` | Paused for min-val checkpoint selection; op11 strict gate 48.52% |
+| `9808634` | answer-correct | `frontier-sft/answer-correct` | Cancelled after superseded final-checkpoint diagnostic |
+| `9808635` | strict-correct | `frontier-sft/strict-correct` | Cancelled after superseded final-checkpoint diagnostic |
+| `9809870` | answer-correct | `frontier-sft/answer-correct` | Running minimum-validation protocol from preserved op11 shard |
+| `9809892` | strict-correct | `frontier-sft/strict-correct` | Running minimum-validation protocol from preserved op11 shard |
 
 The audited op11 baseline was materialized under each root with provenance to
 the original 200-prompt Figure 3 artifact. Answer collection job `9808666` and
@@ -398,5 +400,31 @@ diagnostics, not selected-model results. On the researcher's clarification,
 watchers `9808634`/`9808635`, answer op12 collection `9808998`, and strict op12
 pre-eval `9808972` were cancelled at 08:46 UTC before further data entered the
 loop. The valid 50K op11 shards and all diagnostics are preserved. Production
-resumes only after same-distribution held-out validation and minimum-loss
-checkpoint selection are implemented and audited.
+was held until same-distribution held-out validation and minimum-loss
+checkpoint selection were implemented and audited.
+
+Minimum-validation implementation `bdd430eba` passed both v4 smoke tracks and
+was pushed before production resumed. The upgrade archived each original
+`state.json` and `frontier.toml` as `state_final_checkpoint_v1.json` and
+`frontier_final_checkpoint_v1.toml`, reset `current_operation` to op11, retained
+the exact 50K op11 shard and its cumulative parquet, and verified that no op12
+training manifest existed. New watchers `9809870`/`9809892` started at 09:38
+UTC. Their first new jobs, `9809931`/`9809930`, collect the additional 5K
+answer/strict held-out trajectories from prompt stream offset 1,000,000.
+
+Both held-out collections completed exactly. Answer used 64 new prompts and
+8,192 generations for 5,000 answer-correct traces, of which 2,746 (54.92%)
+were also strict; strict used 112 new prompts and 14,336 generations for 5,000
+strict traces. The prompt audit found zero overlap with the 528 answer-track or
+928 strict-track training prompts. SFT jobs `9810090`/`9810133` initialized
+from the fixed original base, retained all 11 matched checkpoints, and finished
+without NaNs. Held-out loss reached its minimum at the final candidate in both
+tracks: answer step 73 at 0.11748475 and strict step 72 at 0.13402714.
+
+Selected-checkpoint evals `9810183`/`9810186` measured answer/strict pass@1 of
+45.22%/16.56% for the answer filter and 41.39%/13.43% for the strict filter;
+answer/strict pass@128 were 95.5%/78.0% and 84.5%/50.0%. This independently
+confirms the earlier final-checkpoint diagnostic while satisfying the requested
+selection rule. The superseded op12 directories were preserved as
+`op12_final_checkpoint_v1`; clean op12 pre-evals `9810203`/`9810205` use the
+selected `model_min_val` checkpoints.

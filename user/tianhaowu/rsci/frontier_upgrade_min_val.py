@@ -97,9 +97,13 @@ def main() -> None:
     dataset_manifest = json.loads(dataset_manifest_path.read_text(encoding="utf-8"))
     if int(dataset_manifest["rows"]) != int(frontier["target_accepted"]):
         raise ValueError("Existing cumulative training dataset has the wrong size")
-    next_manifest = root / "iterations" / f"op{start_operation + 1}" / "collection" / "manifest.json"
+    next_iteration_dir = root / "iterations" / f"op{start_operation + 1}"
+    next_iteration_archive = root / "iterations" / f"op{start_operation + 1}_final_checkpoint_v1"
+    next_manifest = next_iteration_dir / "collection" / "manifest.json"
     if next_manifest.exists():
         raise ValueError(f"A later training collection already completed: {next_manifest}")
+    if next_iteration_dir.exists() and next_iteration_archive.exists():
+        raise ValueError(f"Later-operation archive already exists: {next_iteration_archive}")
     for path in (
         root / "iterations" / f"op{start_operation}" / "validation_collection" / "manifest.json",
         root / "iterations" / f"op{start_operation}" / "model_min_val" / "weights",
@@ -110,6 +114,8 @@ def main() -> None:
 
     copy_once(state_path, root / "state_final_checkpoint_v1.json")
     copy_once(root / "frontier.toml", root / "frontier_final_checkpoint_v1.toml")
+    if next_iteration_dir.exists():
+        next_iteration_dir.rename(next_iteration_archive)
     write_toml(root / "frontier.toml", resolved_config)
 
     superseded = {
@@ -161,6 +167,8 @@ def main() -> None:
         handle.write(f"- preserved training traces: `{collection_manifest['accepted']}`\n")
         handle.write(f"- preserved previous state: `{root / 'state_final_checkpoint_v1.json'}`\n")
         handle.write("- later-operation training shards preserved: `none existed`\n")
+        if next_iteration_archive.exists():
+            handle.write(f"- superseded later-operation diagnostics: `{next_iteration_archive}`\n")
     print(json.dumps(upgraded, indent=2, sort_keys=True))
 
 
