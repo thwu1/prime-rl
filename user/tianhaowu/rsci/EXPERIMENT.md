@@ -352,8 +352,8 @@ diagnostics are retained on disk but are not plotted.*
 | --- | --- | --- | --- |
 | `9808634` | answer-correct | `frontier-sft/answer-correct` | Cancelled after superseded final-checkpoint diagnostic |
 | `9808635` | strict-correct | `frontier-sft/strict-correct` | Cancelled after superseded final-checkpoint diagnostic |
-| `9809870` | answer-correct | `frontier-sft/answer-correct` | Complete through op20; `max_operation_exhausted` |
-| `9809892` | strict-correct | `frontier-sft/strict-correct` | Complete through op20; `max_operation_exhausted` |
+| `9809870` | answer-correct | `frontier-sft/answer-correct` | Released op11-20 phase complete; state archived before op21 extension |
+| `9809892` | strict-correct | `frontier-sft/strict-correct` | Released op11-20 phase complete; state archived before op21 extension |
 
 The audited op11 baseline was materialized under each root with provenance to
 the original 200-prompt Figure 3 artifact. Answer collection job `9808666` and
@@ -475,8 +475,35 @@ its strict frontier is non-monotonic and does not improve indefinitely: post
 strict pass@1 is 1.84% at op19 and rebounds to 4.67% at op20.
 
 Neither track reaches the requested 1% stopping threshold before the released
-validation distribution ends at op20. Both states therefore terminate as
-`max_operation_exhausted`, not `threshold_reached`. The observed result bounds
-this experiment only over released op11-20; it does not establish a model
-capacity bound beyond op20. Extending the claim requires defining and auditing
-an op21+ held-out benchmark rather than extrapolating from these files.
+validation distribution ends at op20. The released-range states therefore
+terminate as `max_operation_exhausted`, not `threshold_reached`. This result
+alone bounds the experiment only over released op11-20 and does not establish
+a model capacity bound beyond op20.
+
+### Generated op21-30 continuation
+
+The persistent goal requires continuing until the next-frontier gate is at
+most 1%, so the loops resume on an explicitly generated extension rather than
+treating the released-file boundary as success. The pinned upstream source
+defines zero-context medium operations through op30; op19-20 already use
+`op_max=30`. The extension therefore holds `op_max=30` fixed for op21-30 and
+uses the same depth 2, number range 5, three templates, two modes, and exact
+operation constraint as collection. Evaluation uses an independent
+deterministic split with seed 20260802 and 200 prompts per operation.
+
+The first materialized extension file is
+`frontier-sft/generated-eval-op21-30-v1/op21-200.jsonl`, SHA-256
+`84e8a130ce53025c8f8981f25295fbdff58e9eae1b4df5ca4fba3c22443186d9`.
+It contains 200 unique IDs and content digests, 67/67/66 prompts across the
+movie/teacher/zoo contexts and 101/99 forward/reverse prompts. All 200 gold
+solutions pass the strict verifier against themselves, and rendered gold
+sequence lengths range from 692 to 1,761 tokens, with none over the 2,048-token
+limit. Generation took 8,009 proposals; rejected proposals are retained in the
+sidecar manifest by exception type.
+
+At 19:40 UTC, `frontier_extend.py` archived each completed state/config as
+`state_op20_v1.json` and `frontier_op20_v1.toml`, verified every op11-20 model
+and post-eval artifact, permitted only the op30 maximum and generated-data
+fields to change, and resumed both states at op21 under protocol
+`min_val_generated_eval_v3`. Training/filtering/sampling settings and the fixed
+original SFT initialization remain unchanged.

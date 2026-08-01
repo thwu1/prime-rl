@@ -9,9 +9,15 @@ validation_data_dir = "/checkpoint/ram-h100-2/tianhaowu/rsci/hf/hub/datasets--In
 initial_eval_metrics = "/checkpoint/ram-h100-2/tianhaowu/rsci/evals/figure3/base/ood-mid-op11-14/metrics.json"
 
 start_operation = 11
-max_operation = 20
+max_operation = 30
 stop_pass1 = 0.01
 examples_per_eval_operation = 200
+
+generated_validation_data_dir = "/checkpoint/ram-h100-2/tianhaowu/rsci/frontier-sft/generated-eval-op21-30-v1"
+generated_eval_seed = 20260802
+generated_eval_context_mixture = "zoo=1,teacher=1,movie=1"
+generated_eval_mode_mixture = "forward=1,reverse=1"
+generator_op_max = 30
 
 target_accepted = 50000
 validation_accepted = 5000

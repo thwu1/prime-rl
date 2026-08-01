@@ -9,7 +9,9 @@ import fcntl
 import hashlib
 import json
 import re
+import shutil
 import subprocess
+import tempfile
 import time
 import tomllib
 from datetime import UTC, datetime
@@ -161,7 +163,166 @@ def load_frontier_config(path: Path) -> dict[str, Any]:
         raise ValueError("validation_interval_divisor must be positive")
     if int(frontier["start_operation"]) > int(frontier["max_operation"]):
         raise ValueError("start_operation must be <= max_operation")
+    maximum_eval_path = (
+        Path(frontier["validation_data_dir"])
+        / f"op{int(frontier['max_operation'])}-{int(frontier['examples_per_eval_operation'])}.jsonl"
+    )
+    if not maximum_eval_path.exists():
+        generated_required = {
+            "generated_validation_data_dir",
+            "generated_eval_seed",
+            "generator_op_max",
+        }
+        generated_missing = sorted(generated_required - frontier.keys())
+        if generated_missing:
+            raise ValueError(
+                "The configured maximum operation is absent from validation_data_dir; "
+                f"missing generated-evaluation fields: {generated_missing}"
+            )
+        if int(frontier["generator_op_max"]) < int(frontier["max_operation"]):
+            raise ValueError("generator_op_max must cover max_operation")
     return frontier
+
+
+def validate_evaluation_file(path: Path, operation: int, expected_rows: int) -> None:
+    rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    if len(rows) != expected_rows:
+        raise ValueError(f"Expected {expected_rows} evaluation rows in {path}, found {len(rows)}")
+    if any(int(row["op"]) != operation for row in rows):
+        raise ValueError(f"Evaluation file contains rows outside op{operation}: {path}")
+    ids = [str(row["id"]) for row in rows]
+    if len(ids) != len(set(ids)):
+        raise ValueError(f"Evaluation file contains duplicate ids: {path}")
+
+
+def evaluation_row_digest(row: dict[str, Any]) -> str:
+    material = json.dumps(
+        [row["problem"], row["question"], row["solution"]],
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(material.encode()).hexdigest()
+
+
+def generated_evaluation_sidecar(path: Path) -> Path:
+    return path.with_suffix(".manifest.json")
+
+
+def resolve_evaluation_file(frontier: dict[str, Any], operation: int) -> Path:
+    filename = f"op{operation}-{int(frontier['examples_per_eval_operation'])}.jsonl"
+    released_path = Path(frontier["validation_data_dir"]) / filename
+    if released_path.exists():
+        return released_path
+    if "generated_validation_data_dir" not in frontier:
+        raise FileNotFoundError(f"No evaluation data for op{operation}: {released_path}")
+    generated_path = Path(frontier["generated_validation_data_dir"]) / filename
+    if not generated_path.exists():
+        raise FileNotFoundError(f"Generated evaluation data is not ready for op{operation}: {generated_path}")
+    return generated_path
+
+
+def evaluation_data_record(frontier: dict[str, Any], operation: int) -> dict[str, Any]:
+    path = resolve_evaluation_file(frontier, operation)
+    expected_rows = int(frontier["examples_per_eval_operation"])
+    validate_evaluation_file(path, operation, expected_rows)
+    generated_root = frontier.get("generated_validation_data_dir")
+    generated = generated_root is not None and path.parent == Path(generated_root)
+    record: dict[str, Any] = {
+        "kind": "generated_extension" if generated else "released",
+        "path": str(path.resolve()),
+        "rows": expected_rows,
+        "sha256": file_sha256(path),
+    }
+    if generated:
+        sidecar = generated_evaluation_sidecar(path)
+        if not sidecar.exists():
+            raise FileNotFoundError(f"Generated evaluation manifest is missing: {sidecar}")
+        manifest = json.loads(sidecar.read_text(encoding="utf-8"))
+        if manifest["evaluation_sha256"] != record["sha256"]:
+            raise ValueError(f"Generated evaluation manifest hash mismatch: {sidecar}")
+        record["manifest"] = str(sidecar.resolve())
+    return record
+
+
+def ensure_evaluation_data(frontier: dict[str, Any], operation: int) -> dict[str, Any]:
+    filename = f"op{operation}-{int(frontier['examples_per_eval_operation'])}.jsonl"
+    released_path = Path(frontier["validation_data_dir"]) / filename
+    if released_path.exists():
+        return evaluation_data_record(frontier, operation)
+
+    generated_root = Path(frontier["generated_validation_data_dir"])
+    generated_root.mkdir(parents=True, exist_ok=True)
+    target = generated_root / filename
+    lock_path = generated_root / f".op{operation}.lock"
+    with lock_path.open("w", encoding="utf-8") as lock_handle:
+        fcntl.flock(lock_handle, fcntl.LOCK_EX)
+        if not target.exists():
+            sources = generated_root / "sources"
+            sources.mkdir(parents=True, exist_ok=True)
+            source_dir = sources / f"op{operation}"
+            if source_dir.exists():
+                raise FileExistsError(f"Generated source exists without materialized evaluation file: {source_dir}")
+            temporary_dir = Path(tempfile.mkdtemp(prefix=f"op{operation}.partial.", dir=sources))
+            run(
+                [
+                    "uv",
+                    "run",
+                    "--no-sync",
+                    "user/tianhaowu/rsci/generate.py",
+                    "--output-dir",
+                    str(temporary_dir),
+                    "--ops",
+                    str(operation),
+                    "--train-per-op",
+                    "0",
+                    "--validation-per-op",
+                    str(frontier["examples_per_eval_operation"]),
+                    "--test-per-op",
+                    "0",
+                    "--context-mixture",
+                    str(frontier.get("generated_eval_context_mixture", "zoo=1,teacher=1,movie=1")),
+                    "--mode-mixture",
+                    str(frontier.get("generated_eval_mode_mixture", "forward=1,reverse=1")),
+                    "--seed",
+                    str(frontier["generated_eval_seed"]),
+                    "--depth",
+                    str(frontier.get("depth", 2)),
+                    "--number-range",
+                    str(frontier.get("number_range", 5)),
+                    "--id-max-op",
+                    str(frontier.get("id_max_op", 10)),
+                    "--generator-op-max",
+                    str(frontier["generator_op_max"]),
+                ]
+            )
+            source_file = temporary_dir / "validation.jsonl"
+            validate_evaluation_file(
+                source_file,
+                operation,
+                int(frontier["examples_per_eval_operation"]),
+            )
+            temporary_dir.replace(source_dir)
+            partial = target.with_suffix(target.suffix + ".partial")
+            shutil.copy2(source_dir / "validation.jsonl", partial)
+            partial.replace(target)
+            source_manifest = source_dir / "manifest.json"
+            manifest = json.loads(source_manifest.read_text(encoding="utf-8"))
+            write_json(
+                generated_evaluation_sidecar(target),
+                {
+                    "kind": "generated_frontier_evaluation",
+                    "operation": operation,
+                    "rows": int(frontier["examples_per_eval_operation"]),
+                    "evaluation_file": str(target.resolve()),
+                    "evaluation_sha256": file_sha256(target),
+                    "source_manifest": str(source_manifest.resolve()),
+                    "source_manifest_sha256": file_sha256(source_manifest),
+                    "generation": manifest["generation"],
+                    "counts": manifest["counts"],
+                    "attempts": manifest["attempts"],
+                },
+            )
+    return evaluation_data_record(frontier, operation)
 
 
 def inference_config(frontier: dict[str, Any], model: str, output_dir: Path) -> dict[str, Any]:
@@ -203,8 +364,9 @@ def evaluation_config(
     infer_path: Path,
     output_dir: Path,
 ) -> dict[str, Any]:
+    evaluation_file = resolve_evaluation_file(frontier, operation)
     eval_config = {
-        "data_dir": str(frontier["validation_data_dir"]),
+        "data_dir": str(evaluation_file.parent),
         "operations": [operation],
         "examples_per_operation": int(frontier["examples_per_eval_operation"]),
         "output_dir": str(output_dir),
@@ -747,6 +909,7 @@ def audit_held_out_collection(
     training_manifest_path: Path,
     validation_manifest_path: Path,
     expected_validation_offset: int,
+    evaluation_data: dict[str, Any],
     output_path: Path,
 ) -> dict[str, Any]:
     if output_path.exists():
@@ -778,6 +941,7 @@ def audit_held_out_collection(
         "seq_len",
         "model",
         "tokenizer",
+        "generator_op_max",
     )
     for field in distribution_fields:
         if training_config.get(field) != validation_config.get(field):
@@ -806,6 +970,40 @@ def audit_held_out_collection(
         "training_prompts_sha256": file_sha256(training_prompts_path),
         "validation_prompts_sha256": file_sha256(validation_prompts_path),
     }
+    if evaluation_data["kind"] == "generated_extension":
+        evaluation_path = Path(evaluation_data["path"])
+        evaluation_rows = [
+            json.loads(line) for line in evaluation_path.read_text(encoding="utf-8").splitlines() if line.strip()
+        ]
+        evaluation_digests = {evaluation_row_digest(row) for row in evaluation_rows}
+        if len(evaluation_digests) != len(evaluation_rows):
+            raise ValueError("Generated evaluation rows contain duplicate prompt digests")
+        training_overlap = training_digests & evaluation_digests
+        validation_overlap = validation_digests & evaluation_digests
+        if training_overlap or validation_overlap:
+            raise ValueError(
+                "Generated evaluation prompts overlap collection prompts: "
+                f"training={len(training_overlap)} validation={len(validation_overlap)}"
+            )
+        evaluation_manifest = json.loads(Path(evaluation_data["manifest"]).read_text(encoding="utf-8"))
+        generation = evaluation_manifest["generation"]
+        expected_generation = {
+            "depth": training_config["depth"],
+            "number_range": training_config["number_range"],
+            "id_max_op": training_config["id_max_op"],
+            "generator_op_max_override": training_config["generator_op_max"],
+        }
+        for field, expected in expected_generation.items():
+            if generation[field] != expected:
+                raise ValueError(f"Generated evaluation differs from collection on {field}")
+        payload.update(
+            {
+                "evaluation_data": evaluation_data,
+                "evaluation_prompts": len(evaluation_digests),
+                "evaluation_overlapping_training_prompt_digests": 0,
+                "evaluation_overlapping_validation_prompt_digests": 0,
+            }
+        )
     write_json(output_path, payload)
     return payload
 
@@ -849,6 +1047,8 @@ def execute(config_path: Path, poll_seconds: int) -> None:
         else:
             teacher_model = str(state["iterations"][str(operation - 1)]["trained_model"])
         iteration["teacher_model"] = teacher_model
+        evaluation_data = ensure_evaluation_data(frontier, operation)
+        iteration["evaluation_data"] = evaluation_data
         write_json(state_path, state)
 
         pre_metrics_path = phase_eval(
@@ -932,6 +1132,7 @@ def execute(config_path: Path, poll_seconds: int) -> None:
             collection_manifest_path,
             validation_collection_manifest_path,
             int(frontier["validation_prompt_stream_offset"]),
+            evaluation_data,
             held_out_audit_path,
         )
         record_validation_collection_status = not iteration.get("validation_collection_status_recorded", False)

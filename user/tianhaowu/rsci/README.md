@@ -138,6 +138,15 @@ artifact layout.
 
 ## Scope
 
-This first pipeline produces the released `zero_context` medium (`d=2`) or hard (`d=3`) problems for operations 2–20. The released operation-to-generator schedule is used automatically. Values outside that range require an explicit `--generator-op-max` because the paper code does not publish a calibrated schedule for them.
+The general data command produces released `zero_context` medium (`d=2`) or
+hard (`d=3`) problems for operations 2–20 and uses the released
+operation-to-generator schedule automatically. Values outside that range
+require an explicit `--generator-op-max`.
+
+The frontier experiment has an explicit op21-30 continuation. It uses
+`generator_op_max = 30`, matching the upstream generator's declared op2-30
+zero-context range, and records generated evaluation provenance separately
+from the released op2-20 validation files. See `configs/frontier/README.md` for
+the extension and state-upgrade protocol.
 
 Generation is rejection sampling. `AssertionError`, `ValueError`, and a small set of arithmetic/index errors are counted as expected rejected proposals; unexpected exceptions stop the run. Partial JSONL files remain marked `.partial` so a failed run cannot look complete.
