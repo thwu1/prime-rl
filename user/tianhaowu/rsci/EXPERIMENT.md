@@ -428,3 +428,32 @@ confirms the earlier final-checkpoint diagnostic while satisfying the requested
 selection rule. The superseded op12 directories were preserved as
 `op12_final_checkpoint_v1`; clean op12 pre-evals `9810203`/`9810205` use the
 selected `model_min_val` checkpoints.
+
+### Live op12-15 frontier results
+
+The selected-checkpoint loop has now advanced through op14 in both tracks;
+op15 is active. Values below are unbiased pass@1. “Gate” is answer accuracy for
+the answer track and strict accuracy for the strict track.
+
+| Track | Op | Pre gate | Selected step / held-out loss | Post gate | Training prompts / generations | Strict share of 50K shard |
+| --- | ---: | ---: | --- | ---: | --- | ---: |
+| answer | 11 | 85.42% | 73 / 0.11748475 | 45.22% | 528 / 67,584 | 56.31% |
+| answer | 12 | 29.56% | 143 / 0.10994613 | 34.03% | 800 / 102,400 | 36.53% |
+| answer | 13 | 28.62% | 216 / 0.10077211 | 31.63% | 1,120 / 143,360 | 19.19% |
+| answer | 14 | 25.66% | 292 / 0.08912811 | 27.11% | 1,616 / 206,848 | 3.47% |
+| answer | 15 | 17.83% | training | pending | 1,904 / 243,712 | **0.184%** |
+| strict | 11 | 48.52% | 72 / 0.13402714 | 13.43% | 928 / 118,784 | 100% |
+| strict | 12 | 5.10% | **126 / 0.12522373** | 11.05% | 1,424 / 182,272 | 100% |
+| strict | 13 | 7.17% | **189 / 0.11890249** | 8.02% | 1,584 / 202,752 | 100% |
+| strict | 14 | 6.90% | **270 / 0.10584254** | 9.49% | 1,952 / 249,856 | 100% |
+| strict | 15 | 7.42% | collecting | pending | pending | 100% by construction |
+
+The minimum-loss rule materially changes the strict teacher: steps 126, 189,
+and 270 beat the respective final steps 142, 210, and 278. The answer track's
+final-answer gate decreases but remains far above 1%, while dependency-graph
+quality in its accepted feedback collapses monotonically from 56.31% to 0.184%.
+This is direct empirical support for the verifier-contamination concern: an
+apparently viable answer-only improvement loop increasingly trains on traces
+that the strict process verifier rejects. In contrast, the strict gate has not
+improved monotonically or reached the 1% bound, but its feedback remains clean
+by construction. Both persistent watchers remain active.
