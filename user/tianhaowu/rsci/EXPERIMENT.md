@@ -700,9 +700,13 @@ disjoint held-out job `9850791` then finalized exactly 5,000 strict trajectories
 from 237,568 generations over 1,856 new problems. The held-out audit found zero
 train/validation/evaluation overlap. The 900K/90K cumulative datasets contain
 802,349,752/79,903,259 tokens and require 1,448 updates. Reset-from-base SFT
-job `9852524` is running; its best held-out loss through step 720 is
-`0.03860794` at step 576. Neither loop has reached the requested 1%
-next-frontier gate.
+job `9852524` selected terminal step 1,448 at the global minimum held-out loss
+of `0.03692433`; its offline W&B stream was uploaded by the persistent sync
+job. Post-selection job `9855502` measured 15.42% answer pass@1/61.0%
+pass@128 and 1.465% strict pass@1/7.5% pass@128. Relative to the OP28 gate,
+strict pass@1 decreased from 1.801%, while pass@128 increased from 6.5%.
+The strict loop therefore advanced to OP29; neither loop has reached the
+requested 1% next-frontier gate.
 
 All RSCI SFT configs now target online W&B logging under `ram/rsci`. The 46
 preserved historical offline streams remain the source of truth for past
