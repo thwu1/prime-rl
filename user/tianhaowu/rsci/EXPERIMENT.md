@@ -612,7 +612,7 @@ across four nodes. A reverse sweep (`9832189`) experienced a late node-level
 throughput collapse at its final low-concurrency points; those contaminated
 measurements are preserved but excluded from the selection.
 
-Current live state at 08:31 UTC on August 2: the answer op29 gate was 14.32%
+Current live state at 09:10 UTC on August 2: the answer op29 gate was 14.32%
 (37.50% pass@128), so the loop continued. Its four-node collection completed
 exactly 50,000 answer-correct and zero strict-correct traces from 327,680
 generations over 2,560 problems. The prompt-disjoint held-out collection also
@@ -627,9 +627,12 @@ encountered a transient stale Triton-cache file handle on one node before any
 result artifact was written; automatic retry `9833793` completed successfully.
 The next-frontier OP30 evaluation completed all 25,600 generations and measured
 11.23% answer pass@1 and 34.50% pass@128, still above the 1% gate. Four-node
-OP30 collection job `9833983` is running. Because OP30 will not stop the answer
-loop, the next immutable config extends exact-operation generation through
-OP40; an OP31 smoke sample was verified before this extension was prepared.
+OP30 collection job `9833983` produced exactly 50,000 answer-correct and zero
+strict-correct traces from 360,448 generations over 2,816 problems. Disjoint
+held-out collection job `9834708` is running. Because OP30 will not stop the
+answer loop, the next immutable config extends exact-operation generation
+through OP40; an OP31 smoke sample was verified before this extension was
+prepared.
 
 The strict op25 gate was 1.39%, still above threshold. Its collection finalized
 exactly 50,000 strict trajectories from 2,281,472 generations over 17,824
@@ -646,8 +649,10 @@ prompt overlap. The resulting cumulative train/validation sets contain
 completed all 1,144 updates and selected step 1,140 at the minimum held-out
 loss of 0.04373480; the final step was slightly worse at 0.04389381. The
 selected model reached 15.76% answer pass@1/64.00% pass@128 and 1.90% strict
-pass@1/8.50% pass@128. OP26 pre-evaluation job `9834027` is submitted. Neither
-loop has reached the requested 1% next-frontier gate.
+pass@1/8.50% pass@128. OP26 pre-evaluation measured 14.03% answer pass@1,
+65.00% answer pass@128, 1.36% strict pass@1, and 7.00% strict pass@128. This is
+still above the stopping threshold, so OP26 strict collection job `9834733`
+is submitted. Neither loop has reached the requested 1% next-frontier gate.
 
 All RSCI SFT configs now target online W&B logging under `ram/rsci`. The 46
 preserved historical offline streams remain the source of truth for past
@@ -702,4 +707,6 @@ information.
 
 Persistent CPU drivers `9834279` and `9834280` build and audit both datasets,
 select each minimum-loss checkpoint, and evaluate OP25 plus OP26. λ=0.95 logs
-online to W&B run `6qsnxv2u`; λ=0.90 is queued for GPU quota.
+online to W&B run `6qsnxv2u`; its reweighted held-out loss decreased from
+0.04380906 at step 114 to 0.03833309 at step 684, with all values finite.
+λ=0.90 is queued for GPU quota.
