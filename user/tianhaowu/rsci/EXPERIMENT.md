@@ -509,7 +509,7 @@ fields to change, and resumed both states at op21 under protocol
 original SFT initialization remain unchanged.
 
 Persistent continuation watchers `9821398` (answer) and `9821400` (strict)
-started at 19:45 UTC. Completed continuation rounds through 00:45 UTC are:
+started at 19:45 UTC. Completed continuation rounds through 03:38 UTC are:
 
 | Track | Op | Pre gate | Selected step / held-out loss | Post answer | Post strict | Sampled prompts / represented prompts / generations | Strict share of 50K shard |
 | --- | ---: | ---: | --- | ---: | ---: | --- | ---: |
@@ -520,6 +520,9 @@ started at 19:45 UTC. Completed continuation rounds through 00:45 UTC are:
 | answer | 23 | 16.63% | 1,027 / 0.04923049 | 16.44% | 0.00% | 2,512 / 1,036 / 321,536 | 0.00% |
 | strict | 23 | 5.95% | 963 / 0.04979033 | 29.27% | 6.43% | 6,096 / 1,117 / 780,288 | 100% |
 | answer | 24 | 14.70% | 1,115 / 0.04751578 | 14.95% | 0.00% | 2,528 / 1,072 / 323,584 | 0.00% |
+| strict | 24 | 2.87% | 1,051 / 0.04654343 | 20.79% | 3.13% | 9,616 / 1,209 / 1,230,848 | 100% |
+| answer | 25 | 17.54% | 1,209 / 0.04607983 | 17.95% | 0.00% | 2,640 / 1,040 / 337,920 | 0.00% |
+| answer | 26 | 12.81% | 1,304 / 0.04475274 | 13.38% | 0.00% | 2,512 / 1,031 / 321,536 | 0.00% |
 
 Every sampled problem receives 128 completions, and every accepted completion
 may enter the 50K shard. Op21 exposes strong problem-level polarization. For
@@ -534,15 +537,18 @@ easy-problem duplication is a material limitation of trajectory-level
 collection and is preserved rather than rebalanced.
 
 The subsequent gates also remain above 1%. Answer-only feedback preserves
-roughly 15-18% answer pass@1 while producing no strict trajectories: the
+roughly 13-18% answer pass@1 while producing no strict trajectories: the
 strict share of all continuation shards and strict post-SFT pass@1 remain
 exactly zero. Strict filtering retained 10.23% strict post-SFT pass@1 at op22
-and 6.43% at op23. Its op24 gate fell to 2.87% strict (19.86% answer), closer
-to but still above threshold. Minimum-loss selection mattered at strict op22:
-step 783 beat both step 870 and the final step 879.
+and 6.43% at op23. Its op24 gate fell to 2.87% strict (19.86% answer); after
+op24 SFT, strict pass@1 was 3.13% and answer pass@1 was 20.79%. Minimum-loss
+selection mattered at strict op22: step 783 beat both step 870 and the final
+step 879. The strict op24 final checkpoint was also its minimum held-out-loss
+checkpoint, at step 1,051 with loss 0.04654343.
 
-All op21-23 audits completed so far report zero prompt-digest overlap between
-training, held-out checkpoint validation, and the 200-problem frontier set.
+All completed continuation audits—answer op21-26 and strict op21-24—report
+zero prompt-digest overlap between training, held-out checkpoint validation,
+and the 200-problem frontier set.
 Answer op23 validation collection encountered one random internal-port
 collision (`EADDRINUSE`) before the inference server became ready. The watcher
 recorded the failed artifact-free attempt and automatically reran the same
@@ -551,6 +557,13 @@ exactly 5,000 accepted traces.
 
 The strict CPU watcher was requeued once by the scheduler during op23
 collection and resumed on another CPU node while the GPU child continued
-uninterrupted. Current live state: answer-filter op25 reset-from-base SFT and
-strict-filter op24 50K collection are in progress. The answer op25 gate is
-17.54%; neither loop has reached the requested 1% next-frontier gate.
+uninterrupted. Two strict op24 collection requests and one request in each of
+answer op25 and op26 returned the same transient vLLM HTTP 500
+(`NoneType.finish_reason`). The retry path recovered all four requests without
+restarting a stage or losing data, and every final manifest has the requested
+50,000 accepted traces.
+
+Current live state at 03:39 UTC on August 2: the answer op27 gate is 13.57%
+and its 50K collection is in progress; the strict op25 pre-evaluation has
+started from the selected op24 model. Neither loop has reached the requested
+1% next-frontier gate.
