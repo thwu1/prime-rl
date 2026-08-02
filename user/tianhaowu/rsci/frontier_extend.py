@@ -79,8 +79,9 @@ def validate_config_change(previous: dict[str, Any], extended: dict[str, Any]) -
     extended_max = int(extended["max_operation"])
     if extended_max <= previous_max:
         raise ValueError("Extended max_operation must be greater than the previous maximum")
-    for key, value in previous.items():
-        if key != "max_operation" and extended.get(key) != value:
+    frozen_fields = set(previous) - {"max_operation"} - ALLOWED_NEW_FIELDS
+    for key in frozen_fields:
+        if extended.get(key) != previous[key]:
             raise ValueError(f"Frontier extension changed frozen field {key!r}")
     unexpected = set(extended) - set(previous) - ALLOWED_NEW_FIELDS
     if unexpected:

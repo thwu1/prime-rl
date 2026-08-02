@@ -48,28 +48,31 @@ queueing and reduced measured token throughput.
 
 Released validation files end at op20. The production configs continue through
 op30 using a deterministic generated evaluation extension under
-`generated_validation_data_dir`. This extension stays within the upstream
-zero-context medium generator's declared op2-30 range and uses `op_max=30`,
-seed 20260802, equal weights over all three templates and both generation
-modes, and 200 unique prompts per operation. Each generated file has a sidecar
-manifest with its source manifest, hashes, generation settings, rejection
-counts, and exact template/mode counts. The per-round held-out audit also
-proves that generated evaluation prompts overlap neither the 50K training
+`generated_validation_data_dir`. Because the OP30 answer gate remains above
+1%, `answer_correct_op40.toml` and `strict_correct_op40.toml` define the next
+OP31-40 extension with `generator_op_max=40`. OP31 was smoke-tested to produce
+an exact 31-operation graph before activating this extrapolated range. Both
+extensions use seed 20260802, equal weights over all three templates and both
+generation modes, and 200 unique prompts per operation. Each generated file
+has a sidecar manifest with its source manifest, hashes, generation settings,
+rejection counts, and exact template/mode counts. The per-round held-out audit
+also proves that generated evaluation prompts overlap neither the 50K training
 prompt stream nor the 5K validation-loss prompt stream.
 
-To extend an already completed op20 state, archive and activate the new config
-before relaunching its watcher:
+To extend a state that exhausted its configured range, archive and activate
+the config for the next range before relaunching its watcher. For OP31-40:
 
 ```bash
 uv run --no-sync user/tianhaowu/rsci/frontier_extend.py \
-  user/tianhaowu/rsci/configs/frontier/answer_correct.toml
+  user/tianhaowu/rsci/configs/frontier/answer_correct_op40.toml
 uv run --no-sync user/tianhaowu/rsci/frontier_extend.py \
-  user/tianhaowu/rsci/configs/frontier/strict_correct.toml
+  user/tianhaowu/rsci/configs/frontier/strict_correct_op40.toml
 ```
 
 The upgrader permits only the higher maximum and generated-evaluation fields;
 all training, filtering, sampling, optimization, and validation-loss settings
-remain frozen. It preserves the prior state/config before resuming at op21.
+remain frozen. It preserves the prior state/config before resuming at the next
+operation.
 
 Launch the persistent CPU watchers from a visible tmux `Launcher` window:
 
