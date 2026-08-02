@@ -663,7 +663,10 @@ measured 13.64% answer pass@1 and 39.00% pass@128, slightly below the
 13.76%/40.00% pre-SFT score; strict pass@k remained zero. Thus the lower
 held-out language-model loss did not improve OP32 frontier accuracy. OP33 then
 gated at 14.54% answer pass@1 and 37.50% pass@128, still above the 1% stop
-threshold, so the answer loop continues.
+threshold. Its exact 50K/5K train/held-out shards required 344,064/40,960
+generations over 2,688/320 new problems, with zero prompt overlap. The
+1.15M/115K cumulative datasets require 1,981 optimizer steps; reset-from-base
+SFT job `9852980` is running with online W&B logging.
 
 The strict op25 gate was 1.39%, still above threshold. Its collection finalized
 exactly 50,000 strict trajectories from 2,281,472 generations over 17,824
@@ -693,22 +696,27 @@ selected step 1,344 at held-out loss 0.03911986. Post-SFT OP27 strict
 pass@1/pass@128 reached 2.14%/9.50%. OP28 now gates at 1.80% strict pass@1 and
 6.50% pass@128. Collection job `9844325` finalized exactly 50,000 strict
 trajectories from 2,621,440 generations over 20,480 generated problems;
-disjoint 5K held-out job `9850791` is running. Neither loop has reached the
-requested 1% next-frontier gate.
+disjoint held-out job `9850791` then finalized exactly 5,000 strict trajectories
+from 237,568 generations over 1,856 new problems. The held-out audit found zero
+train/validation/evaluation overlap. The 900K/90K cumulative datasets contain
+802,349,752/79,903,259 tokens and require 1,448 updates. Reset-from-base SFT
+job `9852524` is running; its best held-out loss through step 720 is
+`0.03860794` at step 576. Neither loop has reached the requested 1%
+next-frontier gate.
 
 All RSCI SFT configs now target online W&B logging under `ram/rsci`. The 46
 preserved historical offline streams remain the source of truth for past
 runs. A metric-only replay was validated on answer op28: remote run
 `bupusy2n` is `finished` with exactly 8,975/8,975 history rows. Persistent CPU
-job `9833832` completed the historical migration and remains active to watch
-the two frontier jobs so currently active offline runs are uploaded after
-their exit records are durable. The final set audit found 46/46 local sync
-markers, 45 direct status records, and the single documented OP28 replacement;
-there were zero failures, extra records, or local/remote history-row
-mismatches. Each successful stream is accepted only when W&B reports
-`finished`; the three local exit-code-1 smoke streams retain that provenance
-while accepting any terminal remote state because W&B's offline replay reports
-them as `finished`.
+job `9833832` completed the initial historical migration, then exited when
+SLURM returned `Invalid job id specified` for a finished watched job. The sync
+driver now treats that one scheduler response as an inactive job while still
+raising all other scheduler errors. Replacement job `9853484` is active and
+has uploaded 47 completed streams with zero failures; it watches both frontier
+drivers so new offline runs are uploaded after their exit records are durable.
+Each successful stream is accepted only when W&B reports `finished`; the three
+local exit-code-1 smoke streams retain that provenance while accepting any
+terminal remote state because W&B's offline replay reports them as `finished`.
 
 ### Trajectory duplication and oracle control
 
@@ -748,6 +756,22 @@ trace per problem; using the existing OP25 prompt pool would instead yield
 accepted shard. Two useful controls are consequently (1) gold completions on
 the same prompts, which isolates target quality, and (2) 50K unique gold
 problems, which measures the combined quality-and-diversity upper bound.
+
+The first, apples-to-apples control is now running at OP11-28. Builder job
+`9853360` preserved every row and prompt frequency from the strict cumulative
+train/held-out snapshots, but replaced each assistant message with the
+canonical solution and answer stored by the GSM-Infinite generator. This is
+the same `<question> ... </question>` / `<solution> ... </solution> <answer>
+... </answer>` conversion used for the released OP11-14 gold SFT data. The
+result has exactly 900,000/90,000 train/held-out rows, zero prompt-content
+overlap, 769,102,411/76,598,821 tokens, and no example above 2,048 tokens.
+Because one deterministic gold trace replaces every sampled trajectory, the
+training set has only 21,495 unique model-facing examples and 878,505 repeated
+rows (97.61%). This control therefore isolates target correctness at fixed
+sampling multiplicity; it is not the quality-plus-diversity upper bound. The
+reset-from-base, 1,391-step SFT is job `9853626`, logs online as
+`frontier-oracle-matched-strict-op28`, and will use the same minimum held-out
+validation-loss selection and OP28 pass@1-128 evaluation as strict filtering.
 
 ### Answer-correct versus strict-correct audit
 
