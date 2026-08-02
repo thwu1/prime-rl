@@ -509,7 +509,7 @@ fields to change, and resumed both states at op21 under protocol
 original SFT initialization remain unchanged.
 
 Persistent continuation watchers `9821398` (answer) and `9821400` (strict)
-started at 19:45 UTC. Completed continuation rounds through 04:56 UTC are:
+started at 19:45 UTC. Completed continuation rounds through 06:31 UTC are:
 
 | Track | Op | Pre gate | Selected step / held-out loss | Post answer | Post strict | Sampled prompts / represented prompts / generations | Strict share of 50K shard |
 | --- | ---: | ---: | --- | ---: | ---: | --- | ---: |
@@ -524,6 +524,7 @@ started at 19:45 UTC. Completed continuation rounds through 04:56 UTC are:
 | answer | 25 | 17.54% | 1,209 / 0.04607983 | 17.95% | 0.00% | 2,640 / 1,040 / 337,920 | 0.00% |
 | answer | 26 | 12.81% | 1,304 / 0.04475274 | 13.38% | 0.00% | 2,512 / 1,031 / 321,536 | 0.00% |
 | answer | 27 | 13.57% | 1,390 / 0.04345763 | 13.20% | 0.00% | 2,640 / 1,071 / 337,920 | 0.00% |
+| answer | 28 | 17.52% | 1,494 / 0.04216060 | 18.04% | 0.00% | 2,656 / 1,044 / 339,968 | 0.00% |
 
 Every sampled problem receives 128 completions, and every accepted completion
 may enter the 50K shard. Op21 exposes strong problem-level polarization. For
@@ -547,7 +548,7 @@ selection mattered at strict op22: step 783 beat both step 870 and the final
 step 879. The strict op24 final checkpoint was also its minimum held-out-loss
 checkpoint, at step 1,051 with loss 0.04654343.
 
-All completed continuation audits—answer op21-27 and strict op21-24—report
+All completed continuation audits—answer op21-28 and strict op21-24—report
 zero prompt-digest overlap between training, held-out checkpoint validation,
 and the 200-problem frontier set.
 Answer op23 validation collection encountered one random internal-port
@@ -569,10 +570,27 @@ held-out loss, 0.04345763, was lower than the final loss, 0.04347065. The
 selected model retained 13.20% answer pass@1 and 41.50% pass@128 on op27;
 strict pass@k remained zero at every measured k.
 
-Current live state at 05:01 UTC on August 2: the answer op28 gate is 17.52%
-(42.00% pass@128), so its next 50K collection is starting. The strict op25
-gate is 1.39%, still above threshold, and its collection is in progress. Three
-additional transient vLLM HTTP 500 `finish_reason` errors occurred in a single
-strict op25 burst; all were retried successfully and collection continued in
-complete 128-rollout prompt batches. Neither loop has reached the requested 1%
-next-frontier gate.
+Answer op28 SFT evaluated all 11 matched candidates. Held-out loss decreased
+to its minimum of 0.04216060 at the final step 1,494. The selected model
+reached 18.04% answer pass@1 and 40.50% pass@128 on op28, while strict pass@k
+remained zero at every measured k. Its 50K collection encountered five
+transient vLLM HTTP 500 `NoneType.finish_reason` responses; every request was
+recovered by the configured retries and the final manifest remained exact.
+
+Starting with answer op28 post-evaluation job `9831969`, production inference
+uses four H100 nodes: one eight-GPU replica per node behind a round-robin
+router. Runtime prompt concurrency scales from 16 to 64; collection also
+scales its prompt batch from 16 to 64 while retaining deterministic prompt
+indices and exact 50K trimming. All four replicas became healthy in 135
+seconds, and the complete 25,600-generation op28 evaluation then finished in
+about 30 seconds with no failed request. Runtime and source configs are both
+preserved with the evaluation artifacts.
+
+Current live state at 06:31 UTC on August 2: the answer loop completed op28
+and advanced to op29, whose pre-training frontier evaluation is next. The
+strict op25 gate is 1.39%, still above threshold; its collection has 37,020 of
+50,000 accepted strict trajectories from 1,705,984 generations over 13,328
+problems. Six transient vLLM HTTP 500 `finish_reason` errors have occurred in
+two strict op25 bursts; all were retried successfully and collection continued
+in complete 128-rollout prompt batches. Neither loop has reached the requested
+1% next-frontier gate.

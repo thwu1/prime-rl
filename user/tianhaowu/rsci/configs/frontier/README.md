@@ -28,6 +28,16 @@ The answer track advances only while answer-only pass@1 is above 1%; the strict
 track uses strict-graph pass@1. Both answer and strict pass@1, 2, 4, 8, 16, 32,
 64, and 128 are stored for every evaluation.
 
+Production inference/evaluation jobs allocate four H100 nodes. Each node runs
+an independent eight-GPU data-parallel server, and a round-robin router fronts
+the four replicas. The runtime config multiplies `max_concurrent_prompts` and,
+for collection, `prompt_batch_size` by the allocated node count (16 to 64 in
+the production configs). Prompt generation, 128 samples per prompt, verifier
+logic, deterministic ordering, and exact accepted-trace trimming are
+unchanged. The immutable source configs remain under `iterations/opN/configs`;
+the routed runtime configs are preserved under each phase's `runtime/`
+directory and snapshotted under `configs/` with their hashes.
+
 Released validation files end at op20. The production configs continue through
 op30 using a deterministic generated evaluation extension under
 `generated_validation_data_dir`. This extension stays within the upstream

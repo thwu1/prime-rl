@@ -3,8 +3,8 @@
 #SBATCH --qos=h100_ram_high
 #SBATCH --account=ram
 #SBATCH --partition=h100
-#SBATCH --nodes=1
-#SBATCH --ntasks=1
+#SBATCH --nodes=4
+#SBATCH --ntasks-per-node=1
 #SBATCH --gres=gpu:8
 #SBATCH --cpus-per-task=64
 #SBATCH --mem=256G
