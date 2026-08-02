@@ -629,7 +629,10 @@ The next-frontier OP30 evaluation completed all 25,600 generations and measured
 11.23% answer pass@1 and 34.50% pass@128, still above the 1% gate. Four-node
 OP30 collection job `9833983` produced exactly 50,000 answer-correct and zero
 strict-correct traces from 360,448 generations over 2,816 problems. Disjoint
-held-out collection job `9834708` is running. Because OP30 will not stop the
+held-out collection job `9834708` then produced exactly 5,000 accepted traces
+from 40,960 generations over 320 prompts, with zero train/held-out/evaluation
+overlap. The cumulative 1.0M/100K train/validation datasets require 1,687 SFT
+steps; reset-from-base job `9835021` is queued. Because OP30 will not stop the
 answer loop, the next immutable config extends exact-operation generation
 through OP40; an OP31 smoke sample was verified before this extension was
 prepared.
@@ -707,6 +710,7 @@ information.
 
 Persistent CPU drivers `9834279` and `9834280` build and audit both datasets,
 select each minimum-loss checkpoint, and evaluate OP25 plus OP26. λ=0.95 logs
-online to W&B run `6qsnxv2u`; its reweighted held-out loss decreased from
-0.04380906 at step 114 to 0.03833309 at step 684, with all values finite.
-λ=0.90 is queued for GPU quota.
+online to W&B run `6qsnxv2u`; all 11 validation values were finite and step
+1,140 was selected at the minimum loss of 0.03752742, versus 0.03767757 at the
+final step. OP25 evaluation job `9835096` is queued. λ=0.90 is training online
+in W&B run `ziyqffhs`.
