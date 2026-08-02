@@ -632,10 +632,12 @@ strict-correct traces from 360,448 generations over 2,816 problems. Disjoint
 held-out collection job `9834708` then produced exactly 5,000 accepted traces
 from 40,960 generations over 320 prompts, with zero train/held-out/evaluation
 overlap. The cumulative 1.0M/100K train/validation datasets require 1,687 SFT
-steps; reset-from-base job `9835021` is queued. Because OP30 will not stop the
-answer loop, the next immutable config extends exact-operation generation
-through OP40; an OP31 smoke sample was verified before this extension was
-prepared.
+steps. Reset-from-base job `9835021` completed all steps with finite loss and
+selected the terminal step 1,687 at the minimum held-out loss of 0.03979899;
+step 1,680 was 0.03996944. Four-node post-selection evaluation job `9835756` is
+queued. Because the OP30 pre-SFT gate did not stop the answer loop, the next
+immutable config extends exact-operation generation through OP40; an OP31 smoke
+sample was verified before this extension was prepared.
 
 The strict op25 gate was 1.39%, still above threshold. Its collection finalized
 exactly 50,000 strict trajectories from 2,281,472 generations over 17,824
