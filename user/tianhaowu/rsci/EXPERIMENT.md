@@ -653,9 +653,12 @@ All RSCI SFT configs now target online W&B logging under `ram/rsci`. The 46
 preserved historical offline streams remain the source of truth for past
 runs. A metric-only replay was validated on answer op28: remote run
 `bupusy2n` is `finished` with exactly 8,975/8,975 history rows. Persistent CPU
-job `9833832` has remotely verified 26/46 streams with zero failures and will
-continue migrating the remainder while
-watching the two frontier jobs so currently active offline runs are uploaded
-after their exit records are durable. Each stream is marked locally as synced
-only after the remote API reports both an exact history-row count and terminal
-state.
+job `9833832` completed the historical migration and remains active to watch
+the two frontier jobs so currently active offline runs are uploaded after
+their exit records are durable. The final set audit found 46/46 local sync
+markers, 45 direct status records, and the single documented OP28 replacement;
+there were zero failures, extra records, or local/remote history-row
+mismatches. Each successful stream is accepted only when W&B reports
+`finished`; the three local exit-code-1 smoke streams retain that provenance
+while accepting any terminal remote state because W&B's offline replay reports
+them as `finished`.
