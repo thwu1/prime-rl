@@ -3485,6 +3485,7 @@ L 816.124674 41.093106
 L 827.270473 41.093106
 L 838.416273 41.093106
 L 849.562073 41.093106
+L 860.707873 41.093106
 " clip-path="url(#p233509adec)" style="fill: none; stroke: #ea580c; stroke-width: 2; stroke-linecap: square"/>
     <g clip-path="url(#p233509adec)">
      <use xlink:href="#md90f95a8fb" x="671.229276" y="41.093106" style="fill: #ea580c; stroke: #ea580c"/>
@@ -3504,6 +3505,7 @@ L 849.562073 41.093106
      <use xlink:href="#md90f95a8fb" x="827.270473" y="41.093106" style="fill: #ea580c; stroke: #ea580c"/>
      <use xlink:href="#md90f95a8fb" x="838.416273" y="41.093106" style="fill: #ea580c; stroke: #ea580c"/>
      <use xlink:href="#md90f95a8fb" x="849.562073" y="41.093106" style="fill: #ea580c; stroke: #ea580c"/>
+     <use xlink:href="#md90f95a8fb" x="860.707873" y="41.093106" style="fill: #ea580c; stroke: #ea580c"/>
     </g>
    </g>
    <g id="patch_15">

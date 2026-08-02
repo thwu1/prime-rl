@@ -691,8 +691,10 @@ OP27 gated at 1.41% strict pass@1 and also continued. Its exact 50K/5K shards
 required 2,498,560/253,952 generations; the 850K/85K cumulative datasets
 selected step 1,344 at held-out loss 0.03911986. Post-SFT OP27 strict
 pass@1/pass@128 reached 2.14%/9.50%. OP28 now gates at 1.80% strict pass@1 and
-6.50% pass@128, so collection job `9844325` is running. Neither loop has
-reached the requested 1% next-frontier gate.
+6.50% pass@128. Collection job `9844325` finalized exactly 50,000 strict
+trajectories from 2,621,440 generations over 20,480 generated problems;
+disjoint 5K held-out job `9850791` is running. Neither loop has reached the
+requested 1% next-frontier gate.
 
 All RSCI SFT configs now target online W&B logging under `ram/rsci`. The 46
 preserved historical offline streams remain the source of truth for past
