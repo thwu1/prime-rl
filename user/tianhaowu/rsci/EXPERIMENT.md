@@ -712,5 +712,9 @@ Persistent CPU drivers `9834279` and `9834280` build and audit both datasets,
 select each minimum-loss checkpoint, and evaluate OP25 plus OP26. λ=0.95 logs
 online to W&B run `6qsnxv2u`; all 11 validation values were finite and step
 1,140 was selected at the minimum loss of 0.03752742, versus 0.03767757 at the
-final step. OP25 evaluation job `9835096` is queued. λ=0.90 is training online
-in W&B run `ziyqffhs`.
+final step. OP25 evaluation job `9835096` is queued. λ=0.90 logs online to W&B
+run `ziyqffhs`; all 11 validation values were finite and step 1,140 was selected
+at the minimum loss of 0.03226921, versus 0.03237981 at the final step. Its OP25
+evaluation job `9835402` is queued. Validation losses across λ are not directly
+comparable because each uses its matched reweighted validation distribution;
+the common OP25 and OP26 evaluations are the decision metrics.
