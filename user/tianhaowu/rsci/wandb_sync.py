@@ -15,6 +15,8 @@ from wandb.proto import wandb_internal_pb2
 from wandb.sdk.internal import datastore, sender
 from wandb.sync.sync import SyncManager
 
+REMOTE_FAILURE_STATES = frozenset({"crashed", "failed", "killed"})
+
 
 class NoopDirWatcher:
     def __init__(self, *args, **kwargs):
@@ -68,28 +70,35 @@ def run_file(run_dir: Path) -> Path:
     return files[0]
 
 
-def record_counts(path: Path) -> Counter[str] | None:
+def record_metadata(path: Path) -> tuple[Counter[str], int | None] | None:
     store = datastore.DataStore()
     store.open_for_scan(str(path))
     counts: Counter[str] = Counter()
+    exit_code = None
     try:
         while data := store.scan_data():
             record = wandb_internal_pb2.Record()
             record.ParseFromString(data)
-            counts[record.WhichOneof("record_type")] += 1
+            record_type = record.WhichOneof("record_type")
+            counts[record_type] += 1
+            if record_type == "exit":
+                exit_code = record.exit.exit_code
     except AssertionError:
         return None
-    return counts
+    return counts, exit_code
 
 
-def discover_completed(root: Path) -> Iterator[tuple[Path, Path, Counter[str]]]:
+def discover_completed(root: Path) -> Iterator[tuple[Path, Path, Counter[str], int]]:
     for run_dir in sorted(root.glob("**/wandb/offline-run-*")):
         path = run_file(run_dir)
         if Path(f"{path}.synced").exists():
             continue
-        counts = record_counts(path)
-        if counts is not None and counts["exit"] == 1:
-            yield run_dir, path, counts
+        metadata = record_metadata(path)
+        if metadata is None:
+            continue
+        counts, exit_code = metadata
+        if counts["exit"] == 1 and exit_code is not None:
+            yield run_dir, path, counts, exit_code
 
 
 def job_active(job_id: str) -> bool:
@@ -114,15 +123,17 @@ def verify_remote_run(
     project: str,
     remote_id: str,
     expected_history_rows: int,
+    local_exit_code: int,
     timeout_seconds: int = 120,
 ):
+    expected_states = {"finished"} if local_exit_code == 0 else REMOTE_FAILURE_STATES
     deadline = time.monotonic() + timeout_seconds
     while True:
         uploaded = wandb.Api(timeout=60).run(f"{entity}/{project}/{remote_id}")
-        if uploaded.state == "finished":
+        if uploaded.state in expected_states:
             break
         if time.monotonic() >= deadline:
-            raise RuntimeError(f"Remote run {remote_id} is {uploaded.state}, expected finished")
+            raise RuntimeError(f"Remote run {remote_id} is {uploaded.state}, expected one of {sorted(expected_states)}")
         time.sleep(5)
 
     remote_history_rows = sum(1 for _ in uploaded.scan_history(page_size=1000))
@@ -141,6 +152,7 @@ def sync_run(
     entity: str,
     project: str,
     remote_id: str,
+    local_exit_code: int,
 ) -> dict:
     existing = remote_run(api, entity, project, remote_id)
     if existing is None:
@@ -159,10 +171,11 @@ def sync_run(
             manager.poll()
         manager._thread.join()
 
-    uploaded = verify_remote_run(entity, project, remote_id, counts["history"])
+    uploaded = verify_remote_run(entity, project, remote_id, counts["history"], local_exit_code)
     Path(f"{path}.synced").touch()
     return {
         "history_rows": counts["history"],
+        "local_exit_code": local_exit_code,
         "local_run_dir": str(run_dir),
         "remote_id": remote_id,
         "state": uploaded.state,
@@ -191,7 +204,7 @@ def main() -> None:
         status = json.loads(args.status.read_text())
 
     while True:
-        for run_dir, path, counts in discover_completed(args.root):
+        for run_dir, path, counts, exit_code in discover_completed(args.root):
             local_id = run_dir.name.rsplit("-", 1)[-1]
             remote_id = overrides.get(local_id, local_id)
             try:
@@ -203,6 +216,7 @@ def main() -> None:
                     args.entity,
                     args.project,
                     remote_id,
+                    exit_code,
                 )
                 status["failures"].pop(local_id, None)
             except Exception as error:
