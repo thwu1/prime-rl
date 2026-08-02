@@ -24,6 +24,6 @@ uv run --no-sync user/tianhaowu/rsci/wandb_sync.py \
   --status /checkpoint/ram-h100-2/tianhaowu/rsci/wandb-sync/status.json \
   --entity ram \
   --project rsci \
-  --watch-job 9821398 \
   --watch-job 9821400 \
+  --watch-job 9844382 \
   --run-id-override bupusy2o=bupusy2n

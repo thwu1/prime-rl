@@ -102,12 +102,22 @@ def discover_completed(root: Path) -> Iterator[tuple[Path, Path, Counter[str], i
 
 
 def job_active(job_id: str) -> bool:
+    command = ["squeue", "--noheader", "--jobs", job_id, "--format=%T"]
     result = subprocess.run(
-        ["squeue", "--noheader", "--jobs", job_id, "--format=%T"],
-        check=True,
+        command,
+        check=False,
         capture_output=True,
         text=True,
     )
+    if result.returncode != 0:
+        if "Invalid job id specified" in result.stderr:
+            return False
+        raise subprocess.CalledProcessError(
+            result.returncode,
+            command,
+            output=result.stdout,
+            stderr=result.stderr,
+        )
     return bool(result.stdout.strip())
 
 
