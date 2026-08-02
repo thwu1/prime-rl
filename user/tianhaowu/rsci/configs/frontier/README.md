@@ -38,6 +38,14 @@ unchanged. The immutable source configs remain under `iterations/opN/configs`;
 the routed runtime configs are preserved under each phase's `runtime/`
 directory and snapshotted under `configs/` with their hashes.
 
+The per-node concurrency was measured with the production request shape
+(`n=128`, 2,048-token cap) rather than inferred from HTTP request counts.
+Concurrency 16 is the validated per-node setting: 16 prompt requests × 128
+choices fills 2,048 active sequences, equal to eight engines ×
+`max_num_seqs=256`. A four-node job therefore uses 64 prompt requests and up
+to 8,192 active sequences in aggregate. Higher prompt concurrency only adds
+queueing and reduced measured token throughput.
+
 Released validation files end at op20. The production configs continue through
 op30 using a deterministic generated evaluation extension under
 `generated_validation_data_dir`. This extension stays within the upstream

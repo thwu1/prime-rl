@@ -586,11 +586,36 @@ seconds, and the complete 25,600-generation op28 evaluation then finished in
 about 30 seconds with no failed request. Runtime and source configs are both
 preserved with the evaluation artifacts.
 
-Current live state at 06:31 UTC on August 2: the answer loop completed op28
-and advanced to op29, whose pre-training frontier evaluation is next. The
-strict op25 gate is 1.39%, still above threshold; its collection has 37,020 of
-50,000 accepted strict trajectories from 1,705,984 generations over 13,328
-problems. Six transient vLLM HTTP 500 `finish_reason` errors have occurred in
-two strict op25 bursts; all were retried successfully and collection continued
-in complete 128-rollout prompt batches. Neither loop has reached the requested
-1% next-frontier gate.
+The production request shape was benchmarked directly on one eight-GPU node
+using 256 fixed op29 prompts, 128 trajectories per request, deterministic
+request seeds, the 2,048-token cap, and prefix caching disabled to avoid replay
+bias. Benchmark job `9832143` measured:
+
+| Concurrent prompts per node | Completion tokens/s | Trajectories/s |
+| ---: | ---: | ---: |
+| 8 | 211,005 | 672 |
+| **16** | **261,127** | **831** |
+| 32 | 246,824 | 786 |
+| 64 | 246,125 | 783 |
+| 128 | 250,936 | 799 |
+| 256 | 219,263 | 698 |
+
+Sixteen prompt requests already represent 2,048 candidate sequences because
+each request asks for 128 completions. This exactly matches eight local vLLM
+engines × `max_num_seqs=256`. Fresh-node confirmation jobs `9832312` and
+`9832313` removed an ordering-related outlier and measured 302,428 tokens/s at
+16 versus 247,092 at 32, a 22.4% advantage. Production therefore keeps 16
+prompt requests per node and scales to 64 requests / 8,192 candidate sequences
+across four nodes. A reverse sweep (`9832189`) experienced a late node-level
+throughput collapse at its final low-concurrency points; those contaminated
+measurements are preserved but excluded from the selection.
+
+Current live state at 07:10 UTC on August 2: the answer op29 gate is 14.32%
+(37.50% pass@128), so the loop continues. Its four-node collection completed
+exactly 50,000 answer-correct and zero strict-correct traces from 327,680
+generations over 2,560 problems; the prompt-disjoint 5K held-out collection is
+running. The strict op25 gate is 1.39%, still above threshold; its collection
+has 46,265 of 50,000 accepted strict trajectories from 2,113,536 generations
+over 16,512 problems. Six transient vLLM HTTP 500 `finish_reason` errors have
+occurred in two strict op25 bursts; all were retried successfully. Neither loop
+has reached the requested 1% next-frontier gate.
