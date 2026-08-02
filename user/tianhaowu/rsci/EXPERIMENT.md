@@ -706,6 +706,47 @@ accepted shard. Two useful controls are consequently (1) gold completions on
 the same prompts, which isolates target quality, and (2) 50K unique gold
 problems, which measures the combined quality-and-diversity upper bound.
 
+### Answer-correct versus strict-correct audit
+
+The strict-filter model's OP28 pre-evaluation contains 25,600 trajectories:
+3,565 have the exact final answer, but only 461 pass the dependency-graph
+verifier. Among the 3,104 answer-correct/strict-wrong trajectories, all have a
+dependency mismatch, 2,635 (84.9%) have at least one intermediate-value
+mismatch, and 2,050 (66.0%) omit at least one gold node. These categories
+overlap.
+
+The gap is dominated by generation mode. Normal-forward trajectories have
+6.91% answer pass@1 and 3.57% strict pass@1; 51.6% of their answer-correct
+traces are strict-correct. Forward-reverse equation trajectories have 21.09%
+answer pass@1 but zero strict-correct samples out of 12,672. The strict training
+shards consequently contain only 17, 11, and 15 forward-reverse rows out of
+50,000 at OP25, OP26, and OP27 respectively.
+
+A stratified manual read of ten answer-correct/strict-wrong trajectories found
+eight genuine reasoning failures, one internally inconsistent variable-reuse
+case, and one clear verifier false negative:
+
+| Sample | Mode/template | Manual finding |
+| --- | --- | --- |
+| `00ded...`, rank 2 | normal/zoo | Substitutes an equal-valued but wrong parent node. |
+| `0b885...`, rank 0 | normal/movie | Uses the wrong same-valued source entity and adds an irrelevant node. |
+| `35418...`, rank 8 | normal/school | Reassigns a previously defined letter; arithmetic works but symbol scope is inconsistent. |
+| `9e4cc...`, rank 11 | normal/school | Omits a base node and asserts its downstream value directly. |
+| `8d3b2...`, rank 14 | normal/movie | Multiple wrong intermediates cancel, preserving the final total. |
+| `26f44...`, rank 14 | reverse/zoo | Writes `x+42=79`, then incorrectly asserts `x=1`, the gold answer. |
+| `14459...`, rank 0 | reverse/movie | Semantically correct `x+31=33` solution rejected by letter-reuse leakage in the parser. |
+| `73127...`, rank 96 | reverse/school | Changes `79` to `25` and known total `115` to `71`, then forces the gold answer. |
+| `0080f...`, rank 61 | reverse/zoo | Wrong nodes and totals (`178` becomes `101`), followed by the gold answer. |
+| `f36cb...`, rank 34 | reverse/movie | Turns the correct `x+80` equation into `x+44`, then still asserts `x=4`. |
+
+Thus final-answer correctness is often produced by equal-value substitutions,
+compensating errors, shortcuts, or answer anchoring. The released strict parser
+also has a confirmed false-negative mechanism: its single-letter variable map
+is global, so arbitrary reuse of a letter can leak unrelated dependencies into
+an otherwise correct graph. The main strict track is preserved unchanged for
+paper-faithful comparison, but its near-total removal of forward-reverse data
+must be treated as a verifier-induced curriculum bias.
+
 ### Exponential replay ablation
 
 To test whether uniform cumulative replay dilutes the newest frontier, fixed
