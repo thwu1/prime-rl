@@ -525,6 +525,8 @@ started at 19:45 UTC. Completed continuation rounds through 06:31 UTC are:
 | answer | 26 | 12.81% | 1,304 / 0.04475274 | 13.38% | 0.00% | 2,512 / 1,031 / 321,536 | 0.00% |
 | answer | 27 | 13.57% | 1,390 / 0.04345763 | 13.20% | 0.00% | 2,640 / 1,071 / 337,920 | 0.00% |
 | answer | 28 | 17.52% | 1,494 / 0.04216060 | 18.04% | 0.00% | 2,656 / 1,044 / 339,968 | 0.00% |
+| answer | 29 | 14.32% | 1,590 / 0.04112151 | 14.11% | 0.00% | 2,560 / 1,023 / 327,680 | 0.00% |
+| strict | 25 | 1.39% | 1,140 / 0.04373480 | 15.76% | 1.90% | 17,824 / 1,551 / 2,281,472 | 100% |
 
 Every sampled problem receives 128 completions, and every accepted completion
 may enter the 50K shard. Op21 exposes strong problem-level polarization. For
@@ -548,7 +550,7 @@ selection mattered at strict op22: step 783 beat both step 870 and the final
 step 879. The strict op24 final checkpoint was also its minimum held-out-loss
 checkpoint, at step 1,051 with loss 0.04654343.
 
-All completed continuation audits—answer op21-28 and strict op21-24—report
+All completed continuation audits—answer op21-29 and strict op21-25—report
 zero prompt-digest overlap between training, held-out checkpoint validation,
 and the 200-problem frontier set.
 Answer op23 validation collection encountered one random internal-port
@@ -610,20 +612,26 @@ across four nodes. A reverse sweep (`9832189`) experienced a late node-level
 throughput collapse at its final low-concurrency points; those contaminated
 measurements are preserved but excluded from the selection.
 
-Current live state at 08:09 UTC on August 2: the answer op29 gate is 14.32%
-(37.50% pass@128), so the loop continues. Its four-node collection completed
+Current live state at 08:31 UTC on August 2: the answer op29 gate was 14.32%
+(37.50% pass@128), so the loop continued. Its four-node collection completed
 exactly 50,000 answer-correct and zero strict-correct traces from 327,680
 generations over 2,560 problems. The prompt-disjoint held-out collection also
 completed with exactly 5,000 accepted traces from 32,768 generations over 256
 new problems. The resulting cumulative train/validation sets contain
 950,000/95,000 trajectories. Reset-from-base SFT job `9832549` evaluated all
 11 candidates and selected step 1,590 at the minimum held-out loss of
-0.04112151; the final step 1,591 was slightly worse at 0.04114703. Its first
-four-node post-selection evaluation attempt `9833602` encountered a transient
-stale Triton-cache file handle on one node before any result artifact was
-written; the persistent watcher will retry the stage.
+0.04112151; the final step 1,591 was slightly worse at 0.04114703. The selected
+model reached 14.11% answer pass@1 and 37.50% pass@128, while strict pass@k
+remained zero. Its first four-node post-selection evaluation attempt `9833602`
+encountered a transient stale Triton-cache file handle on one node before any
+result artifact was written; automatic retry `9833793` completed successfully.
+The next-frontier OP30 evaluation completed all 25,600 generations and measured
+11.23% answer pass@1 and 34.50% pass@128, still above the 1% gate. Four-node
+OP30 collection job `9833983` is running. Because OP30 will not stop the answer
+loop, the next immutable config extends exact-operation generation through
+OP40; an OP31 smoke sample was verified before this extension was prepared.
 
-The strict op25 gate is 1.39%, still above threshold. Its collection finalized
+The strict op25 gate was 1.39%, still above threshold. Its collection finalized
 exactly 50,000 strict trajectories from 2,281,472 generations over 17,824
 problems. Six transient vLLM HTTP 500 `finish_reason` errors occurred in two
 bursts; all were retried successfully. Collection job `9829208` exited nonzero
@@ -634,15 +642,19 @@ prompt-disjoint 5K strict held-out collection as four-node job `9832747`. That
 job completed with exactly 5,000 strict trajectories from 196,608 generations
 over 1,536 prompts. The held-out audit found zero train/validation/evaluation
 prompt overlap. The resulting cumulative train/validation sets contain
-750,000/75,000 strict trajectories. Reset-from-base SFT job `9833404` is
-healthy; its held-out loss reached 0.04451709 at step 798. Neither loop has
-reached the requested 1% next-frontier gate.
+750,000/75,000 strict trajectories. Reset-from-base SFT job `9833404`
+completed all 1,144 updates and selected step 1,140 at the minimum held-out
+loss of 0.04373480; the final step was slightly worse at 0.04389381. The
+selected model reached 15.76% answer pass@1/64.00% pass@128 and 1.90% strict
+pass@1/8.50% pass@128. OP26 pre-evaluation job `9834027` is submitted. Neither
+loop has reached the requested 1% next-frontier gate.
 
 All RSCI SFT configs now target online W&B logging under `ram/rsci`. The 46
 preserved historical offline streams remain the source of truth for past
 runs. A metric-only replay was validated on answer op28: remote run
 `bupusy2n` is `finished` with exactly 8,975/8,975 history rows. Persistent CPU
-job `9833712` is migrating the remaining completed streams and will continue
+job `9833832` has remotely verified 26/46 streams with zero failures and will
+continue migrating the remainder while
 watching the two frontier jobs so currently active offline runs are uploaded
 after their exit records are durable. Each stream is marked locally as synced
 only after the remote API reports both an exact history-row count and terminal
