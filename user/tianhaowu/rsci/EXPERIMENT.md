@@ -639,7 +639,19 @@ step 1,680 was 0.03996944. The selected model reached 11.63% answer pass@1 and
 zero. The immutable OP31-40 extension was activated at 18:45 UTC with the OP30
 state and config archived. Watcher `9844382` generated and audited 200 OP31
 evaluation problems. OP31 pre-evaluation completed all 25,600 rollouts at
-13.24% answer pass@1 and 36.00% pass@128, so the answer loop continues.
+13.24% answer pass@1 and 36.00% pass@128. Collection job `9844532` then
+finalized exactly 50,000 answer-correct and zero strict-correct traces from
+360,448 generations over 2,816 generated problems. Disjoint held-out job
+`9845374` produced exactly 5,000 rows from 32,768 generations over 256 new
+problems, with zero train/held-out/evaluation prompt overlap. The resulting
+1.05M/105K cumulative train/validation datasets contain 991,643,165 training
+tokens and require 1,784 optimizer steps. Reset-from-base SFT job `9845425`
+selected terminal step 1,784 at the global minimum held-out loss of 0.03882361
+and synced online W&B run `0adeljxt`. Post-selection job `9846508` measured
+13.00% answer pass@1 and 38.50% pass@128, versus 13.24%/36.00% before SFT;
+strict pass@k remained zero. The generated OP32 gate then measured 13.76%
+answer pass@1 and 40.00% pass@128, so collection job `9846759` continues the
+answer loop.
 
 The strict op25 gate was 1.39%, still above threshold. Its collection finalized
 exactly 50,000 strict trajectories from 2,281,472 generations over 17,824
@@ -697,18 +709,21 @@ unique exact pairs, and 20,374 repeated pairs (40.75%). Trace IDs remain unique
 because sample rank is part of the trajectory identity.
 
 A full model-facing-text audit of the latest completed cumulative snapshots
-gives the current exact totals. Answer OP11-30 has 1,000,000 rows but 871,146
-unique `(question, completion)` byte strings: 128,854 rows (12.885%) repeat an
-earlier training example exactly, across 52,057 duplicate groups. It represents
-19,704 unique question strings (50.75 accepted rows/problem on average), and
-the most repeated identical example occurs 118 times. Strict OP11-27 has
+gives the current exact totals. Answer OP11-31 has 1,050,000 rows but 896,232
+unique `(question, completion)` byte strings: 153,768 rows (14.645%) repeat an
+earlier training example exactly, across 58,254 duplicate groups. It represents
+20,773 unique question strings (50.55 accepted rows/problem on average), and
+the most repeated identical example occurs 118 times. OP31 alone has 50,000
+rows over 1,069 problems but only 25,086 unique model-facing examples: 24,914
+rows (49.828%) are exact repeats, with maximum identical-example multiplicity
+113. Strict OP11-27 has
 850,000 rows and 767,175 unique model-facing examples: 82,825 rows (9.744%) are
 exact repeats, across 37,406 duplicate groups. It represents 19,969 unique
 questions (42.57 rows/problem), with maximum identical-example multiplicity
-76. All 1,850,000 trace IDs are unique and every prompt ID maps to exactly one
+76. All 1,900,000 trace IDs are unique and every prompt ID maps to exactly one
 question string; these counts therefore isolate duplication seen by SFT rather
-than metadata duplication. The in-progress answer OP31 and strict OP28 shards
-are excluded until they enter a finalized cumulative training snapshot.
+than metadata duplication. The in-progress answer OP32 and strict OP28 shards
+are excluded until they enter finalized cumulative training snapshots.
 
 None of the 50K sampled strict OP25 completions exactly matches the generator's
 literal gold completion, even though all pass the dependency-graph verifier.
