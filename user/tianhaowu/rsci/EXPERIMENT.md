@@ -509,7 +509,7 @@ fields to change, and resumed both states at op21 under protocol
 original SFT initialization remain unchanged.
 
 Persistent continuation watchers `9821398` (answer) and `9821400` (strict)
-started at 19:45 UTC. Completed continuation rounds through 03:38 UTC are:
+started at 19:45 UTC. Completed continuation rounds through 04:56 UTC are:
 
 | Track | Op | Pre gate | Selected step / held-out loss | Post answer | Post strict | Sampled prompts / represented prompts / generations | Strict share of 50K shard |
 | --- | ---: | ---: | --- | ---: | ---: | --- | ---: |
@@ -523,6 +523,7 @@ started at 19:45 UTC. Completed continuation rounds through 03:38 UTC are:
 | strict | 24 | 2.87% | 1,051 / 0.04654343 | 20.79% | 3.13% | 9,616 / 1,209 / 1,230,848 | 100% |
 | answer | 25 | 17.54% | 1,209 / 0.04607983 | 17.95% | 0.00% | 2,640 / 1,040 / 337,920 | 0.00% |
 | answer | 26 | 12.81% | 1,304 / 0.04475274 | 13.38% | 0.00% | 2,512 / 1,031 / 321,536 | 0.00% |
+| answer | 27 | 13.57% | 1,390 / 0.04345763 | 13.20% | 0.00% | 2,640 / 1,071 / 337,920 | 0.00% |
 
 Every sampled problem receives 128 completions, and every accepted completion
 may enter the 50K shard. Op21 exposes strong problem-level polarization. For
@@ -546,7 +547,7 @@ selection mattered at strict op22: step 783 beat both step 870 and the final
 step 879. The strict op24 final checkpoint was also its minimum held-out-loss
 checkpoint, at step 1,051 with loss 0.04654343.
 
-All completed continuation audits—answer op21-26 and strict op21-24—report
+All completed continuation audits—answer op21-27 and strict op21-24—report
 zero prompt-digest overlap between training, held-out checkpoint validation,
 and the 200-problem frontier set.
 Answer op23 validation collection encountered one random internal-port
@@ -563,7 +564,15 @@ answer op25 and op26 returned the same transient vLLM HTTP 500
 restarting a stage or losing data, and every final manifest has the requested
 50,000 accepted traces.
 
-Current live state at 03:39 UTC on August 2: the answer op27 gate is 13.57%
-and its 50K collection is in progress; the strict op25 pre-evaluation has
-started from the selected op24 model. Neither loop has reached the requested
-1% next-frontier gate.
+Answer op27 selected step 1,390 rather than the final step 1,399 because its
+held-out loss, 0.04345763, was lower than the final loss, 0.04347065. The
+selected model retained 13.20% answer pass@1 and 41.50% pass@128 on op27;
+strict pass@k remained zero at every measured k.
+
+Current live state at 05:01 UTC on August 2: the answer op28 gate is 17.52%
+(42.00% pass@128), so its next 50K collection is starting. The strict op25
+gate is 1.39%, still above threshold, and its collection is in progress. Three
+additional transient vLLM HTTP 500 `finish_reason` errors occurred in a single
+strict op25 burst; all were retried successfully and collection continued in
+complete 128-rollout prompt batches. Neither loop has reached the requested 1%
+next-frontier gate.
