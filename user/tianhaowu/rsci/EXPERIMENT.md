@@ -710,13 +710,22 @@ information.
 | 0.95 | 34,074 / 69,870 | 678,455 / 71,545 | 1,168 | `9834296` |
 | 0.90 | 21,606 / 94,445 | 607,275 / 142,725 | 1,194 | `9834297` |
 
-Persistent CPU drivers `9834279` and `9834280` build and audit both datasets,
-select each minimum-loss checkpoint, and evaluate OP25 plus OP26. λ=0.95 logs
-online to W&B run `6qsnxv2u`; all 11 validation values were finite and step
-1,140 was selected at the minimum loss of 0.03752742, versus 0.03767757 at the
-final step. OP25 evaluation job `9835096` is queued. λ=0.90 logs online to W&B
-run `ziyqffhs`; all 11 validation values were finite and step 1,140 was selected
-at the minimum loss of 0.03226921, versus 0.03237981 at the final step. Its OP25
-evaluation job `9835402` is queued. Validation losses across λ are not directly
-comparable because each uses its matched reweighted validation distribution;
-the common OP25 and OP26 evaluations are the decision metrics.
+Persistent CPU drivers `9834279` and `9834280` completed both audited datasets,
+minimum-loss selections, and common OP25/OP26 evaluations. λ=0.95 logs to W&B
+run `6qsnxv2u`; step 1,140 was selected at validation loss 0.03752742. λ=0.90
+logs to `ziyqffhs`; step 1,140 was selected at 0.03226921. Validation losses
+across λ are not directly comparable because each uses its matched reweighted
+validation distribution.
+
+| Replay | OP25 strict @1 / @128 | OP26 strict @1 / @128 |
+| --- | ---: | ---: |
+| Uniform baseline | 1.902% / 8.5% | 1.363% / 7.0% |
+| λ=0.95 | 1.863% / 7.5% | 1.641% / 6.0% |
+| λ=0.90 | 1.887% / 6.5% | 1.965% / 6.0% |
+
+Neither decay improves strict accuracy on the OP25 training frontier. On the
+held-out OP26 frontier, λ=0.95 raises strict pass@1 by 0.277 percentage points,
+and λ=0.90 raises it by 0.602 points (+44% relative). Both reduce strict
+pass@128 from 7% to 6%. Exponential replay therefore raises the probability of
+a correct strict rollout on already-solvable problems, especially at λ=0.90,
+but does not expand one-of-128 problem coverage in this run.
