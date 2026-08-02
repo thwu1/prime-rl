@@ -662,3 +662,44 @@ mismatches. Each successful stream is accepted only when W&B reports
 `finished`; the three local exit-code-1 smoke streams retain that provenance
 while accepting any terminal remote state because W&B's offline replay reports
 them as `finished`.
+
+### Trajectory duplication and oracle control
+
+The 50K target counts accepted trajectories, not unique generated problems.
+The cumulative strict OP11-25 dataset contains 750,000 unique trace IDs but
+only 16,932 represented problem IDs, or 44.29 rows per problem on average. In
+the newest strict OP25 shard, 50,000 rows come from 1,551 represented problems
+(32.24 rows/problem); 38,016 `(problem, exact completion)` pairs are unique and
+11,984 rows (23.97%) exactly repeat another accepted completion for the same
+problem. Answer OP29 is more concentrated: 50,000 rows, 1,023 problems, 29,626
+unique exact pairs, and 20,374 repeated pairs (40.75%). Trace IDs remain unique
+because sample rank is part of the trajectory identity.
+
+None of the 50K sampled strict OP25 completions exactly matches the generator's
+literal gold completion, even though all pass the dependency-graph verifier.
+An oracle upper bound is therefore materially different from strict filtering.
+A 50K-row oracle shard can also have 50K unique problems by generating one gold
+trace per problem; using the existing OP25 prompt pool would instead yield
+17,824 gold rows, or only 1,551 if restricted to problems represented in the
+accepted shard. Two useful controls are consequently (1) gold completions on
+the same prompts, which isolates target quality, and (2) 50K unique gold
+problems, which measures the combined quality-and-diversity upper bound.
+
+### Exponential replay ablation
+
+To test whether uniform cumulative replay dilutes the newest frontier, fixed
+OP11-25 strict data are reweighted with
+`weight(op_i) = lambda ** (25 - op_i)`. The baseline training and held-out row
+totals (750K/75K), fixed base initialization, 1,144 optimizer steps, optimizer,
+scheduler, and minimum held-out-loss selection remain unchanged. This isolates
+gradient recency but necessarily repeats recent trace rows; it does not add new
+information.
+
+| λ | Oldest/newest train rows | Unique/repeated train trace IDs | Natural one-epoch steps | SFT job |
+| ---: | ---: | ---: | ---: | ---: |
+| 0.95 | 34,074 / 69,870 | 678,455 / 71,545 | 1,168 | `9834296` |
+| 0.90 | 21,606 / 94,445 | 607,275 / 142,725 | 1,194 | `9834297` |
+
+Persistent CPU drivers `9834279` and `9834280` build and audit both datasets,
+select each minimum-loss checkpoint, and evaluate OP25 plus OP26. λ=0.95 logs
+online to W&B run `6qsnxv2u`; λ=0.90 is queued for GPU quota.
