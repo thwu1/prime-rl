@@ -67,8 +67,9 @@ template_path = "/storage/home/tianhaowu/prime-rl/user/tianhaowu/rsci/templates/
 
 [wandb]
 project = "rsci"
+entity = "ram"
 name = "figure3-op11-14-smoke"
-offline = true
+offline = false
 
 [log]
 level = "info"

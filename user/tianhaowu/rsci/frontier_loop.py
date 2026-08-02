@@ -526,8 +526,9 @@ def sft_config(
         },
         "wandb": {
             "project": "rsci",
+            "entity": "ram",
             "name": f"frontier-{frontier['track']}-op{operation}",
-            "offline": True,
+            "offline": False,
         },
         "log": {"level": "info", "interval": 10.0, "ranks_filter": [0]},
     }

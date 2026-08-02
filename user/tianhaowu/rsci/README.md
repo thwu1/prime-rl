@@ -111,10 +111,17 @@ bash user/tianhaowu/rsci/scripts/run_sft.sh \
 The SFT configs select `templates/single_node_sft_offline.sbatch.j2`. It uses
 the already-synchronized project environment with `uv run --no-sync` because
 the compute nodes cannot fetch the optional ARM vLLM wheel and SFT does not use
-vLLM. Unset `SBATCH_OUTPUT` and `SBATCH_ERROR` when launching if the login
+vLLM. Despite the historical template name, SFT configs log online to the
+`ram/rsci` W&B project. Unset `SBATCH_OUTPUT` and `SBATCH_ERROR` when launching if the login
 environment defines them, so the experiment-local log path in the template is
 honored. `scripts/run_sft.sh` applies those launch settings and forwards any
 additional CLI overrides after the config path.
+
+Historical offline SFT runs are replayed by `wandb_sync.py`. The persistent
+CPU wrapper `scripts/run_wandb_sync.sbatch` discovers completed `.wandb`
+streams, uploads metrics and configs without optional file artifacts, verifies
+the exact history-row count and terminal state through the W&B API, and then
+marks the local stream as synced.
 
 After the four checkpoint directories are stable, launch their matched ID and
 OOD-mid evaluations with:

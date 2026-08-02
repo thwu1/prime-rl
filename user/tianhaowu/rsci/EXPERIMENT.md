@@ -610,12 +610,40 @@ across four nodes. A reverse sweep (`9832189`) experienced a late node-level
 throughput collapse at its final low-concurrency points; those contaminated
 measurements are preserved but excluded from the selection.
 
-Current live state at 07:10 UTC on August 2: the answer op29 gate is 14.32%
+Current live state at 08:09 UTC on August 2: the answer op29 gate is 14.32%
 (37.50% pass@128), so the loop continues. Its four-node collection completed
 exactly 50,000 answer-correct and zero strict-correct traces from 327,680
-generations over 2,560 problems; the prompt-disjoint 5K held-out collection is
-running. The strict op25 gate is 1.39%, still above threshold; its collection
-has 46,265 of 50,000 accepted strict trajectories from 2,113,536 generations
-over 16,512 problems. Six transient vLLM HTTP 500 `finish_reason` errors have
-occurred in two strict op25 bursts; all were retried successfully. Neither loop
-has reached the requested 1% next-frontier gate.
+generations over 2,560 problems. The prompt-disjoint held-out collection also
+completed with exactly 5,000 accepted traces from 32,768 generations over 256
+new problems. The resulting cumulative train/validation sets contain
+950,000/95,000 trajectories. Reset-from-base SFT job `9832549` evaluated all
+11 candidates and selected step 1,590 at the minimum held-out loss of
+0.04112151; the final step 1,591 was slightly worse at 0.04114703. Its first
+four-node post-selection evaluation attempt `9833602` encountered a transient
+stale Triton-cache file handle on one node before any result artifact was
+written; the persistent watcher will retry the stage.
+
+The strict op25 gate is 1.39%, still above threshold. Its collection finalized
+exactly 50,000 strict trajectories from 2,281,472 generations over 17,824
+problems. Six transient vLLM HTTP 500 `finish_reason` errors occurred in two
+bursts; all were retried successfully. Collection job `9829208` exited nonzero
+after writing the complete manifest because its evaluation wrapper encountered
+a teardown-time shell parse error. The persistent watcher treated the audited
+manifest as authoritative, did not regenerate the shard, and launched the
+prompt-disjoint 5K strict held-out collection as four-node job `9832747`. That
+job completed with exactly 5,000 strict trajectories from 196,608 generations
+over 1,536 prompts. The held-out audit found zero train/validation/evaluation
+prompt overlap. The resulting cumulative train/validation sets contain
+750,000/75,000 strict trajectories. Reset-from-base SFT job `9833404` is
+healthy; its held-out loss reached 0.04451709 at step 798. Neither loop has
+reached the requested 1% next-frontier gate.
+
+All RSCI SFT configs now target online W&B logging under `ram/rsci`. The 46
+preserved historical offline streams remain the source of truth for past
+runs. A metric-only replay was validated on answer op28: remote run
+`bupusy2n` is `finished` with exactly 8,975/8,975 history rows. Persistent CPU
+job `9833712` is migrating the remaining completed streams and will continue
+watching the two frontier jobs so currently active offline runs are uploaded
+after their exit records are durable. Each stream is marked locally as synced
+only after the remote API reports both an exact history-row count and terminal
+state.
