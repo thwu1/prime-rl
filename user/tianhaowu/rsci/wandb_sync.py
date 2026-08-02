@@ -5,6 +5,7 @@ import argparse
 import json
 import subprocess
 import time
+from collections.abc import Iterator
 from collections import Counter
 from datetime import UTC, datetime
 from pathlib import Path
@@ -67,27 +68,28 @@ def run_file(run_dir: Path) -> Path:
     return files[0]
 
 
-def record_counts(path: Path) -> Counter[str]:
+def record_counts(path: Path) -> Counter[str] | None:
     store = datastore.DataStore()
     store.open_for_scan(str(path))
     counts: Counter[str] = Counter()
-    while data := store.scan_data():
-        record = wandb_internal_pb2.Record()
-        record.ParseFromString(data)
-        counts[record.WhichOneof("record_type")] += 1
+    try:
+        while data := store.scan_data():
+            record = wandb_internal_pb2.Record()
+            record.ParseFromString(data)
+            counts[record.WhichOneof("record_type")] += 1
+    except AssertionError:
+        return None
     return counts
 
 
-def discover_completed(root: Path) -> list[tuple[Path, Path, Counter[str]]]:
-    completed = []
+def discover_completed(root: Path) -> Iterator[tuple[Path, Path, Counter[str]]]:
     for run_dir in sorted(root.glob("**/wandb/offline-run-*")):
         path = run_file(run_dir)
         if Path(f"{path}.synced").exists():
             continue
         counts = record_counts(path)
-        if counts["exit"] == 1:
-            completed.append((run_dir, path, counts))
-    return completed
+        if counts is not None and counts["exit"] == 1:
+            yield run_dir, path, counts
 
 
 def job_active(job_id: str) -> bool:
@@ -205,6 +207,8 @@ def main() -> None:
                 status["failures"].pop(local_id, None)
             except Exception as error:
                 status["failures"][local_id] = {"error": str(error), "failed_at": now()}
+            status["completed_runs"] = len(status["runs"])
+            status["failed_runs"] = len(status["failures"])
             status["updated_at"] = now()
             atomic_write_json(args.status, status)
 
@@ -215,7 +219,7 @@ def main() -> None:
         status["updated_at"] = now()
         atomic_write_json(args.status, status)
 
-        if args.once or (not active_jobs and not discover_completed(args.root)):
+        if args.once or not active_jobs:
             break
         time.sleep(args.poll_seconds)
 

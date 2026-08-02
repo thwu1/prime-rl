@@ -17,6 +17,7 @@ cd "$PROJECT_DIR"
 source .venv/bin/activate
 
 export WANDB_IGNORE_GLOBS='*'
+unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy
 
 uv run --no-sync user/tianhaowu/rsci/wandb_sync.py \
   --root /checkpoint/ram-h100-2/tianhaowu/rsci \
