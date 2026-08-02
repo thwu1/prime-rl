@@ -87,6 +87,14 @@ The `smoke_*` configs run the same end-to-end state machine with 128 training
 traces, 64 held-out traces, two evaluation prompts, and one operation. They are
 wiring checks, not scientific measurements.
 
+The strict OP25 exponential-replay ablation keeps the λ=1 production loop
+unchanged and reuses its immutable OP11-25 accepted shards. For operation `i`
+at frontier `n`, row weight is `lambda ** (n - i)`. Deterministic permutation
+cycles materialize exactly the same 750K train and 75K held-out row totals as
+the baseline; SFT also keeps the baseline 1,144-step compute budget. Separate
+λ=0.95 and λ=0.90 CPU watchers build the datasets, reset from the same base,
+select minimum reweighted held-out loss, and evaluate OP25 and OP26.
+
 Each experiment root contains `state.json`, an append-only `STATUS.md`, and:
 
 ```text
