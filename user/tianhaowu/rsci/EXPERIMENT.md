@@ -1,6 +1,6 @@
 # RSCI experiment monodoc
 
-Last updated: 2026-08-01 UTC.
+Last updated: 2026-08-02 UTC.
 
 ## Objective
 
@@ -650,8 +650,20 @@ selected terminal step 1,784 at the global minimum held-out loss of 0.03882361
 and synced online W&B run `0adeljxt`. Post-selection job `9846508` measured
 13.00% answer pass@1 and 38.50% pass@128, versus 13.24%/36.00% before SFT;
 strict pass@k remained zero. The generated OP32 gate then measured 13.76%
-answer pass@1 and 40.00% pass@128, so collection job `9846759` continues the
-answer loop.
+answer pass@1 and 40.00% pass@128. Collection job `9846759` finalized exactly
+50,000 answer-correct and zero strict-correct traces from 335,872 generations
+over 2,624 generated problems; disjoint held-out job `9847499` produced exactly
+5,000 accepted traces from 32,768 generations over 256 new problems, with zero
+train/held-out/evaluation prompt overlap. The 1.10M/110K cumulative datasets
+contain 1,046,864,872/105,050,885 tokens. Reset-from-base SFT job `9847572`
+evaluated all 11 candidates and selected terminal step 1,882 at the global
+minimum held-out loss of 0.03793898; W&B run `vd0rpdcs` finished online with
+zero NaN losses. Post-selection job `9848943` completed all 25,600 rollouts and
+measured 13.64% answer pass@1 and 39.00% pass@128, slightly below the
+13.76%/40.00% pre-SFT score; strict pass@k remained zero. Thus the lower
+held-out language-model loss did not improve OP32 frontier accuracy. OP33 then
+gated at 14.54% answer pass@1 and 37.50% pass@128, still above the 1% stop
+threshold, so the answer loop continues.
 
 The strict op25 gate was 1.39%, still above threshold. Its collection finalized
 exactly 50,000 strict trajectories from 2,281,472 generations over 17,824
