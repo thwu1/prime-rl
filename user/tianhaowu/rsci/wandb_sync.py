@@ -5,8 +5,8 @@ import argparse
 import json
 import subprocess
 import time
-from collections.abc import Iterator
 from collections import Counter
+from collections.abc import Iterator
 from datetime import UTC, datetime
 from pathlib import Path
 
