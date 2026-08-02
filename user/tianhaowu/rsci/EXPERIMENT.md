@@ -634,10 +634,12 @@ from 40,960 generations over 320 prompts, with zero train/held-out/evaluation
 overlap. The cumulative 1.0M/100K train/validation datasets require 1,687 SFT
 steps. Reset-from-base job `9835021` completed all steps with finite loss and
 selected the terminal step 1,687 at the minimum held-out loss of 0.03979899;
-step 1,680 was 0.03996944. Four-node post-selection evaluation job `9835756` is
-queued. Because the OP30 pre-SFT gate did not stop the answer loop, the next
-immutable config extends exact-operation generation through OP40; an OP31 smoke
-sample was verified before this extension was prepared.
+step 1,680 was 0.03996944. The selected model reached 11.63% answer pass@1 and
+35.50% pass@128 on OP30, versus 11.23%/34.50% before SFT; strict pass@k remained
+zero. The immutable OP31-40 extension was activated at 18:45 UTC with the OP30
+state and config archived. Watcher `9844382` generated and audited 200 OP31
+evaluation problems. OP31 pre-evaluation completed all 25,600 rollouts at
+13.24% answer pass@1 and 36.00% pass@128, so the answer loop continues.
 
 The strict op25 gate was 1.39%, still above threshold. Its collection finalized
 exactly 50,000 strict trajectories from 2,281,472 generations over 17,824
@@ -655,9 +657,18 @@ completed all 1,144 updates and selected step 1,140 at the minimum held-out
 loss of 0.04373480; the final step was slightly worse at 0.04389381. The
 selected model reached 15.76% answer pass@1/64.00% pass@128 and 1.90% strict
 pass@1/8.50% pass@128. OP26 pre-evaluation measured 14.03% answer pass@1,
-65.00% answer pass@128, 1.36% strict pass@1, and 7.00% strict pass@128. This is
-still above the stopping threshold, so OP26 strict collection job `9834733`
-is submitted. Neither loop has reached the requested 1% next-frontier gate.
+65.00% answer pass@128, 1.36% strict pass@1, and 7.00% strict pass@128. OP26
+collected exactly 50K/5K train/held-out strict trajectories from
+2,424,832/344,064 generations, and the 800K/80K cumulative datasets selected
+step 1,240 at held-out loss 0.04126976. Post-SFT OP26 strict pass@1/pass@128
+were 1.58%/6.00%.
+
+OP27 gated at 1.41% strict pass@1 and also continued. Its exact 50K/5K shards
+required 2,498,560/253,952 generations; the 850K/85K cumulative datasets
+selected step 1,344 at held-out loss 0.03911986. Post-SFT OP27 strict
+pass@1/pass@128 reached 2.14%/9.50%. OP28 now gates at 1.80% strict pass@1 and
+6.50% pass@128, so collection job `9844325` is running. Neither loop has
+reached the requested 1% next-frontier gate.
 
 All RSCI SFT configs now target online W&B logging under `ram/rsci`. The 46
 preserved historical offline streams remain the source of truth for past
