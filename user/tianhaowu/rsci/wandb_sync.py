@@ -15,7 +15,7 @@ from wandb.proto import wandb_internal_pb2
 from wandb.sdk.internal import datastore, sender
 from wandb.sync.sync import SyncManager
 
-REMOTE_FAILURE_STATES = frozenset({"crashed", "failed", "killed"})
+REMOTE_TERMINAL_STATES = frozenset({"crashed", "failed", "finished", "killed"})
 
 
 class NoopDirWatcher:
@@ -126,7 +126,7 @@ def verify_remote_run(
     local_exit_code: int,
     timeout_seconds: int = 120,
 ):
-    expected_states = {"finished"} if local_exit_code == 0 else REMOTE_FAILURE_STATES
+    expected_states = {"finished"} if local_exit_code == 0 else REMOTE_TERMINAL_STATES
     deadline = time.monotonic() + timeout_seconds
     while True:
         uploaded = wandb.Api(timeout=60).run(f"{entity}/{project}/{remote_id}")
