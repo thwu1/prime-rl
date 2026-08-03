@@ -175,6 +175,16 @@ The builder records exact source hashes, row multiplicities, token counts, and
 train/held-out overlap. `EXPERIMENT.md` reports the selected checkpoint and the
 strict-filter comparison.
 
+## Strict-reward OP11–20 RL
+
+The prime-rl environment in `rsci_gsm_infinite.py` assigns reward 1 only when
+the released dependency-graph verifier passes. Final-answer correctness and the
+executable strict grader are zero-weight diagnostics. The production config
+uses 128 rollouts per problem, a balanced fresh OP11–20 training pool, and
+separate released held-out validation environments for every operation.
+
+See `configs/rl/README.md` for data preparation, dry-run, and launch commands.
+
 ## Scope
 
 The general data command produces released `zero_context` medium (`d=2`) or

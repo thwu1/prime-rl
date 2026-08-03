@@ -1,0 +1,20 @@
+[project]
+name = "rsci-gsm-infinite"
+version = "0.1.0"
+description = "GSM-Infinite strict dependency-graph environment for the RSCI experiments"
+requires-python = ">=3.12"
+dependencies = [
+    "datasets",
+    "verifiers",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build]
+include = [
+    "rsci_gsm_infinite.py",
+    "solution_graph.py",
+    "strict_trajectory_grader.py",
+]

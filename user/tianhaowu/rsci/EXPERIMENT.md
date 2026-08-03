@@ -1480,3 +1480,49 @@ uv run user/tianhaowu/rsci/plot_harmonic_sft.py \
   --root /checkpoint/ram-h100-2/tianhaowu/rsci/harmonic-sft/base-op11-14-answer \
   --output user/tianhaowu/rsci/figures/harmonic_sft_op15_18.svg
 ```
+
+## Strict-reward OP11–20 GRPO
+
+The next one-off RL baseline is configured but not launched. It resets to the
+released composition-pretrained base and samples a fresh, deduplicated,
+balanced pool of 2,000 problems: 200 each at OP11–20, split approximately
+equally across normal-forward/forward-reverse modes and across zoo, teacher,
+and movie contexts. None of the released OP11–20 validation problems is used
+for training.
+
+Each training problem receives 128 on-policy rollouts. The sole optimization
+reward is the released strict dependency-graph verifier; final-answer
+correctness and the deterministic executable-strict grader have weight zero
+and are diagnostics only. GRPO batches contain 512 trajectories (four problem
+groups). The first run is provisioned for 500 updates at AdamW learning rate
+1e-6, with checkpoints and held-out validation every 25 updates. The 500
+updates consume 2,000 problem groups (four per update), one nominal pass over
+the prompt pool before pipeline oversampling. Validation is
+reported independently for each OP11–20 shard with one rollout per problem;
+the selected checkpoints can subsequently use the existing 128-rollout
+pass@k evaluator.
+
+The deployment uses one eight-GPU trainer node plus four one-node inference
+replicas. At most 8,192 trajectories, or 64 problem groups, remain in flight.
+This is 16 concurrent 128-rollout groups per inference node, matching the
+measured throughput optimum from job `9832143`. The environment, config, and
+launch commands are documented in `configs/rl/README.md`.
+
+CPU generation job `9920504` finalized the complete dataset in 6m22s. The
+manifest records 2,000 accepted rows from 118,736 proposals, zero duplicate
+acceptances, and train JSONL SHA-256
+`68fbdb135ca9d48e26868ef627e722015946cce4aa67746721e592b8caada641`.
+An independent post-generation audit found exactly 200 rows per operation,
+2,000 unique prompt strings, zero exact prompt overlap with all 2,000 released
+OP11–20 validation rows, and strict reward 1 for a canonical target sampled
+from every operation. The same checks are now reproducibly stored in the
+dataset's `audit.json`, with canonical strict verification expanded to all
+2,000 rows. Context counts are 670/670/660 for movie/teacher/zoo;
+mode counts are 1,010/990 for normal-forward/forward-reverse.
+
+SLURM marks `9920504` failed with exit 127 after artifact finalization because
+the running wrapper was edited to add unbuffered logging, shifting its final
+continued shell line after the generator returned. The finalized manifest,
+JSONL, and deduplication database were already atomically renamed and passed
+the independent audit above; no RL job was submitted. The committed wrapper is
+stable and passed both a miniature OP11–20 generation and `bash -n`.
