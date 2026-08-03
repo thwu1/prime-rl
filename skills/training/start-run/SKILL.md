@@ -40,6 +40,10 @@ uv run rl @ examples/reverse_text/rl.toml --dry-run                             
   If a local env exists under `deps/research-environments/environments/` but does not
   import, add it to the root `pyproject.toml` env extra, workspace members, and
   `[tool.uv.sources]`, then run `uv sync --all-extras`.
+- Generated SLURM scripts run `uv sync --all-extras` by default. When the shared
+  `.venv` was synchronized before submission and compute nodes cannot reach package
+  sources, set `[slurm] sync_environment = false`; the workload still activates the
+  existing environment and all inner commands use `uv run --no-sync`.
 
 ## `sft` — SFT training
 

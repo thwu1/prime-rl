@@ -38,6 +38,12 @@ SETUPTOOLS_SCM_PRETEND_VERSION_FOR_FLASH_ATTN_4='<locked-version>' \
   uv sync --all-extras --locked
 ```
 
+SLURM templates normally repeat `uv sync --all-extras` on the compute node.
+For clusters without compute-node egress, finish the locked sync on the shared
+filesystem before submission and set `[slurm] sync_environment = false`. This
+skips dependency resolution in the allocation while still activating the
+shared `.venv`.
+
 When bumping a package past the workspace-wide `exclude-newer = "7 days"` window, add it (and any newly-required transitives) to `[tool.uv.exclude-newer-package]` before refreshing `uv.lock`.
 
 ## Optional extras

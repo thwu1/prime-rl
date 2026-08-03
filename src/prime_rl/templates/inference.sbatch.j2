@@ -68,7 +68,9 @@ export VLLM_CACHE_ROOT=/tmp/.vllm_cache_$(whoami)
 cd $PROJECT_DIR
 [ -f .env ] && source .env
 source .venv/bin/activate
+{% if sync_environment %}
 uv sync --all-extras
+{% endif %}
 
 # Print inference URLs
 export HOSTNAMES=( $( scontrol show hostnames $SLURM_JOB_NODELIST ) )
