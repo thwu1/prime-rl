@@ -89,6 +89,13 @@ bash user/tianhaowu/rsci/scripts/run_frontier.sh \
   user/tianhaowu/rsci/configs/frontier/strict_correct.toml
 ```
 
+The watcher requests 128 GB of CPU memory. Cumulative parquet construction
+loads the accepted shards in memory and requires more than 32 GB at 1.25
+million rows; 128 GB covers the planned continuation through OP50.
+If a watcher is interrupted during dataset construction, verify that neither
+the parquet nor its manifest exists before resuming the same config. Completed
+collection manifests remain authoritative and are not regenerated.
+
 The `smoke_*` configs run the same end-to-end state machine with 128 training
 traces, 64 held-out traces, two evaluation prompts, and one operation. They are
 wiring checks, not scientific measurements.
