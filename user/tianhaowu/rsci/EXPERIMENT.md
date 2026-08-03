@@ -863,6 +863,40 @@ solution style seen in synthetic pretraining. A clean ablation would compare
 canonical gold against one verifier-accepted trace per prompt and against a
 stricter executor that rejects extra nodes and validates every equality.
 
+#### Error-enriched manual read of 50 strict-perfect trajectories
+
+A deterministic diagnostic sample was drawn from the strict OP28 accepted
+shard to inspect the automated warnings semantically. It contains 50 distinct
+prompts: 30 numeric-contradiction trajectories (10 per template), 10
+extra-node-only trajectories, and 10 stateful-substitution-only trajectories.
+Every response was read in full against its canonical solution. Because the
+sample is conditioned on defect indicators, its proportions are not population
+error-rate estimates.
+
+| Primary manual class | Count / 50 | Description |
+| --- | ---: | --- |
+| Required-path arithmetic contradiction / gold-value injection | 22 | A required equality is false, but the response declares the expected node value or answer. |
+| Wrong arithmetic in an unchecked extra subgraph | 8 | The required path is correct while an unnecessary branch contains false arithmetic. |
+| Unsupported extra node or equation | 8 | The response invents a quantity/equation absent from the problem. |
+| Symbol aliasing or stale-variable reuse in the required trace | 11 | A one-letter variable is overwritten and then simultaneously used with its old and new meanings. |
+| Semantically valid extra distractor only | 1 | The only clean case computes a correct but unnecessary prompt-defined distractor. |
+
+The clearest value-injection example writes `67 - 11 = 62` and then
+`2 * 62 = 112`: both equalities are false, but 112 is the gold target. A symbol
+alias example writes `p + p = 12 + 5 = 17` after the same letter `p` has denoted
+both 5 and 12. Among the ten extra-node-only cases, eight invent unsupported
+equations; one adds a valid distractor but also aliases a required symbol; and
+only one is semantically clean. Thus 49/50 selected cases have a genuine
+semantic defect, but this deliberately enriched ratio must not be extrapolated
+to all 50K rows. The full-shard conservative lower bound remains 383/50K
+responses with directly evaluable false arithmetic.
+
+The complete per-trajectory reasoning is preserved in
+[`audits/strict_op28_50_error_classification.md`](audits/strict_op28_50_error_classification.md).
+The deterministic selector is `audit_strict_trajectory_errors.py`; its external
+full-response dossier has SHA-256
+`9241cda89b119081314eb70d4f3b316d69cd1e18c2e514c9f2257e7acd3b618e`.
+
 ### Answer-correct versus strict-correct audit
 
 The strict-filter model's OP28 pre-evaluation contains 25,600 trajectories:
