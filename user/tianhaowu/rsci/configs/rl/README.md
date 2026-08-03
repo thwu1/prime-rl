@@ -35,7 +35,8 @@ begun. It appends scheduler health, strict OP11–25 pass@1, trainer stability,
 and throughput to the run's `STATUS.md` every hour:
 
 ```bash
-sbatch --dependency=after:<rl-job-id> \
+env -u SBATCH_OUTPUT -u SBATCH_ERROR \
+  sbatch --dependency=after:<rl-job-id> \
   user/tianhaowu/rsci/scripts/monitor_rl_run.sbatch \
   <rl-job-id> <rl-output-dir>
 ```

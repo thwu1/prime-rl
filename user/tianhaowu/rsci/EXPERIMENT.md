@@ -1543,3 +1543,7 @@ trainer node plus four independent inference replicas, and requested 40 H100s
 under `h100_ram_high`. Its initial scheduler state is `PENDING (Priority)`.
 Run health and OP11–25 validation measurements are tracked in the output
 directory's `STATUS.md` and will be appended as the allocation progresses.
+CPU monitor job `9927388` has an `after:9926135` dependency, so it begins with
+the RL allocation, records the latest reward, strict per-operation validation,
+KL, entropy, gradient norm, throughput, and log warnings each hour, then writes
+a final entry and exits when the RL job terminates.
