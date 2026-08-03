@@ -1670,3 +1670,27 @@ checkpoint namespaces. Resume job `9972698` was submitted with a three-day
 wall time, and four-day monitor job `9972839` tracks it with a 10,000-step
 target. The figure above was regenerated from every complete evaluation
 through step 475 before the resumed run began.
+
+The replacement allocation began at 23:24 UTC on August 3 and restored both
+trainer and orchestrator at step 475. All four routers and 32 inference workers
+became healthy, shared W&B logging started in run
+[`1a123a143941443cbeb2ab251241b1da`](https://meta-fair.wandb.io/ram/rsci/runs/1a123a143941443cbeb2ab251241b1da),
+and optimization crossed the previous failure point. The step-500 evaluation
+finished all 15 shards and 3,000 rollouts in about 20 seconds with zero rollout
+errors or truncations. Matching trainer and orchestrator checkpoints, stable
+inference weights, and 512 training rows were persisted at step 500; the run
+then advanced through step 503 while both SLURM jobs remained healthy.
+
+Step-500 strict pass@1 is OP11 44.5%, OP12 46.5%, OP13 36.5%, OP14 31.5%,
+OP15 15.0%, OP16 5.0%, OP17 1.0%, and OP18–25 0.0%. Because evaluation and
+weight broadcast overlap, these shards report mixed policy versions 499 and
+500 and are labeled policy v499 in the log, consistent with the asynchronous
+version convention described above. The figure now includes every complete
+validation through step 500.
+
+During the resumed pipeline warm-up, steps 493–496 reported 43–72% rollout
+errors when requests older than the configured 16-step off-policy limit were
+cancelled. This was transient queue cleanup rather than inference or verifier
+failure: rollout error returned to 0% from step 497 onward, all router health
+checks returned HTTP 200, and no traceback, OOM, NCCL failure, or NaN appeared
+in the resumed trainer and orchestrator logs.
