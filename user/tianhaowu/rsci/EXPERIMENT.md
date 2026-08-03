@@ -150,6 +150,7 @@ uv run user/tianhaowu/rsci/plot_curves.py \
 | `9786641`, `9786642` | SFT step 186, ID and OOD-mid | Complete in 7m19s and 5m21s |
 | `9786760`, `9786761` | SFT step 248, ID and OOD-mid | Complete in 7m11s and 5m31s |
 | `9905185` | Fresh pretrained base, OP11–20 | Complete in 6m10s, 256,000 generations |
+| `9908981` | Strict-filter OP20 checkpoint, OP11–20 | Complete in 6m59s, 256,000 generations |
 
 ## Result paths
 
@@ -161,6 +162,8 @@ uv run user/tianhaowu/rsci/plot_curves.py \
   `/checkpoint/ram-h100-2/tianhaowu/rsci/evals/figure3/base/ood-mid-op11-14/metrics.json`
 - Fresh Figure 3 base OP11–20:
   `/checkpoint/ram-h100-2/tianhaowu/rsci/evals/figure3/base/ood-op11-20/metrics.json`
+- Strict-filter OP20 checkpoint OP11–20:
+  `/checkpoint/ram-h100-2/tianhaowu/rsci/evals/figure3/strict-frontier-op20/ood-op11-20/metrics.json`
 - Figure 3 released RL ID:
   `/checkpoint/ram-h100-2/tianhaowu/rsci/evals/figure3/rl-op11-14/id-op2-10/metrics.json`
 - Figure 3 released RL OOD-mid:
@@ -243,6 +246,46 @@ strict-correct trajectories among all 153,600 OP15–20 rollouts. The remaining
 13–19% answer-only pass@1 at OP15–20 is therefore not evidence of solving the
 reasoning graphs; it includes the reverse-mode small-answer guessing behavior
 identified by the OP40 audit.
+
+### Matched strict-filter OP20 comparison
+
+For a checkpoint-matched comparison, job `9908981` evaluated the strict-filter
+OP20 minimum-validation-loss checkpoint (`step_718`, held-out loss
+`0.06133161`) on the exact same OP11–20 prompts and sampling protocol. This
+checkpoint resets from the original pretrained base and trains for one packed
+epoch on 500,000 cumulative strict-correct trajectories from OP11 through
+OP20. Both output files contain exactly 256,000 rows; 165 unparsed predictions
+were counted as failures, and the job completed `0:0` in 6m59s.
+
+| Op | Base strict @1 | Strict OP20 @1 | Delta | Base strict @128 | Strict OP20 @128 | Delta |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 11 | 49.207% | 21.781% | -27.426 pp | 91.00% | 78.50% | -12.50 pp |
+| 12 | 23.902% | 15.711% | -8.191 pp | 65.50% | 73.50% | +8.00 pp |
+| 13 | 0.320% | 11.020% | +10.699 pp | 7.00% | 48.00% | +41.00 pp |
+| 14 | 0.012% | 11.039% | +11.027 pp | 0.50% | 39.50% | +39.00 pp |
+| 15 | 0.000% | 12.754% | +12.754 pp | 0.00% | 31.00% | +31.00 pp |
+| 16 | 0.000% | 8.781% | +8.781 pp | 0.00% | 26.00% | +26.00 pp |
+| 17 | 0.000% | 6.258% | +6.258 pp | 0.00% | 17.00% | +17.00 pp |
+| 18 | 0.000% | 6.156% | +6.156 pp | 0.00% | 14.50% | +14.50 pp |
+| 19 | 0.000% | 1.961% | +1.961 pp | 0.00% | 7.00% | +7.00 pp |
+| 20 | 0.000% | 4.734% | +4.734 pp | 0.00% | 10.50% | +10.50 pp |
+
+Uniformly averaged across OP11–20, the strict curves are:
+
+| Model | pass@1 | pass@2 | pass@4 | pass@8 | pass@16 | pass@32 | pass@64 | pass@128 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Pretrained | 7.34% | 8.92% | 10.57% | 12.26% | 13.75% | 14.92% | 15.78% | 16.40% |
+| Strict OP20 | 10.02% | 13.05% | 16.50% | 20.36% | 24.32% | 28.04% | 31.39% | 34.55% |
+| Delta | +2.68 pp | +4.14 pp | +5.93 pp | +8.10 pp | +10.57 pp | +13.12 pp | +15.61 pp | +18.15 pp |
+
+Answer-only pass@1/pass@128 also rises from 28.14%/52.75% to
+34.26%/75.65%, but strict accuracy is the meaningful comparison. Strict
+filtering expands the frontier dramatically: the pretrained model has zero
+strict successes at OP15–20, while the OP20 checkpoint reaches 1.96–12.75%
+pass@1 across those operations. This is not uniform improvement, however:
+OP11 strict pass@1 drops by 27.43 points and OP12 drops by 8.19 points. The
+cumulative treatment therefore trades easy-range single-sample accuracy for
+hard-range competence and much broader pass@128 coverage.
 
 ## Initial conclusion
 
