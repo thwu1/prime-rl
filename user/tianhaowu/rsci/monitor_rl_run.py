@@ -29,7 +29,7 @@ EVAL_RE = re.compile(
 )
 ISSUE_RE = re.compile(
     r"\b(?:WARNING|ERROR)\b|\b[Ee]rror:|\b[Ff]ailed\b|Traceback|RuntimeError|CUDA out of memory|"
-    r"NCCL.*(?:[Ee]rror|[Ff]ail|[Tt]imeout|[Aa]bort)"
+    r"ProxyError|Network error|NCCL.*(?:[Ee]rror|[Ff]ail|[Tt]imeout|[Aa]bort)"
 )
 TERMINAL_STATES = {
     "BOOT_FAIL",
