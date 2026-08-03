@@ -852,6 +852,24 @@ verifier-hacking/answer-prior measurement, and the answer-filtered loop feeds
 these trajectories back by design. The strict loop does not accept this
 failure mode.
 
+The small reverse-mode answers are a generator invariant, not an empirical
+coincidence. The frozen frontier configuration sets `number_range=5`. The
+reverse generator assigns the hidden leaf target with
+`random.randint(1, number_range - 1)`, then replaces that target's factual
+sentence with an existential statement and constructs a downstream known-value
+equation that recovers it. Its answer is therefore always one of 1, 2, 3, or
+4, regardless of operation count. Normal-forward queries instead ask for a
+derived graph value and can grow into the hundreds.
+
+At 17:00 UTC on 2026-08-03, the user stopped the answer-only track after this
+audit. OP40 collection job `9899760` was cancelled with 21,193/50,000 accepted
+traces from 147,456 completed generations over 1,152 prompts; no collection
+manifest, cumulative dataset, OP40 SFT model, or post-SFT evaluation was
+created. Watcher `9867485` and all pending OP41-60 handoffs (`9875426`,
+`9892694`, `9892698`, `9892700`, and `9892706`) were cancelled. OP39 is the
+last completed answer-filtered iteration and its selected model remains
+preserved.
+
 Because answer pass@1 remains far above 1%, `answer_correct_op50.toml`
 predefines an OP41-50 continuation. The extension validator confirms that only
 `max_operation`, `generator_op_max`, and the generated-evaluation root differ
@@ -881,6 +899,8 @@ Jobs `9892694`, `9892698`, `9892700`, and `9892706` form an `afterany`
 dependency chain behind `9875426`. Each waits for the watcher launched by the
 preceding extension, exits unchanged if the 1% frontier has been reached, and
 activates its next validated range only from `max_operation_exhausted` state.
+These validated configurations remain preserved for reproducibility, but the
+jobs were cancelled unexecuted when the user stopped the answer-only track.
 
 The strict op25 gate was 1.39%, still above threshold. Its collection finalized
 exactly 50,000 strict trajectories from 2,281,472 generations over 17,824
