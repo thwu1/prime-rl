@@ -75,6 +75,22 @@ uv run --no-sync user/tianhaowu/rsci/frontier_extend.py \
   user/tianhaowu/rsci/configs/frontier/strict_correct_op40.toml
 ```
 
+For a long-running track, schedule the next extension as an `afterany`
+dependency on the current persistent watcher. The handoff exits successfully
+without launching anything if the track reaches the 1% stopping frontier. It
+extends and submits the next watcher only when the previous range ends with
+`max_operation_exhausted`; any failed or inconsistent state exits nonzero for
+manual diagnosis. For the answer OP41-50 range:
+
+```bash
+sbatch \
+  --dependency=afterany:<current-watcher-job-id> \
+  --job-name=rsci-answer-op50-extension \
+  --output=/checkpoint/ram-h100-2/tianhaowu/rsci/frontier-sft/answer-correct/extension-op50-%j.log \
+  user/tianhaowu/rsci/scripts/run_frontier_extension.sbatch \
+  user/tianhaowu/rsci/configs/frontier/answer_correct_op50.toml
+```
+
 The upgrader permits only the higher maximum and generated-evaluation fields;
 all training, filtering, sampling, optimization, and validation-loss settings
 remain frozen. It preserves the prior state/config before resuming at the next
