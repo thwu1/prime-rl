@@ -36,6 +36,11 @@ nodes cannot fetch GitHub-hosted wheel metadata. The job still activates the
 same shared `.venv`; rerun `uv sync --all-extras --locked` on the login side
 before launching after any dependency change.
 
+The cluster `.env` defines external HTTP proxies. The SLURM pre-run command
+adds every allocated hostname plus localhost to `NO_PROXY`/`no_proxy`, so
+router health checks and orchestrator requests remain node-local while W&B and
+other external traffic can still use the proxy.
+
 For a deferred allocation, submit the lightweight monitor after the RL job has
 begun. It appends scheduler health, strict OP11–25 pass@1, trainer stability,
 and throughput to the run's `STATUS.md` every hour:

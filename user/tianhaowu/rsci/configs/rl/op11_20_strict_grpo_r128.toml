@@ -23,6 +23,7 @@ partition = "h100"
 account = "ram"
 time = "24:00:00"
 sync_environment = false
+pre_run_command = 'INTERNAL_HOSTS=${HOSTNAMES_STR// /,}; export NO_PROXY="${NO_PROXY:+$NO_PROXY,}localhost,127.0.0.1,$INTERNAL_HOSTS"; export no_proxy="$NO_PROXY"'
 
 [weight_broadcast]
 type = "nccl"
