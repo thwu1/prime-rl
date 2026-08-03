@@ -354,7 +354,7 @@ diagnostics are retained on disk but are not plotted.*
 | `9808635` | strict-correct | `frontier-sft/strict-correct` | Cancelled after superseded final-checkpoint diagnostic |
 | `9809870` | answer-correct | `frontier-sft/answer-correct` | Released op11-20 phase complete; state archived before op21 extension |
 | `9809892` | strict-correct | `frontier-sft/strict-correct` | Released op11-20 phase complete; state archived before op21 extension |
-| `9867485` | answer-correct | `frontier-sft/answer-correct` | Running continuation; OP38 collection active at this update |
+| `9867485` | answer-correct | `frontier-sft/answer-correct` | Running continuation; OP39 gate complete at this update |
 | `9875426` | answer-correct | `frontier-sft/answer-correct` | Dependency-gated OP41-50 handoff; pending after `9867485` |
 
 The audited op11 baseline was materialized under each root with provenance to
@@ -751,13 +751,30 @@ strict pass@k remained zero.
 | OP37 pre-SFT | 11.75% | 15.74% | 19.54% | 23.14% | 26.47% | 29.42% | 32.05% | 35.00% |
 | OP37 post-SFT | 11.88% | 15.97% | 19.81% | 23.34% | 26.68% | 29.65% | 31.91% | 33.50% |
 | OP38 pre-SFT | 12.28% | 16.67% | 21.07% | 25.15% | 28.63% | 31.57% | 34.12% | 37.00% |
+| OP38 post-SFT | 11.66% | 15.97% | 20.47% | 24.77% | 28.58% | 31.78% | 34.57% | 38.00% |
+| OP39 pre-SFT | 10.79% | 15.04% | 19.26% | 22.88% | 25.83% | 28.28% | 30.52% | 32.50% |
 
-OP38's 200-problem gate contains all 25,600 requested rollouts with no
-unparsed prediction. Its 12.28% answer pass@1 remains above the stop threshold,
-so four-node collection job `9881037` is running; strict pass@k is zero at
-every measured budget. The result is intentionally marked pre-SFT until its
-exact 50K/5K shards, cumulative datasets, selected checkpoint, and post-SFT
-evaluation complete.
+OP38's 200-problem gate contained all 25,600 requested rollouts with no
+unparsed prediction and measured 12.28% answer pass@1. Four-node collection
+job `9881037` produced exactly 50,000 answer-correct and zero strict-correct
+traces from 352,256 generations over 2,752 problems. Prompt-disjoint held-out
+job `9885002` produced exactly 5,000 accepted traces from 32,768 generations
+over 256 offset problems. The audit found zero train/held-out/evaluation
+prompt overlap. The resulting 1.40M/140K cumulative train/validation datasets
+contain 1,382,869,834/138,805,555 tokens and zero overlength rows.
+
+Reset-from-base SFT job `9885680` completed 2,482 steps and synced W&B run
+`smfp1pmd` with zero NaN losses. All 11 matched checkpoints were preserved and
+validated. Held-out loss decreased from `0.03656124` at step 248 to the global
+minimum `0.03303253` at final step 2,482, which became the next teacher.
+Post-selection job `9889054` completed all 25,600 rollouts with zero unparsed
+predictions. Answer pass@1 changed from 12.28% to 11.66%, while pass@128
+increased from 37.0% to 38.0%; strict pass@k remained zero throughout.
+
+The generated OP39 gate then completed all 25,600 rollouts with no unparsed
+prediction. Answer pass@1/pass@128 are 10.79%/32.50%, still above the 1% stop
+threshold, while strict pass@k remains zero at every measured budget. The
+answer track therefore continues to OP39 collection.
 
 Because answer pass@1 remains far above 1%, `answer_correct_op50.toml`
 predefines an OP41-50 continuation. The extension validator confirms that only
