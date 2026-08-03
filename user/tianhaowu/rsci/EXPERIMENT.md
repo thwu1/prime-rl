@@ -526,6 +526,11 @@ started at 19:45 UTC. Completed continuation rounds through 06:31 UTC are:
 | answer | 27 | 13.57% | 1,390 / 0.04345763 | 13.20% | 0.00% | 2,640 / 1,071 / 337,920 | 0.00% |
 | answer | 28 | 17.52% | 1,494 / 0.04216060 | 18.04% | 0.00% | 2,656 / 1,044 / 339,968 | 0.00% |
 | answer | 29 | 14.32% | 1,590 / 0.04112151 | 14.11% | 0.00% | 2,560 / 1,023 / 327,680 | 0.00% |
+| answer | 30 | 11.23% | 1,687 / 0.03979899 | 11.63% | 0.00% | 2,816 / 1,073 / 360,448 | 0.00% |
+| answer | 31 | 13.24% | 1,784 / 0.03882361 | 13.00% | 0.00% | 2,816 / 1,069 / 360,448 | 0.00% |
+| answer | 32 | 13.76% | 1,882 / 0.03793898 | 13.64% | 0.00% | 2,624 / 1,001 / 335,872 | 0.00% |
+| answer | 33 | 14.54% | 1,981 / 0.03695799 | 14.91% | 0.00% | 2,688 / 1,042 / 344,064 | 0.00% |
+| answer | 34 | 11.68% | 2,081 / 0.03617484 | 11.72% | 0.00% | 2,688 / 1,038 / 344,064 | 0.00% |
 | strict | 25 | 1.39% | 1,140 / 0.04373480 | 15.76% | 1.90% | 17,824 / 1,551 / 2,281,472 | 100% |
 
 Every sampled problem receives 128 completions, and every accepted completion
@@ -677,8 +682,22 @@ and 36.5% pass@128. Exact 50K/5K train/held-out shards required
 344,064/40,960 generations over 2,688/320 prompts, with zero
 train/held-out/evaluation overlap. The resulting 1.20M/120K datasets contain
 1,158,194,657/116,397,406 tokens and require 2,081 optimizer steps. OP34
-reset-from-base SFT is active as job `9862177`; step 416 currently has the
-minimum held-out loss, `0.03859481`.
+reset-from-base SFT job `9862177` completed all 2,081 updates with finite
+losses and synced online W&B run `d6ucf8z4`. All 11 checkpoint candidates were
+retained; the terminal step 2,081 attained the global minimum held-out loss of
+`0.03617484`. Its post-selection evaluation completed exactly 25,600
+rollouts with zero unparsed predictions. Answer pass@1 changed from 11.68% to
+11.72% (`+0.043` percentage points), pass@128 remained 36.5%, and strict
+pass@k remained zero at every measured k. The first two post-evaluation
+attempts failed before writing generations because of a stale Torch
+compile-cache file handle and a transient occupied server port. Automatic
+attempt 3, job `9864930`, completed cleanly in 3m41s without mixing partial
+artifacts, and the watcher advanced to OP35.
+
+| OP34 answer metric | pass@1 | pass@2 | pass@4 | pass@8 | pass@16 | pass@32 | pass@64 | pass@128 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Pre-SFT gate | 11.68% | 15.74% | 19.99% | 24.06% | 27.56% | 30.50% | 33.24% | 36.50% |
+| Post-SFT selected | 11.72% | 16.15% | 20.88% | 25.24% | 28.93% | 32.12% | 34.59% | 36.50% |
 
 Because answer pass@1 remains far above 1%, `answer_correct_op50.toml` now
 predefines but does not activate an OP41-50 continuation. The extension
