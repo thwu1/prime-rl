@@ -1483,7 +1483,8 @@ uv run user/tianhaowu/rsci/plot_harmonic_sft.py \
 
 ## Strict-reward OP11–20 GRPO
 
-The next one-off RL baseline is configured but not launched. It resets to the
+The one-off RL baseline was submitted as SLURM job `9926135` at 18:15 UTC on
+2026-08-03. It resets to the
 released composition-pretrained base and samples a fresh, deduplicated,
 balanced pool of 2,000 problems: 200 each at OP11–20, split approximately
 equally across normal-forward/forward-reverse modes and across zoo, teacher,
@@ -1498,7 +1499,7 @@ groups). The first run is provisioned for 500 updates at AdamW learning rate
 1e-6, with checkpoints and held-out validation every 25 updates. The 500
 updates consume 2,000 problem groups (four per update), one nominal pass over
 the prompt pool before pipeline oversampling. Validation is
-reported independently for each OP11–20 shard with one rollout per problem;
+reported independently for each OP11–25 shard with one rollout per problem;
 the selected checkpoints can subsequently use the existing 128-rollout
 pass@k evaluator.
 
@@ -1520,9 +1521,25 @@ dataset's `audit.json`, with canonical strict verification expanded to all
 2,000 rows. Context counts are 670/670/660 for movie/teacher/zoo;
 mode counts are 1,010/990 for normal-forward/forward-reverse.
 
+Validation spans OP11–25 with 200 held-out problems per operation. OP11–20 are
+the released validation shards. OP21–25 reuse the immutable generated
+frontier-extension shards (seed `20260802`, `generator_op_max=30`) rather than
+creating a second evaluation distribution. A full prompt-keyed audit found
+3,000/3,000 unique validation prompts, zero overlap with the 2,000 RL training
+prompts, and 1,000/1,000 canonical OP21–25 completions passing the strict
+verifier. Every generated file also matches the SHA-256 stored in its sidecar
+manifest. Released row IDs are not globally unique, so prompt text is the
+authoritative group and leakage key.
+
 SLURM marks `9920504` failed with exit 127 after artifact finalization because
 the running wrapper was edited to add unbuffered logging, shifting its final
 continued shell line after the generator returned. The finalized manifest,
 JSONL, and deduplication database were already atomically renamed and passed
 the independent audit above; no RL job was submitted. The committed wrapper is
 stable and passed both a miniature OP11–20 generation and `bash -n`.
+
+The production launch passed prime-rl dry-run validation, materialized one
+trainer node plus four independent inference replicas, and requested 40 H100s
+under `h100_ram_high`. Its initial scheduler state is `PENDING (Priority)`.
+Run health and OP11–25 validation measurements are tracked in the output
+directory's `STATUS.md` and will be appended as the allocation progresses.

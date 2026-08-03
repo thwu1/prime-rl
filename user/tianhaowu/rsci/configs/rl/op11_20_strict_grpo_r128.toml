@@ -35,8 +35,8 @@ keep_interval = 100
 [wandb]
 project = "rsci"
 entity = "ram"
-name = "base-op11-20-strict-grpo-r128"
-tags = ["gsm-infinite", "op11-20", "strict-reward", "grpo", "r128"]
+name = "base-op11-20-strict-grpo-r128-val11-25"
+tags = ["gsm-infinite", "op11-20", "val11-25", "strict-reward", "grpo", "r128"]
 
 [log]
 level = "info"
@@ -146,6 +146,36 @@ id = "rsci-gsm-infinite"
 name = "heldout-op20-strict"
 pool = { type = "static", num_workers = 2 }
 args = { dataset_path = "/checkpoint/ram-h100-2/tianhaowu/rsci/hf/hub/datasets--Interplay-LM-Reasoning--composition/snapshots/a09d5c14c02bfa339143fb00a93274d1a84aa31d/val/op20-200.jsonl", min_op = 20, max_op = 20 }
+
+[[orchestrator.eval.env]]
+id = "rsci-gsm-infinite"
+name = "heldout-op21-strict"
+pool = { type = "static", num_workers = 2 }
+args = { dataset_path = "/checkpoint/ram-h100-2/tianhaowu/rsci/frontier-sft/generated-eval-op21-30-v1/op21-200.jsonl", min_op = 21, max_op = 21 }
+
+[[orchestrator.eval.env]]
+id = "rsci-gsm-infinite"
+name = "heldout-op22-strict"
+pool = { type = "static", num_workers = 2 }
+args = { dataset_path = "/checkpoint/ram-h100-2/tianhaowu/rsci/frontier-sft/generated-eval-op21-30-v1/op22-200.jsonl", min_op = 22, max_op = 22 }
+
+[[orchestrator.eval.env]]
+id = "rsci-gsm-infinite"
+name = "heldout-op23-strict"
+pool = { type = "static", num_workers = 2 }
+args = { dataset_path = "/checkpoint/ram-h100-2/tianhaowu/rsci/frontier-sft/generated-eval-op21-30-v1/op23-200.jsonl", min_op = 23, max_op = 23 }
+
+[[orchestrator.eval.env]]
+id = "rsci-gsm-infinite"
+name = "heldout-op24-strict"
+pool = { type = "static", num_workers = 2 }
+args = { dataset_path = "/checkpoint/ram-h100-2/tianhaowu/rsci/frontier-sft/generated-eval-op21-30-v1/op24-200.jsonl", min_op = 24, max_op = 24 }
+
+[[orchestrator.eval.env]]
+id = "rsci-gsm-infinite"
+name = "heldout-op25-strict"
+pool = { type = "static", num_workers = 2 }
+args = { dataset_path = "/checkpoint/ram-h100-2/tianhaowu/rsci/frontier-sft/generated-eval-op21-30-v1/op25-200.jsonl", min_op = 25, max_op = 25 }
 
 [inference]
 enable_prefix_caching = true

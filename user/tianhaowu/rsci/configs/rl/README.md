@@ -30,7 +30,10 @@ and four one-node inference replicas. The 8,192-rollout in-flight cap is 64
 problem groups, matching the measured optimum of 16 concurrent 128-rollout
 groups per inference node.
 
-The training pool is disjoint from the released OP11–20 validation shards.
-During RL, each operation is evaluated separately with one rollout per held-out
-problem every 25 updates. Use the existing RSCI evaluation pipeline for the
-final 128-rollout pass@k comparison.
+The training pool is prompt-disjoint from the full OP11–25 validation suite.
+OP11–20 use the released shards. OP21–25 use the fixed frontier-extension
+shards generated with seed `20260802`, `generator_op_max=30`, equal context and
+direction mixtures, and 200 problems per operation. During RL, each operation
+is evaluated separately with one rollout per held-out problem every 25 updates.
+Use the existing RSCI evaluation pipeline for the final 128-rollout pass@k
+comparison.

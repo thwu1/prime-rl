@@ -181,7 +181,8 @@ The prime-rl environment in `rsci_gsm_infinite.py` assigns reward 1 only when
 the released dependency-graph verifier passes. Final-answer correctness and the
 executable strict grader are zero-weight diagnostics. The production config
 uses 128 rollouts per problem, a balanced fresh OP11–20 training pool, and
-separate released held-out validation environments for every operation.
+separate held-out validation environments for OP11–25. OP11–20 are released
+data; OP21–25 are the fixed, provenance-recorded frontier extension.
 
 See `configs/rl/README.md` for data preparation, dry-run, and launch commands.
 

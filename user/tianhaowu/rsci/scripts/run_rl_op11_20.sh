@@ -9,4 +9,5 @@ fi
 
 cd "$REPO_ROOT"
 unset SBATCH_OUTPUT SBATCH_ERROR
+export SBATCH_QOS=${SBATCH_QOS:-h100_ram_high}
 uv run --no-sync rl @ "$CONFIG" "$@"
