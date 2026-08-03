@@ -65,6 +65,22 @@ The answer track remains well above 1% at OP34, so
 activated until the OP40 watcher exits with `max_operation_exhausted`; generated
 evaluation files remain deterministic and are materialized on demand.
 
+The generator's exact-operation acceptance is non-monotonic beyond OP50, so
+OP51-60 is split into empirically validated generator envelopes:
+
+| Config | Operations | `generator_op_max` |
+| --- | --- | ---: |
+| `answer_correct_op55.toml` | OP51-55 | 75 |
+| `answer_correct_op58.toml` | OP56-58 | 90 |
+| `answer_correct_op59.toml` | OP59 | 95 |
+| `answer_correct_op60.toml` | OP60 | 100 |
+
+For each range, six-cell smokes cover all three contexts and both generation
+modes at both endpoints (or the sole operation). Every smoke uses the production
+10,000-attempt-per-sample bound. A persistent waiting handoff observes the
+watcher launched by the preceding extension and activates the next range only
+after `max_operation_exhausted`; it exits unchanged at the 1% frontier.
+
 To extend a state that exhausted its configured range, archive and activate
 the config for the next range before relaunching its watcher. For OP31-40:
 
@@ -90,6 +106,23 @@ sbatch \
   user/tianhaowu/rsci/scripts/run_frontier_extension.sbatch \
   user/tianhaowu/rsci/configs/frontier/answer_correct_op50.toml
 ```
+
+When the dependency is an extension job that will launch the next watcher, use
+the waiting handoff. For OP51-55 after the OP41-50 extension:
+
+```bash
+sbatch \
+  --dependency=afterany:<op50-extension-job-id> \
+  --job-name=rsci-answer-op55-extension-wait \
+  --output=/checkpoint/ram-h100-2/tianhaowu/rsci/frontier-sft/answer-correct/extension-op55-%j.log \
+  user/tianhaowu/rsci/scripts/run_frontier_extension_wait.sbatch \
+  user/tianhaowu/rsci/configs/frontier/answer_correct_op55.toml
+```
+
+Chain the OP58, OP59, and OP60 waiting handoffs in the same way, each depending
+on the preceding handoff job. The waiting handoff fails rather than extending
+if state says `running` but the expected watcher has disappeared, preserving
+failures for diagnosis.
 
 The upgrader permits only the higher maximum and generated-evaluation fields;
 all training, filtering, sampling, optimization, and validation-loss settings

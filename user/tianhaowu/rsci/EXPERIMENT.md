@@ -356,6 +356,11 @@ diagnostics are retained on disk but are not plotted.*
 | `9809892` | strict-correct | `frontier-sft/strict-correct` | Released op11-20 phase complete; state archived before op21 extension |
 | `9867485` | answer-correct | `frontier-sft/answer-correct` | Running continuation; OP39 gate complete at this update |
 | `9875426` | answer-correct | `frontier-sft/answer-correct` | Dependency-gated OP41-50 handoff; pending after `9867485` |
+| `9891926` | answer-correct | `frontier-sft/answer-correct` | Cancelled before execution after OP51 generator smoke rejected the original single-range OP51-60 plan |
+| `9892694` | answer-correct | `frontier-sft/answer-correct` | Dependency-gated OP51-55 waiting handoff; pending after `9875426` |
+| `9892698` | answer-correct | `frontier-sft/answer-correct` | Dependency-gated OP56-58 waiting handoff; pending after `9892694` |
+| `9892700` | answer-correct | `frontier-sft/answer-correct` | Dependency-gated OP59 waiting handoff; pending after `9892698` |
+| `9892706` | answer-correct | `frontier-sft/answer-correct` | Dependency-gated OP60 waiting handoff; pending after `9892700` |
 
 The audited op11 baseline was materialized under each root with provenance to
 the original 200-prompt Figure 3 artifact. Answer collection job `9808666` and
@@ -786,6 +791,25 @@ Generation accepted 6 of 2,323 proposals, so extrapolation is feasible but
 rejection-heavy. Persistent dependency job `9875426` runs only after watcher
 `9867485`: it exits without a launch if the 1% gate stops the track, and
 activates OP41-50 only if OP40 ends with `max_operation_exhausted`.
+
+The first proposed OP51-60 continuation used a single `generator_op_max=60`.
+Its OP51 movie/forward smoke could not produce an exact graph in the production
+10,000-attempt limit, so pending job `9891926` was cancelled before execution.
+Further deterministic smokes showed that exact-operation acceptance is
+non-monotonic in the generator envelope: a setting broad enough for OP60 can
+make OP51 infeasible. The continuation is therefore split into four immutable
+ranges: OP51-55 at envelope 75, OP56-58 at 90, OP59 at 95, and OP60 at 100.
+All three contexts and both modes passed at each range endpoint under the same
+10,000-attempt limit. The four smoke manifests accepted 12/22,594,
+12/11,786, 6/7,317, and 6/18,661 proposals respectively; their validation-file
+SHA-256 hashes are `47c3aa784a251645348832bd6e0d22efc6cee89efda13b329691e7819b2257ce`,
+`fee7c359ee3a7a10fedcebf3c8be680a4518fcc4f7925b5b039ac20c59b259e4`,
+`1ba95738dc7b7facfa447de6fa157489280ede6fb9e363b1150c77111a54fbcf`,
+and `888a1d5248d34c3f8d1f446da5caa0dad020da3ae7a32ffb3e38764973c1f665`.
+Jobs `9892694`, `9892698`, `9892700`, and `9892706` form an `afterany`
+dependency chain behind `9875426`. Each waits for the watcher launched by the
+preceding extension, exits unchanged if the 1% frontier has been reached, and
+activates its next validated range only from `max_operation_exhausted` state.
 
 The strict op25 gate was 1.39%, still above threshold. Its collection finalized
 exactly 50,000 strict trajectories from 2,281,472 generations over 17,824
