@@ -149,6 +149,7 @@ uv run user/tianhaowu/rsci/plot_curves.py \
 | `9786567`, `9786568` | SFT step 124, ID and OOD-mid | Complete in 7m35s and 5m26s |
 | `9786641`, `9786642` | SFT step 186, ID and OOD-mid | Complete in 7m19s and 5m21s |
 | `9786760`, `9786761` | SFT step 248, ID and OOD-mid | Complete in 7m11s and 5m31s |
+| `9905185` | Fresh pretrained base, OP11–20 | Complete in 6m10s, 256,000 generations |
 
 ## Result paths
 
@@ -158,6 +159,8 @@ uv run user/tianhaowu/rsci/plot_curves.py \
   `/checkpoint/ram-h100-2/tianhaowu/rsci/evals/figure3/base/id-op2-10/metrics.json`
 - Figure 3 base OOD-mid:
   `/checkpoint/ram-h100-2/tianhaowu/rsci/evals/figure3/base/ood-mid-op11-14/metrics.json`
+- Fresh Figure 3 base OP11–20:
+  `/checkpoint/ram-h100-2/tianhaowu/rsci/evals/figure3/base/ood-op11-20/metrics.json`
 - Figure 3 released RL ID:
   `/checkpoint/ram-h100-2/tianhaowu/rsci/evals/figure3/rl-op11-14/id-op2-10/metrics.json`
 - Figure 3 released RL OOD-mid:
@@ -203,6 +206,43 @@ stated 1,024-token cap does not change either base curve.
 The unweighted ID mean is intentionally not used for the paper comparison: it
 is 87.6% at pass@1 because it overweights easy op2-7 examples relative to the
 paper's 20%/30%/50% evaluation recipe.
+
+## Fresh pretrained OP11–20 evaluation
+
+Job `9905185` evaluated the fixed op2–10 pretrained base on all released
+OP11–20 validation problems in one run: 200 prompts per operation and 128
+temperature-0.7 trajectories per prompt, for exactly 256,000 generations.
+Both the generation and strict-result files contain 256,000 rows. Twelve
+predictions had no parseable answer and were counted as failures; the outer job
+completed `0:0` in 6m10s with no request, verifier, CUDA/NCCL, OOM, or numerical
+error.
+
+| Operation | Answer @1 | Answer @128 | Strict @1 | Strict @128 |
+| ---: | ---: | ---: | ---: | ---: |
+| OP11 | 85.80% | 99.50% | 49.207% | 91.00% |
+| OP12 | 51.69% | 89.00% | 23.902% | 65.50% |
+| OP13 | 25.02% | 50.00% | 0.320% | 7.00% |
+| OP14 | 22.77% | 47.00% | 0.012% | 0.50% |
+| OP15 | 16.07% | 45.50% | 0.000% | 0.00% |
+| OP16 | 18.71% | 42.50% | 0.000% | 0.00% |
+| OP17 | 16.27% | 36.50% | 0.000% | 0.00% |
+| OP18 | 16.14% | 42.00% | 0.000% | 0.00% |
+| OP19 | 15.49% | 36.50% | 0.000% | 0.00% |
+| OP20 | 13.46% | 39.00% | 0.000% | 0.00% |
+
+Uniformly averaged over all 2,000 problems, the complete pass curves are:
+
+| Metric | pass@1 | pass@2 | pass@4 | pass@8 | pass@16 | pass@32 | pass@64 | pass@128 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Answer | 28.14% | 33.18% | 37.35% | 40.98% | 44.25% | 47.29% | 50.12% | 52.75% |
+| Strict | 7.34% | 8.92% | 10.57% | 12.26% | 13.75% | 14.92% | 15.78% | 16.40% |
+
+Strict pass@1 collapses from 49.21% at OP11 to 23.90% at OP12, 0.320% at
+OP13, and three correct trajectories out of 25,600 at OP14. There are no
+strict-correct trajectories among all 153,600 OP15–20 rollouts. The remaining
+13–19% answer-only pass@1 at OP15–20 is therefore not evidence of solving the
+reasoning graphs; it includes the reverse-mode small-answer guessing behavior
+identified by the OP40 audit.
 
 ## Initial conclusion
 
