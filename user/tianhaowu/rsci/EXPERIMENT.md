@@ -665,8 +665,14 @@ held-out language-model loss did not improve OP32 frontier accuracy. OP33 then
 gated at 14.54% answer pass@1 and 37.50% pass@128, still above the 1% stop
 threshold. Its exact 50K/5K train/held-out shards required 344,064/40,960
 generations over 2,688/320 new problems, with zero prompt overlap. The
-1.15M/115K cumulative datasets require 1,981 optimizer steps; reset-from-base
-SFT job `9852980` is running with online W&B logging.
+1.15M/115K cumulative datasets require 1,981 optimizer steps. Reset-from-base
+SFT job `9852980` selected terminal step 1,981 at the global minimum held-out
+loss of `0.03695799` and logged online as W&B run `9pujj9ni`. Its first
+post-selection evaluation attempt `9857170` failed before producing an
+artifact; automatic retry `9857567` completed all 25,600 rollouts with zero
+unparsed predictions. OP33 answer pass@1 increased from 14.54% to 14.91%,
+while pass@128 decreased from 37.5% to 36.5%; strict pass@k remained zero. The
+watcher advanced to OP34 and is generating its disjoint 200-problem gate set.
 
 The strict op25 gate was 1.39%, still above threshold. Its collection finalized
 exactly 50,000 strict trajectories from 2,281,472 generations over 17,824
