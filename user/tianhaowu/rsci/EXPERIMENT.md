@@ -1011,15 +1011,23 @@ This is a deterministic filtering rate rather than a proven population error
 rate outside the audited samples, because non-constant prompt-defined
 distractors are conservatively rejected.
 
-An OP11–28 cleaned-strict ablation is in progress. It drops failing model
-trajectories independently from both the original 900K training rows and 90K
-held-out rows, without substituting canonical answers or resampling retained
-traces. SFT resets from the same pretrained base, runs one epoch over the
-retained rows with the unchanged optimizer, selects the minimum held-out-loss
-checkpoint, and uses the identical 200-problem × 128-rollout OP28 evaluation.
-This directly tests whether verifier-admitted defects explain the matched-gold
-oracle advantage; remaining differences include model-target entropy and the
-smaller clean corpus.
+The OP11–28 cleaned-strict ablation drops failing model trajectories
+independently from both the original 900K training rows and 90K held-out rows,
+without substituting canonical answers or resampling retained traces. It keeps
+748,912 training rows (83.212%; 658,095,732 tokens) and 75,226 held-out rows
+(83.584%; 65,888,065 tokens), with zero prompt-content overlap. OP28 retains
+40,754/50,000 training trajectories and 4,018/5,000 held-out trajectories.
+Across training, 111,518 rows have executable equality contradictions, 21,036
+have invalid symbolic solver equations, and 25,257 have unsupported nodes;
+these categories overlap, and 151,088 rows are removed in total.
+
+SFT job `9870139` resets from the same pretrained base and runs one epoch
+(1,189 optimizer steps) with the unchanged optimizer. It validates and saves
+every 118 steps, logs online to W&B run `lx9o3ult`, and will select the minimum
+held-out-loss checkpoint before the identical 200-problem × 128-rollout OP28
+evaluation. This directly tests whether verifier-admitted defects explain the
+matched-gold oracle advantage; remaining differences include model-target
+entropy and the smaller clean corpus.
 
 ### Answer-correct versus strict-correct audit
 
