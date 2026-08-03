@@ -28,7 +28,7 @@ EVAL_RE = re.compile(
     r"Truncation (?P<truncation>[0-9.]+%)"
 )
 ISSUE_RE = re.compile(
-    r"\b(?:WARNING|ERROR)\b|Traceback|RuntimeError|CUDA out of memory|"
+    r"\b(?:WARNING|ERROR)\b|\b[Ee]rror:|\b[Ff]ailed\b|Traceback|RuntimeError|CUDA out of memory|"
     r"NCCL.*(?:[Ee]rror|[Ff]ail|[Tt]imeout|[Aa]bort)"
 )
 TERMINAL_STATES = {
@@ -122,11 +122,13 @@ def issue_lines(paths: list[Path]) -> list[str]:
     return issues
 
 
-def health_label(scheduler: dict[str, str], step: int | None) -> str:
+def health_label(scheduler: dict[str, str], step: int | None, has_issues: bool) -> str:
     state = scheduler["state"]
     if state == "PENDING":
         return "Pending allocation"
     if state in {"RUNNING", "COMPLETING"}:
+        if has_issues:
+            return "Degraded"
         return "Healthy" if step is not None else "Starting"
     if state == "COMPLETED":
         return "Complete"
@@ -157,7 +159,7 @@ def build_entry(job_id: str, output_dir: Path, max_steps: int) -> tuple[str, str
         f"## {datetime.now(UTC).strftime('%Y-%m-%d %H:%M UTC')}",
         "",
         f"**Step**: {step if step is not None else scheduler['state'].lower()} / {max_steps}",
-        f"**Health**: {health_label(scheduler, step)}",
+        f"**Health**: {health_label(scheduler, step, bool(issues))}",
         "",
         f"**Scheduler**: job `{job_id}` is `{scheduler['state']}` after `{scheduler['elapsed']}` "
         f"(`{scheduler['detail']}`).",
