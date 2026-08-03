@@ -5,11 +5,16 @@ from __future__ import annotations
 import ast
 import re
 from dataclasses import asdict, dataclass, field
+from fractions import Fraction
 from typing import Any
 
 from solution_graph import SolutionParser, SolutionStep, numbers_match
 
 ASSIGNMENT_RE = re.compile(r"(?<![A-Za-z])([A-Za-z])\s*=\s*([^.;]+)")
+SOLVER_START_RE = re.compile(r"\bWe know\b", re.IGNORECASE)
+KNOWN_VALUE_RE = re.compile(r"\bWe know\s+([A-Za-z])\s*=\s*([-+]?\d+(?:\.\d+)?)", re.IGNORECASE)
+SOLUTION_RE = re.compile(r"\bSolution:\s*([A-Za-z])\s*=\s*([^.;<]+)", re.IGNORECASE)
+UNKNOWN_MARKERS = ("don't know its value yet", "do not know its value yet", "unknown value")
 
 
 class ExpressionError(ValueError):
@@ -29,7 +34,7 @@ class GraderIssue:
     assignment_index: int | None = None
     assignment: str | None = None
     expression: str | None = None
-    values: list[float] = field(default_factory=list)
+    values: list[float | str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -40,14 +45,73 @@ class AssignmentExecution:
     target: str
     assignment: str
     expressions: list[str]
-    values: list[float | None]
+    values: list[float | str | None]
 
 
-def _evaluate_node(node: ast.AST, environment: dict[str, float]) -> float:
+@dataclass(frozen=True)
+class LinearValue:
+    """An exact affine expression over one or more unresolved symbols."""
+
+    constant: Fraction = Fraction(0)
+    coefficients: tuple[tuple[str, Fraction], ...] = ()
+
+    @classmethod
+    def number(cls, value: int | float | str | Fraction) -> LinearValue:
+        return cls(constant=value if isinstance(value, Fraction) else Fraction(str(value)))
+
+    @classmethod
+    def symbol(cls, name: str) -> LinearValue:
+        return cls(coefficients=((name, Fraction(1)),))
+
+    @classmethod
+    def from_parts(cls, constant: Fraction, coefficients: dict[str, Fraction]) -> LinearValue:
+        normalized = tuple(sorted((name, value) for name, value in coefficients.items() if value != 0))
+        return cls(constant=constant, coefficients=normalized)
+
+    @property
+    def is_constant(self) -> bool:
+        return not self.coefficients
+
+    def add(self, other: LinearValue, sign: int = 1) -> LinearValue:
+        coefficients = dict(self.coefficients)
+        for name, value in other.coefficients:
+            coefficients[name] = coefficients.get(name, Fraction(0)) + sign * value
+        return LinearValue.from_parts(self.constant + sign * other.constant, coefficients)
+
+    def scale(self, factor: Fraction) -> LinearValue:
+        return LinearValue.from_parts(
+            self.constant * factor,
+            {name: value * factor for name, value in self.coefficients},
+        )
+
+    def substitute(self, replacements: dict[str, LinearValue]) -> LinearValue:
+        result = LinearValue.number(self.constant)
+        for name, coefficient in self.coefficients:
+            replacement = replacements.get(name, LinearValue.symbol(name))
+            result = result.add(replacement.scale(coefficient))
+        return result
+
+    def serializable(self) -> float | str:
+        if self.is_constant:
+            return float(self.constant)
+        terms: list[str] = []
+        for name, coefficient in self.coefficients:
+            if coefficient == 1:
+                terms.append(name)
+            elif coefficient == -1:
+                terms.append(f"-{name}")
+            else:
+                terms.append(f"{coefficient}*{name}")
+        if self.constant:
+            terms.append(str(self.constant))
+        return " + ".join(terms).replace("+ -", "- ")
+
+
+def _evaluate_node(node: ast.AST, environment: dict[str, LinearValue]) -> LinearValue:
     if isinstance(node, ast.Constant):
         if isinstance(node.value, bool) or not isinstance(node.value, (int, float)):
             raise ExpressionError("unsupported_expression", f"Unsupported constant: {node.value!r}")
-        return float(node.value)
+        return LinearValue.number(node.value)
     if isinstance(node, ast.Name):
         if len(node.id) != 1 or not node.id.isalpha():
             raise ExpressionError("unsupported_expression", f"Variable must be one letter: {node.id!r}")
@@ -56,24 +120,30 @@ def _evaluate_node(node: ast.AST, environment: dict[str, float]) -> float:
         return environment[node.id]
     if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.UAdd, ast.USub)):
         value = _evaluate_node(node.operand, environment)
-        return value if isinstance(node.op, ast.UAdd) else -value
+        return value if isinstance(node.op, ast.UAdd) else value.scale(Fraction(-1))
     if isinstance(node, ast.BinOp):
         left = _evaluate_node(node.left, environment)
         right = _evaluate_node(node.right, environment)
         if isinstance(node.op, ast.Add):
-            return left + right
+            return left.add(right)
         if isinstance(node.op, ast.Sub):
-            return left - right
+            return left.add(right, sign=-1)
         if isinstance(node.op, ast.Mult):
-            return left * right
+            if left.is_constant:
+                return right.scale(left.constant)
+            if right.is_constant:
+                return left.scale(right.constant)
+            raise ExpressionError("nonlinear_expression", "Multiplication of two symbolic expressions")
         if isinstance(node.op, ast.Div):
-            if right == 0:
+            if not right.is_constant:
+                raise ExpressionError("nonlinear_expression", "Division by a symbolic expression")
+            if right.constant == 0:
                 raise ExpressionError("division_by_zero", "Division by zero")
-            return left / right
+            return left.scale(Fraction(1, 1) / right.constant)
     raise ExpressionError("unsupported_expression", f"Unsupported syntax: {ast.dump(node, include_attributes=False)}")
 
 
-def evaluate_expression(expression: str, environment: dict[str, float]) -> float:
+def evaluate_expression(expression: str, environment: dict[str, LinearValue]) -> LinearValue:
     """Evaluate the restricted arithmetic grammar used by GSM-Infinite traces."""
 
     try:
@@ -83,26 +153,183 @@ def evaluate_expression(expression: str, environment: dict[str, float]) -> float
     return _evaluate_node(parsed.body, environment)
 
 
+def _split_solver_tail(body: str) -> tuple[str, str | None]:
+    match = SOLVER_START_RE.search(body)
+    if match is None:
+        return body, None
+    return body[: match.start()].strip(), body[match.start() :].strip()
+
+
+def _solver_issues(
+    solver_tail: str,
+    environment: dict[str, LinearValue],
+    unknown_symbols: set[str],
+    step_index: int,
+    parameter: str,
+) -> list[GraderIssue]:
+    issues: list[GraderIssue] = []
+    known_match = KNOWN_VALUE_RE.search(solver_tail)
+    solution_matches = list(SOLUTION_RE.finditer(solver_tail))
+    if known_match is None:
+        issues.append(
+            GraderIssue(
+                "solver_syntax",
+                "Forward-reverse trace has no parseable known-value equation",
+                step_index=step_index,
+                parameter=parameter,
+            )
+        )
+        return issues
+    if not solution_matches:
+        issues.append(
+            GraderIssue(
+                "solver_syntax",
+                "Forward-reverse trace has no parseable Solution equation",
+                step_index=step_index,
+                parameter=parameter,
+            )
+        )
+        return issues
+
+    solutions: dict[str, LinearValue] = {}
+    for match in solution_matches:
+        symbol = match.group(1)
+        expression = match.group(2).strip()
+        try:
+            value = evaluate_expression(expression, environment)
+        except ExpressionError as error:
+            issues.append(
+                GraderIssue(
+                    error.code,
+                    str(error),
+                    step_index=step_index,
+                    parameter=parameter,
+                    assignment=f"Solution: {symbol} = {expression}",
+                    expression=expression,
+                )
+            )
+            continue
+        if not value.is_constant:
+            issues.append(
+                GraderIssue(
+                    "solver_non_numeric_solution",
+                    "Solved value remains symbolic",
+                    step_index=step_index,
+                    parameter=parameter,
+                    assignment=f"Solution: {symbol} = {expression}",
+                    values=[value.serializable()],
+                )
+            )
+            continue
+        solutions[symbol] = value
+
+    missing_solutions = sorted(unknown_symbols - solutions.keys())
+    for symbol in missing_solutions:
+        issues.append(
+            GraderIssue(
+                "solver_missing_unknown",
+                f"No numeric solution for unknown symbol {symbol}",
+                step_index=step_index,
+                parameter=parameter,
+            )
+        )
+    solved_environment = {name: value.substitute(solutions) for name, value in environment.items()}
+    solved_environment.update(solutions)
+
+    known_symbol = known_match.group(1)
+    known_value = LinearValue.number(known_match.group(2))
+    if known_symbol not in solved_environment:
+        issues.append(
+            GraderIssue(
+                "undefined_symbol",
+                f"Known-value equation references undefined symbol {known_symbol}",
+                step_index=step_index,
+                parameter=parameter,
+            )
+        )
+    else:
+        evaluated_known = solved_environment[known_symbol]
+        if evaluated_known != known_value:
+            issues.append(
+                GraderIssue(
+                    "solver_equation_mismatch",
+                    "Solved value does not satisfy the stated known-value equation",
+                    step_index=step_index,
+                    parameter=parameter,
+                    assignment=known_match.group(0),
+                    values=[evaluated_known.serializable(), known_value.serializable()],
+                )
+            )
+
+    for sentence in solver_tail.split("."):
+        if ":" not in sentence or "=" not in sentence:
+            continue
+        equation = sentence.rsplit(":", 1)[1].strip()
+        expressions = [part.strip() for part in equation.split("=")]
+        if len(expressions) < 2:
+            continue
+        values: list[LinearValue] = []
+        try:
+            for expression in expressions:
+                values.append(evaluate_expression(expression, solved_environment))
+        except ExpressionError as error:
+            issues.append(
+                GraderIssue(
+                    error.code,
+                    str(error),
+                    step_index=step_index,
+                    parameter=parameter,
+                    assignment=equation,
+                )
+            )
+            continue
+        if any(value != values[0] for value in values[1:]):
+            issues.append(
+                GraderIssue(
+                    "solver_equation_mismatch",
+                    "A displayed solver equality is false under the proposed solution",
+                    step_index=step_index,
+                    parameter=parameter,
+                    assignment=equation,
+                    values=[value.serializable() for value in values],
+                )
+            )
+
+    environment.update(solutions)
+    return issues
+
+
 def execute_steps(
     steps: list[SolutionStep],
     tolerance: float = 1e-6,
 ) -> tuple[list[AssignmentExecution], list[GraderIssue]]:
     """Execute every equality chain using sequential one-letter symbol state."""
 
-    environment: dict[str, float] = {}
+    environment: dict[str, LinearValue] = {}
     executions: list[AssignmentExecution] = []
     issues: list[GraderIssue] = []
+    unknown_symbols: set[str] = set()
     for step_index, step in enumerate(steps, start=1):
-        assignments = list(ASSIGNMENT_RE.finditer(step.raw_body))
+        executable_body, solver_tail = _split_solver_tail(step.raw_body)
+        assignments = list(ASSIGNMENT_RE.finditer(executable_body))
         if not assignments:
-            issues.append(
-                GraderIssue(
-                    code="missing_assignment",
-                    message="Definition contains no executable assignment",
-                    step_index=step_index,
-                    parameter=step.parameter_name,
+            normalized_body = executable_body.lower()
+            if any(marker in normalized_body for marker in UNKNOWN_MARKERS):
+                environment[step.variable] = LinearValue.symbol(step.variable)
+                unknown_symbols.add(step.variable)
+            else:
+                issues.append(
+                    GraderIssue(
+                        code="missing_assignment",
+                        message="Definition contains no executable assignment",
+                        step_index=step_index,
+                        parameter=step.parameter_name,
+                    )
                 )
-            )
+            if solver_tail is not None:
+                issues.extend(
+                    _solver_issues(solver_tail, environment, unknown_symbols, step_index, step.parameter_name)
+                )
             continue
 
         declared_variable_assigned = False
@@ -110,7 +337,7 @@ def execute_steps(
             target = match.group(1)
             assignment = match.group(0).strip()
             expressions = [part.strip() for part in match.group(2).split("=")]
-            values: list[float | None] = []
+            values: list[LinearValue | None] = []
             for expression in expressions:
                 if not expression:
                     values.append(None)
@@ -142,9 +369,9 @@ def execute_steps(
                         )
                     )
 
-            numeric_values = [value for value in values if value is not None]
-            if len(numeric_values) == len(values) and len(numeric_values) >= 2:
-                if max(numeric_values) - min(numeric_values) > tolerance:
+            evaluated_values = [value for value in values if value is not None]
+            if len(evaluated_values) == len(values) and len(evaluated_values) >= 2:
+                if any(value != evaluated_values[0] for value in evaluated_values[1:]):
                     issues.append(
                         GraderIssue(
                             code="equation_mismatch",
@@ -153,7 +380,7 @@ def execute_steps(
                             parameter=step.parameter_name,
                             assignment_index=assignment_index,
                             assignment=assignment,
-                            values=numeric_values,
+                            values=[value.serializable() for value in evaluated_values],
                         )
                     )
 
@@ -165,7 +392,7 @@ def execute_steps(
                     target=target,
                     assignment=assignment,
                     expressions=expressions,
-                    values=values,
+                    values=[value.serializable() if value is not None else None for value in values],
                 )
             )
             if values and values[-1] is not None:
@@ -181,6 +408,8 @@ def execute_steps(
                     parameter=step.parameter_name,
                 )
             )
+        if solver_tail is not None:
+            issues.extend(_solver_issues(solver_tail, environment, unknown_symbols, step_index, step.parameter_name))
     return executions, issues
 
 

@@ -989,8 +989,10 @@ numeric constants, one-letter symbols, parentheses, unary signs, and the four
 basic arithmetic operators. It executes every equality chain in order under a
 stateful symbol table, requires all expressions in a chain to agree, preserves
 the released verifier's required-node/value/dependency checks, and rejects
-unsupported extra nodes. A dependency-free extra constant is allowed only when
-the problem text contains the exact corresponding constant fact.
+unsupported extra nodes. Forward-reverse traces use exact affine symbolic
+expressions and their proposed solution must satisfy the known-value equation
+and every displayed algebra step. A dependency-free extra constant is allowed
+only when the problem text contains the exact corresponding constant fact.
 
 Cross-validation is exact on both previously human-labeled OP28 sets: all
 43 valid and 7 defective uniform-sample trajectories are classified correctly,
