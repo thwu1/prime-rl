@@ -60,3 +60,24 @@ direction mixtures, and 200 problems per operation. During RL, each operation
 is evaluated separately with one rollout per held-out problem every 25 updates.
 Use the existing RSCI evaluation pipeline for the final 128-rollout pass@k
 comparison.
+
+To continue the production run to 10,000 steps after its terminal step-500
+evaluation stalled, compose the base config with the resume overlay:
+
+```bash
+bash user/tianhaowu/rsci/scripts/run_rl_op11_20.sh \
+  user/tianhaowu/rsci/configs/rl/op11_20_strict_grpo_r128.toml \
+  @ user/tianhaowu/rsci/configs/rl/op11_20_strict_grpo_r128_resume_10k.toml
+```
+
+The trainer wrote step 500, but the stalled orchestrator did not write matching
+step-500 progress. The overlay therefore resumes the newest consistent trainer,
+orchestrator, and inference-weight checkpoint at step 475 and redoes updates
+475–499 before continuing. Monitor the resumed job with:
+
+```bash
+env -u SBATCH_OUTPUT -u SBATCH_ERROR \
+  sbatch --dependency=after:<rl-job-id> \
+  user/tianhaowu/rsci/scripts/monitor_rl_run.sbatch \
+  <rl-job-id> <rl-output-dir> 10000
+```

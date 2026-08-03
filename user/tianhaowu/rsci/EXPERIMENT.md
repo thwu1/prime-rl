@@ -1650,3 +1650,23 @@ uv run --no-sync user/tianhaowu/rsci/plot_rl_strict_eval.py \
   --rollouts-root /checkpoint/ram-h100-2/tianhaowu/rsci/rl/base-op11-20-strict-r128/run_default/rollouts \
   --output user/tianhaowu/rsci/figures/rl_strict_op11_25.svg
 ```
+
+The 500-update phase completed every optimizer update, but its terminal
+step-500 evaluation stalled partway through. The last complete validation is
+therefore step 475: OP11 42.0%, OP12 39.5%, OP13 31.0%, OP14 24.5%, OP15
+13.5%, OP16 2.5%, OP17 0.5%, and OP18–25 0.0% strict pass@1. The trainer had
+written a complete step-500 checkpoint and stable inference weights, while the
+orchestrator had not written matching step-500 progress. Job `9943759` and
+monitor `9943820` were cancelled after the stalled evaluation remained
+unchanged for more than an hour.
+
+Training is extended to 10,000 updates without changing the model, data,
+strict reward, rollout count, batch construction, optimizer, or validation
+distribution. Prime-RL requires trainer and orchestrator to resume at the same
+step, so the replacement uses the newest consistent checkpoint, step 475, and
+repeats updates 475–499. The unmatched step-500 trainer and weight artifacts
+are preserved under `archive/stalled-terminal-20260803` outside the numeric
+checkpoint namespaces. Resume job `9972698` was submitted with a three-day
+wall time, and four-day monitor job `9972839` tracks it with a 10,000-step
+target. The figure above was regenerated from every complete evaluation
+through step 475 before the resumed run began.

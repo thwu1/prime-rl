@@ -1,0 +1,12 @@
+max_steps = 10000
+
+[slurm]
+job_name = "rsci-rl-op11-20-r128-10k"
+time = "3-00:00:00"
+
+[ckpt]
+resume_step = 475
+
+[wandb]
+name = "base-op11-20-strict-grpo-r128-val11-25-resume10k"
+tags = ["gsm-infinite", "op11-20", "val11-25", "strict-reward", "grpo", "r128", "resume475", "10k"]
