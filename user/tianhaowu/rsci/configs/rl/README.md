@@ -30,6 +30,16 @@ and four one-node inference replicas. The 8,192-rollout in-flight cap is 64
 problem groups, matching the measured optimum of 16 concurrent 128-rollout
 groups per inference node.
 
+For a deferred allocation, submit the lightweight monitor after the RL job has
+begun. It appends scheduler health, strict OP11–25 pass@1, trainer stability,
+and throughput to the run's `STATUS.md` every hour:
+
+```bash
+sbatch --dependency=after:<rl-job-id> \
+  user/tianhaowu/rsci/scripts/monitor_rl_run.sbatch \
+  <rl-job-id> <rl-output-dir>
+```
+
 The training pool is prompt-disjoint from the full OP11–25 validation suite.
 OP11–20 use the released shards. OP21–25 use the fixed frontier-extension
 shards generated with seed `20260802`, `generator_op_max=30`, equal context and
