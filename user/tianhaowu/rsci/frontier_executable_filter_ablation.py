@@ -47,15 +47,40 @@ def run(command: list[str]) -> None:
     subprocess.run(command, cwd="/storage/home/tianhaowu/prime-rl", check=True)
 
 
+def implementation_sha256() -> dict[str, str]:
+    script_dir = Path(__file__).parent
+    return {
+        name: file_sha256(script_dir / name)
+        for name in (
+            "frontier_build_executable_dataset.py",
+            "frontier_executable_filter_ablation.py",
+            "frontier_select_checkpoint.py",
+            "strict_trajectory_grader.py",
+            "solution_graph.py",
+        )
+    }
+
+
 def initialize_state(args: argparse.Namespace) -> tuple[dict[str, Any], Path]:
     state_path = OUTPUT_ROOT / "state.json"
     if state_path.exists():
         state = json.loads(state_path.read_text(encoding="utf-8"))
         if state["operation"] != args.operation:
             raise ValueError("Existing executable-filter state uses a different operation")
+        current_implementation = implementation_sha256()
+        if state["implementation_sha256"] != current_implementation:
+            if (OUTPUT_ROOT / "cumulative_dataset/manifest.json").exists():
+                raise ValueError("Implementation changed after executable-filter data materialization")
+            state["implementation_sha256"] = current_implementation
+            state["implementation_updated_at"] = now()
+            write_json(state_path, state)
+            append_status(
+                OUTPUT_ROOT,
+                "driver implementation updated before dataset materialization",
+                {"implementation_updated_at": state["implementation_updated_at"]},
+            )
         return state, state_path
     OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
-    script_dir = Path(__file__).parent
     state = {
         "track": "executable-filtered-strict",
         "operation": args.operation,
@@ -63,16 +88,7 @@ def initialize_state(args: argparse.Namespace) -> tuple[dict[str, Any], Path]:
         "status": "building_datasets",
         "jobs": {},
         "created_at": now(),
-        "implementation_sha256": {
-            name: file_sha256(script_dir / name)
-            for name in (
-                "frontier_build_executable_dataset.py",
-                "frontier_executable_filter_ablation.py",
-                "frontier_select_checkpoint.py",
-                "strict_trajectory_grader.py",
-                "solution_graph.py",
-            )
-        },
+        "implementation_sha256": implementation_sha256(),
     }
     write_json(state_path, state)
     append_status(OUTPUT_ROOT, "executable-filter ablation initialized", state)
