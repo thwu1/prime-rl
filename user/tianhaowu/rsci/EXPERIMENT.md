@@ -1560,3 +1560,14 @@ also pass. Replacement job `9931266` was submitted with unchanged model,
 reward, data, and optimization settings. Monitor job `9931389` tracks the
 replacement and checks terminal state every minute while appending metrics
 hourly.
+
+Replacement `9931266` exposed a second path through the same startup issue:
+the top-level sync was gone, but nested `uv run` invocations implicitly synced
+before launching trainer, inference, and orchestrator. The allocation was
+cancelled after confirming zero rollouts, zero trainer steps, and no W&B
+training run. With `sync_environment=false`, every bundled SLURM template now
+exports `UV_NO_SYNC=1`, covering both explicit and implicit sync paths. The
+regenerated production script contains one such export, no explicit `uv sync`,
+and still contains the intended trainer, orchestrator, and inference commands;
+all 110 config tests pass. Third attempt `9938021` and monitor `9938081` were
+submitted with the experiment settings unchanged.
