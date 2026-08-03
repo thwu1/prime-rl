@@ -956,6 +956,31 @@ The deterministic selector is `audit_strict_trajectory_errors.py`; its external
 full-response dossier has SHA-256
 `9241cda89b119081314eb70d4f3b316d69cd1e18c2e514c9f2257e7acd3b618e`.
 
+#### Uniform manual read of 50 strict-filter trajectories
+
+A second deterministic sample removes the error-conditioning: it selects 50
+uniformly hash-ranked rows from the 50,000-row OP28 shard. All 50 happen to
+come from distinct prompts. Literal canonical-response matching remains
+0/50,000 even after whitespace normalization, but that mostly reflects harmless
+variable renaming and ordering differences rather than error.
+
+Manual comparison of every sampled response with its exact generator solution
+finds 43 canonical-equivalent alternatives and 7 genuine semantic defects.
+Six defects overwrite a one-letter symbol and later use its stale and current
+meanings simultaneously. The seventh combines stale aliasing with unsupported
+extra nodes and false extra arithmetic. The uniform-sample defect estimate is
+therefore 14.0%, with a 95% Wilson interval of 6.95–26.19%; it is an estimate,
+not an exact full-shard rate. Full-shard screening flags 9,595/50,000 rows
+(19.19%) by the union of explicit numeric contradiction, extra-node, and
+stateful-substitution indicators, while directly evaluable false arithmetic
+remains the conservative 0.766% lower bound.
+
+All 50 judgments are recorded in
+[`audits/strict_op28_50_uniform_classification.md`](audits/strict_op28_50_uniform_classification.md).
+The reproducible selector is `audit_strict_trajectory_sample.py`; its preserved
+full-response dossier has SHA-256
+`d17a2c07a17d21f74d83f387d0897723df232785fbc7923189f1f8a436f71c2d`.
+
 ### Answer-correct versus strict-correct audit
 
 The strict-filter model's OP28 pre-evaluation contains 25,600 trajectories:
