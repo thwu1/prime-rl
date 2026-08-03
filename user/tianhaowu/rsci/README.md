@@ -143,6 +143,38 @@ and advances until the next frontier's track-specific pass@1 is at most 1%.
 See `configs/frontier/README.md` for the frozen semantics, launch commands, and
 artifact layout.
 
+## Matched golden-target control
+
+The matched oracle retains every strict-filter OP11-28 source row and prompt
+frequency, but replaces the sampled assistant trajectory with the canonical
+`solution` and `answer` emitted with that GSM-Infinite prompt. Build the 900K
+training rows and disjoint 90K held-out rows with:
+
+```bash
+sbatch user/tianhaowu/rsci/scripts/run_oracle_dataset.sbatch \
+  /checkpoint/ram-h100-2/tianhaowu/rsci/frontier-sft/strict-correct \
+  /checkpoint/ram-h100-2/tianhaowu/rsci/frontier-sft/oracle-matched-strict/iterations/op28 \
+  28 \
+  /checkpoint/ram-h100-2/tianhaowu/rsci/hf/hub/models--Interplay-LM-Reasoning--extrapolation_rl/snapshots/4861bd030e6fb92d94be3a1cecab89c2fac4b94a/id2-10_0.2easy_0.3medium_0.5hard/base
+bash user/tianhaowu/rsci/scripts/run_sft.sh \
+  user/tianhaowu/rsci/configs/sft/oracle_matched_strict_op11_28.toml
+```
+
+Select only after all checkpoints are stable, then run the matched OP28 eval:
+
+```bash
+uv run user/tianhaowu/rsci/frontier_select_checkpoint.py \
+  --sft-output /checkpoint/ram-h100-2/tianhaowu/rsci/frontier-sft/oracle-matched-strict/iterations/op28/model_min_val \
+  --validation-manifest /checkpoint/ram-h100-2/tianhaowu/rsci/frontier-sft/oracle-matched-strict/iterations/op28/cumulative_validation_dataset/manifest.json \
+  --output /checkpoint/ram-h100-2/tianhaowu/rsci/frontier-sft/oracle-matched-strict/iterations/op28/checkpoint_selection.json
+sbatch user/tianhaowu/rsci/scripts/run_eval.sbatch \
+  user/tianhaowu/rsci/configs/eval/oracle_matched_strict_op28_step139.toml
+```
+
+The builder records exact source hashes, row multiplicities, token counts, and
+train/held-out overlap. `EXPERIMENT.md` reports the selected checkpoint and the
+strict-filter comparison.
+
 ## Scope
 
 The general data command produces released `zero_context` medium (`d=2`) or

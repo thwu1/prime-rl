@@ -705,8 +705,10 @@ of `0.03692433`; its offline W&B stream was uploaded by the persistent sync
 job. Post-selection job `9855502` measured 15.42% answer pass@1/61.0%
 pass@128 and 1.465% strict pass@1/7.5% pass@128. Relative to the OP28 gate,
 strict pass@1 decreased from 1.801%, while pass@128 increased from 6.5%.
-The strict loop therefore advanced to OP29; neither loop has reached the
-requested 1% next-frontier gate.
+The strict loop then advanced to OP29, where the selected OP28 model measured
+13.16% answer pass@1/59.0% pass@128 and 0.859% strict pass@1/4.5% pass@128.
+Because strict pass@1 is below the requested 1% gate, the strict track stopped
+before any OP29 collection or training. The answer track remains active.
 
 All RSCI SFT configs now target online W&B logging under `ram/rsci`. The 46
 preserved historical offline streams remain the source of truth for past
@@ -716,7 +718,7 @@ job `9833832` completed the initial historical migration, then exited when
 SLURM returned `Invalid job id specified` for a finished watched job. The sync
 driver now treats that one scheduler response as an inactive job while still
 raising all other scheduler errors. Replacement job `9853484` is active and
-has uploaded 47 completed streams with zero failures; it watches both frontier
+has uploaded 49 completed streams with zero failures; it watches both frontier
 drivers so new offline runs are uploaded after their exit records are durable.
 Each successful stream is accepted only when W&B reports `finished`; the three
 local exit-code-1 smoke streams retain that provenance while accepting any
@@ -734,8 +736,8 @@ problem. Answer OP29 is more concentrated: 50,000 rows, 1,023 problems, 29,626
 unique exact pairs, and 20,374 repeated pairs (40.75%). Trace IDs remain unique
 because sample rank is part of the trajectory identity.
 
-A full model-facing-text audit of the latest completed cumulative snapshots
-gives the current exact totals. Answer OP11-31 has 1,050,000 rows but 896,232
+A fixed-snapshot full model-facing-text audit quantified duplication before the
+oracle control. Answer OP11-31 has 1,050,000 rows but 896,232
 unique `(question, completion)` byte strings: 153,768 rows (14.645%) repeat an
 earlier training example exactly, across 58,254 duplicate groups. It represents
 20,773 unique question strings (50.55 accepted rows/problem on average), and
@@ -748,8 +750,7 @@ exact repeats, across 37,406 duplicate groups. It represents 19,969 unique
 questions (42.57 rows/problem), with maximum identical-example multiplicity
 76. All 1,900,000 trace IDs are unique and every prompt ID maps to exactly one
 question string; these counts therefore isolate duplication seen by SFT rather
-than metadata duplication. The in-progress answer OP32 and strict OP28 shards
-are excluded until they enter finalized cumulative training snapshots.
+than metadata duplication.
 
 None of the 50K sampled strict OP25 completions exactly matches the generator's
 literal gold completion, even though all pass the dependency-graph verifier.
@@ -761,7 +762,7 @@ accepted shard. Two useful controls are consequently (1) gold completions on
 the same prompts, which isolates target quality, and (2) 50K unique gold
 problems, which measures the combined quality-and-diversity upper bound.
 
-The first, apples-to-apples control is now running at OP11-28. Builder job
+The first, apples-to-apples control is complete at OP11-28. Builder job
 `9853360` preserved every row and prompt frequency from the strict cumulative
 train/held-out snapshots, but replaced each assistant message with the
 canonical solution and answer stored by the GSM-Infinite generator. This is
@@ -772,10 +773,42 @@ overlap, 769,102,411/76,598,821 tokens, and no example above 2,048 tokens.
 Because one deterministic gold trace replaces every sampled trajectory, the
 training set has only 21,495 unique model-facing examples and 878,505 repeated
 rows (97.61%). This control therefore isolates target correctness at fixed
-sampling multiplicity; it is not the quality-plus-diversity upper bound. The
-reset-from-base, 1,391-step SFT is job `9853626`, logs online as
-`frontier-oracle-matched-strict-op28`, and will use the same minimum held-out
-validation-loss selection and OP28 pass@1-128 evaluation as strict filtering.
+sampling multiplicity; it is not the quality-plus-diversity upper bound.
+
+Reset-from-base SFT job `9853626` completed all 1,391 steps and logged online
+as W&B run `0u9hrc8c`. Duplicate-induced overfitting was immediate: held-out
+loss was minimal at the first checkpoint, step 139 (`0.18600146`), then rose
+to `0.37492228` at the terminal checkpoint while training loss fell near zero.
+The immutable minimum-loss rule therefore selected step 139. Evaluation
+attempt `9856626` encountered a transient shared Triton-cache stale file handle
+before writing any rollout; retry `9856940` excluded the affected node and
+completed all 25,600 generations. Both treatments use the same original base,
+200 OP28 prompts, 128 rollouts per prompt, sampling parameters, evaluator, and
+unbiased pass@k estimator.
+
+![OP28 strict pass@k for the pre-SFT model, strict-filtered SFT, and matched golden SFT](figures/oracle_matched_op28.svg)
+
+*Matched golden targets improve strict OP28 accuracy at every k despite the
+severe train/validation overfitting caused by repeated canonical labels.*
+
+| k | Strict-filter SFT strict pass@k | Matched-gold SFT strict pass@k | Oracle / strict-filter |
+| ---: | ---: | ---: | ---: |
+| 1 | 1.465% | 4.883% | 3.33× |
+| 2 | 2.220% | 7.241% | 3.26× |
+| 4 | 3.248% | 9.623% | 2.96× |
+| 8 | 4.406% | 11.805% | 2.68× |
+| 16 | 5.490% | 13.466% | 2.45× |
+| 32 | 6.346% | 14.580% | 2.30× |
+| 64 | 6.949% | 15.432% | 2.22× |
+| 128 | 7.500% | 16.000% | 2.13× |
+
+Answer-only pass@1/pass@128 also rises from 15.42%/61.0% under strict-filter
+SFT to 20.87%/71.0% under matched-gold SFT. Canonical targets therefore provide
+substantially stronger supervision than verifier-accepted free-form traces,
+even when prompt selection, row count, and row multiplicity are fixed. The
+effect can reflect both exact reasoning quality and lower target entropy. It is
+not a model upper bound: a separate 50K-unique-problems-per-op gold treatment
+is still needed to measure the combined target-quality and diversity oracle.
 
 ### Answer-correct versus strict-correct audit
 
