@@ -1547,3 +1547,16 @@ CPU monitor job `9927388` has an `after:9926135` dependency, so it begins with
 the RL allocation, records the latest reward, strict per-operation validation,
 KL, entropy, gradient norm, throughput, and log warnings each hour, then writes
 a final entry and exits when the RL job terminates.
+
+The first allocation failed before any trainer, inference server, rollout, or
+W&B run started. Its generated SLURM script repeated `uv sync --all-extras` on
+an H100 node; compute-node egress could not fetch metadata for the locked ARM
+vLLM wheel, and job `9926135` exited 2 after 2m15s. The shared environment was
+then verified by `uv sync --all-extras --locked` on the login side. Prime-RL's
+SLURM config now exposes `sync_environment` (default `true`), and this RSCI run
+sets it to `false`. A second dry-run verified that the generated script
+activates the shared `.venv` without invoking `uv sync`; all 110 config tests
+also pass. Replacement job `9931266` was submitted with unchanged model,
+reward, data, and optimization settings. Monitor job `9931389` tracks the
+replacement and checks terminal state every minute while appending metrics
+hourly.
