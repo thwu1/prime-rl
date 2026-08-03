@@ -981,6 +981,44 @@ The reproducible selector is `audit_strict_trajectory_sample.py`; its preserved
 full-response dossier has SHA-256
 `d17a2c07a17d21f74d83f387d0897723df232785fbc7923189f1f8a436f71c2d`.
 
+#### Deterministic execution grader and cleaned-strict ablation
+
+The audit checks have now been promoted into `strict_trajectory_grader.py`, a
+deterministic grader that parses arithmetic with Python's AST but permits only
+numeric constants, one-letter symbols, parentheses, unary signs, and the four
+basic arithmetic operators. It executes every equality chain in order under a
+stateful symbol table, requires all expressions in a chain to agree, preserves
+the released verifier's required-node/value/dependency checks, and rejects
+unsupported extra nodes. A dependency-free extra constant is allowed only when
+the problem text contains the exact corresponding constant fact.
+
+Cross-validation is exact on both previously human-labeled OP28 sets: all
+43 valid and 7 defective uniform-sample trajectories are classified correctly,
+as are the one valid and 49 defective error-enriched trajectories. Across the
+100 independent human judgments this is 100/100 agreement, with all 56 defects
+caught and no false rejection. Applying the grader to a deterministic uniform
+100-row sample yields 78 accepted and 22 rejected trajectories: 19 have an
+executable equality contradiction and four have unsupported nodes, with one
+row in both groups.
+
+On the full strict OP28 shard, the grader retains 40,754/50,000 rows and rejects
+9,246/50,000 (18.492%). The largest rejection classes are 7,779 rows with an
+equality-chain contradiction and 1,787 with unsupported extra nodes; smaller
+structural checks find malformed or duplicate-definition inconsistencies.
+This is a deterministic filtering rate rather than a proven population error
+rate outside the audited samples, because non-constant prompt-defined
+distractors are conservatively rejected.
+
+An OP11–28 cleaned-strict ablation is in progress. It drops failing model
+trajectories independently from both the original 900K training rows and 90K
+held-out rows, without substituting canonical answers or resampling retained
+traces. SFT resets from the same pretrained base, runs one epoch over the
+retained rows with the unchanged optimizer, selects the minimum held-out-loss
+checkpoint, and uses the identical 200-problem × 128-rollout OP28 evaluation.
+This directly tests whether verifier-admitted defects explain the matched-gold
+oracle advantage; remaining differences include model-target entropy and the
+smaller clean corpus.
+
 ### Answer-correct versus strict-correct audit
 
 The strict-filter model's OP28 pre-evaluation contains 25,600 trajectories:
