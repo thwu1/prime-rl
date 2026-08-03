@@ -628,7 +628,16 @@ def submit_sft(
 
 
 def slurm_state(job_id: int) -> str:
-    queued = run(["squeue", "--noheader", "--jobs", str(job_id), "--format=%T"])
+    command = ["squeue", "--noheader", "--jobs", str(job_id), "--format=%T"]
+    result = subprocess.run(command, cwd="/storage/home/tianhaowu/prime-rl", capture_output=True, text=True)
+    if result.returncode == 0:
+        queued = result.stdout
+    elif "Invalid job id specified" in result.stderr:
+        queued = ""
+    else:
+        raise RuntimeError(
+            f"Command failed ({result.returncode}): {' '.join(command)}\n{result.stdout}\n{result.stderr}"
+        )
     queue_states = [line.strip().upper() for line in queued.splitlines() if line.strip()]
     if queue_states:
         return queue_states[0]

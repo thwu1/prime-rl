@@ -131,6 +131,8 @@ srun \
     cd /storage/home/tianhaowu/prime-rl
     export HF_HUB_OFFLINE=1
     export PYTHONDONTWRITEBYTECODE=1
+    export VLLM_CACHE_ROOT="${SLURM_TMPDIR:-/tmp}/rsci-vllm-${SLURM_JOB_ID}-${SLURM_PROCID}"
+    mkdir -p "$VLLM_CACHE_ROOT"
     unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy
     uv run --no-sync inference @ "$RSCI_INFER_CONFIG" >"$RSCI_OUTPUT_DIR/server_node_${SLURM_PROCID}.log" 2>&1
   ' &

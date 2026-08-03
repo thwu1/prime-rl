@@ -55,6 +55,17 @@ gates must include every original, resumed, and replacement output directory; pr
 recursive result-file scan over a fixed list of run suffixes. Make the target launcher
 idempotent so a requeued watcher cannot submit duplicate jobs.
 
+When several multi-node vLLM evaluations start concurrently, do not share the
+default network-backed `~/.cache/vllm` compile cache. Set `VLLM_CACHE_ROOT` inside
+each node task to a job- and task-specific directory under `SLURM_TMPDIR` (falling
+back to `/tmp`). A shared compile cache can fail during autotuning with
+`OSError: [Errno 116] Stale file handle` before inference starts.
+
+For older child job IDs, `squeue --jobs <id>` may exit nonzero with
+`Invalid job id specified` after the controller purges the job. Treat only that
+specific response as absence from the live queue and recover the terminal state
+from `sacct`; do not classify it as an unknown or failed monitoring command.
+
 ---
 
 ## Reference

@@ -1186,4 +1186,45 @@ unweighted SFT, and all five harmonic treatments.
 A four-step K=16 smoke run completed as SLURM job `9872651` and W&B run
 `4h9aidvl`. Weighted validation losses were finite at step 0 (0.09475763), step
 2 (0.18528548), and step 4 (0.12865491); training reached 578K tokens/s with
-4.4 GiB peak memory and no NaN losses. The full sweep is pending.
+4.4 GiB peak memory and no NaN losses.
+
+All six full SFT runs completed without NaNs. Minimum held-out validation loss
+selected baseline step 32 (0.09508730), K=4 step 24 (0.09536778), K=8 step 16
+(0.09652019), K=16 step 16 (0.09809885), K=32 step 24 (0.09943316), and K=64
+step 16 (0.10073516). Loss values select checkpoints only within their own
+objective because each K changes the validation weights.
+The W&B run IDs are `l6paike9` (baseline), `2kljho02` (K=4), `q6aq5541`
+(K=8), `6zfr2oqx` (K=16), `b0nz7y4k` (K=32), and `11rwfktq` (K=64).
+
+The complete OP15–18 unbiased answer-correctness results are:
+
+![Harmonic weighted SFT OP15–18 pass@k and gains over unweighted SFT](figures/harmonic_sft_op15_18.svg)
+
+| model | pass@1 | pass@2 | pass@4 | pass@8 | pass@16 | pass@32 | pass@64 | pass@128 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| pretrained | 16.77% | 20.77% | 24.58% | 28.26% | 31.74% | 34.96% | 37.89% | 40.50% |
+| unweighted SFT | 17.17% | 21.64% | 25.96% | 30.06% | 33.76% | 37.24% | 40.84% | 44.63% |
+| harmonic K=4 | **17.97%** | 23.41% | 28.63% | 33.51% | 38.09% | 42.43% | 46.55% | 50.38% |
+| harmonic K=8 | 17.14% | 22.33% | 27.16% | 31.58% | 35.62% | 39.40% | 43.26% | 47.25% |
+| harmonic K=16 | 17.11% | 22.57% | 27.69% | 32.47% | 36.86% | 41.02% | 45.33% | 50.00% |
+| harmonic K=32 | 17.78% | 23.40% | 28.78% | 33.82% | 38.57% | 43.00% | 46.96% | 50.63% |
+| harmonic K=64 | 17.52% | **23.60%** | **29.37%** | **34.68%** | **39.60%** | **44.07%** | **48.06%** | **51.75%** |
+
+Among completed treatments, K=4 has the best pass@1 and K=64 has the best
+pass@2 through pass@128. Relative to unweighted SFT, K=64 changes pass@1 by
++0.35 percentage points and pass@128 by +7.13 points. Strict-graph pass@k is
+zero for every completed model except K=16, whose strict pass@1 is 0.00195%
+and strict pass@128 is 0.125%. Final-answer filtering therefore almost never
+elicits the released dependency-graph format in this setting. The complete
+sweep shows that harmonic weighting improves high-budget coverage substantially,
+but larger objective K does not monotonically improve pass@1: K=4 gives the
+largest pass@1 gain (+0.80 points over unweighted SFT), whereas K=64 gives the
+largest pass@128 gain (+7.13 points).
+
+Regenerate the figure from the preserved metric files with:
+
+```bash
+uv run user/tianhaowu/rsci/plot_harmonic_sft.py \
+  --root /checkpoint/ram-h100-2/tianhaowu/rsci/harmonic-sft/base-op11-14-answer \
+  --output user/tianhaowu/rsci/figures/harmonic_sft_op15_18.svg
+```
