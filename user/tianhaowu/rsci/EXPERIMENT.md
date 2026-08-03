@@ -1592,3 +1592,61 @@ pre-run command now does the same while retaining the explicit internal
 `NO_PROXY` list. Fifth attempt `9943759` and monitor `9943820` were submitted;
 the experiment's model, data, strict reward, and optimization settings remain
 unchanged across these startup-only retries.
+
+Fifth attempt `9943759` is the first training attempt to pass startup. One
+trainer, four routers, and all 32 inference workers became healthy; shared W&B
+logging is online at
+[`795781d17d14416290a22569cf808627`](https://meta-fair.wandb.io/ram/rsci/runs/795781d17d14416290a22569cf808627).
+The trainer began from step zero, completed live NCCL policy broadcasts, and
+produced checkpoints and validation artifacts at the configured interval. The
+first 27 optimizer steps had zero rollout errors and zero truncations. The
+repeated vLLM `RotaryEmbedding: Failed to load weights` warning is limited to a
+non-persistent positional cache: all 13 state-dict shards are received, the
+loader restores its existing cache, and `/update_weights` plus `/resume` return
+HTTP 200 before inference continues.
+
+The first post-training validation is encouraging but still preliminary. Each
+cell below is strict pass@1 over the same 200 held-out prompts per operation,
+sampled once at temperature 0.7. Prime-RL labels the second evaluation step 25
+and logs policy version 24; the framework also persisted the scheduled
+`step_25` checkpoint. The distinction is retained here rather than treating
+the evaluation as necessarily following optimizer update 25.
+
+![Strict-reward GRPO OP11–25 held-out validation](figures/rl_strict_op11_25.svg)
+
+| operation | pretrained (step 0) | RL step 25 | change |
+| --- | ---: | ---: | ---: |
+| OP11 | 48.0% | 54.5% | +6.5 pp |
+| OP12 | 22.0% | 40.0% | +18.0 pp |
+| OP13 | 0.0% | 2.5% | +2.5 pp |
+| OP14 | 0.0% | 0.0% | 0.0 pp |
+| OP15 | 0.0% | 0.0% | 0.0 pp |
+| OP16 | 0.0% | 0.0% | 0.0 pp |
+| OP17 | 0.0% | 0.0% | 0.0 pp |
+| OP18 | 0.0% | 0.0% | 0.0 pp |
+| OP19 | 0.0% | 0.0% | 0.0 pp |
+| OP20 | 0.0% | 0.0% | 0.0 pp |
+| OP21 | 0.0% | 0.0% | 0.0 pp |
+| OP22 | 0.0% | 0.0% | 0.0 pp |
+| OP23 | 0.0% | 0.0% | 0.0 pp |
+| OP24 | 0.0% | 0.0% | 0.0 pp |
+| OP25 | 0.0% | 0.0% | 0.0 pp |
+| OP11–25 micro-average | 4.67% | 6.47% | +1.80 pp |
+
+Both evaluation directories contain exactly 3,000 rows: 200 for every OP11–25
+shard. An artifact-level audit found zero scoring errors, zero length stops,
+and zero disagreements between the recorded RL reward and
+`strict_dependency_graph_reward`. Across the two evaluations, 1,135
+trajectories had a correct final answer but an incorrect strict reasoning
+graph; every one received reward zero. The OP13 result is the first nonzero
+strict score beyond the pretrained frontier, while OP14–25 have not moved yet.
+Because this is a single stochastic rollout per prompt, later checkpoints are
+needed to separate persistent improvement from sampling noise.
+
+Regenerate the figure from the saved rollout artifacts with:
+
+```bash
+uv run --no-sync user/tianhaowu/rsci/plot_rl_strict_eval.py \
+  --rollouts-root /checkpoint/ram-h100-2/tianhaowu/rsci/rl/base-op11-20-strict-r128/run_default/rollouts \
+  --output user/tianhaowu/rsci/figures/rl_strict_op11_25.svg
+```
