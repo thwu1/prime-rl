@@ -672,7 +672,24 @@ post-selection evaluation attempt `9857170` failed before producing an
 artifact; automatic retry `9857567` completed all 25,600 rollouts with zero
 unparsed predictions. OP33 answer pass@1 increased from 14.54% to 14.91%,
 while pass@128 decreased from 37.5% to 36.5%; strict pass@k remained zero. The
-watcher advanced to OP34 and is generating its disjoint 200-problem gate set.
+watcher advanced to OP34, whose generated gate measured 11.68% answer pass@1
+and 36.5% pass@128. Exact 50K/5K train/held-out shards required
+344,064/40,960 generations over 2,688/320 prompts, with zero
+train/held-out/evaluation overlap. The resulting 1.20M/120K datasets contain
+1,158,194,657/116,397,406 tokens and require 2,081 optimizer steps. OP34
+reset-from-base SFT is active as job `9862177`; step 416 currently has the
+minimum held-out loss, `0.03859481`.
+
+Because answer pass@1 remains far above 1%, `answer_correct_op50.toml` now
+predefines but does not activate an OP41-50 continuation. The extension
+validator confirms that only `max_operation`, `generator_op_max`, and the
+generated-evaluation root differ from OP40. A six-row OP41 smoke set covers all
+three templates and both modes; every row has exact `op=op_count=41`, all IDs
+are unique, and its SHA-256 is
+`17b7b4ba58dea15e6713fec3a68fd266bf71508d5b8b0aa59e5dfb2c20a73b27`.
+Generation accepted 6 of 2,323 proposals, so extrapolation is feasible but
+rejection-heavy. The config is activated only if the OP40 watcher exits with
+`max_operation_exhausted` rather than meeting the threshold.
 
 The strict op25 gate was 1.39%, still above threshold. Its collection finalized
 exactly 50,000 strict trajectories from 2,281,472 generations over 17,824

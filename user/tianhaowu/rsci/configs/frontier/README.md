@@ -59,6 +59,12 @@ rejection counts, and exact template/mode counts. The per-round held-out audit
 also proves that generated evaluation prompts overlap neither the 50K training
 prompt stream nor the 5K validation-loss prompt stream.
 
+The answer track remains well above 1% at OP34, so
+`answer_correct_op50.toml` predefines the OP41-50 continuation with
+`generator_op_max=50`. It changes only the allowed extension fields and is not
+activated until the OP40 watcher exits with `max_operation_exhausted`; generated
+evaluation files remain deterministic and are materialized on demand.
+
 To extend a state that exhausted its configured range, archive and activate
 the config for the next range before relaunching its watcher. For OP31-40:
 
