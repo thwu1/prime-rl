@@ -35,6 +35,7 @@ from prime_rl.trainer.model import (
 from prime_rl.trainer.parallel_dims import get_parallel_dims
 from prime_rl.trainer.perf import get_perf_counter
 from prime_rl.trainer.sft.data import load_sft_dataset, setup_dataloader, setup_dataset
+from prime_rl.trainer.sft.loss import reduce_token_loss
 from prime_rl.trainer.utils import (
     GarbageCollection,
     MemoryProfiler,
@@ -237,11 +238,14 @@ def train(config: SFTConfig):
             raise ValueError(f"Invalid loss implementation: {config.loss_impl}")
 
     def compute_loss(micro_batch: dict) -> tuple[torch.Tensor, torch.Tensor]:
-        """Forward pass returning (loss_sum, token_count) over unmasked tokens."""
+        """Forward pass returning the loss sum and its reduction normalizer."""
         input_ids = micro_batch["input_ids"].to("cuda")
         position_ids = micro_batch["position_ids"].to("cuda")
         target_ids = micro_batch["target_ids"].to("cuda")
         loss_mask = micro_batch["loss_mask"].to("cuda")
+        loss_weight = micro_batch.get("loss_weight")
+        if loss_weight is not None:
+            loss_weight = loss_weight.to("cuda")
 
         if cp_enabled:
             input_ids, position_ids = setup_cp_params(
@@ -249,6 +253,8 @@ def train(config: SFTConfig):
             )
             target_ids = shard_for_cp(target_ids, cp_rank=cp_rank, cp_world_size=cp_size)
             loss_mask = shard_for_cp(loss_mask, cp_rank=cp_rank, cp_world_size=cp_size)
+            if loss_weight is not None:
+                loss_weight = shard_for_cp(loss_weight, cp_rank=cp_rank, cp_world_size=cp_size)
 
         if config.model.lora is not None:
             set_lora_num_tokens(torch.full((1,), input_ids.numel(), dtype=torch.int32, device="cuda"))
@@ -261,23 +267,24 @@ def train(config: SFTConfig):
                 masked_target_ids[~loss_mask] = FUSED_CE_IGNORE_INDEX
                 out = forward(model, input_ids, position_ids, labels=masked_target_ids)
                 loss_sum = out["loss"] * token_count
+                loss_normalizer = token_count.to(dtype=torch.float32)
             else:
                 out = forward(model, input_ids, position_ids)
                 logits = out["logits"]
                 B, L, V = logits.shape
                 token_loss = ce_loss(logits.view(-1, V), target_ids.view(-1)).view(B, L)
-                loss_sum = token_loss[loss_mask].sum()
+                loss_sum, loss_normalizer = reduce_token_loss(token_loss, loss_mask, loss_weight)
                 del logits
 
         del out
-        return loss_sum, token_count
+        return loss_sum, loss_normalizer
 
     maybe_record_function = nullcontext
 
     def run_eval_loop(data_iter):
-        """Validation forward loop. Returns token-weighted global mean loss."""
+        """Validation forward loop. Returns the globally normalized mean loss."""
         total_loss_sum = torch.tensor(0.0, device="cuda")
-        total_token_count = torch.tensor(0, dtype=torch.int64, device="cuda")
+        total_loss_normalizer = torch.tensor(0.0, device="cuda")
         nan_count = torch.tensor(0, device="cuda")
 
         # Variable-length packing yields different per-rank batch counts. Under FSDP
@@ -293,18 +300,22 @@ def train(config: SFTConfig):
                 dist.all_reduce(has_data, op=dist.ReduceOp.MIN)
                 if has_data.item() == 0:
                     break
-                loss_sum, token_count = compute_loss(micro_batch)
+                loss_sum, loss_normalizer = compute_loss(micro_batch)
                 if not torch.isnan(loss_sum.detach()):
                     total_loss_sum += loss_sum.detach()
-                    total_token_count += token_count
+                    total_loss_normalizer += loss_normalizer
                 else:
                     nan_count += 1
 
         dist.all_reduce(total_loss_sum, op=dist.ReduceOp.SUM, group=dp_cp_group)
-        dist.all_reduce(total_token_count, op=dist.ReduceOp.SUM, group=dp_cp_group)
+        dist.all_reduce(total_loss_normalizer, op=dist.ReduceOp.SUM, group=dp_cp_group)
         dist.all_reduce(nan_count, op=dist.ReduceOp.SUM)
 
-        mean_loss = (total_loss_sum / total_token_count).item() if total_token_count.item() > 0 else float("nan")
+        mean_loss = (
+            (total_loss_sum / total_loss_normalizer).item()
+            if total_loss_normalizer.item() > 0
+            else float("nan")
+        )
         return mean_loss, nan_count.item()
 
     def run_validation(step: int) -> None:
@@ -383,7 +394,7 @@ def train(config: SFTConfig):
         forward_backward_start_time = time.perf_counter()
 
         step_loss_sum = torch.tensor(0.0, device="cuda")
-        step_local_token_count = torch.tensor(0, dtype=torch.int64, device="cuda")
+        step_local_loss_normalizer = torch.tensor(0.0, device="cuda")
         nan_loss_count = torch.tensor(0, device="cuda")
         is_moe_model = is_tt_moe_model(model)
         moe_stats = (
@@ -403,9 +414,9 @@ def train(config: SFTConfig):
                 )
 
             with maybe_record_function("forward"):
-                local_loss_sum, local_token_count = compute_loss(micro_batch)
+                local_loss_sum, local_loss_normalizer = compute_loss(micro_batch)
 
-            step_local_token_count += local_token_count
+            step_local_loss_normalizer += local_loss_normalizer
 
             if torch.isnan(local_loss_sum.detach()):
                 nan_loss_count += 1
@@ -431,15 +442,15 @@ def train(config: SFTConfig):
 
         forward_backward_time = time.perf_counter() - forward_backward_start_time
 
-        # All-reduce token counts and rescale gradients to get a global token-weighted mean.
+        # All-reduce normalizers and rescale gradients to get a global weighted mean.
         # FSDP already divided grads by fsdp_gradient_divide_factor, so we undo that and
-        # divide by the true global token count instead.
-        global_step_token_count = step_local_token_count.clone()
-        dist.all_reduce(global_step_token_count, op=dist.ReduceOp.SUM, group=dp_cp_group)
-        global_token_count_val = global_step_token_count.item()
+        # divide by the true global loss normalizer instead.
+        global_step_loss_normalizer = step_local_loss_normalizer.clone()
+        dist.all_reduce(global_step_loss_normalizer, op=dist.ReduceOp.SUM, group=dp_cp_group)
+        global_loss_normalizer_val = global_step_loss_normalizer.item()
 
-        if global_token_count_val > 0:
-            grad_scale = parallel_dims.fsdp_gradient_divide_factor * grad_accum_steps / global_token_count_val
+        if global_loss_normalizer_val > 0:
+            grad_scale = parallel_dims.fsdp_gradient_divide_factor * grad_accum_steps / global_loss_normalizer_val
             for param in model.parameters():
                 if param.grad is not None:
                     param.grad.mul_(grad_scale)
@@ -455,8 +466,8 @@ def train(config: SFTConfig):
         # Compute the global mean loss for logging.
         dist.all_reduce(step_loss_sum, op=dist.ReduceOp.SUM, group=dp_cp_group)
         dist.all_reduce(nan_loss_count, op=dist.ReduceOp.SUM)
-        if global_token_count_val > 0:
-            batch_loss = (step_loss_sum / global_token_count_val).item()
+        if global_loss_normalizer_val > 0:
+            batch_loss = (step_loss_sum / global_loss_normalizer_val).item()
         else:
             batch_loss = 0.0
         nan_loss_count = nan_loss_count.item()

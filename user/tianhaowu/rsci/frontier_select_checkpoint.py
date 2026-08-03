@@ -63,19 +63,18 @@ def main() -> None:
         config = tomllib.load(handle)
     if "val" not in config:
         raise ValueError(f"SFT config has no validation dataset: {config_path}")
-    if config["val"].get("eval_on_start", False):
-        raise ValueError("Frontier checkpoint selection excludes the untrained step-0 model")
     interval = int(config["val"]["interval"])
     if int(config["ckpt"]["interval"]) != interval:
         raise ValueError("Validation and weight-checkpoint intervals must match")
     max_steps = int(config["max_steps"])
     expected_steps = set(range(interval, max_steps, interval)) | {max_steps}
+    expected_validation_steps = expected_steps | ({0} if config["val"].get("eval_on_start", False) else set())
     losses = parse_validation_losses(log_path)
-    if set(losses) != expected_steps:
-        raise ValueError(f"Expected validation steps {sorted(expected_steps)}, found {sorted(losses)}")
+    if set(losses) != expected_validation_steps:
+        raise ValueError(f"Expected validation steps {sorted(expected_validation_steps)}, found {sorted(losses)}")
 
     candidates: list[dict[str, Any]] = []
-    for step in sorted(losses):
+    for step in sorted(expected_steps):
         checkpoint = args.sft_output / "weights" / f"step_{step}"
         stable = checkpoint / "STABLE"
         if not stable.exists():
@@ -84,7 +83,7 @@ def main() -> None:
     selected = min(candidates, key=lambda candidate: (candidate["validation_loss"], candidate["step"]))
     repo_root = Path(__file__).resolve().parents[3]
     payload = {
-        "selection_rule": "minimum held-out token-weighted validation loss; earliest step breaks ties",
+        "selection_rule": "minimum configured held-out validation loss; earliest step breaks ties",
         "sft_output": str(args.sft_output.resolve()),
         "sft_config": str(config_path.resolve()),
         "sft_config_sha256": file_sha256(config_path),

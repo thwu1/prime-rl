@@ -70,6 +70,22 @@ enable_token_export = true
 
 Leave it unset for normal training. When enabled, it exports every sequence from each exporting rank.
 
+## Weighted SFT examples
+
+SFT datasets may provide a positive finite scalar example-weight column. Configure the column independently for
+training and validation; the scalar is applied to every trainable token and the distributed loss is normalized by
+the global weighted-token mass.
+
+```toml
+[data]
+weight_column = "sft_weight"
+
+[val.data]
+weight_column = "sft_weight"
+```
+
+Weighted SFT requires `loss_impl = "torch"` or `"liger"`; fused SFT losses do not expose per-token losses.
+
 ## Model Client Transport
 
 Model endpoint transport is configured under `[orchestrator.client]`. `connect_timeout`

@@ -1143,3 +1143,47 @@ and λ=0.90 raises it by 0.602 points (+44% relative). Both reduce strict
 pass@128 from 7% to 6%. Exponential replay therefore raises the probability of
 a correct strict rollout on already-solvable problems, especially at λ=0.90,
 but does not expand one-of-128 problem coverage in this run.
+
+## Harmonic pass SFT from the pretrained base
+
+This ablation tests whether difficulty-dependent SFT weighting improves
+easy-to-hard generalization without iterative collection. The fixed pretrained
+base generated 128 trajectories for each of 200 released problems at each of
+OP11–14. Final-answer correctness defines the binary reward. The immutable pool
+contains 102,400 trajectories and 47,500 positives: 21,868 at OP11, 13,311 at
+OP12, 6,402 at OP13, and 5,919 at OP14.
+
+Problems—not trajectories—are deterministically split within each operation:
+160 problems per operation train and 40 validate. Consequently all 128
+trajectories from one problem remain in exactly one split. Filtering produces
+37,844 positive training trajectories (24,627,285 tokens) and 9,656 validation
+trajectories (6,343,764 tokens), with zero problem overlap. The unweighted
+baseline and all harmonic treatments use these exact same rows.
+
+For each problem, `p_hat = correct_count / 128` is frozen at data-construction
+time. A correct trajectory receives
+
+`w_K(p_hat) = [1 + (1-p_hat) + ... + (1-p_hat)^(K-1)] / H_K`,
+
+and incorrect trajectories are excluded. The sweep uses K=4, 8, 16, 32, and
+64. The observed train-weight ranges are 0.480–1.898, 0.368–2.864,
+0.296–4.465, 0.246–7.000, and 0.211–10.649 respectively. Both training and
+held-out SFT loss use the same treatment-specific weights.
+
+Every treatment, including the unweighted filtered-SFT baseline, resets to the
+same pretrained base and trains for 248 optimizer steps with batch size 256,
+sequence length 2,048, AdamW learning rate 1e-4, and the original Figure 3
+cosine schedule. Validation and stable weight checkpoints occur every eight
+steps, plus final step 248; the minimum configured held-out loss selects the
+checkpoint. This yields 31 trained checkpoint candidates per run. All runs log
+online to W&B.
+
+The final benchmark is strictly out of distribution: OP15–18, 200 held-out
+problems per operation, 128 sampled trajectories per problem. It reports both
+answer-only and strict-graph pass@1,2,4,8,16,32,64,128 for the pretrained base,
+unweighted SFT, and all five harmonic treatments.
+
+A four-step K=16 smoke run completed as SLURM job `9872651` and W&B run
+`4h9aidvl`. Weighted validation losses were finite at step 0 (0.09475763), step
+2 (0.18528548), and step 4 (0.12865491); training reached 578K tokens/s with
+4.4 GiB peak memory and no NaN losses. The full sweep is pending.
