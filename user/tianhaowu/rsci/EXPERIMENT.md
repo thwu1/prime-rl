@@ -1571,3 +1571,14 @@ regenerated production script contains one such export, no explicit `uv sync`,
 and still contains the intended trainer, orchestrator, and inference commands;
 all 110 config tests pass. Third attempt `9938021` and monitor `9938081` were
 submitted with the experiment settings unchanged.
+
+Attempt `9938021` then reached full trainer/orchestrator startup and launched
+all 32 vLLM backends, each of which returned HTTP 200 from `/health`. The four
+routers nevertheless saw all local workers as unavailable because the cluster
+submission environment exports external HTTP proxies without a node-local
+exception; direct requests succeeded while inherited-proxy requests did not.
+The attempt was cancelled before any rollout or trainer step. The RSCI SLURM
+pre-run command now builds `NO_PROXY`/`no_proxy` from every allocated hostname
+plus localhost, preserving external proxy access for W&B. Fourth attempt
+`9941560` and monitor `9941644` were submitted after a dry-run confirmed both
+`UV_NO_SYNC=1` and the internal-host bypass in the generated script.
