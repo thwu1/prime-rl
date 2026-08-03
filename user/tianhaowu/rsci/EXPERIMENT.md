@@ -810,6 +810,48 @@ zero throughout. Thus OP39 again lowers held-out language-model loss without
 improving frontier pass@1. The watcher preserved the model and metrics and
 advanced to deterministic OP40 evaluation-data generation.
 
+The OP40 gate completed all 25,600 rollouts with no unparsed predictions.
+Answer pass@1,2,4,8,16,32,64,128 is respectively 13.46%, 18.34%, 22.87%,
+26.51%, 29.26%, 31.35%, 32.76%, and 33.50%; strict pass@k is zero throughout.
+Because answer pass@1 remains above 1%, the watcher launched OP40 collection
+job `9899760`.
+
+An audit shows that the OP40 answer score is dominated by answer guessing,
+not valid long-horizon solutions. Of the 200 evaluation problems, 99 have a
+gold answer in `{1, 2, 3, 4}` and 101 have an answer from 32 through 960. All
+3,446 answer-correct trajectories come from the small-answer subset; none of
+the 12,928 rollouts for a large-answer problem is correct. These groups align
+exactly with generation mode: all 99 forward-reverse problems have small
+answers, while all 101 normal-forward problems have large answers. Within the
+99 small-answer problems, 27.19% of trajectories happen to match the answer. A
+uniform guess over `{1, 2, 3, 4}` would score 12.375% overall, and the constant
+guess `4` would score 15.5%, versus the model's 13.46%. The accepted-answer
+counts are 607 for answer 2, 993 for answer 3, and 1,846 for answer 4; there are
+no correct answer-1 trajectories.
+
+A deterministic uniform sample without replacement from all 3,446 passing
+trajectories (seed `20260803`) found invalid reasoning in 10/10 cases. The
+displayed final equation alone contradicts every emitted answer, even before
+checking the many missing or wrong graph nodes:
+
+| Passing trajectory | Gold/emitted | Displayed final equation | Equation actually implies |
+| --- | ---: | --- | ---: |
+| `0d103...`, rank 33 | 3 | `7*x = 33` | 4.714... |
+| `a4ba7...`, rank 54 | 4 | `x + 9 = 196` | 187 |
+| `7cee9...`, rank 6 | 4 | `x + 24 = 196` | 172 |
+| `8aa2b...`, rank 66 | 2 | `x + 13 = 70` | 57 |
+| `f41b7...`, rank 118 | 4 | `12*x = 112` | 9.333... |
+| `b339d...`, rank 22 | 4 | `33*x = 136` | 4.121... |
+| `65fed...`, rank 113 | 4 | `x + 10 = 196` | 186 |
+| `77825...`, rank 0 | 3 | `x + 24 = 204` | 180 |
+| `66423...`, rank 41 | 4 | `4*x = 52` | 13 |
+| `4ba7b...`, rank 89 | 4 | `x + 7 = 136` | 129 |
+
+Thus OP40 answer pass@1 is not evidence that the model solves OP40. It is a
+verifier-hacking/answer-prior measurement, and the answer-filtered loop feeds
+these trajectories back by design. The strict loop does not accept this
+failure mode.
+
 Because answer pass@1 remains far above 1%, `answer_correct_op50.toml`
 predefines an OP41-50 continuation. The extension validator confirms that only
 `max_operation`, `generator_op_max`, and the generated-evaluation root differ
