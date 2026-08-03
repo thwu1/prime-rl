@@ -1582,3 +1582,13 @@ pre-run command now builds `NO_PROXY`/`no_proxy` from every allocated hostname
 plus localhost, preserving external proxy access for W&B. Fourth attempt
 `9941560` and monitor `9941644` were submitted after a dry-run confirmed both
 `UV_NO_SYNC=1` and the internal-host bypass in the generated script.
+
+Attempt `9941560` confirmed the internal-host bypass: all four routers became
+healthy and registered all 32 backends. Trainer and orchestrator then stalled
+inside W&B initialization because the sandbox-only proxy itself is unreachable
+from compute nodes. This matches all existing successful RSCI H100 launchers,
+which unset inherited proxy variables and use direct compute egress. The
+pre-run command now does the same while retaining the explicit internal
+`NO_PROXY` list. Fifth attempt `9943759` and monitor `9943820` were submitted;
+the experiment's model, data, strict reward, and optimization settings remain
+unchanged across these startup-only retries.
