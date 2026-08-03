@@ -816,6 +816,53 @@ effect can reflect both exact reasoning quality and lower target entropy. It is
 not a model upper bound: a separate 50K-unique-problems-per-op gold treatment
 is still needed to measure the combined target-quality and diversity oracle.
 
+### Why matched gold outperforms strict-filtered trajectories
+
+A direct audit of the 50,000 accepted strict OP28 rows found that
+`strict_correct` is parser equivalence, not a guarantee that every written
+calculation is valid. The released comparison records extra prediction nodes
+but omits `extra_in_pred` from the `perfect` predicate. Consequently, 2,242
+accepted rows (4.484%) contain one or more unchecked extra nodes. Extra work is
+not necessarily wrong, so this count is a verifier-coverage gap rather than an
+error-rate estimate.
+
+There is also an unambiguous arithmetic hole. For an assignment such as
+`s = s + o = 2 + 92 = 82`, the parser collects dependencies from the complete
+right-hand side but evaluates the last equality segment, `82`, as the node
+value. A trajectory can therefore contain a false equality while still
+matching the gold node value, dependency set, and final answer. A conservative
+audit that evaluated only fully numeric segments of written equality chains
+found 734 contradictions in 383 accepted rows (0.766%), spanning 72 of the
+1,526 represented OP28 prompts. The 1,526 corresponding canonical solutions
+had zero such contradictions. In the example above, the same trajectory later
+writes `82 + 3 = 97`; nevertheless it has zero missing nodes, zero value or
+dependency mismatches, and is labeled strict-perfect. This 0.766% is a hard
+lower bound: a stateful audit that also checks named-variable substitutions
+flags 7,779 rows (15.56%), but variable reuse makes that broader estimate more
+interpretation-dependent. Numeric contradictions and extra nodes together
+occur in 2,518 rows (5.036%), with 107 rows exhibiting both.
+
+Even genuinely valid sampled traces create much noisier teacher-forcing
+targets. The OP28 shard contains 50,000 rows over 1,526 prompts but 32,548
+distinct exact model responses: a represented prompt has 21.33 distinct
+responses on average, and 1,308 prompts have multiple responses. None exactly
+matches its canonical target. Matched gold instead assigns one deterministic
+canonical response to each prompt and repeats it at the source row's original
+multiplicity. Across OP11-28 this changes 900,000 rows from hundreds of
+thousands of sampled target strings to 21,495 unique canonical targets.
+
+The matched construction preserves the strict run's exact prompt multiset,
+row multiplicities, and mode imbalance, so problem selection and the scarcity
+of forward-reverse rows cannot explain its advantage. Response length is also
+too small an explanation by itself: OP28 model and canonical responses differ
+by only 0.4% in mean character length, while the cumulative oracle corpus has
+4.14% fewer tokens. The evidence instead supports a combination of (1)
+removing verifier-admitted reasoning defects, (2) eliminating conflicting
+targets for the same prompt, and (3) restoring the deterministic GSM-Infinite
+solution style seen in synthetic pretraining. A clean ablation would compare
+canonical gold against one verifier-accepted trace per prompt and against a
+stricter executor that rejects extra nodes and validates every equality.
+
 ### Answer-correct versus strict-correct audit
 
 The strict-filter model's OP28 pre-evaluation contains 25,600 trajectories:
