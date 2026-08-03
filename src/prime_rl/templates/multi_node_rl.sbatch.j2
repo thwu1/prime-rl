@@ -152,6 +152,8 @@ cd $PROJECT_DIR
 source .venv/bin/activate
 {% if sync_environment %}
 uv sync --all-extras
+{% else %}
+export UV_NO_SYNC=1
 {% endif %}
 
 {% if pre_run_command %}

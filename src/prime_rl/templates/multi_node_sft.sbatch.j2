@@ -58,6 +58,8 @@ source $PROJECT_DIR/.venv/bin/activate
 # Install environment as local package
 {% if sync_environment %}
 cd $PROJECT_DIR && uv sync --all-extras
+{% else %}
+export UV_NO_SYNC=1
 {% endif %}
 
 

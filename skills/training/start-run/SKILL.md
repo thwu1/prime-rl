@@ -43,7 +43,8 @@ uv run rl @ examples/reverse_text/rl.toml --dry-run                             
 - Generated SLURM scripts run `uv sync --all-extras` by default. When the shared
   `.venv` was synchronized before submission and compute nodes cannot reach package
   sources, set `[slurm] sync_environment = false`; the workload still activates the
-  existing environment and all inner commands use `uv run --no-sync`.
+  existing environment and exports `UV_NO_SYNC=1` so all inner `uv run` commands
+  also skip implicit synchronization.
 
 ## `sft` — SFT training
 

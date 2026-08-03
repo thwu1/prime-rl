@@ -42,7 +42,8 @@ SLURM templates normally repeat `uv sync --all-extras` on the compute node.
 For clusters without compute-node egress, finish the locked sync on the shared
 filesystem before submission and set `[slurm] sync_environment = false`. This
 skips dependency resolution in the allocation while still activating the
-shared `.venv`.
+shared `.venv`. The generated script exports `UV_NO_SYNC=1`, so nested
+`uv run` commands also avoid implicit synchronization.
 
 When bumping a package past the workspace-wide `exclude-newer = "7 days"` window, add it (and any newly-required transitives) to `[tool.uv.exclude-newer-package]` before refreshing `uv.lock`.
 
