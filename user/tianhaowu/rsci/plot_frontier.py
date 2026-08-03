@@ -111,7 +111,10 @@ def main() -> None:
         ticks = ticks[::2]
         final_operation = max(all_operations)
         if ticks[-1] != final_operation:
-            ticks.append(final_operation)
+            if final_operation - ticks[-1] == 1:
+                ticks[-1] = final_operation
+            else:
+                ticks.append(final_operation)
     for axis in axes:
         axis.set_xlabel("operation")
         axis.set_xticks(ticks)

@@ -1,6 +1,6 @@
 # RSCI experiment monodoc
 
-Last updated: 2026-08-02 UTC.
+Last updated: 2026-08-03 UTC.
 
 ## Objective
 
@@ -354,6 +354,8 @@ diagnostics are retained on disk but are not plotted.*
 | `9808635` | strict-correct | `frontier-sft/strict-correct` | Cancelled after superseded final-checkpoint diagnostic |
 | `9809870` | answer-correct | `frontier-sft/answer-correct` | Released op11-20 phase complete; state archived before op21 extension |
 | `9809892` | strict-correct | `frontier-sft/strict-correct` | Released op11-20 phase complete; state archived before op21 extension |
+| `9867485` | answer-correct | `frontier-sft/answer-correct` | Running continuation; OP38 collection active at this update |
+| `9875426` | answer-correct | `frontier-sft/answer-correct` | Dependency-gated OP41-50 handoff; pending after `9867485` |
 
 The audited op11 baseline was materialized under each root with provenance to
 the original 200-prompt Figure 3 artifact. Answer collection job `9808666` and
@@ -717,21 +719,56 @@ and zero strict-correct traces from 40,960 generations over 320 offset
 problems. The audit reports zero train/held-out/evaluation prompt overlap. The
 32 GB CPU watcher was subsequently killed while loading the 1.25M-row
 cumulative dataset; it failed before creating either cumulative output, so all
-completed manifests remain the safe resume boundary. The watcher allocation
-is now 128 GB, sufficient for the planned OP50 continuation, and its Slurm
-test-only validation succeeds without submitting a job. Resume awaits explicit
-researcher approval under the no-unrequested-restart policy.
+completed manifests remained the safe resume boundary. Approved watcher
+`9867485` resumed with 128 GB, materialized the exact 1.25M/125K cumulative
+train/validation datasets, and ran reset-from-base SFT job `9867518`. Of 11
+retained candidates, step 2,180 had the minimum held-out loss, `0.03523412`;
+the final step 2,181 was slightly worse at `0.03525947`. The selected model
+changed OP35 answer pass@1/pass@128 from 15.68%/39.50% to 14.57%/41.00%.
 
-Because answer pass@1 remains far above 1%, `answer_correct_op50.toml` now
-predefines but does not activate an OP41-50 continuation. The extension
-validator confirms that only `max_operation`, `generator_op_max`, and the
-generated-evaluation root differ from OP40. A six-row OP41 smoke set covers all
-three templates and both modes; every row has exact `op=op_count=41`, all IDs
-are unique, and its SHA-256 is
+OP36 gated at 15.75% answer pass@1 and 40.50% pass@128. Its exact 50K/5K
+train/held-out shards required 335,872/40,960 generations over 2,624/320
+prompt-disjoint problems. The cumulative datasets reached 1.30M/130K rows and
+1,270,185,206/127,543,368 tokens. Reset-from-base SFT job `9871587` selected
+terminal step 2,283 at held-out loss `0.03449287`. Post-SFT answer
+pass@1/pass@128 were 15.36%/40.50%; strict pass@k remained zero.
+
+OP37 gated at 11.75% answer pass@1 and 35.00% pass@128. Its exact 50K/5K
+shards required 335,872/40,960 generations over 2,624/320 prompt-disjoint
+problems. The cumulative datasets reached 1.35M/135K rows and
+1,326,459,579/133,146,137 tokens. Reset-from-base SFT job `9877177` completed
+2,382 steps and synced W&B run `vala4gub`. Step 2,380 was selected at the
+global minimum held-out loss `0.03373458`; final step 2,382 was slightly worse
+at `0.03373972`. Post-SFT answer pass@1/pass@128 were 11.88%/33.50%, and every
+strict pass@k remained zero.
+
+| Answer track | pass@1 | pass@2 | pass@4 | pass@8 | pass@16 | pass@32 | pass@64 | pass@128 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| OP35 pre-SFT | 15.68% | 20.88% | 25.71% | 29.72% | 33.05% | 35.97% | 38.22% | 39.50% |
+| OP35 post-SFT | 14.57% | 19.71% | 24.89% | 29.48% | 33.33% | 36.52% | 38.95% | 41.00% |
+| OP36 pre-SFT | 15.75% | 21.05% | 26.45% | 31.37% | 35.15% | 37.86% | 39.63% | 40.50% |
+| OP36 post-SFT | 15.36% | 20.22% | 25.07% | 29.67% | 33.67% | 36.62% | 38.62% | 40.50% |
+| OP37 pre-SFT | 11.75% | 15.74% | 19.54% | 23.14% | 26.47% | 29.42% | 32.05% | 35.00% |
+| OP37 post-SFT | 11.88% | 15.97% | 19.81% | 23.34% | 26.68% | 29.65% | 31.91% | 33.50% |
+| OP38 pre-SFT | 12.28% | 16.67% | 21.07% | 25.15% | 28.63% | 31.57% | 34.12% | 37.00% |
+
+OP38's 200-problem gate contains all 25,600 requested rollouts with no
+unparsed prediction. Its 12.28% answer pass@1 remains above the stop threshold,
+so four-node collection job `9881037` is running; strict pass@k is zero at
+every measured budget. The result is intentionally marked pre-SFT until its
+exact 50K/5K shards, cumulative datasets, selected checkpoint, and post-SFT
+evaluation complete.
+
+Because answer pass@1 remains far above 1%, `answer_correct_op50.toml`
+predefines an OP41-50 continuation. The extension validator confirms that only
+`max_operation`, `generator_op_max`, and the generated-evaluation root differ
+from OP40. A six-row OP41 smoke set covers all three templates and both modes;
+every row has exact `op=op_count=41`, all IDs are unique, and its SHA-256 is
 `17b7b4ba58dea15e6713fec3a68fd266bf71508d5b8b0aa59e5dfb2c20a73b27`.
 Generation accepted 6 of 2,323 proposals, so extrapolation is feasible but
-rejection-heavy. The config is activated only if the OP40 watcher exits with
-`max_operation_exhausted` rather than meeting the threshold.
+rejection-heavy. Persistent dependency job `9875426` runs only after watcher
+`9867485`: it exits without a launch if the 1% gate stops the track, and
+activates OP41-50 only if OP40 ends with `max_operation_exhausted`.
 
 The strict op25 gate was 1.39%, still above threshold. Its collection finalized
 exactly 50,000 strict trajectories from 2,281,472 generations over 17,824
