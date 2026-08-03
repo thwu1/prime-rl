@@ -49,12 +49,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--job-id", required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--interval-seconds", type=int, default=3600)
+    parser.add_argument("--poll-seconds", type=int, default=60)
     parser.add_argument("--max-steps", type=int, default=500)
     parser.add_argument("--once", action="store_true")
     parser.add_argument("--no-write", action="store_true")
     args = parser.parse_args()
     if args.interval_seconds < 1:
         raise ValueError("--interval-seconds must be positive")
+    if args.poll_seconds < 1:
+        raise ValueError("--poll-seconds must be positive")
     return args
 
 
@@ -209,15 +212,20 @@ def main() -> None:
     if not status_path.is_file():
         raise FileNotFoundError(f"Run status file does not exist: {status_path}")
 
+    last_write_at: float | None = None
     while True:
         entry, state = build_entry(args.job_id, args.output_dir, args.max_steps)
-        print(entry, flush=True)
-        if not args.no_write:
-            with status_path.open("a", encoding="utf-8") as handle:
-                handle.write("\n" + entry)
+        now = time.monotonic()
+        should_write = last_write_at is None or state in TERMINAL_STATES or now - last_write_at >= args.interval_seconds
+        if should_write:
+            print(entry, flush=True)
+            if not args.no_write:
+                with status_path.open("a", encoding="utf-8") as handle:
+                    handle.write("\n" + entry)
+            last_write_at = now
         if args.once or state in TERMINAL_STATES:
             return
-        time.sleep(args.interval_seconds)
+        time.sleep(args.poll_seconds)
 
 
 if __name__ == "__main__":

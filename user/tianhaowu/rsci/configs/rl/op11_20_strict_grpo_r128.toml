@@ -22,6 +22,7 @@ project_dir = "/storage/home/tianhaowu/prime-rl"
 partition = "h100"
 account = "ram"
 time = "24:00:00"
+sync_environment = false
 
 [weight_broadcast]
 type = "nccl"

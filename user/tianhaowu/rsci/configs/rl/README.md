@@ -30,6 +30,12 @@ and four one-node inference replicas. The 8,192-rollout in-flight cap is 64
 problem groups, matching the measured optimum of 16 concurrent 128-rollout
 groups per inference node.
 
+The config sets `slurm.sync_environment=false` because the shared project
+environment is synchronized and locked before submission, while H100 compute
+nodes cannot fetch GitHub-hosted wheel metadata. The job still activates the
+same shared `.venv`; rerun `uv sync --all-extras --locked` on the login side
+before launching after any dependency change.
+
 For a deferred allocation, submit the lightweight monitor after the RL job has
 begun. It appends scheduler health, strict OP11–25 pass@1, trainer stability,
 and throughput to the run's `STATUS.md` every hour:
