@@ -107,6 +107,11 @@ def main() -> None:
     axes[2].set_ylabel("strict share (%)")
 
     ticks = sorted(all_operations)
+    if len(ticks) > 16:
+        ticks = ticks[::2]
+        final_operation = max(all_operations)
+        if ticks[-1] != final_operation:
+            ticks.append(final_operation)
     for axis in axes:
         axis.set_xlabel("operation")
         axis.set_xticks(ticks)

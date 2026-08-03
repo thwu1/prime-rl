@@ -699,6 +699,29 @@ artifacts, and the watcher advanced to OP35.
 | Pre-SFT gate | 11.68% | 15.74% | 19.99% | 24.06% | 27.56% | 30.50% | 33.24% | 36.50% |
 | Post-SFT selected | 11.72% | 16.15% | 20.88% | 25.24% | 28.93% | 32.12% | 34.59% | 36.50% |
 
+OP35's generated 200-problem gate completed on automatic retry job `9865310`
+after the first attempt encountered an artifact-free internal-port collision.
+The selected OP34 teacher remains above the stop threshold at 15.68% unbiased
+answer pass@1 and 39.50% pass@128; all strict pass@k values are zero. The
+result contains exactly 25,600 verifier rows and two unparsed predictions.
+
+| OP35 pre-SFT metric | pass@1 | pass@2 | pass@4 | pass@8 | pass@16 | pass@32 | pass@64 | pass@128 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Answer | 15.68% | 20.88% | 25.71% | 29.72% | 33.05% | 35.97% | 38.22% | 39.50% |
+| Strict | 0.00% | 0.00% | 0.00% | 0.00% | 0.00% | 0.00% | 0.00% | 0.00% |
+
+OP35 collection job `9865398` then produced exactly 50,000 answer-correct and
+zero strict-correct traces from 360,448 generations over 2,816 problems.
+Prompt-disjoint held-out job `9866304` produced exactly 5,000 answer-correct
+and zero strict-correct traces from 40,960 generations over 320 offset
+problems. The audit reports zero train/held-out/evaluation prompt overlap. The
+32 GB CPU watcher was subsequently killed while loading the 1.25M-row
+cumulative dataset; it failed before creating either cumulative output, so all
+completed manifests remain the safe resume boundary. The watcher allocation
+is now 128 GB, sufficient for the planned OP50 continuation, and its Slurm
+test-only validation succeeds without submitting a job. Resume awaits explicit
+researcher approval under the no-unrequested-restart policy.
+
 Because answer pass@1 remains far above 1%, `answer_correct_op50.toml` now
 predefines but does not activate an OP41-50 continuation. The extension
 validator confirms that only `max_operation`, `generator_op_max`, and the
