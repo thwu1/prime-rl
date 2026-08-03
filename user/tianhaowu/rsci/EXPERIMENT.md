@@ -1021,13 +1021,52 @@ Across training, 111,518 rows have executable equality contradictions, 21,036
 have invalid symbolic solver equations, and 25,257 have unsupported nodes;
 these categories overlap, and 151,088 rows are removed in total.
 
-SFT job `9870139` resets from the same pretrained base and runs one epoch
-(1,189 optimizer steps) with the unchanged optimizer. It validates and saves
-every 118 steps, logs online to W&B run `lx9o3ult`, and will select the minimum
-held-out-loss checkpoint before the identical 200-problem × 128-rollout OP28
-evaluation. This directly tests whether verifier-admitted defects explain the
-matched-gold oracle advantage; remaining differences include model-target
-entropy and the smaller clean corpus.
+SFT job `9870139` reset from the same pretrained base and completed all 1,189
+optimizer steps with the unchanged optimizer. It validated and saved every 118
+steps and logged online to W&B run `lx9o3ult`. Held-out loss reached its unique
+minimum `0.03837827` at step 1,180; the terminal step was slightly worse at
+`0.03838672`, so step 1,180 was selected. Four-node job `9871076` then
+completed the identical 200-problem × 128-rollout OP28 evaluation.
+
+![OP28 strict pass@k for original strict filtering, executable filtering, and matched canonical targets](figures/executable_filter_op28.svg)
+
+*Removing executable defects produces only a tiny low-k improvement and does
+not approach matched canonical supervision.*
+
+| k | Original strict filter | Executable-filtered strict | Matched canonical oracle | Cleaned − original |
+| ---: | ---: | ---: | ---: | ---: |
+| 1 | 1.465% | 1.574% | 4.883% | +0.109 pp |
+| 2 | 2.220% | 2.346% | 7.241% | +0.126 pp |
+| 4 | 3.248% | 3.261% | 9.623% | +0.012 pp |
+| 8 | 4.406% | 4.126% | 11.805% | -0.280 pp |
+| 16 | 5.490% | 4.915% | 13.466% | -0.575 pp |
+| 32 | 6.346% | 5.713% | 14.580% | -0.633 pp |
+| 64 | 6.949% | 6.454% | 15.432% | -0.494 pp |
+| 128 | 7.500% | 7.000% | 16.000% | -0.500 pp |
+
+Strict pass@1 improves by only 0.109 percentage points, closing 3.2% of the
+original-to-oracle gap. The cleaned treatment is already worse by pass@8 and
+ends 0.5 points below the original strict model at pass@128. Answer-only
+performance also falls from 15.42%/61.0% pass@1/pass@128 under the original
+strict model to 13.65%/57.0%, versus 20.87%/71.0% for the oracle.
+
+The degradation is concentrated in forward-reverse behavior. Cleaning retains
+26,707/48,225 (55.38%) reverse-mode training rows but 722,205/851,775 (84.79%)
+normal-forward rows. On the balanced OP28 evaluation, reverse-mode answer
+pass@1 falls from 24.35% to 20.98%, and length-limit terminations rise from
+4.01% to 6.44%; the oracle reaches 28.09% with 2.31% length terminations. In
+total, the cleaned model has 817 length terminations and 811 predictions with
+no parseable answer, versus 518/512 for the original strict model and 308/331
+for the oracle. Among normal-forward prompts, cleaning does improve strict
+pass@1 from 2.901% to 3.117%, but strict pass@128 falls from 14.85% to 13.86%.
+
+The conclusion is therefore negative: removing the identified semantic defects
+does not explain the oracle advantage. The remaining gap is consistent with
+the canonical target's deterministic reasoning style and much lower target
+entropy, plus the cleaned treatment's 18% smaller token budget and stronger
+reverse-mode curriculum bias. A matched-row-count resampling control would be
+needed to separate those latter two effects, but the present clean filter
+plainly does not match the oracle.
 
 ### Answer-correct versus strict-correct audit
 
