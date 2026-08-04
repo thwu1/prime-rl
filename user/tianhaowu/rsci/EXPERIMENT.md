@@ -1702,7 +1702,7 @@ All four routers still returned HTTP 200. Step 650 has complete matching
 trainer/orchestrator checkpoints, stable inference weights, 512 training rows,
 and 200 held-out rows for every OP11–25 shard.
 
-The train-reward and held-out trends through step 2225 are:
+The train-reward and held-out trends through step 2250 are:
 
 | eval step | preceding 25-step released-strict train reward | OP11–20 strict | OP15–20 strict | OP21–25 strict |
 | ---: | ---: | ---: | ---: | ---: |
@@ -1776,6 +1776,7 @@ The train-reward and held-out trends through step 2225 are:
 | 2175 | 0.2640 | 21.25% | 12.25% | 1.70% |
 | 2200 | 0.3412 | 22.90% | 11.92% | 2.30% |
 | 2225 | 0.3433 | 23.50% | 12.42% | 2.10% |
+| 2250 | 0.3380 | 20.95% | 11.58% | 2.00% |
 
 At step 650, strict pass@1 is OP11 52.0%, OP12 47.5%, OP13 38.5%, OP14
 33.5%, OP15 18.5%, OP16 11.5%, OP17 5.5%, OP18 1.5%, OP19 0.5%, and OP20–25
@@ -1783,7 +1784,7 @@ At step 650, strict pass@1 is OP11 52.0%, OP12 47.5%, OP13 38.5%, OP14
 encouraging, but individual evaluations remain noisy single-rollout estimates:
 Through step 650, OP11–20 aggregate accuracy had fluctuated between 17.9% and
 20.9%, and no strict success had reached OP20 or OP21–25. The figure above now
-contains every complete validation through step 2225. Step 675 temporarily
+contains every complete validation through step 2250. Step 675 temporarily
 dipped to 19.60% over OP11–20 and 5.17% over OP15–20; step 700 rebounded to
 19.90% and 6.33%, respectively. Step 725 then reached 20.05% over OP11–20 and
 a new high of 7.08% over OP15–20. Step 750 continued the trend at 20.10% and
@@ -2616,6 +2617,29 @@ problematic, with 128 `equation_mismatch`, 131 `solver_equation_mismatch`, two
 overlap. Logged off-policy cancellation errors average 0.86%; saved rows have
 no errors and 0.03% truncation. Mismatch KL stays at most 0.0004 and gradient
 norm at most 0.4881.
+
+Step 2250 falls to 20.95% on OP11–20, 11.58% on OP15–20, and 2.00% on
+OP21–25. New executable-strict OP21 index 74 is manually verified as a
+coherent Evervale City–Westhaven City chain to answer 26, expanding cumulative
+OP21 breadth to 27 prompts. The sole released-strict OP25 positive, index 18,
+is invalid: it writes `60 + 18 = 90` and then `90 + 30 = 108`, using two
+arithmetic errors to force the gold answer. OP25 executable strict is therefore
+zero. Other cumulative breadth remains 27 distinct OP20 prompts, 23 OP22
+prompts, 16 OP23 prompts, seven OP24 prompts, and two OP25 prompts. Across the
+full evaluation, 439/3,000 trajectories pass released strict and 424/3,000 pass
+executable strict, for 96.58% raw executable precision. Evaluation truncation
+is 0.23%, with no rollout errors.
+
+The preceding train window has released-strict reward 0.3380 and
+executable-strict success 0.3258, for 96.37% raw executable precision. Of 157
+released-only rows, 147 have direct arithmetic, syntax, undefined-symbol, or
+solver-equation errors. The other 10 come from one prompt and are rejected only
+as `unexpected_node`; manual inspection shows the irrelevant extra node is
+semantically wrong, substituting the Beverly Forest owl count for the stated
+Maple Creek eagle count. The discrepancy therefore remains substantive rather
+than an executable-grader false reject. Logged off-policy cancellation errors
+average 1.18%; saved rows have no errors and 0.02% truncation. Mismatch KL stays
+at most 0.0015 and gradient norm briefly reaches 0.6143 without divergence.
 
 Step 1000 sets a new OP15–20 aggregate high of 9.08%, above the previous
 8.92% at step 850, while OP11–20 remains near its recent range at 20.30%.
