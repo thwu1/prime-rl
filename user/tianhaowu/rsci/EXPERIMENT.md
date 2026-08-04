@@ -4149,7 +4149,7 @@ OP15 index 188 uses the wrong difference when computing an extra Maple Creek
 crow node, while OP16 index 50 again substitutes the South Zoo bear count for
 the Mayer Aquarium bear count. Counting the two benign rows gives 522
 semantically valid trajectories, 97.57% semantic precision, and 13 genuine
-defects. Issue-code counts are eight `solver_equation_mismatch`, six
+defects. Issue-code counts are eight `solver_equation_mismatch`, seven
 `equation_mismatch`, four `unexpected_node`, and one `undefined_symbol`, with
 overlap. Evaluation has no rollout errors, three truncations, and mixes
 adjacent asynchronous policy versions 3324 and 3325.
@@ -4573,7 +4573,7 @@ trajectories pass released strict and 506/3,000 pass the raw executable
 grader, for 97.87% raw executable precision. OP12 index 30 correctly computes
 an irrelevant Golden Banana fact, so counting that benign row gives 507
 semantically valid trajectories, 98.07% semantic precision, and ten genuine
-defects. Issue-code counts are eight `solver_equation_mismatch`, seven
+defects. Issue-code counts are eight `solver_equation_mismatch`, six
 `equation_mismatch`, one `unexpected_node`, and one `undefined_symbol`, with
 overlap. Evaluation has no rollout errors, three truncations, and mixes
 adjacent asynchronous policy versions 3599 and 3600.
