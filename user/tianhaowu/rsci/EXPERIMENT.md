@@ -1702,7 +1702,7 @@ All four routers still returned HTTP 200. Step 650 has complete matching
 trainer/orchestrator checkpoints, stable inference weights, 512 training rows,
 and 200 held-out rows for every OP11–25 shard.
 
-The train-reward and held-out trends through step 1150 are:
+The train-reward and held-out trends through step 1200 are:
 
 | eval step | preceding 25-step released-strict train reward | OP11–20 strict | OP15–20 strict | OP21–25 strict |
 | ---: | ---: | ---: | ---: | ---: |
@@ -1733,6 +1733,8 @@ The train-reward and held-out trends through step 1150 are:
 | 1100 | 0.3370 | 20.35% | 9.08% | 0.20% |
 | 1125 | 0.2083 | 20.10% | 8.58% | 0.20% |
 | 1150 | 0.2814 | 18.50% | 7.75% | 0.00% |
+| 1175 | 0.2480 | 19.70% | 9.00% | 0.10% |
+| 1200 | 0.3324 | 21.65% | 9.58% | 0.20% |
 
 At step 650, strict pass@1 is OP11 52.0%, OP12 47.5%, OP13 38.5%, OP14
 33.5%, OP15 18.5%, OP16 11.5%, OP17 5.5%, OP18 1.5%, OP19 0.5%, and OP20–25
@@ -1740,7 +1742,7 @@ At step 650, strict pass@1 is OP11 52.0%, OP12 47.5%, OP13 38.5%, OP14
 encouraging, but individual evaluations remain noisy single-rollout estimates:
 Through step 650, OP11–20 aggregate accuracy had fluctuated between 17.9% and
 20.9%, and no strict success had reached OP20 or OP21–25. The figure above now
-contains every complete validation through step 1150. Step 675 temporarily
+contains every complete validation through step 1200. Step 675 temporarily
 dipped to 19.60% over OP11–20 and 5.17% over OP15–20; step 700 rebounded to
 19.90% and 6.33%, respectively. Step 725 then reached 20.05% over OP11–20 and
 a new high of 7.08% over OP15–20. Step 750 continued the trend at 20.10% and
@@ -1934,3 +1936,39 @@ released strict and 358/3,000 pass executable strict, for 96.76% executable
 precision. The train window has executable-strict success 0.2772, 98.50%
 executable precision, 2.05% transient off-policy cancellation errors, and
 0.05% truncation.
+
+Step 1175 rebounds to 19.70% over OP11–20 and 9.00% over OP15–20. OP20
+reaches 2.0% on known indices 52, 53, 71, and 92; OP21 repeats known index 90
+at 0.5%; and OP22 returns to zero. Across the full evaluation, 395/3,000
+trajectories pass released strict and 383/3,000 pass executable strict, for
+96.96% executable precision. The preceding train window has released-strict
+reward 0.2480, executable-strict success 0.2295, 92.50% executable precision,
+zero rollout errors, and 0.02% truncation.
+
+The lower train precision is highly correlated within sampled problem groups,
+not a broad or monotonic verifier-hacking collapse. All 238 released-only
+positives come from 24 unique prompts; four prompt-step groups contribute 137
+of them (57.6%). Forward-reverse problems account for 209/238 disagreements
+and have 71.49% executable precision among released positives, whereas
+normal-forward problems remain at 98.81%. The dominant defects are false
+symbolic solver equalities (`solver_equation_mismatch`, 198 rows) and false
+written equality chains (`equation_mismatch`, 92 rows, overlapping). These are
+the known released-verifier blind spot: the final answer and parsed graph can
+match while the displayed algebra is false. Forward-reverse precision was
+similarly low at step 925 (72.26%) and recovered in intervening windows, so the
+step-1175 dip is explained by prompt-group composition rather than a sustained
+downward trend. It still contributes an absolute 1.86 percentage points of
+incorrect released reward and remains important to monitor.
+
+Step 1200 rebounds to 21.65% over OP11–20 and sets a new OP15–20 high of
+9.58%. OP20 passes known indices 61 and 92, OP21 passes known index 140, and
+OP22 index 6 passes for a fourth checkpoint. Its response has a fourth distinct
+hash and manually executes cleanly to answer 50, strengthening the evidence
+for a prompt-specific OP22 solvable pocket. Across the full evaluation,
+435/3,000 trajectories pass released strict and 425/3,000 pass executable
+strict, for 97.70% executable precision. The preceding train window has
+released-strict reward 0.3324, executable-strict success 0.3295, and 99.11%
+executable precision. This immediate recovery from 92.50% at step 1175
+directly supports the prompt-composition explanation rather than a continuing
+verifier-collapse trend. The window has 2.00% transient off-policy
+cancellation errors and 0.06% truncation.
