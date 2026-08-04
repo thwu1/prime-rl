@@ -1694,3 +1694,30 @@ cancelled. This was transient queue cleanup rather than inference or verifier
 failure: rollout error returned to 0% from step 497 onward, all router health
 checks returned HTTP 200, and no traceback, OOM, NCCL failure, or NaN appeared
 in the resumed trainer and orchestrator logs.
+
+At 00:09 UTC on August 4, the resumed run was healthy at step 657. The latest
+step had strict train reward 0.3145, 384/512 trainable trajectories, zero
+rollout errors and truncations, mismatch KL 0.0002, and gradient norm 0.1982.
+All four routers still returned HTTP 200. Step 650 has complete matching
+trainer/orchestrator checkpoints, stable inference weights, 512 training rows,
+and 200 held-out rows for every OP11–25 shard.
+
+The train-reward and held-out trends through step 650 are:
+
+| eval step | preceding 25-step mean train reward | OP11–20 strict | OP15–20 strict | OP21–25 strict |
+| ---: | ---: | ---: | ---: | ---: |
+| 500 | 0.2414 | 18.00% | 3.50% | 0.00% |
+| 525 | 0.1843 | 17.90% | 3.67% | 0.00% |
+| 550 | 0.2148 | 19.60% | 3.83% | 0.00% |
+| 575 | 0.2141 | 19.00% | 3.92% | 0.00% |
+| 600 | 0.1791 | 18.60% | 4.33% | 0.00% |
+| 625 | 0.2602 | 20.85% | 5.33% | 0.00% |
+| 650 | 0.2957 | 20.90% | 6.25% | 0.00% |
+
+At step 650, strict pass@1 is OP11 52.0%, OP12 47.5%, OP13 38.5%, OP14
+33.5%, OP15 18.5%, OP16 11.5%, OP17 5.5%, OP18 1.5%, OP19 0.5%, and OP20–25
+0.0%. The improving OP15–19 frontier and higher recent train reward are
+encouraging, but individual evaluations remain noisy single-rollout estimates:
+OP11–20 aggregate accuracy has fluctuated between 17.9% and 20.9% since step
+500, and no strict success has reached OP20 or OP21–25. The figure above now
+contains every complete validation through step 650.
