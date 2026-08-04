@@ -1702,7 +1702,7 @@ All four routers still returned HTTP 200. Step 650 has complete matching
 trainer/orchestrator checkpoints, stable inference weights, 512 training rows,
 and 200 held-out rows for every OP11–25 shard.
 
-The train-reward and held-out trends through step 1025 are:
+The train-reward and held-out trends through step 1050 are:
 
 | eval step | preceding 25-step released-strict train reward | OP11–20 strict | OP15–20 strict | OP21–25 strict |
 | ---: | ---: | ---: | ---: | ---: |
@@ -1728,6 +1728,7 @@ The train-reward and held-out trends through step 1025 are:
 | 975 | 0.3089 | 20.35% | 8.25% | 0.20% |
 | 1000 | 0.2725 | 20.30% | 9.08% | 0.00% |
 | 1025 | 0.3112 | 18.15% | 8.08% | 0.10% |
+| 1050 | 0.2387 | 18.90% | 8.25% | 0.20% |
 
 At step 650, strict pass@1 is OP11 52.0%, OP12 47.5%, OP13 38.5%, OP14
 33.5%, OP15 18.5%, OP16 11.5%, OP17 5.5%, OP18 1.5%, OP19 0.5%, and OP20–25
@@ -1735,7 +1736,7 @@ At step 650, strict pass@1 is OP11 52.0%, OP12 47.5%, OP13 38.5%, OP14
 encouraging, but individual evaluations remain noisy single-rollout estimates:
 Through step 650, OP11–20 aggregate accuracy had fluctuated between 17.9% and
 20.9%, and no strict success had reached OP20 or OP21–25. The figure above now
-contains every complete validation through step 1025. Step 675 temporarily
+contains every complete validation through step 1050. Step 675 temporarily
 dipped to 19.60% over OP11–20 and 5.17% over OP15–20; step 700 rebounded to
 19.90% and 6.33%, respectively. Step 725 then reached 20.05% over OP11–20 and
 a new high of 7.08% over OP15–20. Step 750 continued the trend at 20.10% and
@@ -1862,3 +1863,16 @@ and 357/3,000 pass executable strict, for 98.08% executable precision. The
 preceding train window has released-strict reward 0.3112, executable-strict
 success 0.3023, 97.11% executable precision, zero rollout errors, and 0.02%
 truncation.
+
+Step 1050 does not replicate OP22, but OP21 returns to 1.0% with
+executable-strict passes on previously solved indices 25 and 90. OP11–20 is
+18.90% and OP15–20 is 8.25%. OP20 reaches 1.5% on indices 43, 53, and 71;
+index 53 is new, bringing cumulative executable-strict OP20 coverage to six
+distinct held-out prompts. Manual inspection confirms its arithmetic from the
+Cinéma de Montreval total of 7 through the Festival de Saint-Rivage total of 5
+to the exact Festival de Clairmont answer 46. Across the full evaluation,
+380/3,000 trajectories pass released strict and 371/3,000 pass executable
+strict, for 97.63% executable precision. The preceding train window has
+released-strict reward 0.2387, executable-strict success 0.2286, 95.75%
+executable precision, 1.78% transient off-policy cancellation errors, and
+0.01% truncation.
