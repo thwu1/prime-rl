@@ -1702,7 +1702,7 @@ All four routers still returned HTTP 200. Step 650 has complete matching
 trainer/orchestrator checkpoints, stable inference weights, 512 training rows,
 and 200 held-out rows for every OP11–25 shard.
 
-The train-reward and held-out trends through step 5350 are:
+The train-reward and held-out trends through step 5375 are:
 
 | eval step | preceding 25-step released-strict train reward | OP11–20 strict | OP15–20 strict | OP21–25 strict |
 | ---: | ---: | ---: | ---: | ---: |
@@ -1901,6 +1901,7 @@ The train-reward and held-out trends through step 5350 are:
 | 5300 | 0.4997 | 26.40% | 13.83% | 4.50% |
 | 5325 | 0.4859 | 24.75% | 13.83% | 4.10% |
 | 5350 | 0.3991 | 25.30% | 13.92% | 4.40% |
+| 5375 | 0.3690 | 24.10% | 13.08% | 5.10% |
 
 At step 650, strict pass@1 is OP11 52.0%, OP12 47.5%, OP13 38.5%, OP14
 33.5%, OP15 18.5%, OP16 11.5%, OP17 5.5%, OP18 1.5%, OP19 0.5%, and OP20–25
@@ -1908,7 +1909,7 @@ At step 650, strict pass@1 is OP11 52.0%, OP12 47.5%, OP13 38.5%, OP14
 encouraging, but individual evaluations remain noisy single-rollout estimates:
 Through step 650, OP11–20 aggregate accuracy had fluctuated between 17.9% and
 20.9%, and no strict success had reached OP20 or OP21–25. The figure above now
-contains every complete validation through step 5350. Step 675 temporarily
+contains every complete validation through step 5375. Step 675 temporarily
 dipped to 19.60% over OP11–20 and 5.17% over OP15–20; step 700 rebounded to
 19.90% and 6.33%, respectively. Step 725 then reached 20.05% over OP11–20 and
 a new high of 7.08% over OP15–20. Step 750 continued the trend at 20.10% and
@@ -7588,6 +7589,53 @@ saved rows. The saved rows contain no truncations. Mismatch KL briefly reaches
 0.0037 at step 5333 and ends at 0.0007. Gradient norm peaks at 0.4868 on the
 same step and ends at 0.0416; neither excursion persists. No NaN, OOM, NCCL
 failure, or persistent rollout failure appears. The step-5350 trainer and
+orchestrator checkpoints, eight distributed trainer shards, seven stable
+inference-weight files, 512 training rows, and all 3,000 evaluation rows are
+complete.
+
+Step 5375 reaches 24.10% on OP11–20, 13.08% on OP15–20, and a new run high of
+5.10% on OP21–25. OP20 scores 6.00% on both released and executable strict,
+1.266 percentage points above the matched strict-filter OP20 SFT checkpoint's
+4.734% pass@1. The rolling last-ten-checkpoint estimates remain 7.55% released
+and 7.50% executable strict, respectively 2.816 and 2.766 points above SFT.
+OP21, OP22, OP23, OP24, and OP25 score 9.5%, 10.5%, 3.5%, 1.0%, and 1.0%,
+respectively. OP23 index 136 is a new executable-strict success and expands
+cumulative OP23 breadth from 26 to 27/200 prompts. Manual inspection confirms
+the exact dependency graph and arithmetic through Beverly Forest 11, Cedar
+Valley 31, and Maple Creek 59. Cumulative OP20–22 and OP24–25 breadth remains
+44, 46, 39, 13, and seven prompts.
+
+Across the full evaluation, 533/3,000 trajectories pass released strict and
+523/3,000 pass the executable grader, for 98.12% raw precision. OP17 index 172
+is the sole semantically valid rejection: it correctly derives the irrelevant
+Cinéma de Montreval calm-road count of 5 from an explicit prompt relation.
+Counting it gives 524/533 semantic precision, or 98.31%, and leaves nine
+genuine defects. OP16 index 50 again derives Mayer Aquarium's deer from the
+wrong bear count. Adjusted issue-code counts are four `equation_mismatch`,
+seven `solver_equation_mismatch`, and one `unexpected_node`, with overlap.
+Evaluation has no rollout errors, two truncations, and mixes adjacent
+asynchronous policy versions 5374 and 5375.
+
+The preceding train window has released-strict reward 0.3690 and executable
+strict success 0.3473, for 94.14% raw precision among 4,723 released passes.
+One rejected row correctly derives the irrelevant prompt-stated Ruby Bay
+regional-medical-school count of 43. Counting it gives 4,447 semantically
+valid passes, 94.16% semantic precision, and 276 genuine defects. Prompt 277
+contributes 120 by deriving Clearwater Bay's regional-medical-school count as
+9 rather than the prompt-implied 15. Prompt 1168 contributes 96 by changing
+the correct total `20*x + 14` to `19*x + 14`, then retaining answer 2. Prompts
+318 and 1305 contribute 14 each by changing the correct totals `3*x + 4` and
+`16*x + 31` while retaining the correct answers. These four clusters account
+for 244/276 genuine defects. Adjusted issue-code counts are 117
+`solver_equation_mismatch`, 120 `unexpected_node`, 60 `equation_mismatch`, and
+one each of `definition_dependency_mismatch`, `definition_value_mismatch`,
+and `unsupported_expression`, with overlap.
+
+Logged off-policy cancellation errors average 0.50%, occur only at step 5374,
+and peak transiently at 12.4%; none survives into the 12,800 saved rows. The
+saved rows contain one truncation. Mismatch KL stays at most 0.0004 and ends at
+0.0002. Gradient norm stays at most 0.1541 and ends at 0.0766. No NaN, OOM,
+NCCL failure, or persistent rollout failure appears. The step-5375 trainer and
 orchestrator checkpoints, eight distributed trainer shards, seven stable
 inference-weight files, 512 training rows, and all 3,000 evaluation rows are
 complete.
