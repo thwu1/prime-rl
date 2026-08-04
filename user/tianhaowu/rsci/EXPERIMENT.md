@@ -1702,7 +1702,7 @@ All four routers still returned HTTP 200. Step 650 has complete matching
 trainer/orchestrator checkpoints, stable inference weights, 512 training rows,
 and 200 held-out rows for every OP11–25 shard.
 
-The train-reward and held-out trends through step 1125 are:
+The train-reward and held-out trends through step 1150 are:
 
 | eval step | preceding 25-step released-strict train reward | OP11–20 strict | OP15–20 strict | OP21–25 strict |
 | ---: | ---: | ---: | ---: | ---: |
@@ -1732,6 +1732,7 @@ The train-reward and held-out trends through step 1125 are:
 | 1075 | 0.2925 | 19.45% | 8.42% | 0.50% |
 | 1100 | 0.3370 | 20.35% | 9.08% | 0.20% |
 | 1125 | 0.2083 | 20.10% | 8.58% | 0.20% |
+| 1150 | 0.2814 | 18.50% | 7.75% | 0.00% |
 
 At step 650, strict pass@1 is OP11 52.0%, OP12 47.5%, OP13 38.5%, OP14
 33.5%, OP15 18.5%, OP16 11.5%, OP17 5.5%, OP18 1.5%, OP19 0.5%, and OP20–25
@@ -1739,7 +1740,7 @@ At step 650, strict pass@1 is OP11 52.0%, OP12 47.5%, OP13 38.5%, OP14
 encouraging, but individual evaluations remain noisy single-rollout estimates:
 Through step 650, OP11–20 aggregate accuracy had fluctuated between 17.9% and
 20.9%, and no strict success had reached OP20 or OP21–25. The figure above now
-contains every complete validation through step 1125. Step 675 temporarily
+contains every complete validation through step 1150. Step 675 temporarily
 dipped to 19.60% over OP11–20 and 5.17% over OP15–20; step 700 rebounded to
 19.90% and 6.33%, respectively. Step 725 then reached 20.05% over OP11–20 and
 a new high of 7.08% over OP15–20. Step 750 continued the trend at 20.10% and
@@ -1922,3 +1923,14 @@ released strict and 395/3,000 pass executable strict, for 97.77% executable
 precision. The preceding train window has released-strict reward 0.2083,
 executable-strict success 0.2005, 96.25% executable precision, 2.00% transient
 off-policy cancellation errors, and 0.03% truncation.
+
+Step 1150 regresses to 18.50% over OP11–20 and 7.75% over OP15–20, with no
+strict success on OP20–25. The preceding train reward is nevertheless 0.2814,
+again showing that a sampled 25-step training window is not a monotonic proxy
+for held-out frontier performance. The absence of OP21 and OP22 successes also
+confirms that their recent crossings remain low-probability rather than stable
+per-checkpoint pass@1. Across the full evaluation, 370/3,000 trajectories pass
+released strict and 358/3,000 pass executable strict, for 96.76% executable
+precision. The train window has executable-strict success 0.2772, 98.50%
+executable precision, 2.05% transient off-policy cancellation errors, and
+0.05% truncation.
