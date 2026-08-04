@@ -1702,7 +1702,7 @@ All four routers still returned HTTP 200. Step 650 has complete matching
 trainer/orchestrator checkpoints, stable inference weights, 512 training rows,
 and 200 held-out rows for every OP11–25 shard.
 
-The train-reward and held-out trends through step 5825 are:
+The train-reward and held-out trends through step 5875 are:
 
 | eval step | preceding 25-step released-strict train reward | OP11–20 strict | OP15–20 strict | OP21–25 strict |
 | ---: | ---: | ---: | ---: | ---: |
@@ -1920,6 +1920,8 @@ The train-reward and held-out trends through step 5825 are:
 | 5775 | 0.3677 | 25.40% | 13.58% | 4.00% |
 | 5800 | 0.4359 | 27.70% | 13.17% | 4.80% |
 | 5825 | 0.4896 | 27.90% | 14.75% | 4.50% |
+| 5850 | 0.4588 | 24.05% | 12.33% | 3.80% |
+| 5875 | 0.4118 | 24.15% | 13.67% | 4.10% |
 
 At step 650, strict pass@1 is OP11 52.0%, OP12 47.5%, OP13 38.5%, OP14
 33.5%, OP15 18.5%, OP16 11.5%, OP17 5.5%, OP18 1.5%, OP19 0.5%, and OP20–25
@@ -1927,7 +1929,7 @@ At step 650, strict pass@1 is OP11 52.0%, OP12 47.5%, OP13 38.5%, OP14
 encouraging, but individual evaluations remain noisy single-rollout estimates:
 Through step 650, OP11–20 aggregate accuracy had fluctuated between 17.9% and
 20.9%, and no strict success had reached OP20 or OP21–25. The figure above now
-contains every complete validation through step 5825. Step 675 temporarily
+contains every complete validation through step 5875. Step 675 temporarily
 dipped to 19.60% over OP11–20 and 5.17% over OP15–20; step 700 rebounded to
 19.90% and 6.33%, respectively. Step 725 then reached 20.05% over OP11–20 and
 a new high of 7.08% over OP15–20. Step 750 continued the trend at 20.10% and
@@ -8475,6 +8477,85 @@ gradient norm (32.5101), but both recover immediately and end at 0.0013 and
 rollout failure appears. The step-5825 trainer and orchestrator checkpoints,
 eight distributed trainer shards, seven stable inference-weight files, 512
 training rows, and all 3,000 evaluation rows are complete.
+
+Step 5850 scores 24.05% over OP11–20, with OP15–20 at 12.33% and OP21–25 at
+3.80%. OP20 reaches 9.00% under both released and executable strict grading,
+4.266 percentage points and 1.90x above the matched strict-filter SFT
+checkpoint's 4.734% pass@1. The rolling last-ten-checkpoint estimates are
+8.00% released and 7.95% executable strict, respectively 3.266 and 3.216
+points above SFT. OP21, OP22, OP23, OP24, and OP25 score 8.0%, 8.0%, 2.5%,
+0.5%, and 0.0%; executable strict rejects one OP21 response. New executable
+OP20 index 133 reproduces the exact 18*x + 4 = 58 dependency chain and answer
+3. Cumulative executable OP20–25 prompt breadth reaches 47, 47, 41, 29, 13,
+and seven prompts.
+
+Across the full step-5850 evaluation, 519/3,000 trajectories pass released
+strict and 504/3,000 pass executable strict, for 97.11% raw precision. Two
+released-only OP13 responses contain correct but unnecessary graph nodes:
+index 54 correctly totals Festival de Clairmont at 18, and index 62 correctly
+derives Verdi Movie Festival intense detective thriller as 19. Counting these
+as semantically valid gives 506/519, or 97.50%, precision; the other thirteen
+rejections are genuine. The incorrect extra nodes include OP12 index 190,
+which sets Westhaven City elementary school to 3 rather than 24, and OP16
+index 50, which sets Mayer Aquarium deer to 45 rather than 7. Adjusted issue-
+code counts are seven `equation_mismatch`, seven
+`solver_equation_mismatch`, and two `unexpected_node`, with overlap. There
+are no rollout errors and two truncations, and all shards use asynchronous
+policy version 5849.
+
+The preceding step-5850 train window has released-strict reward 0.4588 and
+executable-strict success 0.4473, for 97.50% raw precision among 5,873
+released passes. Nine responses for prompt 259 add a correct, unnecessary
+Festival de Saint-Rivage total of 4; semantic precision is therefore 97.65%,
+with the other 138 rejections genuinely defective. The five largest defect
+clusters contribute 85/147 rows: prompt 705 changes `40*x + 25` to
+`34*x + 31`; prompt 1006 writes `5 + 46 = 57` and `57 + 48 = 99`; prompt
+1199 changes `4*x + 2` to `6*x + 2`; prompt 768 changes `39*x` to `51*x`;
+and prompt 923 accepts integer 2 for `22*x = 40`. Adjusted issue-code counts
+are 106 `equation_mismatch`, 87 `solver_equation_mismatch`, four
+`unexpected_node`, two `expression_syntax`, and one `undefined_symbol`, with
+overlap. Saved rows contain no errors or truncations. Logged rollout errors
+are also zero. Mismatch KL stays at most 0.0022 and ends at 0.0005; gradient
+norm stays at most 0.5546 and ends at 0.0576. The step-5850 trainer,
+orchestrator, weight, and complete 512-train/3,000-eval artifacts are present.
+
+Step 5875 scores 24.15% over OP11–20, with OP15–20 at 13.67% and OP21–25 at
+4.10%. OP20 is 7.50% under both strict graders, 2.766 percentage points and
+1.58x above strict-filter SFT. The rolling last-ten-checkpoint estimates are
+7.95% released and 7.90% executable strict, respectively 3.216 and 3.166
+points above SFT. OP21, OP22, OP23, OP24, and OP25 score 9.0%, 6.0%, 3.5%,
+1.0%, and 1.0%, all executable-consistent. No new OP20–25 prompt appears, so
+cumulative executable breadth remains 47, 47, 41, 29, 13, and seven prompts.
+
+Across the full step-5875 evaluation, 524/3,000 trajectories pass released
+strict and 515/3,000 pass executable strict, for 98.28% raw precision. OP12
+index 171 adds a correct, unnecessary Riverton City private-middle-school
+value of 12; counting it as valid gives 516/524, or 98.47%, semantic
+precision. The other eight rejections are genuine. In particular, OP11 index
+58 incorrectly derives Beverly Forest parrot and Cedar Valley blue jay as 20
+rather than 12, while OP16 index 50 again derives Mayer Aquarium deer as 45
+rather than 7. Adjusted issue-code counts are five `equation_mismatch`, six
+`solver_equation_mismatch`, and two `unexpected_node`, with overlap. There
+are no rollout errors and two truncations, and every shard uses policy v5874.
+
+The preceding step-5875 train window has released-strict reward 0.4118 and
+executable-strict success 0.3950, for 95.92% precision among 5,271 released
+passes. All 215 rejections are genuine. Prompt 704 contributes 103 by claiming
+`6*x + 13 = 20` at x = 1, and prompt 458 contributes 73 by claiming
+`15*x + 2 = 66` at x = 4. Together with prompts 411, 442, and 851, the five
+largest clusters account for 197/215 defects. Issue-code counts are 190
+`solver_equation_mismatch`, 37 `equation_mismatch`, one `unexpected_node`,
+and one `expression_syntax`, with overlap. Logged rollout errors occur only at
+steps 5858 and 5859, averaging 0.37% as stale requests are cancelled; no error
+or truncation survives into saved rows. Mismatch KL peaks transiently at
+0.0109 and ends at zero, while gradient norm peaks at 0.5912 and ends at
+0.0275. Step 5859 has a one-trajectory trainable batch and immediately
+recovers at step 5860. Step 5875 has another small 19-trajectory batch with
+loss -0.0039 but low KL and gradient norm; step 5876 immediately recovers to
+249/512 trainable trajectories, zero loss, 0.0001 KL, and 0.0315 gradient
+norm. No NaN, OOM, CUDA/NCCL failure, or persistent rollout failure appears.
+The complete step-5875 trainer, orchestrator, weight, 512-train, and
+3,000-eval artifacts are present.
 
 Step 1000 sets a new OP15–20 aggregate high of 9.08%, above the previous
 8.92% at step 850, while OP11–20 remains near its recent range at 20.30%.
