@@ -1702,7 +1702,7 @@ All four routers still returned HTTP 200. Step 650 has complete matching
 trainer/orchestrator checkpoints, stable inference weights, 512 training rows,
 and 200 held-out rows for every OP11–25 shard.
 
-The train-reward and held-out trends through step 2150 are:
+The train-reward and held-out trends through step 2175 are:
 
 | eval step | preceding 25-step released-strict train reward | OP11–20 strict | OP15–20 strict | OP21–25 strict |
 | ---: | ---: | ---: | ---: | ---: |
@@ -1773,6 +1773,7 @@ The train-reward and held-out trends through step 2150 are:
 | 2100 | 0.3654 | 23.45% | 12.00% | 2.40% |
 | 2125 | 0.3444 | 23.45% | 12.67% | 2.00% |
 | 2150 | 0.3473 | 22.10% | 12.08% | 2.00% |
+| 2175 | 0.2640 | 21.25% | 12.25% | 1.70% |
 
 At step 650, strict pass@1 is OP11 52.0%, OP12 47.5%, OP13 38.5%, OP14
 33.5%, OP15 18.5%, OP16 11.5%, OP17 5.5%, OP18 1.5%, OP19 0.5%, and OP20–25
@@ -1780,7 +1781,7 @@ At step 650, strict pass@1 is OP11 52.0%, OP12 47.5%, OP13 38.5%, OP14
 encouraging, but individual evaluations remain noisy single-rollout estimates:
 Through step 650, OP11–20 aggregate accuracy had fluctuated between 17.9% and
 20.9%, and no strict success had reached OP20 or OP21–25. The figure above now
-contains every complete validation through step 2150. Step 675 temporarily
+contains every complete validation through step 2175. Step 675 temporarily
 dipped to 19.60% over OP11–20 and 5.17% over OP15–20; step 700 rebounded to
 19.90% and 6.33%, respectively. Step 725 then reached 20.05% over OP11–20 and
 a new high of 7.08% over OP15–20. Step 750 continued the trend at 20.10% and
@@ -2552,6 +2553,27 @@ reward hacking by the released strict verifier, not executable-grader false
 rejection. Logged off-policy cancellation errors average 0.72%; saved-train
 truncation is 0.02%. Mismatch KL stays at most 0.0006 and gradient norm at most
 0.3517.
+
+Step 2175 falls to 21.25% on OP11–20 while holding 12.25% on OP15–20 and
+1.70% on OP21–25. It produces the second distinct executable-strict OP25
+success observed in the run: new index 72. Manual inspection confirms the full
+Westhaven City total of 13, Brightford total of 32, and Hawkesbury total of 69.
+OP24 scores zero. Cumulative breadth remains 27 distinct OP20 prompts, 26 OP21
+prompts, 23 OP22 prompts, 16 OP23 prompts, and seven OP24 prompts, while OP25
+expands to two prompts. Across the full evaluation, 442/3,000 trajectories pass
+released strict and 436/3,000 pass executable strict, for 98.64% raw executable
+precision. All 17 released-strict OP21–23 and OP25 positives pass executable
+strict. Evaluation truncation is 0.23%, with no rollout errors.
+
+The preceding train window has released-strict reward 0.2640 and
+executable-strict success 0.2487, for 94.20% raw executable precision. All 196
+released-only rows fail deterministic execution while every corresponding
+canonical solution passes; two prompts account for 154/196 (78.6%). Issue-code
+counts are 189 `equation_mismatch`, 63 `solver_equation_mismatch`, two
+`undefined_symbol`, and one `expression_syntax`, with overlap. This confirms
+continued released-verifier reward hacking, although less concentrated than in
+the step-2150 window. Logged rollout errors are zero and saved-train truncation
+is 0.09%. Mismatch KL stays at most 0.0007 and gradient norm at most 0.4476.
 
 Step 1000 sets a new OP15–20 aggregate high of 9.08%, above the previous
 8.92% at step 850, while OP11–20 remains near its recent range at 20.30%.
