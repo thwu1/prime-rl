@@ -1702,7 +1702,7 @@ All four routers still returned HTTP 200. Step 650 has complete matching
 trainer/orchestrator checkpoints, stable inference weights, 512 training rows,
 and 200 held-out rows for every OP11–25 shard.
 
-The train-reward and held-out trends through step 1075 are:
+The train-reward and held-out trends through step 1100 are:
 
 | eval step | preceding 25-step released-strict train reward | OP11–20 strict | OP15–20 strict | OP21–25 strict |
 | ---: | ---: | ---: | ---: | ---: |
@@ -1730,6 +1730,7 @@ The train-reward and held-out trends through step 1075 are:
 | 1025 | 0.3112 | 18.15% | 8.08% | 0.10% |
 | 1050 | 0.2387 | 18.90% | 8.25% | 0.20% |
 | 1075 | 0.2925 | 19.45% | 8.42% | 0.50% |
+| 1100 | 0.3370 | 20.35% | 9.08% | 0.20% |
 
 At step 650, strict pass@1 is OP11 52.0%, OP12 47.5%, OP13 38.5%, OP14
 33.5%, OP15 18.5%, OP16 11.5%, OP17 5.5%, OP18 1.5%, OP19 0.5%, and OP20–25
@@ -1737,7 +1738,7 @@ At step 650, strict pass@1 is OP11 52.0%, OP12 47.5%, OP13 38.5%, OP14
 encouraging, but individual evaluations remain noisy single-rollout estimates:
 Through step 650, OP11–20 aggregate accuracy had fluctuated between 17.9% and
 20.9%, and no strict success had reached OP20 or OP21–25. The figure above now
-contains every complete validation through step 1075. Step 675 temporarily
+contains every complete validation through step 1100. Step 675 temporarily
 dipped to 19.60% over OP11–20 and 5.17% over OP15–20; step 700 rebounded to
 19.90% and 6.33%, respectively. Step 725 then reached 20.05% over OP11–20 and
 a new high of 7.08% over OP15–20. Step 750 continued the trend at 20.10% and
@@ -1894,3 +1895,16 @@ Across the full evaluation, 394/3,000 trajectories pass released strict and
 preceding train window has released-strict reward 0.2925, executable-strict
 success 0.2791, 95.43% executable precision, 1.84% transient off-policy
 cancellation errors, and 0.27% truncation.
+
+Step 1100 provides the first direct OP22 prompt replication. OP22 index 6
+passes again at 0.5%, 75 updates after its step-1025 success; the response hash
+is different, and manual inspection confirms a newly sampled, complete chain
+to answer 50. OP21 also scores 0.5% on new index 27, bringing cumulative
+executable-strict OP21 coverage to six distinct prompts. OP20 is zero at this
+checkpoint, illustrating the variance of these single-sample estimates.
+OP11–20 rebounds to 20.35% and OP15–20 ties its best value at 9.08%, while the
+preceding 25-step released-strict train reward reaches 0.3370. Across the full
+evaluation, 409/3,000 trajectories pass released strict and 400/3,000 pass
+executable strict, for 97.80% executable precision. The train window has
+executable-strict success 0.3324, 98.63% executable precision, 0.67% transient
+off-policy cancellation errors, and zero truncation.
