@@ -1702,7 +1702,7 @@ All four routers still returned HTTP 200. Step 650 has complete matching
 trainer/orchestrator checkpoints, stable inference weights, 512 training rows,
 and 200 held-out rows for every OP11–25 shard.
 
-The train-reward and held-out trends through step 1625 are:
+The train-reward and held-out trends through step 1650 are:
 
 | eval step | preceding 25-step released-strict train reward | OP11–20 strict | OP15–20 strict | OP21–25 strict |
 | ---: | ---: | ---: | ---: | ---: |
@@ -1752,6 +1752,7 @@ The train-reward and held-out trends through step 1625 are:
 | 1575 | 0.2505 | 19.10% | 9.17% | 1.30% |
 | 1600 | 0.3295 | 19.35% | 10.67% | 0.90% |
 | 1625 | 0.3255 | 20.95% | 10.75% | 1.20% |
+| 1650 | 0.3138 | 21.30% | 11.58% | 1.30% |
 
 At step 650, strict pass@1 is OP11 52.0%, OP12 47.5%, OP13 38.5%, OP14
 33.5%, OP15 18.5%, OP16 11.5%, OP17 5.5%, OP18 1.5%, OP19 0.5%, and OP20–25
@@ -1759,7 +1760,7 @@ At step 650, strict pass@1 is OP11 52.0%, OP12 47.5%, OP13 38.5%, OP14
 encouraging, but individual evaluations remain noisy single-rollout estimates:
 Through step 650, OP11–20 aggregate accuracy had fluctuated between 17.9% and
 20.9%, and no strict success had reached OP20 or OP21–25. The figure above now
-contains every complete validation through step 1625. Step 675 temporarily
+contains every complete validation through step 1650. Step 675 temporarily
 dipped to 19.60% over OP11–20 and 5.17% over OP15–20; step 700 rebounded to
 19.90% and 6.33%, respectively. Step 725 then reached 20.05% over OP11–20 and
 a new high of 7.08% over OP15–20. Step 750 continued the trend at 20.10% and
@@ -2137,6 +2138,24 @@ executable-strict success 0.3230, 99.23% raw executable precision, 1.53%
 transient off-policy cancellation errors, and 0.08% truncation. Mismatch KL
 stays at most 0.0038 and gradient norm at most 0.3603, with no persistent
 stability issue.
+
+Step 1650 improves OP11–20 again to 21.30% and sets a third consecutive
+OP15–20 high at 11.58%. OP21–25 is 1.30%. OP21 adds new index 71; manual
+inspection confirms a coherent Glenfield City–Westhaven City–Brightford chain
+to answer 28. OP23 repeats known index 70, while OP24 remains zero. Cumulative
+executable-strict breadth is 14 distinct OP20 prompts, 20 OP21 prompts, 15
+OP22 prompts, six OP23 prompts, and one OP24 prompt. Across the full
+evaluation, 439/3,000 trajectories pass released strict and 428/3,000 pass
+executable strict, for 97.49% raw executable precision. All 13
+released-strict OP21–23 positives also pass executable strict, and evaluation
+truncation is 0.13%.
+
+The preceding train window has released-strict reward 0.3138,
+executable-strict success 0.3059, 97.49% raw executable precision, 0.96%
+transient off-policy cancellation errors, and 0.08% truncation. The isolated
+16.8% rollout-error spike at step 1637 returns to zero by step 1646. Mismatch
+KL stays at most 0.0003 and gradient norm at most 0.2940, so the window is
+otherwise stable.
 
 Step 1000 sets a new OP15–20 aggregate high of 9.08%, above the previous
 8.92% at step 850, while OP11–20 remains near its recent range at 20.30%.
