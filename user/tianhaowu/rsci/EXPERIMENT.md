@@ -1702,7 +1702,7 @@ All four routers still returned HTTP 200. Step 650 has complete matching
 trainer/orchestrator checkpoints, stable inference weights, 512 training rows,
 and 200 held-out rows for every OP11–25 shard.
 
-The train-reward and held-out trends through step 1550 are:
+The train-reward and held-out trends through step 1575 are:
 
 | eval step | preceding 25-step released-strict train reward | OP11–20 strict | OP15–20 strict | OP21–25 strict |
 | ---: | ---: | ---: | ---: | ---: |
@@ -1749,6 +1749,7 @@ The train-reward and held-out trends through step 1550 are:
 | 1500 | 0.3388 | 16.70% | 9.00% | 1.70% |
 | 1525 | 0.2803 | 17.55% | 9.33% | 0.90% |
 | 1550 | 0.3421 | 18.50% | 8.92% | 0.80% |
+| 1575 | 0.2505 | 19.10% | 9.17% | 1.30% |
 
 At step 650, strict pass@1 is OP11 52.0%, OP12 47.5%, OP13 38.5%, OP14
 33.5%, OP15 18.5%, OP16 11.5%, OP17 5.5%, OP18 1.5%, OP19 0.5%, and OP20–25
@@ -1756,7 +1757,7 @@ At step 650, strict pass@1 is OP11 52.0%, OP12 47.5%, OP13 38.5%, OP14
 encouraging, but individual evaluations remain noisy single-rollout estimates:
 Through step 650, OP11–20 aggregate accuracy had fluctuated between 17.9% and
 20.9%, and no strict success had reached OP20 or OP21–25. The figure above now
-contains every complete validation through step 1550. Step 675 temporarily
+contains every complete validation through step 1575. Step 675 temporarily
 dipped to 19.60% over OP11–20 and 5.17% over OP15–20; step 700 rebounded to
 19.90% and 6.33%, respectively. Step 725 then reached 20.05% over OP11–20 and
 a new high of 7.08% over OP15–20. Step 750 continued the trend at 20.10% and
@@ -2082,6 +2083,24 @@ norm reaches 1.1983 at step 1528 and mismatch KL reaches 0.0164 at step 1547.
 By step 1559, mismatch KL is back to 0.0000 and gradient norm to 0.3125. There
 is still no NaN, OOM, or persistent divergence, but these recurring transients
 warrant continued monitoring.
+
+Step 1575 reaches 19.10% on OP11–20, completing the recovery from the
+step-1475–1525 dip. OP15–20 is 9.17% and OP21–25 rebounds to 1.30%. OP21 adds
+new index 145; manual inspection confirms a coherent chain through Mayer
+Aquarium and Jefferson Circus to the exact Hamilton Farm answer 17. OP23
+index 165 passes for a ninth checkpoint with a ninth distinct response hash,
+while OP24 remains zero for a fourth checkpoint after its first crossing.
+Cumulative breadth is 14 distinct OP20 prompts, 19 OP21 prompts, 14 OP22
+prompts, six OP23 prompts, and one OP24 prompt. Across the full evaluation,
+395/3,000 trajectories pass released strict and 384/3,000 pass executable
+strict, for 97.22% raw executable precision. All 13 released-strict OP21–23
+positives also pass executable strict, and evaluation truncation is 0.17%.
+
+The preceding train window has released-strict reward 0.2505,
+executable-strict success 0.2472, 98.66% raw executable precision, 1.62%
+transient off-policy cancellation errors, and 0.01% truncation. Mismatch KL
+stays at most 0.0022 and gradient norm reaches 0.9893 transiently; by step 1579
+they are back to 0.0001 and 0.0913, respectively.
 
 Step 1000 sets a new OP15–20 aggregate high of 9.08%, above the previous
 8.92% at step 850, while OP11–20 remains near its recent range at 20.30%.
