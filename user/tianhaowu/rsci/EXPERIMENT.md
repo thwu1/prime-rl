@@ -1702,7 +1702,7 @@ All four routers still returned HTTP 200. Step 650 has complete matching
 trainer/orchestrator checkpoints, stable inference weights, 512 training rows,
 and 200 held-out rows for every OP11–25 shard.
 
-The train-reward and held-out trends through step 2400 are:
+The train-reward and held-out trends through step 2425 are:
 
 | eval step | preceding 25-step released-strict train reward | OP11–20 strict | OP15–20 strict | OP21–25 strict |
 | ---: | ---: | ---: | ---: | ---: |
@@ -1783,6 +1783,7 @@ The train-reward and held-out trends through step 2400 are:
 | 2350 | 0.3271 | 21.45% | 11.08% | 1.60% |
 | 2375 | 0.4030 | 24.30% | 12.42% | 1.60% |
 | 2400 | 0.3396 | 23.75% | 12.00% | 2.80% |
+| 2425 | 0.3180 | 25.45% | 13.00% | 2.50% |
 
 At step 650, strict pass@1 is OP11 52.0%, OP12 47.5%, OP13 38.5%, OP14
 33.5%, OP15 18.5%, OP16 11.5%, OP17 5.5%, OP18 1.5%, OP19 0.5%, and OP20–25
@@ -1790,7 +1791,7 @@ At step 650, strict pass@1 is OP11 52.0%, OP12 47.5%, OP13 38.5%, OP14
 encouraging, but individual evaluations remain noisy single-rollout estimates:
 Through step 650, OP11–20 aggregate accuracy had fluctuated between 17.9% and
 20.9%, and no strict success had reached OP20 or OP21–25. The figure above now
-contains every complete validation through step 2400. Step 675 temporarily
+contains every complete validation through step 2425. Step 675 temporarily
 dipped to 19.60% over OP11–20 and 5.17% over OP15–20; step 700 rebounded to
 19.90% and 6.33%, respectively. Step 725 then reached 20.05% over OP11–20 and
 a new high of 7.08% over OP15–20. Step 750 continued the trend at 20.10% and
@@ -2806,6 +2807,31 @@ most 0.0036 and gradient norm at most 0.5280, ending at 0.0000 and 0.0167. The
 step-2400 trainer and orchestrator checkpoints, eight distributed trainer
 shards, stable inference weights, 512 training rows, and all 3,000 evaluation
 rows are complete.
+
+Step 2425 raises OP11–20 to 25.45% and sets a new OP15–20 high of 13.00%,
+while OP21–25 remains strong at 2.50%. OP20 scores 6.50%, 1.766 points above
+the matched strict-filter checkpoint's 4.734% but still within the uncertainty
+of a one-rollout checkpoint estimate. All executable-strict OP20–23 positives
+repeat known prompts, so cumulative breadth stays at 28 OP20 prompts, 31 OP21
+prompts, 25 OP22 prompts, 17 OP23 prompts, seven OP24 prompts, and two OP25
+prompts. Across the full evaluation, 534/3,000 trajectories pass released
+strict and 524/3,000 pass executable strict, for 98.13% raw executable
+precision. Evaluation truncation is 0.30%, with no rollout errors.
+
+The preceding train window has released-strict reward 0.3180 and
+executable-strict success 0.3073, for 96.61% raw executable precision. All 138
+released-only rows agree under deterministic re-grading and all canonical
+solutions pass. One OP13 forward-reverse prompt contributes 102/138 rows;
+manual samples show the model dropping or duplicating terms to derive false
+coefficients such as `17*x + 4` or `19*x + 4` instead of `18*x + 4`, then
+forcing answer 4 through invalid solver equations. The issue-code counts are
+42 `equation_mismatch`, 122 `solver_equation_mismatch`, and one
+`unexpected_node`, with overlap. Logged off-policy cancellation errors average
+0.74% and peak transiently at 18.6% on step 2420; saved rows have no errors and
+0.12% truncation. Mismatch KL stays at most 0.0014 and gradient norm at most
+0.1491, ending at 0.0002 and 0.0702. The step-2425 trainer and orchestrator
+checkpoints, eight distributed trainer shards, stable inference weights, 512
+training rows, and all 3,000 evaluation rows are complete.
 
 Step 1000 sets a new OP15–20 aggregate high of 9.08%, above the previous
 8.92% at step 850, while OP11–20 remains near its recent range at 20.30%.
