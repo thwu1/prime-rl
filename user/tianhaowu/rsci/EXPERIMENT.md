@@ -1723,6 +1723,7 @@ The train-reward and held-out trends through step 850 are:
 | 850 | 0.2813 | 22.00% | 8.92% | 0.00% |
 | 875 | 0.2521 | 21.80% | 8.33% | 0.10% |
 | 900 | 0.2310 | 20.35% | 8.00% | 0.10% |
+| 925 | 0.2341 | 20.20% | 7.92% | 0.30% |
 
 At step 650, strict pass@1 is OP11 52.0%, OP12 47.5%, OP13 38.5%, OP14
 33.5%, OP15 18.5%, OP16 11.5%, OP17 5.5%, OP18 1.5%, OP19 0.5%, and OP20–25
@@ -1730,7 +1731,7 @@ At step 650, strict pass@1 is OP11 52.0%, OP12 47.5%, OP13 38.5%, OP14
 encouraging, but individual evaluations remain noisy single-rollout estimates:
 Through step 650, OP11–20 aggregate accuracy had fluctuated between 17.9% and
 20.9%, and no strict success had reached OP20 or OP21–25. The figure above now
-contains every complete validation through step 900. Step 675 temporarily
+contains every complete validation through step 925. Step 675 temporarily
 dipped to 19.60% over OP11–20 and 5.17% over OP15–20; step 700 rebounded to
 19.90% and 6.33%, respectively. Step 725 then reached 20.05% over OP11–20 and
 a new high of 7.08% over OP15–20. Step 750 continued the trend at 20.10% and
@@ -1793,3 +1794,13 @@ distinct index-26 pass at step 775, the model has solved two different OP21
 prompts. The preceding train window has released-strict reward 0.2310,
 executable-strict success 0.2255, 97.63% executable precision, zero rollout
 errors, and 0.05% truncation.
+
+Step 925 remains at 20.20% over OP11–20 and 7.92% over OP15–20 while OP21
+rises to 1.5%. All three OP21 positives pass executable strict. They occur on
+held-out indices 25, 90, and 140; indices 25 and 140 are new, while index 90
+repeats the genuine steps 875 and 900 success. Including index 26 at step 775,
+the model has now solved four distinct OP21 prompts with executable-strict
+trajectories. The released-only, compensating-error index-24 case from step 825
+is excluded. The preceding train window has released-strict reward 0.2341,
+executable-strict success 0.2263, 96.70% executable precision, 2.54% transient
+off-policy cancellation errors, and 0.16% truncation.
