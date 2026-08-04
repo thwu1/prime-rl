@@ -1702,7 +1702,7 @@ All four routers still returned HTTP 200. Step 650 has complete matching
 trainer/orchestrator checkpoints, stable inference weights, 512 training rows,
 and 200 held-out rows for every OP11–25 shard.
 
-The train-reward and held-out trends through step 2100 are:
+The train-reward and held-out trends through step 2125 are:
 
 | eval step | preceding 25-step released-strict train reward | OP11–20 strict | OP15–20 strict | OP21–25 strict |
 | ---: | ---: | ---: | ---: | ---: |
@@ -1771,6 +1771,7 @@ The train-reward and held-out trends through step 2100 are:
 | 2050 | 0.3348 | 24.60% | 12.00% | 2.00% |
 | 2075 | 0.4068 | 24.65% | 12.75% | 1.60% |
 | 2100 | 0.3654 | 23.45% | 12.00% | 2.40% |
+| 2125 | 0.3444 | 23.45% | 12.67% | 2.00% |
 
 At step 650, strict pass@1 is OP11 52.0%, OP12 47.5%, OP13 38.5%, OP14
 33.5%, OP15 18.5%, OP16 11.5%, OP17 5.5%, OP18 1.5%, OP19 0.5%, and OP20–25
@@ -1778,7 +1779,7 @@ At step 650, strict pass@1 is OP11 52.0%, OP12 47.5%, OP13 38.5%, OP14
 encouraging, but individual evaluations remain noisy single-rollout estimates:
 Through step 650, OP11–20 aggregate accuracy had fluctuated between 17.9% and
 20.9%, and no strict success had reached OP20 or OP21–25. The figure above now
-contains every complete validation through step 2100. Step 675 temporarily
+contains every complete validation through step 2125. Step 675 temporarily
 dipped to 19.60% over OP11–20 and 5.17% over OP15–20; step 700 rebounded to
 19.90% and 6.33%, respectively. Step 725 then reached 20.05% over OP11–20 and
 a new high of 7.08% over OP15–20. Step 750 continued the trend at 20.10% and
@@ -2507,6 +2508,24 @@ off-policy cancellation errors average 1.46%, driven by a one-step 36.5% spike
 at step 2086; saved train rows contain no errors and only 0.03% truncation.
 Mismatch KL reaches 0.0045 at step 2085, then falls to 0.0001 or below over
 steps 2096–2099 and zero at step 2100. Gradient norm stays at most 0.3133.
+
+Step 2125 keeps OP11–20 at 23.45%, raises OP15–20 to 12.67%, and has
+OP21–25 at 2.00%. New executable-strict coverage appears at OP20 index 37 and
+OP22 index 155. Manual inspection confirms the complete Festival de
+Saint-Rivage–Festival Lumière de Valmont–Festival de Clairmont chain to answer
+46 and Pine Ridge–Oakridge Riverside–Maple Creek chain to answer 66,
+respectively. OP24 and OP25 both score zero. Cumulative breadth reaches 26
+distinct OP20 prompts, 26 OP21 prompts, 23 OP22 prompts, 16 OP23 prompts, seven
+OP24 prompts, and one OP25 prompt. Across the full evaluation, 489/3,000
+trajectories pass released strict and 483/3,000 pass executable strict, for
+98.77% raw executable precision. All 20 released-strict OP21–23 positives pass
+executable strict. Evaluation truncation is 0.10%, with no rollout errors.
+
+The preceding train window has released-strict reward 0.3444,
+executable-strict success 0.3323, and 96.48% raw executable precision. Logged
+off-policy cancellation errors average 2.77%, driven by a one-step 26.4% spike
+at step 2103; saved train rows contain no errors and 0.18% truncation. Mismatch
+KL stays at most 0.0017 and gradient norm at most 0.2395.
 
 Step 1000 sets a new OP15–20 aggregate high of 9.08%, above the previous
 8.92% at step 850, while OP11–20 remains near its recent range at 20.30%.
