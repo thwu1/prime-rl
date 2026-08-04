@@ -1702,9 +1702,9 @@ All four routers still returned HTTP 200. Step 650 has complete matching
 trainer/orchestrator checkpoints, stable inference weights, 512 training rows,
 and 200 held-out rows for every OP11–25 shard.
 
-The train-reward and held-out trends through step 650 are:
+The train-reward and held-out trends through step 850 are:
 
-| eval step | preceding 25-step mean train reward | OP11–20 strict | OP15–20 strict | OP21–25 strict |
+| eval step | preceding 25-step released-strict train reward | OP11–20 strict | OP15–20 strict | OP21–25 strict |
 | ---: | ---: | ---: | ---: | ---: |
 | 500 | 0.2414 | 18.00% | 3.50% | 0.00% |
 | 525 | 0.1843 | 17.90% | 3.67% | 0.00% |
@@ -1719,14 +1719,16 @@ The train-reward and held-out trends through step 650 are:
 | 750 | 0.2734 | 20.10% | 7.50% | 0.00% |
 | 775 | 0.3405 | 21.05% | 6.92% | 0.10% |
 | 800 | 0.2100 | 22.40% | 8.67% | 0.00% |
+| 825 | 0.3104 | 21.90% | 8.50% | 0.10% |
+| 850 | 0.2813 | 22.00% | 8.92% | 0.00% |
 
 At step 650, strict pass@1 is OP11 52.0%, OP12 47.5%, OP13 38.5%, OP14
 33.5%, OP15 18.5%, OP16 11.5%, OP17 5.5%, OP18 1.5%, OP19 0.5%, and OP20–25
 0.0%. The improving OP15–19 frontier and higher recent train reward are
 encouraging, but individual evaluations remain noisy single-rollout estimates:
-OP11–20 aggregate accuracy has fluctuated between 17.9% and 20.9% since step
-500, and no strict success has reached OP20 or OP21–25. The figure above now
-contains every complete validation through step 800. Step 675 temporarily
+Through step 650, OP11–20 aggregate accuracy had fluctuated between 17.9% and
+20.9%, and no strict success had reached OP20 or OP21–25. The figure above now
+contains every complete validation through step 850. Step 675 temporarily
 dipped to 19.60% over OP11–20 and 5.17% over OP15–20; step 700 rebounded to
 19.90% and 6.33%, respectively. Step 725 then reached 20.05% over OP11–20 and
 a new high of 7.08% over OP15–20. Step 750 continued the trend at 20.10% and
@@ -1743,3 +1745,29 @@ did not repeat the OP21 success, but it set new highs of 22.40% over OP11–20
 and 8.67% over OP15–20. Its preceding mean train reward fell to 0.2100 despite
 the held-out gain, demonstrating that the sampled 512-trajectory batch reward
 is not a monotonic proxy for validation performance.
+
+Step 825 returned to 21.90% over OP11–20 and 8.50% over OP15–20, with mean
+train reward 0.3104. It also recorded one released-strict OP21 pass, but this
+was not a genuine replication of step 775: executable grading catches two
+compensating arithmetic errors, `26 + 19 = 51` followed by `51 + 57 = 102`.
+The correct intermediate values are 45 and 102. The released graph verifier
+accepts the dependency structure, node values, and final answer without
+executing every intermediate equality chain.
+
+This discrepancy is small but measurable rather than a verifier-hacking
+collapse. At step 825, 439/3,000 trajectories pass released strict and
+427/3,000 pass executable strict; all 12 disagreements are released-only
+passes, so 97.27% of released-strict positives survive execution. For training
+steps 801–825, released-strict reward averages 0.3104 and executable-strict
+success averages 0.3018. Across the five latest 25-step windows, executable
+precision among released-strict positives ranges from 94.47% to 99.17% with no
+monotonic deterioration.
+
+Step 850 remains at 22.00% over OP11–20 and sets a new OP15–20 high of 8.92%.
+It contains the first strict OP20 success, 1/200, which also passes executable
+strict and answer grading. Manual inspection confirms a coherent dependency
+chain through Clearwater Bay and Shoreline City to the exact Oakbridge City
+total of 49. This is a genuine first success on the hardest trained operation,
+although one sample is not yet robust. The preceding train window has released
+strict reward 0.2813 and executable-strict success 0.2790; 99.17% of released
+positives survive execution. OP21–25 returned to zero.
