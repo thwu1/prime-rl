@@ -1702,7 +1702,7 @@ All four routers still returned HTTP 200. Step 650 has complete matching
 trainer/orchestrator checkpoints, stable inference weights, 512 training rows,
 and 200 held-out rows for every OP11–25 shard.
 
-The train-reward and held-out trends through step 1525 are:
+The train-reward and held-out trends through step 1550 are:
 
 | eval step | preceding 25-step released-strict train reward | OP11–20 strict | OP15–20 strict | OP21–25 strict |
 | ---: | ---: | ---: | ---: | ---: |
@@ -1748,6 +1748,7 @@ The train-reward and held-out trends through step 1525 are:
 | 1475 | 0.3700 | 16.25% | 8.92% | 1.30% |
 | 1500 | 0.3388 | 16.70% | 9.00% | 1.70% |
 | 1525 | 0.2803 | 17.55% | 9.33% | 0.90% |
+| 1550 | 0.3421 | 18.50% | 8.92% | 0.80% |
 
 At step 650, strict pass@1 is OP11 52.0%, OP12 47.5%, OP13 38.5%, OP14
 33.5%, OP15 18.5%, OP16 11.5%, OP17 5.5%, OP18 1.5%, OP19 0.5%, and OP20–25
@@ -1755,7 +1756,7 @@ At step 650, strict pass@1 is OP11 52.0%, OP12 47.5%, OP13 38.5%, OP14
 encouraging, but individual evaluations remain noisy single-rollout estimates:
 Through step 650, OP11–20 aggregate accuracy had fluctuated between 17.9% and
 20.9%, and no strict success had reached OP20 or OP21–25. The figure above now
-contains every complete validation through step 1525. Step 675 temporarily
+contains every complete validation through step 1550. Step 675 temporarily
 dipped to 19.60% over OP11–20 and 5.17% over OP15–20; step 700 rebounded to
 19.90% and 6.33%, respectively. Step 725 then reached 20.05% over OP11–20 and
 a new high of 7.08% over OP15–20. Step 750 continued the trend at 20.10% and
@@ -2055,6 +2056,32 @@ The preceding train window has released-strict reward 0.2803,
 executable-strict success 0.2735, 97.58% raw executable precision, 1.30%
 transient off-policy cancellation errors, and 0.14% truncation. Mismatch KL
 stays at most 0.0008 and gradient norm at most 0.2399, with no stability spike.
+
+Step 1550 recovers OP11–20 to 18.50%. OP11–14 is back to 32.88%, close to its
+33.33% step-1400–1450 average, so the preceding three-checkpoint easy-task dip
+has not persisted as a permanent regression. OP15–20 is 8.92% and OP21–25 is
+0.80%. OP22 adds one manually checked executable-strict prompt, index 14,
+whose complete chain reaches answer 52; OP23 repeats known index 32 and OP24
+again scores zero. Cumulative breadth is 14 distinct OP20 prompts, 18 OP21
+prompts, 14 OP22 prompts, six OP23 prompts, and one OP24 prompt. Across the
+full evaluation, 378/3,000 trajectories pass released strict and 368/3,000
+pass executable strict, for 97.35% raw executable precision. All eight
+released-strict OP21–23 positives pass executable strict, and evaluation
+truncation is 0.17%.
+
+The preceding train window has released-strict reward 0.3421,
+executable-strict success 0.3245, 94.86% raw executable precision, 0.50%
+transient off-policy cancellation errors, and 0.02% truncation. OP12 task 277
+accounts for 55/225 raw disagreements, but these are executable-grader false
+negatives: the model correctly derives the problem-stated extra Clearwater Bay
+regional-medical-school fact that the gold solution omits. Counting those
+valid trajectories raises executable precision to 96.12%. Genuine gaps remain
+concentrated in forward-reverse algebra, led by 83 rows from task 599 and 34
+from task 597. Stability is more variable than in the prior window: gradient
+norm reaches 1.1983 at step 1528 and mismatch KL reaches 0.0164 at step 1547.
+By step 1559, mismatch KL is back to 0.0000 and gradient norm to 0.3125. There
+is still no NaN, OOM, or persistent divergence, but these recurring transients
+warrant continued monitoring.
 
 Step 1000 sets a new OP15–20 aggregate high of 9.08%, above the previous
 8.92% at step 850, while OP11–20 remains near its recent range at 20.30%.
