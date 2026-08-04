@@ -1702,7 +1702,7 @@ All four routers still returned HTTP 200. Step 650 has complete matching
 trainer/orchestrator checkpoints, stable inference weights, 512 training rows,
 and 200 held-out rows for every OP11–25 shard.
 
-The train-reward and held-out trends through step 2775 are:
+The train-reward and held-out trends through step 2800 are:
 
 | eval step | preceding 25-step released-strict train reward | OP11–20 strict | OP15–20 strict | OP21–25 strict |
 | ---: | ---: | ---: | ---: | ---: |
@@ -1798,6 +1798,7 @@ The train-reward and held-out trends through step 2775 are:
 | 2725 | 0.3847 | 23.60% | 13.25% | 2.30% |
 | 2750 | 0.3696 | 23.15% | 12.00% | 2.50% |
 | 2775 | 0.3891 | 24.20% | 12.50% | 1.90% |
+| 2800 | 0.3488 | 23.35% | 11.08% | 2.70% |
 
 At step 650, strict pass@1 is OP11 52.0%, OP12 47.5%, OP13 38.5%, OP14
 33.5%, OP15 18.5%, OP16 11.5%, OP17 5.5%, OP18 1.5%, OP19 0.5%, and OP20–25
@@ -1805,7 +1806,7 @@ At step 650, strict pass@1 is OP11 52.0%, OP12 47.5%, OP13 38.5%, OP14
 encouraging, but individual evaluations remain noisy single-rollout estimates:
 Through step 650, OP11–20 aggregate accuracy had fluctuated between 17.9% and
 20.9%, and no strict success had reached OP20 or OP21–25. The figure above now
-contains every complete validation through step 2775. Step 675 temporarily
+contains every complete validation through step 2800. Step 675 temporarily
 dipped to 19.60% over OP11–20 and 5.17% over OP15–20; step 700 rebounded to
 19.90% and 6.33%, respectively. Step 725 then reached 20.05% over OP11–20 and
 a new high of 7.08% over OP15–20. Step 750 continued the trend at 20.10% and
@@ -3325,6 +3326,39 @@ Logged off-policy cancellation errors average 3.10% and peak transiently at
 31.4% on step 2775; none survive into saved rows, whose truncation rate is
 0.06%. Mismatch KL stays at most 0.0014 and gradient norm at most 0.5762,
 ending at 0.0006 and 0.1200. The step-2775 trainer and orchestrator
+checkpoints, eight distributed trainer shards, stable inference weights, 512
+training rows, and all 3,000 evaluation rows are complete.
+
+Step 2800 remains weak on the trained range at 23.35% on OP11–20 and 11.08%
+on OP15–20, while OP21–25 rises to 2.70%. OP20 scores 4.50% on both released
+and executable strict. OP21 released strict is 5.5% and executable strict is
+5.0%; OP22 reaches 4.5%, OP23 released/executable strict is 3.0%/2.5%, OP24 is
+0.5%, and OP25 is zero. New executable-strict OP22 index 4 is manually verified
+through Verdi and West Sahara totals 8 and 32 to Taylor answer 40. Cumulative
+OP22 breadth reaches 28 prompts; other OP20–25 breadth remains 30, 34, 20,
+nine, and three prompts.
+
+Across the full evaluation, 494/3,000 trajectories pass released strict and
+484/3,000 pass executable strict, for 97.98% executable precision. All ten
+mismatches reproduce under deterministic re-grading, every canonical solution
+passes, and each mismatch is substantive; there are no pure-extra-node
+disagreements. Evaluation has no rollout errors and 5/3,000 truncations.
+
+The preceding train window has released-strict reward 0.3488 and
+executable-strict success 0.3265, for 93.59% executable precision. All 286
+released-only rows reproduce under deterministic re-grading and all canonical
+solutions pass. The four pure `unexpected_node` rows are also substantively
+wrong. Three solver-hacking clusters contribute 221/286 mismatches: prompt 704
+derives `6*x + 13` instead of `7*x + 13`, prompt 1168 derives `19*x + 14`
+instead of `20*x + 14`, and prompt 515 duplicates a Ruby category to derive
+`40*x` instead of `38*x`; all then force the gold answer. Issue-code counts
+are 263 `solver_equation_mismatch`, 77 `equation_mismatch`, and four
+`unexpected_node`, with overlap.
+
+Logged off-policy cancellation errors average 0.90% and peak transiently at
+16.7% on step 2795; none survive into saved rows, whose truncation rate is
+0.04%. Mismatch KL stays at most 0.0016 and gradient norm at most 0.4962,
+ending at 0.0002 and 0.0777. The step-2800 trainer and orchestrator
 checkpoints, eight distributed trainer shards, stable inference weights, 512
 training rows, and all 3,000 evaluation rows are complete.
 
