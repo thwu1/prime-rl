@@ -1702,7 +1702,7 @@ All four routers still returned HTTP 200. Step 650 has complete matching
 trainer/orchestrator checkpoints, stable inference weights, 512 training rows,
 and 200 held-out rows for every OP11–25 shard.
 
-The train-reward and held-out trends through step 5900 are:
+The train-reward and held-out trends through step 5925 are:
 
 | eval step | preceding 25-step released-strict train reward | OP11–20 strict | OP15–20 strict | OP21–25 strict |
 | ---: | ---: | ---: | ---: | ---: |
@@ -1923,6 +1923,7 @@ The train-reward and held-out trends through step 5900 are:
 | 5850 | 0.4588 | 24.05% | 12.33% | 3.80% |
 | 5875 | 0.4118 | 24.15% | 13.67% | 4.10% |
 | 5900 | 0.4443 | 27.10% | 14.42% | 4.70% |
+| 5925 | 0.4557 | 26.55% | 14.42% | 4.50% |
 
 At step 650, strict pass@1 is OP11 52.0%, OP12 47.5%, OP13 38.5%, OP14
 33.5%, OP15 18.5%, OP16 11.5%, OP17 5.5%, OP18 1.5%, OP19 0.5%, and OP20–25
@@ -1930,7 +1931,7 @@ At step 650, strict pass@1 is OP11 52.0%, OP12 47.5%, OP13 38.5%, OP14
 encouraging, but individual evaluations remain noisy single-rollout estimates:
 Through step 650, OP11–20 aggregate accuracy had fluctuated between 17.9% and
 20.9%, and no strict success had reached OP20 or OP21–25. The figure above now
-contains every complete validation through step 5900. Step 675 temporarily
+contains every complete validation through step 5925. Step 675 temporarily
 dipped to 19.60% over OP11–20 and 5.17% over OP15–20; step 700 rebounded to
 19.90% and 6.33%, respectively. Step 725 then reached 20.05% over OP11–20 and
 a new high of 7.08% over OP15–20. Step 750 continued the trend at 20.10% and
@@ -8590,6 +8591,42 @@ saved rows. Mismatch KL stays at most 0.0012 and ends at zero; gradient norm
 stays at most 0.3073 and ends at 0.0327. No NaN, OOM, CUDA/NCCL failure, or
 persistent rollout failure appears. The complete step-5900 trainer,
 orchestrator, weight, 512-train, and 3,000-eval artifacts are present.
+
+Step 5925 scores 26.55% over OP11–20, with OP15–20 unchanged at 14.42% and
+OP21–25 at 4.50%. OP20 scores 7.00% under both released and executable strict
+grading, 2.266 percentage points above the matched strict-filter SFT
+checkpoint's 4.734% pass@1. The rolling last-ten-checkpoint estimates are
+7.65% released and 7.60% executable strict, respectively 2.916 and 2.866
+points above SFT. OP21, OP22, OP23, OP24, and OP25 score 8.5%, 9.0%, 4.5%,
+0.5%, and 0.0%, all executable-consistent. No new OP20–25 prompt appears, so
+cumulative executable breadth remains 47, 47, 41, 29, 13, and seven prompts.
+
+Across the full evaluation, 576/3,000 trajectories pass released strict and
+569/3,000 pass executable strict, for 98.78% precision. All seven rejections
+are genuine. They include six false solver chains and the recurrent OP16
+index-50 extra Mayer Aquarium deer node, whose value is 45 rather than the
+problem-implied 7. Issue-code counts are one `equation_mismatch`, six
+`solver_equation_mismatch`, and one `unexpected_node`, with overlap.
+Evaluation has no rollout errors, five truncations, and asynchronous policy
+version 5924 on every shard.
+
+The preceding train window has released-strict reward 0.4557 and executable-
+strict success 0.4361, for 95.70% precision among 5,833 released passes. All
+251 rejections are genuine. The five largest clusters account for 219/251:
+prompt 580 corrupts two symbolic sums, prompt 570 writes `16 + 72 = 76`,
+prompt 903 changes `4*x + 4` to `4*x + 1`, prompt 215 flips a signed
+expression to positive 4, and prompt 1305 changes `16*x + 31` to
+`18*x + 25`. Issue-code counts are 211 `equation_mismatch`, 220
+`solver_equation_mismatch`, and one `unexpected_node`, with overlap. Logged
+rollout errors occur only at steps 5913 and 5914, averaging 0.92% as stale
+requests are cancelled. No error and only two truncations survive into the
+12,800 saved rows. Step 5909's three-trajectory batch briefly reaches loss
+0.0342 but recovers at step 5910; step 5917's 20-trajectory batch likewise
+recovers immediately. Mismatch KL stays at most 0.0015 and ends at 0.0001;
+gradient norm stays at most 0.6836 and ends at 0.0709. No NaN, OOM,
+CUDA/NCCL failure, or persistent rollout failure appears. The complete
+step-5925 trainer, orchestrator, weight, 512-train, and 3,000-eval artifacts
+are present.
 
 Step 1000 sets a new OP15–20 aggregate high of 9.08%, above the previous
 8.92% at step 850, while OP11–20 remains near its recent range at 20.30%.
