@@ -1702,7 +1702,7 @@ All four routers still returned HTTP 200. Step 650 has complete matching
 trainer/orchestrator checkpoints, stable inference weights, 512 training rows,
 and 200 held-out rows for every OP11–25 shard.
 
-The train-reward and held-out trends through step 1225 are:
+The train-reward and held-out trends through step 1300 are:
 
 | eval step | preceding 25-step released-strict train reward | OP11–20 strict | OP15–20 strict | OP21–25 strict |
 | ---: | ---: | ---: | ---: | ---: |
@@ -1736,6 +1736,9 @@ The train-reward and held-out trends through step 1225 are:
 | 1175 | 0.2480 | 19.70% | 9.00% | 0.10% |
 | 1200 | 0.3324 | 21.65% | 9.58% | 0.20% |
 | 1225 | 0.3914 | 19.65% | 9.42% | 0.60% |
+| 1250 | 0.2541 | 18.10% | 8.25% | 0.40% |
+| 1275 | 0.3123 | 17.90% | 8.67% | 1.10% |
+| 1300 | 0.3590 | 17.75% | 9.08% | 0.70% |
 
 At step 650, strict pass@1 is OP11 52.0%, OP12 47.5%, OP13 38.5%, OP14
 33.5%, OP15 18.5%, OP16 11.5%, OP17 5.5%, OP18 1.5%, OP19 0.5%, and OP20–25
@@ -1743,7 +1746,7 @@ At step 650, strict pass@1 is OP11 52.0%, OP12 47.5%, OP13 38.5%, OP14
 encouraging, but individual evaluations remain noisy single-rollout estimates:
 Through step 650, OP11–20 aggregate accuracy had fluctuated between 17.9% and
 20.9%, and no strict success had reached OP20 or OP21–25. The figure above now
-contains every complete validation through step 1225. Step 675 temporarily
+contains every complete validation through step 1300. Step 675 temporarily
 dipped to 19.60% over OP11–20 and 5.17% over OP15–20; step 700 rebounded to
 19.90% and 6.33%, respectively. Step 725 then reached 20.05% over OP11–20 and
 a new high of 7.08% over OP15–20. Step 750 continued the trend at 20.10% and
@@ -1842,6 +1845,21 @@ Across the full evaluation, 409/3,000 trajectories pass released strict and
 preceding train window has released-strict reward 0.3089, executable-strict
 success 0.2964, 95.95% executable precision, 1.76% transient off-policy
 cancellation errors, and 0.02% truncation.
+
+Step 1300 confirms that OP23 is not a one-checkpoint event. OP23 reaches 1.0%
+on repeated index 165 and new index 19; index 165 has a different response hash
+from step 1275, and manual inspection confirms both trajectories execute
+cleanly. OP22 reaches 1.5% and adds index 22, while OP21 adds index 78. The
+cumulative executable-strict breadth is now 10 distinct OP20 prompts, 12 OP21
+prompts, eight OP22 prompts, and two OP23 prompts. OP11–20 remains low at
+17.75%, OP15–20 is 9.08%, and OP21–25 is 0.70%. Across the full evaluation,
+362/3,000 trajectories pass released strict and 349/3,000 pass executable
+strict, for 96.41% executable precision. The preceding train window has
+released-strict reward 0.3590, executable-strict success 0.3472, 96.71%
+executable precision, 0.96% transient off-policy cancellation errors, and
+0.02% truncation. Consecutive OP23 checkpoints with both replication and new
+prompt coverage are substantially stronger evidence than the initial 1/200
+crossing, although absolute pass@1 remains only 1.0%.
 
 Step 1000 sets a new OP15–20 aggregate high of 9.08%, above the previous
 8.92% at step 850, while OP11–20 remains near its recent range at 20.30%.
@@ -1988,3 +2006,33 @@ executable strict, for 97.74% executable precision. The train window has
 executable-strict success 0.3767, 96.25% executable precision, zero rollout
 errors, and 0.26% truncation. This is the clearest breadth expansion so far,
 although OP21 and OP22 absolute pass@1 remain only 2.0% and 1.0%.
+
+Step 1250 regresses to 18.10% over OP11–20 and 8.25% over OP15–20 while
+retaining 0.40% over OP21–25. OP21 scores 1.5% on three known prompts. OP20
+adds new index 79 and OP22 adds new index 92; manual inspection confirms both
+new trajectories execute coherently to exact answers 31 and 40. Cumulative
+executable-strict coverage therefore rises to nine distinct OP20 prompts, nine
+OP21 prompts, and six OP22 prompts. Across the full evaluation, 366/3,000
+trajectories pass released strict and 348/3,000 pass executable strict, for
+95.08% executable precision. The preceding train window has released-strict
+reward 0.2541, executable-strict success 0.2508, 98.71% executable precision,
+0.75% transient off-policy cancellation errors, and 0.14% truncation. The
+continued prompt-coverage growth despite aggregate variance is stronger
+evidence of breadth than any single checkpoint's pass@1.
+
+Step 1275 extends the genuine observed frontier to OP23, three operations
+beyond the OP11–20 training range. OP23 index 165 passes released strict,
+executable strict, and answer grading; manual inspection confirms its complete
+chain through Jefferson Circus and Bundle Ranch to the exact Mayer Aquarium
+answer 26. OP21 reaches 3.5% and adds indices 147 and 163, OP22 reaches 1.5%
+and adds index 9, and OP20 reaches 3.0% and adds index 7. All five new
+trajectories execute coherently. Cumulative executable-strict coverage is now
+10 distinct OP20 prompts, 11 OP21 prompts, seven OP22 prompts, and one OP23
+prompt. The OP21–25 aggregate therefore reaches a new high of 1.10%, even as
+OP11–20 falls to 17.90% and OP15–20 is 8.67%; this contrast further exposes
+the variance and prompt heterogeneity in single-sample checkpoint estimates.
+Across the full evaluation, 369/3,000 trajectories pass released strict and
+355/3,000 pass executable strict, for 96.21% executable precision. The
+preceding train window has released-strict reward 0.3123, executable-strict
+success 0.3059, 97.97% executable precision, 1.62% transient off-policy
+cancellation errors, and 0.02% truncation.
