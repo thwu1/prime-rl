@@ -1722,6 +1722,7 @@ The train-reward and held-out trends through step 850 are:
 | 825 | 0.3104 | 21.90% | 8.50% | 0.10% |
 | 850 | 0.2813 | 22.00% | 8.92% | 0.00% |
 | 875 | 0.2521 | 21.80% | 8.33% | 0.10% |
+| 900 | 0.2310 | 20.35% | 8.00% | 0.10% |
 
 At step 650, strict pass@1 is OP11 52.0%, OP12 47.5%, OP13 38.5%, OP14
 33.5%, OP15 18.5%, OP16 11.5%, OP17 5.5%, OP18 1.5%, OP19 0.5%, and OP20–25
@@ -1729,7 +1730,7 @@ At step 650, strict pass@1 is OP11 52.0%, OP12 47.5%, OP13 38.5%, OP14
 encouraging, but individual evaluations remain noisy single-rollout estimates:
 Through step 650, OP11–20 aggregate accuracy had fluctuated between 17.9% and
 20.9%, and no strict success had reached OP20 or OP21–25. The figure above now
-contains every complete validation through step 875. Step 675 temporarily
+contains every complete validation through step 900. Step 675 temporarily
 dipped to 19.60% over OP11–20 and 5.17% over OP15–20; step 700 rebounded to
 19.90% and 6.33%, respectively. Step 725 then reached 20.05% over OP11–20 and
 a new high of 7.08% over OP15–20. Step 750 continued the trend at 20.10% and
@@ -1782,3 +1783,13 @@ two executable-strict OP21 successes on distinct prompts, separated by 100
 updates. The rate remains only 1/200 at each checkpoint. The preceding train
 window has released-strict reward 0.2521, executable-strict success 0.2415, and
 95.79% executable precision among released positives.
+
+Step 900 dips to 20.35% over OP11–20 and 8.00% over OP15–20, but broadens the
+hardest successes. OP20 reaches 1.5% with executable-strict passes on three
+distinct held-out prompts (indices 24, 43, and 71), rather than only repeating
+the index-71 success from steps 850 and 875. OP21 again scores an
+executable-strict 0.5% on index 90, repeating step 875; together with the
+distinct index-26 pass at step 775, the model has solved two different OP21
+prompts. The preceding train window has released-strict reward 0.2310,
+executable-strict success 0.2255, 97.63% executable precision, zero rollout
+errors, and 0.05% truncation.
