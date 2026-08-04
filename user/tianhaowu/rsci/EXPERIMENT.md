@@ -1702,7 +1702,7 @@ All four routers still returned HTTP 200. Step 650 has complete matching
 trainer/orchestrator checkpoints, stable inference weights, 512 training rows,
 and 200 held-out rows for every OP11–25 shard.
 
-The train-reward and held-out trends through step 5300 are:
+The train-reward and held-out trends through step 5325 are:
 
 | eval step | preceding 25-step released-strict train reward | OP11–20 strict | OP15–20 strict | OP21–25 strict |
 | ---: | ---: | ---: | ---: | ---: |
@@ -1899,6 +1899,7 @@ The train-reward and held-out trends through step 5300 are:
 | 5250 | 0.3908 | 26.45% | 14.08% | 4.00% |
 | 5275 | 0.4147 | 25.95% | 13.92% | 4.80% |
 | 5300 | 0.4997 | 26.40% | 13.83% | 4.50% |
+| 5325 | 0.4859 | 24.75% | 13.83% | 4.10% |
 
 At step 650, strict pass@1 is OP11 52.0%, OP12 47.5%, OP13 38.5%, OP14
 33.5%, OP15 18.5%, OP16 11.5%, OP17 5.5%, OP18 1.5%, OP19 0.5%, and OP20–25
@@ -1906,7 +1907,7 @@ At step 650, strict pass@1 is OP11 52.0%, OP12 47.5%, OP13 38.5%, OP14
 encouraging, but individual evaluations remain noisy single-rollout estimates:
 Through step 650, OP11–20 aggregate accuracy had fluctuated between 17.9% and
 20.9%, and no strict success had reached OP20 or OP21–25. The figure above now
-contains every complete validation through step 5300. Step 675 temporarily
+contains every complete validation through step 5325. Step 675 temporarily
 dipped to 19.60% over OP11–20 and 5.17% over OP15–20; step 700 rebounded to
 19.90% and 6.33%, respectively. Step 725 then reached 20.05% over OP11–20 and
 a new high of 7.08% over OP15–20. Step 750 continued the trend at 20.10% and
@@ -7504,6 +7505,47 @@ NCCL failure, or persistent rollout failure appears. The step-5300 trainer and
 orchestrator checkpoints, eight distributed trainer shards, seven stable
 inference-weight files, 512 training rows, and all 3,000 evaluation rows are
 complete.
+
+Step 5325 reaches 24.75% on OP11–20, 13.83% on OP15–20, and 4.10% on
+OP21–25. OP20 scores 7.50% on both released and executable strict, 2.766
+percentage points above the matched strict-filter OP20 SFT checkpoint's
+4.734% pass@1. The rolling last-ten-checkpoint estimates are 7.25% released
+and 7.20% executable strict, respectively 2.516 and 2.466 points above SFT.
+OP21, OP22, OP23, OP24, and OP25 score 8.0%, 7.5%, 4.0%, 0.5%, and 0.5%,
+respectively. No new executable OP20–25 prompt appears, so cumulative breadth
+remains 44, 46, 39, 26, 13, and seven prompts.
+
+Across the full evaluation, 536/3,000 trajectories pass released strict and
+525/3,000 pass the executable grader, for 97.95% raw precision. OP13 index 54
+is the sole semantically valid rejection and again correctly derives the
+irrelevant Festival de Clairmont total of 18. Counting it gives 526/536
+semantic precision, or 98.13%, and leaves ten genuine defects. OP13 index 32
+invents a Riverton culinarian-school node; OP14 index 55 and OP16 index 50 use
+the previously identified wrong dependencies in their extra nodes. Adjusted
+issue-code counts are four `equation_mismatch`, four
+`solver_equation_mismatch`, and three `unexpected_node`, with overlap.
+Evaluation has no rollout errors or truncations and mixes adjacent asynchronous
+policy versions 5324 and 5325.
+
+The preceding train window has released-strict reward 0.4859 and executable
+strict success 0.4659, for 95.90% precision among 6,219 released passes. All
+255 executable rejections are genuine. Prompt 597 contributes 70 by changing
+the correct total `8*x + 12` to `14*x + 12`, then retaining answer 1. Prompt
+1353 contributes 69 through the compensating claims `64 + 24 = 112` and
+`112 + 40 = 128`. Prompt 1219 contributes 63 through `16 + 84 = 112`
+followed by `112 + 2 = 102`, and prompt 1364 contributes 13 through another
+pair of compensating sum errors. These four clusters account for 215/255
+defects. Issue-code counts are 249 `equation_mismatch`, 84
+`solver_equation_mismatch`, and four `undefined_symbol`, with overlap.
+
+Logged off-policy cancellation errors average 2.17%, occur at steps 5301,
+5305, and 5318, and peak transiently at 18.6%; none survives into the 12,800
+saved rows. The saved rows contain two truncations. Mismatch KL stays at most
+0.0010 and ends at 0.0001. Gradient norm stays at most 0.3684 and ends at
+0.1014. No NaN, OOM, NCCL failure, or persistent rollout failure appears. The
+step-5325 trainer and orchestrator checkpoints, eight distributed trainer
+shards, seven stable inference-weight files, 512 training rows, and all 3,000
+evaluation rows are complete.
 
 Step 1000 sets a new OP15–20 aggregate high of 9.08%, above the previous
 8.92% at step 850, while OP11–20 remains near its recent range at 20.30%.
