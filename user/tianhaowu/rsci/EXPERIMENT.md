@@ -1702,7 +1702,7 @@ All four routers still returned HTTP 200. Step 650 has complete matching
 trainer/orchestrator checkpoints, stable inference weights, 512 training rows,
 and 200 held-out rows for every OP11–25 shard.
 
-The train-reward and held-out trends through step 4950 are:
+The train-reward and held-out trends through step 4975 are:
 
 | eval step | preceding 25-step released-strict train reward | OP11–20 strict | OP15–20 strict | OP21–25 strict |
 | ---: | ---: | ---: | ---: | ---: |
@@ -1885,6 +1885,7 @@ The train-reward and held-out trends through step 4950 are:
 | 4900 | 0.4509 | 23.15% | 13.17% | 3.50% |
 | 4925 | 0.4895 | 22.80% | 12.58% | 4.50% |
 | 4950 | 0.4087 | 23.85% | 12.58% | 4.70% |
+| 4975 | 0.3656 | 24.65% | 13.25% | 4.40% |
 
 At step 650, strict pass@1 is OP11 52.0%, OP12 47.5%, OP13 38.5%, OP14
 33.5%, OP15 18.5%, OP16 11.5%, OP17 5.5%, OP18 1.5%, OP19 0.5%, and OP20–25
@@ -1892,7 +1893,7 @@ At step 650, strict pass@1 is OP11 52.0%, OP12 47.5%, OP13 38.5%, OP14
 encouraging, but individual evaluations remain noisy single-rollout estimates:
 Through step 650, OP11–20 aggregate accuracy had fluctuated between 17.9% and
 20.9%, and no strict success had reached OP20 or OP21–25. The figure above now
-contains every complete validation through step 4950. Step 675 temporarily
+contains every complete validation through step 4975. Step 675 temporarily
 dipped to 19.60% over OP11–20 and 5.17% over OP15–20; step 700 rebounded to
 19.90% and 6.33%, respectively. Step 725 then reached 20.05% over OP11–20 and
 a new high of 7.08% over OP15–20. Step 750 continued the trend at 20.10% and
@@ -6874,6 +6875,55 @@ stays at most 0.7501 and ends at 0.0630. No NaN, OOM, NCCL failure, or
 persistent rollout failure appears. The step-4950 trainer and orchestrator
 checkpoints, eight distributed trainer shards, stable inference weights, 512
 training rows, and all 3,000 evaluation rows are complete.
+
+Step 4975 rebounds to 24.65% on OP11–20, 13.25% on OP15–20, and 4.40% on
+OP21–25. OP20 scores 7.50% on both released and executable strict, 2.766
+percentage points above the matched strict-filter OP20 SFT checkpoint's
+4.734% pass@1. The rolling last-ten-checkpoint means return to 7.40% released
+and 7.30% executable, respectively 2.666 and 2.566 points above that SFT
+result. OP21, OP22, OP23, OP24, and OP25 score 8.5%, 7.0%, 4.5%, 1.0%, and
+1.0%, respectively. OP21 index 86 is a new executable success, expanding
+cumulative executable OP20–25 breadth to 42, 45, 38, 25, 13, and seven prompts.
+
+Across the full evaluation, 537/3,000 trajectories pass released strict and
+524/3,000 pass the raw executable grader, for 97.58% raw precision. OP11
+indices 15 and 58 correctly derive irrelevant Beverly Forest values, while
+OP12 index 102 correctly derives the irrelevant Verdi futuristic-sci-fi count;
+all three are benign. Recurring OP14 index 55 derives the Shoreline elementary
+count from the wrong total and is invalid. Counting the benign rows gives 527
+semantically valid trajectories, 98.14% semantic precision, and ten genuine
+defects. After this adjustment, issue-code counts are seven each of
+`equation_mismatch` and `solver_equation_mismatch`, and one `unexpected_node`,
+with overlap. Evaluation has no rollout errors, one truncation, and mixes
+adjacent asynchronous policy versions 4974 and 4975.
+
+The preceding train window has released-strict reward 0.3656 and raw
+executable-strict success 0.3536, for 96.71% raw precision among 4,680 released
+passes. Prompt 725 correctly derives the irrelevant Clearwater private-middle
+count and is benign. Prompt 271 invents an unsupported Glenfield
+private-middle-school node and is invalid. Counting only the benign row gives
+4,527 semantically valid trajectories, 96.73% semantic precision, 0.3537
+semantically clean reward, and 153 genuine defects. This is a sharp recovery
+from the 90.27% semantic precision in the preceding step-4950 window.
+
+Prompt 567 contributes 75 by clobbering a symbolic variable and changing the
+correct total `11*x + 15` to `15*x + 15` before forcing `x = 4`. Prompt 768
+contributes 15 by changing `39*x` to `51*x` and claiming `117 / 51 = 3`.
+Prompt 662 contributes 14 by changing the correct total `x + 127` to
+`x + 148`, then solving a contradictory `x + 64 = 131` equation as `x = 4`.
+These three problem clusters account for 104/153 genuine defects. After the
+semantic adjustment, issue-code counts are 149 `equation_mismatch`, 129
+`solver_equation_mismatch`, and one each of `unexpected_node` and
+`expression_syntax`, with overlap.
+
+Logged off-policy cancellation errors average 2.23% and occur only at steps
+4957 and 4974, peaking transiently at 37.0%; none survives into the 12,800
+saved rows. The saved rows contain one truncation at step 4971. Mismatch KL
+stays at most 0.0013 and ends at 0.0001. Gradient norm stays at most 0.4870 and
+ends at 0.0441. No NaN, OOM, NCCL failure, or persistent rollout failure
+appears. The step-4975 trainer and orchestrator checkpoints, eight distributed
+trainer shards, stable inference weights, 512 training rows, and all 3,000
+evaluation rows are complete.
 
 Step 1000 sets a new OP15–20 aggregate high of 9.08%, above the previous
 8.92% at step 850, while OP11–20 remains near its recent range at 20.30%.
