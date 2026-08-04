@@ -1702,7 +1702,7 @@ All four routers still returned HTTP 200. Step 650 has complete matching
 trainer/orchestrator checkpoints, stable inference weights, 512 training rows,
 and 200 held-out rows for every OP11–25 shard.
 
-The train-reward and held-out trends through step 2050 are:
+The train-reward and held-out trends through step 2075 are:
 
 | eval step | preceding 25-step released-strict train reward | OP11–20 strict | OP15–20 strict | OP21–25 strict |
 | ---: | ---: | ---: | ---: | ---: |
@@ -1769,6 +1769,7 @@ The train-reward and held-out trends through step 2050 are:
 | 2000 | 0.3163 | 24.75% | 12.00% | 2.50% |
 | 2025 | 0.3816 | 26.20% | 12.92% | 2.80% |
 | 2050 | 0.3348 | 24.60% | 12.00% | 2.00% |
+| 2075 | 0.4068 | 24.65% | 12.75% | 1.60% |
 
 At step 650, strict pass@1 is OP11 52.0%, OP12 47.5%, OP13 38.5%, OP14
 33.5%, OP15 18.5%, OP16 11.5%, OP17 5.5%, OP18 1.5%, OP19 0.5%, and OP20–25
@@ -1776,7 +1777,7 @@ At step 650, strict pass@1 is OP11 52.0%, OP12 47.5%, OP13 38.5%, OP14
 encouraging, but individual evaluations remain noisy single-rollout estimates:
 Through step 650, OP11–20 aggregate accuracy had fluctuated between 17.9% and
 20.9%, and no strict success had reached OP20 or OP21–25. The figure above now
-contains every complete validation through step 2050. Step 675 temporarily
+contains every complete validation through step 2075. Step 675 temporarily
 dipped to 19.60% over OP11–20 and 5.17% over OP15–20; step 700 rebounded to
 19.90% and 6.33%, respectively. Step 725 then reached 20.05% over OP11–20 and
 a new high of 7.08% over OP15–20. Step 750 continued the trend at 20.10% and
@@ -2469,6 +2470,23 @@ executable-strict success 0.3300, and 98.55% raw executable precision. Logged
 off-policy cancellation errors average 1.25%; saved-train truncation is 0.10%.
 Mismatch KL stays at most 0.0014. Gradient norm briefly reaches 0.6710 at step
 2038 and then returns without NaNs or divergence.
+
+Step 2075 holds the in-range aggregate at 24.65% and raises OP15–20 to 12.75%,
+but OP21–25 falls to 1.60%. OP21, OP22, and OP23 score 3.0%, 4.0%, and 1.0%;
+OP24 and OP25 both score zero. No new OP20–25 prompt coverage appears, so
+cumulative executable-strict breadth remains 25 distinct OP20 prompts, 26 OP21
+prompts, 21 OP22 prompts, 16 OP23 prompts, six OP24 prompts, and one OP25
+prompt. Across the full evaluation, 509/3,000 trajectories pass released
+strict and 501/3,000 pass executable strict, for 98.43% raw executable
+precision. All 16 released-strict OP21–23 positives pass executable strict.
+Evaluation truncation is 0.43%, with no rollout errors.
+
+The preceding train window has released-strict reward 0.4068,
+executable-strict success 0.4005, and 98.46% raw executable precision. Logged
+off-policy cancellation errors average 1.22%; saved-train truncation is 0.12%.
+Mismatch KL briefly reaches 0.0088 at step 2064 but returns to zero on the next
+three steps; gradient norm stays at most 0.5386. There are no NaNs or persistent
+instability.
 
 Step 1000 sets a new OP15–20 aggregate high of 9.08%, above the previous
 8.92% at step 850, while OP11–20 remains near its recent range at 20.30%.
