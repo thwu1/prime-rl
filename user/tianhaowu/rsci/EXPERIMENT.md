@@ -1702,7 +1702,7 @@ All four routers still returned HTTP 200. Step 650 has complete matching
 trainer/orchestrator checkpoints, stable inference weights, 512 training rows,
 and 200 held-out rows for every OP11–25 shard.
 
-The train-reward and held-out trends through step 1350 are:
+The train-reward and held-out trends through step 1375 are:
 
 | eval step | preceding 25-step released-strict train reward | OP11–20 strict | OP15–20 strict | OP21–25 strict |
 | ---: | ---: | ---: | ---: | ---: |
@@ -1741,6 +1741,7 @@ The train-reward and held-out trends through step 1350 are:
 | 1300 | 0.3590 | 17.75% | 9.08% | 0.70% |
 | 1325 | 0.2984 | 18.95% | 9.92% | 1.10% |
 | 1350 | 0.2770 | 17.85% | 9.25% | 0.80% |
+| 1375 | 0.3144 | 17.75% | 9.67% | 0.70% |
 
 At step 650, strict pass@1 is OP11 52.0%, OP12 47.5%, OP13 38.5%, OP14
 33.5%, OP15 18.5%, OP16 11.5%, OP17 5.5%, OP18 1.5%, OP19 0.5%, and OP20–25
@@ -1748,7 +1749,7 @@ At step 650, strict pass@1 is OP11 52.0%, OP12 47.5%, OP13 38.5%, OP14
 encouraging, but individual evaluations remain noisy single-rollout estimates:
 Through step 650, OP11–20 aggregate accuracy had fluctuated between 17.9% and
 20.9%, and no strict success had reached OP20 or OP21–25. The figure above now
-contains every complete validation through step 1350. Step 675 temporarily
+contains every complete validation through step 1375. Step 675 temporarily
 dipped to 19.60% over OP11–20 and 5.17% over OP15–20; step 700 rebounded to
 19.90% and 6.33%, respectively. Step 725 then reached 20.05% over OP11–20 and
 a new high of 7.08% over OP15–20. Step 750 continued the trend at 20.10% and
@@ -1894,6 +1895,20 @@ the 95th percentile rises from 572 to 628, and truncation rises from 0.5% to
 1.9%. Across all OP11–25 prompts, truncation rises from 0.23% to 1.07%. These
 rates are not yet large enough to explain the frontier variance, but the fixed
 2,048-token sequence budget is now a potential bottleneck worth tracking.
+
+Step 1375 restores OP23 to 1.0% on repeated index 165 and new index 32. The new
+trajectory executes coherently to answer 16, and index 165 has now passed at
+four checkpoints with four distinct response hashes. Cumulative
+executable-strict breadth rises to three OP23 prompts, while OP20, OP21, and
+OP22 remain at 11, 15, and nine prompts. OP11–20 is 17.75%, OP15–20 is 9.67%,
+and OP21–25 is 0.70%. Across the full evaluation, 362/3,000 trajectories pass
+released strict and 341/3,000 pass executable strict, for 94.20% executable
+precision. The preceding train window has released-strict reward 0.3144,
+executable-strict success 0.3045, 96.84% executable precision, 0.84% transient
+off-policy cancellation errors, and 0.24% truncation. Evaluation truncation
+falls from 1.07% at step 1350 to 0.20%, so the length-pressure spike did not
+persist monotonically, although the longer-run completion-length trend still
+warrants monitoring.
 
 Step 1000 sets a new OP15–20 aggregate high of 9.08%, above the previous
 8.92% at step 850, while OP11–20 remains near its recent range at 20.30%.
