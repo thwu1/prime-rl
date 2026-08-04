@@ -29,6 +29,24 @@ def test_raise_error_if_no_prompt_and_completion(build_dummy_dataset):
         next(iter(sft_dataset))
 
 
+def test_sft_dataset_expands_example_weight():
+    raw_dataset = Dataset.from_list(
+        [
+            {
+                "prompt": [{"role": "user", "content": "Question"}],
+                "completion": [{"role": "assistant", "content": "Answer"}],
+                "sft_weight": 0.25,
+            }
+        ]
+    )
+    tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen3-0.6B", local_files_only=True)
+    dataset = SFTDataset(raw_dataset, tokenizer=tokenizer, weight_column="sft_weight", max_examples=1)
+
+    sample = next(iter(dataset))
+
+    assert sample["loss_weight"] == [0.25] * len(sample["input_ids"])
+
+
 @pytest.mark.parametrize("max_epochs", [1, 2, 4])
 def test_sft_first_exhausted(build_dummy_dataset, max_epochs: int):
     a = build_dummy_dataset("a", 1)
