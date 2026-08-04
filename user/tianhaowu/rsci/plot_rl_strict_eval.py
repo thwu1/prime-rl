@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -52,7 +53,10 @@ def load_complete_evals(root: Path) -> dict[int, list[float]]:
 def main() -> None:
     args = parse_args()
     evaluations = load_complete_evals(args.rollouts_root)
-    figure, axis = plt.subplots(figsize=(10.5, 4.8), constrained_layout=True)
+    legend_columns = max(1, math.ceil(len(evaluations) / 12))
+    figure_width = 10.5 + 2.0 * legend_columns
+    figure, axis = plt.subplots(figsize=(figure_width, 5.2))
+    figure.subplots_adjust(left=0.07, right=10.3 / figure_width, bottom=0.13, top=0.9)
     colors = plt.cm.viridis_r([index / max(1, len(evaluations) - 1) for index in range(len(evaluations))])
 
     for color, (step, scores) in zip(colors, evaluations.items(), strict=True):
@@ -63,7 +67,14 @@ def main() -> None:
     axis.set_ylabel("strict pass@1 (%)")
     axis.set_title("Strict-reward GRPO held-out validation")
     axis.grid(alpha=0.3, linestyle="--")
-    axis.legend(title="evaluation")
+    axis.legend(
+        title="evaluation",
+        loc="upper left",
+        bbox_to_anchor=(1.01, 1.0),
+        ncols=legend_columns,
+        fontsize=8,
+        columnspacing=1.0,
+    )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     metadata = {"Date": None} if args.output.suffix.lower() == ".svg" else None
     figure.savefig(args.output, bbox_inches="tight", metadata=metadata)

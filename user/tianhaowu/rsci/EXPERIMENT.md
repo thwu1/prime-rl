@@ -1715,6 +1715,7 @@ The train-reward and held-out trends through step 650 are:
 | 650 | 0.2957 | 20.90% | 6.25% | 0.00% |
 | 675 | 0.2700 | 19.60% | 5.17% | 0.00% |
 | 700 | 0.2548 | 19.90% | 6.33% | 0.00% |
+| 725 | 0.2613 | 20.05% | 7.08% | 0.00% |
 
 At step 650, strict pass@1 is OP11 52.0%, OP12 47.5%, OP13 38.5%, OP14
 33.5%, OP15 18.5%, OP16 11.5%, OP17 5.5%, OP18 1.5%, OP19 0.5%, and OP20–25
@@ -1722,8 +1723,9 @@ At step 650, strict pass@1 is OP11 52.0%, OP12 47.5%, OP13 38.5%, OP14
 encouraging, but individual evaluations remain noisy single-rollout estimates:
 OP11–20 aggregate accuracy has fluctuated between 17.9% and 20.9% since step
 500, and no strict success has reached OP20 or OP21–25. The figure above now
-contains every complete validation through step 700. Step 675 temporarily
+contains every complete validation through step 725. Step 675 temporarily
 dipped to 19.60% over OP11–20 and 5.17% over OP15–20; step 700 rebounded to
-19.90% and 6.33%, respectively. This supports treating individual 200-prompt,
-single-rollout checkpoint movements as noise unless they persist across
-multiple evaluations.
+19.90% and 6.33%, respectively. Step 725 then reached 20.05% over OP11–20 and
+a new high of 7.08% over OP15–20, with OP17 at 9.5% and OP19 at 1.5%. This
+supports treating individual 200-prompt, single-rollout checkpoint movements
+as noise unless they persist across multiple evaluations.
