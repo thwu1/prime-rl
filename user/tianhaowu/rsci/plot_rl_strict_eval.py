@@ -4,11 +4,11 @@
 from __future__ import annotations
 
 import argparse
-import json
 import math
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+import orjson
 
 OPS = tuple(range(11, 26))
 plt.rcParams["svg.hashsalt"] = "rsci-rl-strict-eval"
@@ -23,9 +23,9 @@ def parse_args() -> argparse.Namespace:
 
 def load_score(path: Path) -> float:
     strict_scores: list[float] = []
-    with path.open(encoding="utf-8") as handle:
+    with path.open("rb") as handle:
         for line in handle:
-            row = json.loads(line)
+            row = orjson.loads(line)
             strict = float(row["metrics"]["strict_dependency_graph_reward"])
             reward = float(row["rewards"]["reward"])
             if reward != strict:
