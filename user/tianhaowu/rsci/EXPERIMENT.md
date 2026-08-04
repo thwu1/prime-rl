@@ -1702,7 +1702,7 @@ All four routers still returned HTTP 200. Step 650 has complete matching
 trainer/orchestrator checkpoints, stable inference weights, 512 training rows,
 and 200 held-out rows for every OP11–25 shard.
 
-The train-reward and held-out trends through step 1100 are:
+The train-reward and held-out trends through step 1125 are:
 
 | eval step | preceding 25-step released-strict train reward | OP11–20 strict | OP15–20 strict | OP21–25 strict |
 | ---: | ---: | ---: | ---: | ---: |
@@ -1731,6 +1731,7 @@ The train-reward and held-out trends through step 1100 are:
 | 1050 | 0.2387 | 18.90% | 8.25% | 0.20% |
 | 1075 | 0.2925 | 19.45% | 8.42% | 0.50% |
 | 1100 | 0.3370 | 20.35% | 9.08% | 0.20% |
+| 1125 | 0.2083 | 20.10% | 8.58% | 0.20% |
 
 At step 650, strict pass@1 is OP11 52.0%, OP12 47.5%, OP13 38.5%, OP14
 33.5%, OP15 18.5%, OP16 11.5%, OP17 5.5%, OP18 1.5%, OP19 0.5%, and OP20–25
@@ -1738,7 +1739,7 @@ At step 650, strict pass@1 is OP11 52.0%, OP12 47.5%, OP13 38.5%, OP14
 encouraging, but individual evaluations remain noisy single-rollout estimates:
 Through step 650, OP11–20 aggregate accuracy had fluctuated between 17.9% and
 20.9%, and no strict success had reached OP20 or OP21–25. The figure above now
-contains every complete validation through step 1100. Step 675 temporarily
+contains every complete validation through step 1125. Step 675 temporarily
 dipped to 19.60% over OP11–20 and 5.17% over OP15–20; step 700 rebounded to
 19.90% and 6.33%, respectively. Step 725 then reached 20.05% over OP11–20 and
 a new high of 7.08% over OP15–20. Step 750 continued the trend at 20.10% and
@@ -1908,3 +1909,16 @@ evaluation, 409/3,000 trajectories pass released strict and 400/3,000 pass
 executable strict, for 97.80% executable precision. The train window has
 executable-strict success 0.3324, 98.63% executable precision, 0.67% transient
 off-policy cancellation errors, and zero truncation.
+
+Step 1125 produces a third independent executable-strict solution for OP22
+index 6, after steps 1025 and 1100. All three responses have distinct hashes,
+and the newest trajectory again executes cleanly to answer 50. OP21 repeats
+known index 90 and OP20 repeats indices 71 and 92. This pattern identifies a
+prompt-specific solvable pocket: the model has genuine OP22 breadth, but
+success remains concentrated on a few instances rather than representing
+uniform operation-count generalization. OP11–20 is 20.10%, OP15–20 is 8.58%,
+and OP21–25 is 0.20%. Across the full evaluation, 404/3,000 trajectories pass
+released strict and 395/3,000 pass executable strict, for 97.77% executable
+precision. The preceding train window has released-strict reward 0.2083,
+executable-strict success 0.2005, 96.25% executable precision, 2.00% transient
+off-policy cancellation errors, and 0.03% truncation.
