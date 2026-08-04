@@ -95,6 +95,9 @@ class SFTDataConfig(BaseDataConfig):
     seed: int = 0
     """Random seed for shuffling. Re-shuffled per epoch by adding the epoch count to the seed."""
 
+    weight_column: str | None = None
+    """Optional scalar example-weight column. The weight is applied to every trainable token in the example."""
+
     # Configuring
     loss_mask: LossMaskConfig = LossMaskConfig()
     """Which message types contribute to the loss."""
@@ -354,6 +357,14 @@ class SFTConfig(BaseConfig):
             )
 
         self.model.fused_lm_head_token_chunk_size = "disabled"
+        return self
+
+    @model_validator(mode="after")
+    def validate_weighted_loss_impl(self):
+        weighted_train = self.data.type == "sft" and self.data.weight_column is not None
+        weighted_val = self.val is not None and self.val.data.weight_column is not None
+        if (weighted_train or weighted_val) and self.loss_impl in ("liger_fused", "quack_fused"):
+            raise ValueError("SFT example weights require loss_impl = 'torch' or 'liger'")
         return self
 
     @model_validator(mode="after")
