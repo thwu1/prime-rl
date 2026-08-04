@@ -1702,7 +1702,7 @@ All four routers still returned HTTP 200. Step 650 has complete matching
 trainer/orchestrator checkpoints, stable inference weights, 512 training rows,
 and 200 held-out rows for every OP11–25 shard.
 
-The train-reward and held-out trends through step 950 are:
+The train-reward and held-out trends through step 975 are:
 
 | eval step | preceding 25-step released-strict train reward | OP11–20 strict | OP15–20 strict | OP21–25 strict |
 | ---: | ---: | ---: | ---: | ---: |
@@ -1725,6 +1725,7 @@ The train-reward and held-out trends through step 950 are:
 | 900 | 0.2310 | 20.35% | 8.00% | 0.10% |
 | 925 | 0.2341 | 20.20% | 7.92% | 0.30% |
 | 950 | 0.2616 | 19.45% | 6.75% | 0.00% |
+| 975 | 0.3089 | 20.35% | 8.25% | 0.20% |
 
 At step 650, strict pass@1 is OP11 52.0%, OP12 47.5%, OP13 38.5%, OP14
 33.5%, OP15 18.5%, OP16 11.5%, OP17 5.5%, OP18 1.5%, OP19 0.5%, and OP20–25
@@ -1732,7 +1733,7 @@ At step 650, strict pass@1 is OP11 52.0%, OP12 47.5%, OP13 38.5%, OP14
 encouraging, but individual evaluations remain noisy single-rollout estimates:
 Through step 650, OP11–20 aggregate accuracy had fluctuated between 17.9% and
 20.9%, and no strict success had reached OP20 or OP21–25. The figure above now
-contains every complete validation through step 950. Step 675 temporarily
+contains every complete validation through step 975. Step 675 temporarily
 dipped to 19.60% over OP11–20 and 5.17% over OP15–20; step 700 rebounded to
 19.90% and 6.33%, respectively. Step 725 then reached 20.05% over OP11–20 and
 a new high of 7.08% over OP15–20. Step 750 continued the trend at 20.10% and
@@ -1819,3 +1820,15 @@ executable strict, for 97.17% executable precision among released positives.
 The preceding train window has released-strict reward 0.2616,
 executable-strict success 0.2584, 98.75% executable precision, 0.62% transient
 off-policy cancellation errors, and 0.02% truncation.
+
+Step 975 rebounds to 20.35% over OP11–20 and 8.25% over OP15–20. OP21
+returns to 1.0% with executable-strict passes on indices 90 and 140. Both are
+previously solved prompts, so this adds replication rather than frontier
+breadth; their response hashes differ from step 925 and manual inspection
+confirms two newly sampled, internally consistent derivations to answers 41
+and 37. OP20 similarly scores 1.0% on previously solved indices 52 and 71.
+Across the full evaluation, 409/3,000 trajectories pass released strict and
+401/3,000 pass executable strict, for 98.04% executable precision. The
+preceding train window has released-strict reward 0.3089, executable-strict
+success 0.2964, 95.95% executable precision, 1.76% transient off-policy
+cancellation errors, and 0.02% truncation.
