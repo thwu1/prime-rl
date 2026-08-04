@@ -1721,6 +1721,7 @@ The train-reward and held-out trends through step 850 are:
 | 800 | 0.2100 | 22.40% | 8.67% | 0.00% |
 | 825 | 0.3104 | 21.90% | 8.50% | 0.10% |
 | 850 | 0.2813 | 22.00% | 8.92% | 0.00% |
+| 875 | 0.2521 | 21.80% | 8.33% | 0.10% |
 
 At step 650, strict pass@1 is OP11 52.0%, OP12 47.5%, OP13 38.5%, OP14
 33.5%, OP15 18.5%, OP16 11.5%, OP17 5.5%, OP18 1.5%, OP19 0.5%, and OP20–25
@@ -1728,7 +1729,7 @@ At step 650, strict pass@1 is OP11 52.0%, OP12 47.5%, OP13 38.5%, OP14
 encouraging, but individual evaluations remain noisy single-rollout estimates:
 Through step 650, OP11–20 aggregate accuracy had fluctuated between 17.9% and
 20.9%, and no strict success had reached OP20 or OP21–25. The figure above now
-contains every complete validation through step 850. Step 675 temporarily
+contains every complete validation through step 875. Step 675 temporarily
 dipped to 19.60% over OP11–20 and 5.17% over OP15–20; step 700 rebounded to
 19.90% and 6.33%, respectively. Step 725 then reached 20.05% over OP11–20 and
 a new high of 7.08% over OP15–20. Step 750 continued the trend at 20.10% and
@@ -1771,3 +1772,13 @@ total of 49. This is a genuine first success on the hardest trained operation,
 although one sample is not yet robust. The preceding train window has released
 strict reward 0.2813 and executable-strict success 0.2790; 99.17% of released
 positives survive execution. OP21–25 returned to zero.
+
+Step 875 stays near the recent plateau at 21.80% over OP11–20 and 8.33% over
+OP15–20. Both OP20 and OP21 score 0.5% and pass executable-strict grading. The
+OP20 success repeats the same held-out problem as step 850 with an independently
+sampled derivation. The OP21 success is a different held-out problem from the
+genuine step-775 pass (dataset indices 90 and 26), so the model has now produced
+two executable-strict OP21 successes on distinct prompts, separated by 100
+updates. The rate remains only 1/200 at each checkpoint. The preceding train
+window has released-strict reward 0.2521, executable-strict success 0.2415, and
+95.79% executable precision among released positives.
