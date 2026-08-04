@@ -1702,7 +1702,7 @@ All four routers still returned HTTP 200. Step 650 has complete matching
 trainer/orchestrator checkpoints, stable inference weights, 512 training rows,
 and 200 held-out rows for every OP11–25 shard.
 
-The train-reward and held-out trends through step 1475 are:
+The train-reward and held-out trends through step 1500 are:
 
 | eval step | preceding 25-step released-strict train reward | OP11–20 strict | OP15–20 strict | OP21–25 strict |
 | ---: | ---: | ---: | ---: | ---: |
@@ -1746,6 +1746,7 @@ The train-reward and held-out trends through step 1475 are:
 | 1425 | 0.3197 | 19.05% | 9.50% | 1.00% |
 | 1450 | 0.2141 | 19.40% | 9.58% | 1.20% |
 | 1475 | 0.3700 | 16.25% | 8.92% | 1.30% |
+| 1500 | 0.3388 | 16.70% | 9.00% | 1.70% |
 
 At step 650, strict pass@1 is OP11 52.0%, OP12 47.5%, OP13 38.5%, OP14
 33.5%, OP15 18.5%, OP16 11.5%, OP17 5.5%, OP18 1.5%, OP19 0.5%, and OP20–25
@@ -1753,7 +1754,7 @@ At step 650, strict pass@1 is OP11 52.0%, OP12 47.5%, OP13 38.5%, OP14
 encouraging, but individual evaluations remain noisy single-rollout estimates:
 Through step 650, OP11–20 aggregate accuracy had fluctuated between 17.9% and
 20.9%, and no strict success had reached OP20 or OP21–25. The figure above now
-contains every complete validation through step 1475. Step 675 temporarily
+contains every complete validation through step 1500. Step 675 temporarily
 dipped to 19.60% over OP11–20 and 5.17% over OP15–20; step 700 rebounded to
 19.90% and 6.33%, respectively. Step 725 then reached 20.05% over OP11–20 and
 a new high of 7.08% over OP15–20. Step 750 continued the trend at 20.10% and
@@ -2005,6 +2006,37 @@ the dominant diagnostics remain solver-equation and equality mismatches.
 Gradient norm spikes to 0.7396 at step 1451 and 0.9242 at step 1474 while
 mismatch KL remains at most 0.0007. By step 1480, gradient norm is back to
 0.1347 and mismatch KL to 0.0000, so neither spike persists.
+
+Step 1500 does not replicate OP24, but OP21–25 rises to another new high of
+1.70% through broader OP21–23 coverage. New manually checked,
+executable-strict trajectories appear at OP20 index 50, OP21 index 17, OP22
+indices 144 and 162, and OP23 index 70. Each follows its dependency chain and
+executes to the gold answer. Cumulative breadth is now 14 distinct OP20
+prompts, 18 OP21 prompts, 13 OP22 prompts, six OP23 prompts, and one OP24
+prompt. OP11–20 remains depressed at 16.70% and OP15–20 is 9.00%. Across the
+last two checkpoints, OP11–14 averages 27.75% over 1,600 trajectories, versus
+33.33% over the preceding three checkpoints' 2,400 trajectories, a 5.58-point
+drop. Because OP15–20 remains near 9% while the OOD frontier improves, this is
+consistent with an easy-task/frontier tradeoff rather than uniform collapse.
+Filtering all-zero-advantage groups removes most direct consolidation pressure
+from easy, all-pass prompts and is one plausible mechanism, but these results
+do not by themselves establish causality. Across the full step-1500
+evaluation, 351/3,000 trajectories pass released strict and 332/3,000 pass
+executable strict, for 94.59% raw executable precision. All 17 released-strict
+OP21–23 positives also pass executable strict. Evaluation truncation is 0.37%.
+
+The preceding train window has released-strict reward 0.3388,
+executable-strict success 0.3179, 93.84% raw executable precision, 1.76%
+transient off-policy cancellation errors, and 0.03% truncation. Of 267 raw
+released-only rows, 93 come from OP14 task 765 and are executable-grader false
+negatives: the model correctly derives the problem-stated extra fact `adult
+crow in Mayer Aquarium = 20`, which the gold solution omits. Counting those
+valid rows raises executable precision to 95.99%. Another 75 rows come from
+OP14 forward-reverse task 706 and contain genuine algebra errors. Outside
+these two concentrated groups, raw executable precision is 97.62%. Mismatch
+KL spikes transiently to 0.0031–0.0058 at steps 1483–1487 with gradient norm
+at most 0.1675, then recovers to 0.0004 by step 1495; maximum gradient norm in
+the full window is 0.3277.
 
 Step 1000 sets a new OP15–20 aggregate high of 9.08%, above the previous
 8.92% at step 850, while OP11–20 remains near its recent range at 20.30%.
