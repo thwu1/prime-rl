@@ -12,6 +12,7 @@ def test_reduce_token_loss_without_weights():
 
     assert loss_sum.item() == 9.0
     assert normalizer.item() == 3.0
+    assert normalizer.dtype == torch.int64
 
 
 def test_reduce_token_loss_with_weights():
@@ -23,3 +24,4 @@ def test_reduce_token_loss_with_weights():
 
     assert loss_sum.item() == pytest.approx(10.5)
     assert normalizer.item() == pytest.approx(4.5)
+    assert normalizer.dtype == torch.float32

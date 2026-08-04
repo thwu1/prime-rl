@@ -237,6 +237,9 @@ def train(config: SFTConfig):
         case _:
             raise ValueError(f"Invalid loss implementation: {config.loss_impl}")
 
+    weighted_train = config.data.type == "sft" and config.data.weight_column is not None
+    weighted_val = config.val is not None and config.val.data.weight_column is not None
+
     def compute_loss(micro_batch: dict) -> tuple[torch.Tensor, torch.Tensor]:
         """Forward pass returning the loss sum and its reduction normalizer."""
         input_ids = micro_batch["input_ids"].to("cuda")
@@ -267,7 +270,7 @@ def train(config: SFTConfig):
                 masked_target_ids[~loss_mask] = FUSED_CE_IGNORE_INDEX
                 out = forward(model, input_ids, position_ids, labels=masked_target_ids)
                 loss_sum = out["loss"] * token_count
-                loss_normalizer = token_count.to(dtype=torch.float32)
+                loss_normalizer = token_count
             else:
                 out = forward(model, input_ids, position_ids)
                 logits = out["logits"]
@@ -284,7 +287,8 @@ def train(config: SFTConfig):
     def run_eval_loop(data_iter):
         """Validation forward loop. Returns the globally normalized mean loss."""
         total_loss_sum = torch.tensor(0.0, device="cuda")
-        total_loss_normalizer = torch.tensor(0.0, device="cuda")
+        normalizer_dtype = torch.float32 if weighted_val else torch.int64
+        total_loss_normalizer = torch.tensor(0, dtype=normalizer_dtype, device="cuda")
         nan_count = torch.tensor(0, device="cuda")
 
         # Variable-length packing yields different per-rank batch counts. Under FSDP
@@ -392,7 +396,8 @@ def train(config: SFTConfig):
         forward_backward_start_time = time.perf_counter()
 
         step_loss_sum = torch.tensor(0.0, device="cuda")
-        step_local_loss_normalizer = torch.tensor(0.0, device="cuda")
+        normalizer_dtype = torch.float32 if weighted_train else torch.int64
+        step_local_loss_normalizer = torch.tensor(0, dtype=normalizer_dtype, device="cuda")
         nan_loss_count = torch.tensor(0, device="cuda")
         is_moe_model = is_tt_moe_model(model)
         moe_stats = (
