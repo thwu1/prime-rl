@@ -1702,7 +1702,7 @@ All four routers still returned HTTP 200. Step 650 has complete matching
 trainer/orchestrator checkpoints, stable inference weights, 512 training rows,
 and 200 held-out rows for every OP11–25 shard.
 
-The train-reward and held-out trends through step 1000 are:
+The train-reward and held-out trends through step 1025 are:
 
 | eval step | preceding 25-step released-strict train reward | OP11–20 strict | OP15–20 strict | OP21–25 strict |
 | ---: | ---: | ---: | ---: | ---: |
@@ -1727,6 +1727,7 @@ The train-reward and held-out trends through step 1000 are:
 | 950 | 0.2616 | 19.45% | 6.75% | 0.00% |
 | 975 | 0.3089 | 20.35% | 8.25% | 0.20% |
 | 1000 | 0.2725 | 20.30% | 9.08% | 0.00% |
+| 1025 | 0.3112 | 18.15% | 8.08% | 0.10% |
 
 At step 650, strict pass@1 is OP11 52.0%, OP12 47.5%, OP13 38.5%, OP14
 33.5%, OP15 18.5%, OP16 11.5%, OP17 5.5%, OP18 1.5%, OP19 0.5%, and OP20–25
@@ -1734,7 +1735,7 @@ At step 650, strict pass@1 is OP11 52.0%, OP12 47.5%, OP13 38.5%, OP14
 encouraging, but individual evaluations remain noisy single-rollout estimates:
 Through step 650, OP11–20 aggregate accuracy had fluctuated between 17.9% and
 20.9%, and no strict success had reached OP20 or OP21–25. The figure above now
-contains every complete validation through step 1000. Step 675 temporarily
+contains every complete validation through step 1025. Step 675 temporarily
 dipped to 19.60% over OP11–20 and 5.17% over OP15–20; step 700 rebounded to
 19.90% and 6.33%, respectively. Step 725 then reached 20.05% over OP11–20 and
 a new high of 7.08% over OP15–20. Step 750 continued the trend at 20.10% and
@@ -1846,3 +1847,18 @@ executable strict, for 97.04% executable precision. The preceding train
 window has released-strict reward 0.2725, executable-strict success 0.2634,
 96.65% executable precision, 0.29% transient off-policy cancellation errors,
 and 0.01% truncation.
+
+Step 1025 falls to 18.15% over OP11–20 while retaining 8.08% over OP15–20,
+but it produces the first genuine OP22 success. The single OP22 pass is held-out
+index 6 and passes released strict, executable strict, and answer grading.
+Manual inspection confirms the full chain: Taylor Movie Festival totals 4,
+Verdi Movie Festival totals 11, and Northwood Movie Festival components 17,
+11, and 22 sum to the exact answer 50. This expands observed executable-strict
+prompt coverage two operations beyond the OP11–20 training range, but at only
+1/200 while OP21 is zero at this checkpoint, it is a low-probability frontier
+event rather than robust OP22 pass@1. OP20's two passes repeat known indices 24
+and 92. Across the full evaluation, 364/3,000 trajectories pass released strict
+and 357/3,000 pass executable strict, for 98.08% executable precision. The
+preceding train window has released-strict reward 0.3112, executable-strict
+success 0.3023, 97.11% executable precision, zero rollout errors, and 0.02%
+truncation.
