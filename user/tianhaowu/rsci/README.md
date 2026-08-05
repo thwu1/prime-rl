@@ -130,6 +130,15 @@ OOD-mid evaluations with:
 bash user/tianhaowu/rsci/scripts/run_sft_checkpoint_evals.sh
 ```
 
+## Harmonic pass@k SFT
+
+The harmonic SFT ablation reuses answer-correct base-model trajectories but
+weights each successful row by the marginal value of improving its problem's
+single-sample success rate under an inverse-budget mixture of pass@1 through
+pass@K. See `configs/harmonic/README.md` for the full mathematical derivation,
+worked weights, dataset audit, config composition, smoke test, launch procedure,
+and interpretation limits. `EXPERIMENT.md` remains the frozen result ledger.
+
 ## Iterative frontier SFT
 
 `configs/frontier/` defines two resumable self-improvement tracks. Both sample

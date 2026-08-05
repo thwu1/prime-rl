@@ -1398,6 +1398,10 @@ but does not expand one-of-128 problem coverage in this run.
 
 ## Harmonic pass SFT from the pretrained base
 
+The derivation, weight audit, and reproducible operating procedure are in
+`configs/harmonic/README.md`; this section records the frozen experiment and
+results.
+
 This ablation tests whether difficulty-dependent SFT weighting improves
 easy-to-hard generalization without iterative collection. The fixed pretrained
 base generated 128 trajectories for each of 200 released problems at each of
