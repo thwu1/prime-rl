@@ -31,6 +31,8 @@ NODE_COUNT=${SLURM_NNODES:-1}
 if [ "$NODE_COUNT" -eq 1 ]; then
   uv run user/tianhaowu/rsci/snapshot_configs.py "$CONFIG"
 
+  export VLLM_CACHE_ROOT="${SLURM_TMPDIR:-/tmp}/rsci-vllm-${SLURM_JOB_ID:-local}-0"
+  mkdir -p "$VLLM_CACHE_ROOT"
   setsid uv run inference @ "$INFER_CONFIG" >"$OUTPUT_DIR/server.log" 2>&1 &
   SERVER_PID=$!
   cleanup() {

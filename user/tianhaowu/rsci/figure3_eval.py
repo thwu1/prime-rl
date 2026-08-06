@@ -39,7 +39,6 @@ def load_config(path: Path) -> dict[str, Any]:
         config = tomllib.load(handle)
     eval_config = config["eval"]
     required = {
-        "data_dir",
         "operations",
         "examples_per_operation",
         "output_dir",
@@ -58,6 +57,7 @@ def load_config(path: Path) -> dict[str, Any]:
     missing = sorted(required - eval_config.keys())
     if missing:
         raise ValueError(f"Missing Figure 3 eval config fields: {missing}")
+    data_dirs_by_operation(eval_config)
     if eval_config["samples_per_prompt"] < 1:
         raise ValueError("eval.samples_per_prompt must be positive")
     if eval_config["max_tokens"] < 1:
@@ -79,6 +79,51 @@ def load_config(path: Path) -> dict[str, Any]:
     return config
 
 
+def data_dirs_by_operation(eval_config: dict[str, Any]) -> dict[int, Path]:
+    has_data_dir = "data_dir" in eval_config
+    has_data_sources = "data_sources" in eval_config
+    if has_data_dir == has_data_sources:
+        raise ValueError("Configure exactly one of eval.data_dir or eval.data_sources")
+
+    operations = [int(operation) for operation in eval_config["operations"]]
+    if has_data_dir:
+        data_dir = Path(eval_config["data_dir"])
+        return {operation: data_dir for operation in operations}
+
+    sources = eval_config["data_sources"]
+    if not isinstance(sources, list) or not sources:
+        raise ValueError("eval.data_sources must be a non-empty list")
+
+    ranges: list[tuple[int, int, Path]] = []
+    for index, source in enumerate(sources):
+        if not isinstance(source, dict):
+            raise ValueError(f"eval.data_sources[{index}] must be a table")
+        missing = sorted({"min_op", "max_op", "data_dir"} - source.keys())
+        if missing:
+            raise ValueError(f"eval.data_sources[{index}] is missing fields: {missing}")
+        min_op = int(source["min_op"])
+        max_op = int(source["max_op"])
+        if min_op > max_op:
+            raise ValueError(f"eval.data_sources[{index}] has min_op > max_op")
+        ranges.append((min_op, max_op, Path(source["data_dir"])))
+
+    ranges.sort(key=lambda item: (item[0], item[1]))
+    for previous, current in zip(ranges, ranges[1:], strict=False):
+        if current[0] <= previous[1]:
+            raise ValueError(
+                "eval.data_sources operation ranges overlap: "
+                f"[{previous[0]}, {previous[1]}] and [{current[0]}, {current[1]}]"
+            )
+
+    resolved: dict[int, Path] = {}
+    for operation in operations:
+        matches = [data_dir for min_op, max_op, data_dir in ranges if min_op <= operation <= max_op]
+        if not matches:
+            raise ValueError(f"eval.data_sources do not cover configured operation {operation}")
+        resolved[operation] = matches[0]
+    return resolved
+
+
 def compose_prompt(row: dict[str, Any]) -> str:
     problem = str(row["problem"]).strip()
     question = str(row["question"]).strip()
@@ -86,12 +131,12 @@ def compose_prompt(row: dict[str, Any]) -> str:
 
 
 def load_rows(eval_config: dict[str, Any]) -> tuple[list[dict[str, Any]], dict[str, str]]:
-    data_dir = Path(eval_config["data_dir"])
+    data_dirs = data_dirs_by_operation(eval_config)
     expected = int(eval_config["examples_per_operation"])
     rows: list[dict[str, Any]] = []
     hashes: dict[str, str] = {}
     for operation in eval_config["operations"]:
-        path = data_dir / f"op{operation}-{expected}.jsonl"
+        path = data_dirs[int(operation)] / f"op{operation}-{expected}.jsonl"
         raw = path.read_bytes()
         hashes[str(operation)] = hashlib.sha256(raw).hexdigest()
         operation_rows = [json.loads(line) for line in raw.decode().splitlines() if line.strip()]
@@ -346,9 +391,14 @@ def score(config: dict[str, Any], rows: list[dict[str, Any]], hashes: dict[str, 
             str(operation): float(weight)
             for operation, weight in zip(eval_config["operations"], eval_config["operation_weights"], strict=True)
         }
+    dataset_source = (
+        {"data_dir": eval_config["data_dir"]}
+        if "data_dir" in eval_config
+        else {"data_sources": eval_config["data_sources"]}
+    )
     metrics = {
         "model": eval_config["model"],
-        "data_dir": eval_config["data_dir"],
+        **dataset_source,
         "dataset_sha256_by_op": hashes,
         "operations": [int(op) for op in eval_config["operations"]],
         "num_prompts": len(rows),
