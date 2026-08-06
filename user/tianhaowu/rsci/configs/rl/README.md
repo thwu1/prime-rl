@@ -142,12 +142,15 @@ corresponding OP11–20 and OP15–20 aggregates as secondary endpoints. Also ru
 the same clean 128-rollout evaluator on every fixed step-10,000 checkpoint; do
 not select a different best checkpoint independently for each treatment.
 
-## OP10–40 training pool and OP41–45 evaluation set
+## OP10–40 training pool and OP11–45 evaluation suite
 
 The harder verifier-defect sweep uses a fresh fixed pool with 1,000 unique
 training prompts for each operation from OP10 through OP40: 31,000 training
-prompts in total. Its clean held-out set contains 200 prompts for each of
-OP41–45, or 1,000 evaluation prompts. The generation protocol is deterministic:
+prompts in total. The same preparation job creates 200 clean held-out prompts
+for each of OP41–45. In-training evaluation combines those 1,000 prompts with
+the immutable 200-prompt shards for every operation from OP11 through OP40,
+giving 7,000 strict-evaluation prompts over OP11–45. The generation protocol
+is deterministic:
 
 - OP10–20 training uses seed `20260803` and the released generator schedule;
 - OP21–30 training uses seed `20260803` and `generator_op_max=30`;
@@ -184,12 +187,14 @@ relative to the nominal capacity requirement. This bound covers 5,000 updates
 only when each update consumes exactly four task groups. Enforced
 zero-advantage filtering consumes prompts from homogeneous-reward groups
 without advancing the optimizer step. Those rejected groups count against the
-no-repeat budget. With the orchestrator's guard of at most nine consecutive
-empty four-group batches before a successful batch, a worst-case 5,000-step
-run can consume up to
+no-repeat budget. These configs set
+`max_consecutive_zero_trainable_batches = 100`, allowing at most 99 consecutive
+empty four-group batches before a successful batch; the 100th consecutive empty
+batch still aborts. This safety threshold changes neither rewards nor gradients.
+A worst-case non-aborting 5,000-step run can consume up to
 
 \[
-5000\left(10\frac{512}{128}\right)+\frac{8192}{128}=200064
+5000\left(100\frac{512}{128}\right)+\frac{8192}{128}=2000064
 \]
 
 distinct prompts. Thus 31,000 is sufficient for the nominal schedule but is
@@ -206,19 +211,22 @@ The matched hard-task sweep has five standalone configs:
 
 Every arm starts from the same base checkpoint and differs only in run identity
 and the training false-positive probability. The p00 arm is a fresh strict
-control. Training optimizes `reward/op10-40-strict/mean`; the uncorrupted target
-is logged as
-`metrics/op10-40-strict/strict_dependency_graph_reward`. Held-out OP41–45
-environments omit defect arguments, so their `eval/heldout-opNN-strict/avg@1`
-metrics are clean strict pass@1.
+control. The restarted arms use fresh output directories, W&B names, and SLURM
+job names ending in `-eval11-45-v2`, so earlier artifacts are not resumed or
+overwritten. Training optimizes `reward/op10-40-strict/mean`; the uncorrupted
+target is logged as
+`metrics/op10-40-strict/strict_dependency_graph_reward`. Every OP11–45
+evaluation environment omits defect arguments, so
+`eval/heldout-opNN-strict/avg@1` is clean strict pass@1 for that operation.
+Each environment evaluates its fixed 200 prompts with one rollout per prompt at
+step 0 and every 25 optimizer steps.
 
-For the full generalization curve, evaluate frozen checkpoints on strict
-pass@1 for every operation from OP11 through OP45. The 7,000-prompt suite uses
-the released OP11–20 shards, fixed generated OP21–30 and OP31–40 shards, and
-the experiment's OP41–45 shards. All prompts are globally unique, canonical
-solutions pass the strict grader, and none overlap the 31,000 training prompts.
-Run it outside the asynchronous trainer so every arm is measured at a stable
-policy version without changing training throughput:
+The in-training generalization curve uses the released OP11–20 shards, fixed
+generated OP21–30 and OP31–40 shards, and the experiment's OP41–45 shards. All
+prompts are globally unique, canonical solutions pass the strict grader, and
+none overlap the 31,000 training prompts. For a frozen-checkpoint audit, run the
+same suite outside the asynchronous trainer so every arm is measured at an
+explicit stable policy version:
 
 ```bash
 bash user/tianhaowu/rsci/scripts/submit_rl_checkpoint_eval.sh \

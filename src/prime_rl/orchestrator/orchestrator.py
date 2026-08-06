@@ -92,11 +92,6 @@ monkey_patch_chat_completion_logprobs()
 # shutdown wedges (env-server ZMQ recv, vLLM admin aclose, etc)
 SHUTDOWN_TIMEOUT_S = 300
 
-# Abort after this many consecutive train batches drop all rollouts to
-# post-batch filters — usually a misconfigured filter or homogeneous-reward
-# dataset; fail loudly instead of spinning
-MAX_CONSECUTIVE_EMPTY_BATCHES = 10
-
 # Maximum batches the orchestrator may run ahead of the trainer. The
 # dispatcher is paused via ``update_dispatch_gate`` once this is exceeded;
 # resumed when the watcher advances ``policy.version``.
@@ -580,14 +575,17 @@ class Orchestrator:
 
         if batch.metrics.n_trainable == 0:
             self.consecutive_empty_batches += 1
+            max_zero_trainable_batches = config.max_consecutive_zero_trainable_batches
             get_logger().warning(
                 f"Step {step}: post-batch filters dropped all {len(batch.rollouts)} rollouts "
-                f"(consecutive empty batches: {self.consecutive_empty_batches}/{MAX_CONSECUTIVE_EMPTY_BATCHES})"
+                f"(consecutive zero-trainable batches: "
+                f"{self.consecutive_empty_batches}/{max_zero_trainable_batches})"
             )
-            if self.consecutive_empty_batches >= MAX_CONSECUTIVE_EMPTY_BATCHES:
+            if self.consecutive_empty_batches >= max_zero_trainable_batches:
                 raise RuntimeError(
                     f"{self.consecutive_empty_batches} consecutive zero-trainable batches — "
-                    "check filter config (pre_batch_filters / post_batch_filters) or task difficulty."
+                    "check filter config (pre_batch_filters / post_batch_filters) or task difficulty; "
+                    "increase max_consecutive_zero_trainable_batches only when this is expected."
                 )
             return
         self.consecutive_empty_batches = 0

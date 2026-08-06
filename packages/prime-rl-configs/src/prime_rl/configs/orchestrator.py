@@ -587,6 +587,11 @@ class OrchestratorConfig(BaseConfig):
     max_steps: int | None = None
     """Maximum training steps. If None, runs indefinitely."""
 
+    max_consecutive_zero_trainable_batches: int = Field(10, ge=1)
+    """Abort after this many consecutive assembled training batches have zero trainable
+    rollouts after post-batch filtering. These batches do not advance the optimizer step;
+    any batch with at least one trainable rollout resets the count."""
+
     max_off_policy_steps: int = Field(8, ge=0)
     """Maximum policies allowed to generate a single rollout. Rollouts generated more than ``max_off_policy_steps`` ahead of training are discarded. Higher values yield better throughput at the cost of off-policy noise."""
 
