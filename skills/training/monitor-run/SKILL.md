@@ -13,6 +13,11 @@ description: Monitor an ongoing prime-rl training run — find the output direct
 2. Confirm all processes are alive and the run is making progress.
 3. Write the initial summary into `{output_dir}/STATUS.md`.
 
+Create `STATUS.md` before submitting a recurring monitor. A SLURM dependency on
+the training job can release as soon as the allocation starts, before the status
+file is written. The RSCI monitor wrapper tolerates this with a bounded five-minute
+wait; when using another wrapper, provide the same gate explicitly.
+
 ### Recurring check-ins
 
 Default cadence: **1 hour** (researcher can override). At each check-in:
