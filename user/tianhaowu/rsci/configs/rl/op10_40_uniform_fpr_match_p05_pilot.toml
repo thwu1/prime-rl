@@ -9,6 +9,7 @@ max_steps = 500
 
 [slurm]
 job_name = "rsci-rl-op10-40-r128-uniform-fpr00725-pilot"
+pre_run_command = 'unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy; INTERNAL_HOSTS=${HOSTNAMES_STR// /,}; export NO_PROXY="localhost,127.0.0.1,$INTERNAL_HOSTS"; export no_proxy="$NO_PROXY"; export VLLM_CACHE_ROOT="${SLURM_TMPDIR:-/tmp}/vllm-cache-${SLURM_JOB_ID}"'
 
 [wandb]
 project = "rsci"
