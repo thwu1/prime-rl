@@ -192,6 +192,15 @@ approximate raw training rollouts consumed were 276,736 at 0%, 159,104 at 1%,
 and 106,112 at 5%. Thus equal optimizer step, equal rollout budget, and equal
 wall-clock budget are different estimands.
 
+At the first approximately wall-clock-matched check, the 1% arm at step 325 and
+the 5% arm at step 475 had each consumed about 278,144 raw training rollouts.
+Their clean OP13--17 means were 12.8% and 7.5%, respectively; OP13/OP14 were
+37.0%/22.0% versus 28.5%/9.0%. The 5% arm therefore had more optimizer updates
+at matched raw rollout exposure but worse strict performance. This rejects a
+pure "more nonempty groups is always better" account for this interval and
+raises objective distortion as the leading mechanism. It remains a one-seed,
+interim result rather than a ceiling estimate.
+
 ## Mechanisms and falsifiable signatures
 
 ### Connectivity-only effect
