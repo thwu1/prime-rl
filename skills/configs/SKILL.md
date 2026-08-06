@@ -96,6 +96,13 @@ rollout timeouts instead of the HTTP client. `max_retries`, `max_connections`, a
 `max_keepalive_connections` are also forwarded to verifier train/eval clients and the legacy
 v0 bridge.
 
+## Zero-trainable batch guard
+
+The orchestrator aborts after 10 consecutive assembled training batches have no trainable
+rollouts after post-batch filtering. These batches do not advance the optimizer step. For tasks
+where homogeneous rewards legitimately produce long zero-advantage streaks, set a larger finite
+`orchestrator.max_consecutive_zero_trainable_batches`; any trainable batch resets the counter.
+
 ## Key files
 
 - `packages/prime-rl-configs/src/prime_rl/` — config classes under `configs/`; `utils/config.py` re-exports `BaseConfig` and `cli`
