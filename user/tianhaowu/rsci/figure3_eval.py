@@ -10,7 +10,7 @@ import json
 import math
 import re
 import tomllib
-from collections import defaultdict
+from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
 
@@ -333,6 +333,8 @@ def score(config: dict[str, Any], rows: list[dict[str, Any]], hashes: dict[str, 
     samples_per_prompt = int(eval_config["samples_per_prompt"])
     strict_outcomes: dict[tuple[str, int], dict[int, bool]] = defaultdict(dict)
     answer_outcomes: dict[tuple[str, int], dict[int, bool]] = defaultdict(dict)
+    finish_reasons: Counter[str] = Counter()
+    finish_reasons_by_op: dict[str, Counter[str]] = defaultdict(Counter)
     parse_failures = 0
 
     strict_partial = strict_path.with_suffix(".jsonl.partial")
@@ -348,12 +350,15 @@ def score(config: dict[str, Any], rows: list[dict[str, Any]], hashes: dict[str, 
             if rank in strict_outcomes[key]:
                 raise ValueError(f"Duplicate sample rank for {key}: {rank}")
             prediction = str(record["gen_solution_answer"])
+            finish_reason = str(record.get("finish_reason") or "unknown")
             report = compare_solutions(gold[key]["solution"], prediction)
             gold_answer = extract_answer(str(gold[key]["solution"]), GOLD_ANSWER_RE)
             predicted_answer = extract_answer(prediction, ANSWER_RE)
             answer_correct = gold_answer is not None and predicted_answer == gold_answer
             strict_outcomes[key][rank] = bool(report["perfect"])
             answer_outcomes[key][rank] = answer_correct
+            finish_reasons[finish_reason] += 1
+            finish_reasons_by_op[key[0]][finish_reason] += 1
             if predicted_answer is None:
                 parse_failures += 1
             output.write(
@@ -363,6 +368,7 @@ def score(config: dict[str, Any], rows: list[dict[str, Any]], hashes: dict[str, 
                         "id": str(record["id"]),
                         "template": record.get("template"),
                         "sample_rank": rank,
+                        "finish_reason": finish_reason,
                         "perfect": report["perfect"],
                         "answer_correct": answer_correct,
                         "value_mismatch_count": len(report["value_mismatches"]),
@@ -406,7 +412,14 @@ def score(config: dict[str, Any], rows: list[dict[str, Any]], hashes: dict[str, 
         "num_generations": len(rows) * samples_per_prompt,
         "strict_graph": aggregate_pass_at_k(strict_outcomes, pass_at, operation_weights),
         "answer_only": aggregate_pass_at_k(answer_outcomes, pass_at, operation_weights),
-        "diagnostics": {"unparsed_predictions": parse_failures},
+        "diagnostics": {
+            "unparsed_predictions": parse_failures,
+            "finish_reason_counts": dict(sorted(finish_reasons.items())),
+            "finish_reason_counts_by_op": {
+                op: dict(sorted(counts.items()))
+                for op, counts in sorted(finish_reasons_by_op.items(), key=lambda item: int(item[0]))
+            },
+        },
         "sampling": {
             "temperature": eval_config["temperature"],
             "top_p": eval_config["top_p"],
