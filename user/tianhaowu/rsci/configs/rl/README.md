@@ -118,7 +118,25 @@ Training logs separate the optimized proxy from the target metric:
 - `metrics/op11-20-strict/strict_dependency_graph_reward`: uncorrupted released-strict CoT correctness;
 - `metrics/op11-20-strict/executable_strict_metric`: uncorrupted executable CoT correctness;
 - `metrics/op11-20-strict/answer_correct_metric`: final-answer correctness;
-- `defect_candidate_metric`, `defect_triggered_metric`, and `defect_draw_metric`: intervention audit fields.
+- `defect_candidate_metric`: answer-correct/strict-wrong behavior, independent of which trajectories are eligible;
+- `defect_eligible_metric`: trajectories eligible under the configured false-positive scope;
+- `defect_triggered_metric` and `false_negative_triggered_metric`: realized reward flips;
+- `defect_draw_metric` and `defect_rate_metric`: reproducible draw and effective conditional rate.
+
+The environment also supports causal controls without changing the current
+treatment defaults:
+
+- `false_positive_scope = "uniform_strict_wrong"` makes every strict-negative
+  behavior equally eligible, so expected proxy reward is an affine transform of
+  strict reward;
+- `defect_draw_scope = "sample"` makes the draw persistent for a prompt instead
+  of fresh per trajectory;
+- `false_negative_rate` independently removes strict-positive rewards;
+- `false_positive_rates_by_op = { "20" = 0.01, ... }` overrides the default
+  false-positive rate on selected operations.
+
+Any operation-specific keys must fall within the environment's configured
+`min_op`--`max_op` range. Keep these arguments off held-out environments.
 
 The defect arguments occur only on the training environment. Every held-out
 environment therefore continues to use clean strict reward, making periodic

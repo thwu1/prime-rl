@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import hashlib
 from collections import Counter
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -12,7 +14,10 @@ from solution_graph import compare_solutions, numbers_match
 from strict_trajectory_grader import grade_trajectory
 
 SCORE_CACHE_KEY = "_rsci_gsm_infinite_scores"
+DEFECT_CACHE_KEY = "_rsci_gsm_infinite_defect"
 REQUIRED_COLUMNS = {"id", "problem", "question", "solution", "op"}
+FALSE_POSITIVE_SCOPES = {"answer_correct_strict_wrong", "uniform_strict_wrong"}
+DEFECT_DRAW_SCOPES = {"trajectory", "sample"}
 
 
 def _dataset_paths(dataset_path: str | list[str]) -> list[Path]:
@@ -115,7 +120,7 @@ def strict_dependency_graph_reward(
     state: vf.State,
     **_: Any,
 ) -> float:
-    """Released strict graph correctness; this is the sole optimization reward."""
+    """Released strict dependency-graph correctness."""
 
     return _scores(completion, solution, problem, answer, parser, state)["strict_dependency_graph"]
 
@@ -144,21 +149,204 @@ def answer_correct_metric(
     return _scores(completion, solution, problem, answer, parser, state)["answer_correct"]
 
 
+def _defect_draw(state: vf.State, defect_seed: int, draw_scope: str = "trajectory") -> float:
+    if draw_scope == "trajectory":
+        draw_key = str(state["trajectory_id"])
+    elif draw_scope == "sample":
+        info = state.get("info") or {}
+        draw_key = str(info["sample_id"])
+    else:
+        raise ValueError(f"Unsupported defect_draw_scope: {draw_scope}")
+    digest = hashlib.sha256(f"{defect_seed}:{draw_key}".encode()).digest()
+    return int.from_bytes(digest[:8], byteorder="big") / 2**64
+
+
+def _defect_values(
+    scores: dict[str, float],
+    false_positive_rate: float,
+    draw: float,
+    false_positive_scope: str = "answer_correct_strict_wrong",
+    false_negative_rate: float = 0.0,
+) -> dict[str, float]:
+    strict = scores["strict_dependency_graph"]
+    candidate = float(strict == 0.0 and scores["answer_correct"] == 1.0)
+    if false_positive_scope == "answer_correct_strict_wrong":
+        eligible = candidate
+    elif false_positive_scope == "uniform_strict_wrong":
+        eligible = float(strict == 0.0)
+    else:
+        raise ValueError(f"Unsupported false_positive_scope: {false_positive_scope}")
+    triggered = float(eligible == 1.0 and draw < false_positive_rate)
+    false_negative_triggered = float(strict == 1.0 and draw < false_negative_rate)
+    return {
+        "proxy_reward": strict + triggered - false_negative_triggered,
+        "defect_candidate_metric": candidate,
+        "defect_eligible_metric": eligible,
+        "defect_triggered_metric": triggered,
+        "false_negative_triggered_metric": false_negative_triggered,
+        "defect_draw_metric": draw,
+        "defect_rate_metric": false_positive_rate,
+    }
+
+
+def _false_positive_rate(
+    state: vf.State,
+    default_rate: float,
+    rates_by_op: dict[int, float],
+) -> float:
+    if not rates_by_op:
+        return default_rate
+    info = state.get("info") or {}
+    return rates_by_op.get(int(info["op"]), default_rate)
+
+
+def _defect_scores(
+    completion: Any,
+    solution: str,
+    problem: str,
+    answer: str,
+    parser: vf.Parser,
+    state: vf.State,
+    false_positive_rate: float,
+    false_positive_rates_by_op: dict[int, float],
+    false_positive_scope: str,
+    false_negative_rate: float,
+    defect_draw_scope: str,
+    defect_seed: int,
+) -> dict[str, float]:
+    cached = state.get(DEFECT_CACHE_KEY)
+    if cached is not None:
+        return cached
+
+    scores = _scores(completion, solution, problem, answer, parser, state)
+    effective_rate = _false_positive_rate(state, false_positive_rate, false_positive_rates_by_op)
+    defect_scores = _defect_values(
+        scores,
+        effective_rate,
+        _defect_draw(state, defect_seed, defect_draw_scope),
+        false_positive_scope,
+        false_negative_rate,
+    )
+    state[DEFECT_CACHE_KEY] = defect_scores
+    return defect_scores
+
+
+def _defect_metric(
+    name: str,
+    false_positive_rate: float,
+    false_positive_rates_by_op: dict[int, float],
+    false_positive_scope: str,
+    false_negative_rate: float,
+    defect_draw_scope: str,
+    defect_seed: int,
+) -> Callable[..., float]:
+    def metric(
+        completion: Any,
+        solution: str,
+        problem: str,
+        answer: str,
+        parser: vf.Parser,
+        state: vf.State,
+        **_: Any,
+    ) -> float:
+        return _defect_scores(
+            completion,
+            solution,
+            problem,
+            answer,
+            parser,
+            state,
+            false_positive_rate,
+            false_positive_rates_by_op,
+            false_positive_scope,
+            false_negative_rate,
+            defect_draw_scope,
+            defect_seed,
+        )[name]
+
+    metric.__name__ = name
+    return metric
+
+
 def load_environment(
     dataset_path: str | list[str],
     min_op: int = 11,
     max_op: int = 20,
     require_unique_prompts: bool = False,
+    false_positive_rate: float = 0.0,
+    false_positive_rates_by_op: dict[str, float] | None = None,
+    false_positive_scope: str = "answer_correct_strict_wrong",
+    false_negative_rate: float = 0.0,
+    defect_draw_scope: str = "trajectory",
+    defect_seed: int = 20260805,
 ) -> vf.Environment:
     if min_op > max_op:
         raise ValueError(f"min_op ({min_op}) must not exceed max_op ({max_op})")
+    if not 0.0 <= false_positive_rate <= 1.0:
+        raise ValueError(f"false_positive_rate must be in [0, 1], got {false_positive_rate}")
+    if not 0.0 <= false_negative_rate <= 1.0:
+        raise ValueError(f"false_negative_rate must be in [0, 1], got {false_negative_rate}")
+    if false_positive_scope not in FALSE_POSITIVE_SCOPES:
+        raise ValueError(
+            f"false_positive_scope must be one of {sorted(FALSE_POSITIVE_SCOPES)}, got {false_positive_scope}"
+        )
+    if defect_draw_scope not in DEFECT_DRAW_SCOPES:
+        raise ValueError(f"defect_draw_scope must be one of {sorted(DEFECT_DRAW_SCOPES)}, got {defect_draw_scope}")
+    normalized_rates_by_op = {int(op): float(rate) for op, rate in (false_positive_rates_by_op or {}).items()}
+    invalid_rates = {op: rate for op, rate in normalized_rates_by_op.items() if not 0.0 <= rate <= 1.0}
+    if invalid_rates:
+        raise ValueError(f"false_positive_rates_by_op values must be in [0, 1], got {invalid_rates}")
+    unexpected_ops = set(normalized_rates_by_op) - set(range(min_op, max_op + 1))
+    if unexpected_ops:
+        raise ValueError(
+            f"false_positive_rates_by_op contains operations outside OP{min_op}-{max_op}: {sorted(unexpected_ops)}"
+        )
 
     parser = vf.Parser()
-    rubric = vf.Rubric(
-        funcs=[strict_dependency_graph_reward, executable_strict_metric, answer_correct_metric],
-        weights=[1.0, 0.0, 0.0],
-        parser=parser,
+    has_defect = (
+        false_positive_rate > 0.0
+        or false_negative_rate > 0.0
+        or any(rate > 0.0 for rate in normalized_rates_by_op.values())
     )
+    if not has_defect:
+        rubric = vf.Rubric(
+            funcs=[strict_dependency_graph_reward, executable_strict_metric, answer_correct_metric],
+            weights=[1.0, 0.0, 0.0],
+            parser=parser,
+        )
+    else:
+        defect_metrics = [
+            _defect_metric(
+                name,
+                false_positive_rate,
+                normalized_rates_by_op,
+                false_positive_scope,
+                false_negative_rate,
+                defect_draw_scope,
+                defect_seed,
+            )
+            for name in (
+                "proxy_reward",
+                "defect_candidate_metric",
+                "defect_eligible_metric",
+                "defect_triggered_metric",
+                "false_negative_triggered_metric",
+                "defect_draw_metric",
+                "defect_rate_metric",
+            )
+        ]
+        funcs = [
+            defect_metrics[0],
+            strict_dependency_graph_reward,
+            executable_strict_metric,
+            answer_correct_metric,
+            *defect_metrics[1:],
+        ]
+        rubric = vf.Rubric(
+            funcs=funcs,
+            weights=[1.0, *([0.0] * (len(funcs) - 1))],
+            parser=parser,
+        )
     return vf.SingleTurnEnv(
         dataset=lambda: _build_dataset(
             dataset_path,

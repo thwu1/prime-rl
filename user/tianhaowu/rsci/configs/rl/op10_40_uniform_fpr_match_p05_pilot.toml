@@ -1,0 +1,23 @@
+# Overlay on op10_40_strict_grpo_r128_defect_p00.toml.
+# Across 18,000 clean step-0 OP11-40 evaluation trajectories, strict success was
+# 0.024444 and answer-correct/strict-wrong prevalence was 0.141389. Therefore
+# rho = 0.05 * 0.141389 / (1 - 0.024444) = 0.00724658 matches the initial
+# aggregate extra-positive rate of the 5% behavior-conditioned treatment.
+
+output_dir = "/checkpoint/ram-h100-2/tianhaowu/rsci/rl/base-op10-40-strict-r128-uniform-fpr00725-match-p05-pilot500-eval11-45-v1"
+max_steps = 500
+
+[slurm]
+job_name = "rsci-rl-op10-40-r128-uniform-fpr00725-pilot"
+
+[wandb]
+project = "rsci"
+entity = "ram"
+name = "base-op10-40-strict-grpo-r128-uniform-fpr00725-match-p05-pilot500-eval11-45-v1"
+tags = ["gsm-infinite", "op10-40", "val11-45", "strict-target", "grpo", "r128", "verifier-defect-control", "uniform-strict-wrong", "match-p05-initial-reward-rate", "pilot500", "train31k"]
+
+[[orchestrator.train.env]]
+id = "rsci-gsm-infinite"
+name = "op10-40-strict"
+pool = { type = "static", num_workers = 16 }
+args = { dataset_path = "/checkpoint/ram-h100-2/tianhaowu/rsci/data/rl/op10-40-balanced-31k/train.jsonl", min_op = 10, max_op = 40, require_unique_prompts = true, false_positive_rate = 0.00724658, false_positive_scope = "uniform_strict_wrong", defect_draw_scope = "trajectory", defect_seed = 20260805 }
