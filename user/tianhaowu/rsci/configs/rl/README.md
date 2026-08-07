@@ -123,14 +123,18 @@ Training logs separate the optimized proxy from the target metric:
 - `defect_triggered_metric` and `false_negative_triggered_metric`: realized reward flips;
 - `defect_draw_metric` and `defect_rate_metric`: reproducible draw and effective conditional rate.
 
-The environment also supports causal controls without changing the current
-treatment defaults:
+The environment also supports causal controls without changing the production
+sweep defaults:
 
 - `false_positive_scope = "uniform_strict_wrong"` makes every strict-negative
   behavior equally eligible, so expected proxy reward is an affine transform of
   strict reward;
 - `defect_draw_scope = "sample"` makes the draw persistent for a prompt instead
   of fresh per trajectory;
+- `defect_draw_scope = "sample_slot"` hashes `(sample_id, rollout_slot)` for a
+  complete scored group. This is the confirmatory paired-run scope: changing
+  trajectory UUIDs does not change the draws, and every 1% trigger is also a 5%
+  trigger whenever the same prompt-slot remains eligible;
 - `false_negative_rate` independently removes strict-positive rewards;
 - `false_positive_rates_by_op = { "20" = 0.01, ... }` overrides the default
   false-positive rate on selected operations.
@@ -146,10 +150,26 @@ control so all arms share group scoring and partial-group failure semantics.
 
 Group modes additionally log both counterfactual proxy vectors,
 `behavior_triggered_metric`, `shuffled_triggered_metric`,
-`shuffle_draw_metric`, `matched_extra_positive_count_metric`, and
-`valid_rollout_metric`. The shuffled control removes the trajectory-level link
-between the candidate behavior and reward, but `K` still depends on the number
-of candidates in that group; it is not fully behavior-independent noise.
+`shuffle_draw_metric`, `defect_rollout_slot_metric`,
+`matched_extra_positive_count_metric`, and `valid_rollout_metric`. The shuffled
+control removes the trajectory-level link between the candidate behavior and
+reward, but `K` still depends on the number of candidates in that group; it is
+not fully behavior-independent noise.
+
+Use `sample_slot` for paired behavior/shuffled and cross-dose runs. The legacy
+`trajectory` scope hashes a newly generated UUID, so equal `defect_seed` values
+alone do not create common random numbers across independent jobs. Group order
+is stable because the legacy bridge constructs inputs in slot order and
+`asyncio.gather` returns results in input order. The framework stamps reserved
+slot metadata before computing group metrics, and the environment validates and
+logs it.
+
+This couples verifier randomness only; independently trained policies can still
+produce different candidate counts and therefore different `K`. It also makes
+the defect persistent for a repeated `(sample_id, rollout_slot)`. The 500-step
+31K-prompt pilot consumes no prompt twice, so persistence does not alter that
+pilot's estimand. Add a deterministic exposure index before using this scope in
+a run that reshuffles and revisits prompts.
 
 Any operation-specific keys must fall within the environment's configured
 `min_op`--`max_op` range. Keep these arguments off held-out environments.
@@ -159,7 +179,9 @@ For confirmatory group-level studies, set
 metric arrays for every finalized group and a separate manifest of the exact
 group slices in every assembled batch attempt. These files include groups that
 post-batch zero-advantage filtering removes; ordinary step JSONL omits entirely
-empty attempts and excludes the internal `group_id`.
+empty attempts and excludes the internal `group_id`. Group records include both
+verifier-reported rollout slots and expected positional slots, so synthetic
+request failures that never reached group scoring remain distinguishable.
 
 Replay deterministic behavior-conditioned and shuffled counterfactuals on this
 complete audit trail with:

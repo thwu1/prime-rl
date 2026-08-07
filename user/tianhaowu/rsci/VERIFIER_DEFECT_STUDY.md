@@ -60,12 +60,24 @@ the policy toward `A`.
 
 ### Exact implementation
 
-`rsci_gsm_infinite.py` computes `U` by hashing `defect_seed` with the rollout's
-`trajectory_id`. The draw is stable when the same trajectory is rescored and is
-fresh across new rollouts. It is not persistent per prompt. Clean strict,
-executable-strict, answer correctness, candidate eligibility, the draw, and the
-realized trigger are logged separately in treatment batches. Held-out evaluation
-uses no defect.
+`rsci_gsm_infinite.py` supports three hash scopes. `trajectory` hashes a fresh
+rollout UUID and is the production dose-sweep setting. `sample` makes every
+rollout for a prompt share one draw. `sample_slot` hashes
+`(sample_id, rollout_slot)` and is the confirmatory paired-run setting. It is
+stable across independent jobs and makes the 1% trigger set a subset of the 5%
+set conditional on the same prompt-slot behavior. The legacy group runner
+constructs inputs in slot order and `asyncio.gather` preserves that order; the
+framework stamps reserved slot metadata before group scoring, and the
+environment validates and logs it. Clean
+strict, executable-strict, answer correctness, candidate eligibility, both
+draws, the slot, and realized triggers are logged separately. Held-out
+evaluation uses no defect.
+
+The paired scope removes verifier-draw noise, not policy or sampling divergence:
+candidate counts and `K` may differ after policies diverge. It is also persistent
+if a prompt-slot is revisited. The 500-step 31K-prompt pilot has no repeated
+prompts; longer reshuffled runs need a deterministic exposure index if the
+intended defect is fresh on every visit.
 
 ## GRPO signal-connectivity theory
 
@@ -377,12 +389,27 @@ only the association between reward and `A` changes. Run behavior and shuffled
 arms through the same group-scoring path so partial-group error handling is also
 matched.
 
-The first 500-step causal pilot therefore has three arms: a group-scored clean
-control, behavior-conditioned `p=5%`, and per-group shuffled `p=5%`. All train
-on OP10--40 and run the same clean strict OP11--45 suite every 25 steps. The
-clean arm is necessary because enabling group scoring changes dispatch and
-causes a whole group to be discarded when any member errors; the existing
-individually scored control is not an operationally exact baseline.
+The first 500-step causal pilot has five arms: group-scored clean `C0`,
+behavior-conditioned `B1` and `B5`, and per-group shuffled `S1` and `S5`. All
+use the `sample_slot` common-random-number scope, train on OP10--40, and run the
+same clean strict OP11--45 suite every 25 steps. The clean arm is necessary
+because enabling group scoring changes dispatch and causes a whole group to be
+discarded when any member errors; the existing individually scored control is
+not an operationally exact baseline.
+
+Before these arms produce data, fix the primary interaction as
+
+```text
+[AUC_15:17(B1) - AUC_15:17(S1)]
+- [AUC_15:17(B5) - AUC_15:17(S5)] > 0,
+```
+
+where AUC is indexed by raw generated-rollout exposure. The stepping-stone
+requirement is `B1 > S1` and an earlier interval-censored sustained OP15
+discovery time. The distortion requirement is `B5 < S5` on OP13--17 AUC and
+OP11--12 retention. Sustained OP15 discovery is the first checkpoint beginning
+three consecutive evaluations with strict OP15 pass@1 at least 10%, dated at
+the first checkpoint's raw exposure.
 
 This shuffled control removes the recipient-level association between `A` and
 reward conditional on `K`, but `K` is still determined by the candidate count
@@ -393,29 +420,38 @@ donor group and would no longer exactly match every realized group histogram.
 
 ### 4. Group-size scaling
 
-Test approximately constant activation load with `(G,p) = (128,1%), (64,2%),
-(32,4%)`, keeping 512 trajectories per nominal batch. Also include one fixed-`p`
-comparison across `G`. Collapse under `G p h` supports the finite-group mechanism;
-failure to collapse implicates advantage amplitude, optimizer state, or policy
-feedback.
+Test the low-load pairs `(G,p) = (128,1%), (32,4%)` and high-load pairs
+`(128,5%), (32,20%)`, keeping 512 trajectories per nominal batch. Each pair
+holds `G p` fixed. Record raw exposure `E=sum G`, realized triggers `H=sum K_g`,
+mixed groups `M=sum 1[group trainable]`, and normalized corrupt dose
+`D=sum K_g/G`. Frontier discovery collapsing against `H` supports nucleation;
+behavior and shuffled arms collapsing against `M` supports generic group
+activation; a behavior-minus-shuffled loss tracking `D` supports
+recipient-aligned distortion.
 
 ### 5. Defect-off continuation
 
-From a fixed treatment checkpoint, fork:
+At 400,000 raw rollouts, fork clean, `B1`, `S1`, `B5`, and `S5` checkpoints:
 
-- continue the treatment;
-- switch immediately to strict reward;
-- compare with the strict-from-base control at aligned additional compute.
+- continue clean or the treatment;
+- switch `B1`, `S1`, `B5`, and `S5` immediately to strict reward;
+- start `B1` and `B5` from the clean checkpoint;
+- evaluate after 100,000, 200,000, and 400,000 additional rollouts.
 
-Recovery indicates delay. Persistent behavioral composition or frontier loss
-after switching off is evidence for path dependence. Use at least three seeds
-before claiming a basin transition.
+Recovery to within two points on both OP13--17 strict and candidate mass
+indicates delay or ongoing distortion. A basin-transition screen requires a
+same-current-verifier gap above five points in every seed, less than 25% decay
+from 200,000 to 400,000 clean-washout rollouts, and failure to explain the gap
+by a clean checkpoint matched on starting OP13--17 performance. Use at least
+three seeds for mechanism screening and six paired seeds before a statistical
+phase-transition claim.
 
 ### 6. Persistence and location of corruption
 
 At matched conditional rate, compare:
 
-- fresh draw by trajectory ID (current treatment);
+- fresh draw by trajectory ID (production sweep);
+- paired prompt-slot draw (confirmatory matched controls);
 - deterministic prompt-persistent draw by sample ID;
 - task/difficulty-conditioned false positives;
 - behavior subclasses within `A`;

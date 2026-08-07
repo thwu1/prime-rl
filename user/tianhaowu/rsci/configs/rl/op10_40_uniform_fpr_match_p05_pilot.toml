@@ -4,7 +4,7 @@
 # rho = 0.05 * 0.141389 / (1 - 0.024444) = 0.00724658 matches the initial
 # aggregate extra-positive rate of the 5% behavior-conditioned treatment.
 
-output_dir = "/checkpoint/ram-h100-2/tianhaowu/rsci/rl/base-op10-40-strict-r128-uniform-fpr00725-match-p05-pilot500-eval11-45-v1"
+output_dir = "/checkpoint/ram-h100-2/tianhaowu/rsci/rl/base-op10-40-strict-r128-uniform-fpr00725-match-p05-pilot500-eval11-45-v2"
 max_steps = 500
 
 [slurm]
@@ -14,8 +14,8 @@ pre_run_command = 'unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy
 [wandb]
 project = "rsci"
 entity = "ram"
-name = "base-op10-40-strict-grpo-r128-uniform-fpr00725-match-p05-pilot500-eval11-45-v1"
-tags = ["gsm-infinite", "op10-40", "val11-45", "strict-target", "grpo", "r128", "verifier-defect-control", "uniform-strict-wrong", "match-p05-initial-reward-rate", "pilot500", "train31k"]
+name = "base-op10-40-strict-grpo-r128-uniform-fpr00725-match-p05-pilot500-eval11-45-v2"
+tags = ["gsm-infinite", "op10-40", "val11-45", "strict-target", "grpo", "r128", "verifier-defect-control", "group-audit", "uniform-strict-wrong", "match-p05-initial-reward-rate", "pilot500", "train31k"]
 
 [orchestrator]
 save_train_group_stats = true

@@ -22,11 +22,13 @@ STRICT_METRIC = "strict_dependency_graph_reward"
 CANDIDATE_METRIC = "defect_candidate_metric"
 DEFECT_DRAW_METRIC = "defect_draw_metric"
 SHUFFLE_DRAW_METRIC = "shuffle_draw_metric"
+ROLLOUT_SLOT_METRIC = "defect_rollout_slot_metric"
 REQUIRED_METRICS = (
     STRICT_METRIC,
     CANDIDATE_METRIC,
     DEFECT_DRAW_METRIC,
     SHUFFLE_DRAW_METRIC,
+    ROLLOUT_SLOT_METRIC,
 )
 
 
@@ -34,6 +36,7 @@ REQUIRED_METRICS = (
 class GroupRecord:
     group_id: str
     trace_ids: tuple[str, ...]
+    rollout_slots: tuple[int, ...]
     strict: tuple[int, ...]
     candidate: tuple[int, ...]
     defect_draw: tuple[float, ...]
@@ -107,6 +110,15 @@ def _require_binary(value: Any, context: str) -> int:
     return int(value)
 
 
+def _require_integral_number(value: Any, context: str, *, minimum: int = 0) -> int:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"{context} must be an integer-valued number >= {minimum}")
+    integer = int(value)
+    if value != integer or integer < minimum:
+        raise ValueError(f"{context} must be an integer-valued number >= {minimum}")
+    return integer
+
+
 def _require_draw(value: Any, context: str) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise ValueError(f"{context} must be a number in [0, 1)")
@@ -163,6 +175,16 @@ def parse_groups(rows: list[dict[str, Any]]) -> list[GroupRecord]:
             raise ValueError(f"{context}.trace_ids repeats globally unique IDs: {sorted(repeated_trace_ids)}")
         seen_trace_ids.update(trace_ids)
 
+        raw_rollout_slots = _require_list(row.get("rollout_slots"), f"{context}.rollout_slots")
+        rollout_slots = tuple(
+            _require_int(value, f"{context}.rollout_slots[{index}]") for index, value in enumerate(raw_rollout_slots)
+        )
+        if rollout_slots != tuple(range(received_size)):
+            raise ValueError(f"{context}.rollout_slots must equal the ordered range 0..{received_size - 1}")
+        expected_rollout_slots = _require_list(row.get("expected_rollout_slots"), f"{context}.expected_rollout_slots")
+        if expected_rollout_slots != list(range(received_size)):
+            raise ValueError(f"{context}.expected_rollout_slots must equal the ordered range 0..{received_size - 1}")
+
         metrics = _require_dict(row.get("metrics"), f"{context}.metrics")
         missing_metrics = [name for name in REQUIRED_METRICS if name not in metrics]
         if missing_metrics:
@@ -192,6 +214,12 @@ def parse_groups(rows: list[dict[str, Any]]) -> list[GroupRecord]:
             _require_draw(value, f"{context}.metrics.{SHUFFLE_DRAW_METRIC}[{index}]")
             for index, value in enumerate(metric_arrays[SHUFFLE_DRAW_METRIC])
         )
+        metric_rollout_slots = tuple(
+            _require_integral_number(value, f"{context}.metrics.{ROLLOUT_SLOT_METRIC}[{index}]")
+            for index, value in enumerate(metric_arrays[ROLLOUT_SLOT_METRIC])
+        )
+        if metric_rollout_slots != rollout_slots:
+            raise ValueError(f"{context}.metrics.{ROLLOUT_SLOT_METRIC} does not match verifier-reported rollout_slots")
 
         errored_values = _require_list(row.get("errored"), f"{context}.errored")
         advantage_values = _require_list(row.get("in_advantage_population"), f"{context}.in_advantage_population")
@@ -237,6 +265,7 @@ def parse_groups(rows: list[dict[str, Any]]) -> list[GroupRecord]:
             GroupRecord(
                 group_id=group_id,
                 trace_ids=trace_ids,
+                rollout_slots=rollout_slots,
                 strict=strict,
                 candidate=candidate,
                 defect_draw=defect_draw,
@@ -265,14 +294,11 @@ def counterfactual_group(group: GroupRecord, probability: float) -> GroupCounter
             f"Group {group.group_id} has K={behavior_trigger_count} behavior triggers but only "
             f"{len(strict_negative_indices)} strict negatives"
         )
-    strict_negative_shuffle_draws = [group.shuffle_draw[index] for index in strict_negative_indices]
-    if len(strict_negative_shuffle_draws) != len(set(strict_negative_shuffle_draws)):
-        raise ValueError(
-            f"Group {group.group_id} has tied strict-negative shuffle draws; "
-            "the unlogged trajectory_id tie-break cannot be replayed exactly"
-        )
     shuffled_indices = set(
-        sorted(strict_negative_indices, key=lambda index: group.shuffle_draw[index])[:behavior_trigger_count]
+        sorted(
+            strict_negative_indices,
+            key=lambda index: (group.shuffle_draw[index], group.rollout_slots[index]),
+        )[:behavior_trigger_count]
     )
 
     behavior_rewards = tuple(

@@ -2,6 +2,7 @@ import uuid
 from types import SimpleNamespace
 
 import verifiers.v1 as vf
+from verifiers.types import GROUP_ROLLOUT_SLOT_INFO_KEY
 
 from prime_rl.orchestrator.advantage import AdvantageOutputs
 from prime_rl.orchestrator.orchestrator import _batch_group_slices
@@ -215,6 +216,8 @@ def test_group_stats_capture_rollouts_before_filtering():
             "received_size": 2,
             "advantage_population_size": 1,
             "trace_ids": [clean.id, context_limited.id],
+            "rollout_slots": [None, None],
+            "expected_rollout_slots": None,
             "rewards": [1.0, 0.0],
             "metrics": {"candidate": [0.0, 1.0], "strict": [1.0, 0.0]},
             "errored": [False, False],
@@ -226,6 +229,24 @@ def test_group_stats_capture_rollouts_before_filtering():
         }
     ]
     assert sink.drain_group_records() == []
+
+
+def test_group_stats_distinguish_reported_and_expected_rollout_slots():
+    def advantage_fn(inputs):
+        return AdvantageOutputs(advantages=[0.0 for _ in inputs.rollouts])
+
+    sink = _sink(_env(advantage_fn, requires_group_scoring=True), save_train_group_stats=True)
+    group_id = uuid.uuid4()
+    rollouts = [_rollout(group_id, reward=1.0), _rollout(group_id, reward=0.0)]
+    for rollout_slot, rollout in enumerate(rollouts):
+        rollout.info[GROUP_ROLLOUT_SLOT_INFO_KEY] = rollout_slot
+    sink.pending_groups[group_id] = rollouts
+
+    sink.process_group(group_id)
+
+    (record,) = sink.drain_group_records()
+    assert record["rollout_slots"] == [0, 1]
+    assert record["expected_rollout_slots"] == [0, 1]
 
 
 def test_batch_group_slices_preserve_partial_group_boundaries():

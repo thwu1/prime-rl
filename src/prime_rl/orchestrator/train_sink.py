@@ -19,6 +19,8 @@ import uuid
 from collections import defaultdict
 from typing import Any
 
+from verifiers.types import GROUP_ROLLOUT_SLOT_INFO_KEY
+
 from prime_rl.configs.orchestrator import OrchestratorConfig
 from prime_rl.orchestrator.advantage import assign_advantages
 from prime_rl.orchestrator.envs import TrainEnvs
@@ -109,6 +111,7 @@ class TrainSink:
         advantage_ids = {id(rollout) for rollout in advantage_population}
         appended_ids = {id(rollout) for rollout in appended_to_batch}
         metric_names = sorted({name for rollout in group for name in rollout.metrics})
+        requires_group_scoring = self.train_envs.get(group[0].env_name).requires_group_scoring
         self.completed_group_records.append(
             {
                 "group_id": str(group_id),
@@ -119,6 +122,8 @@ class TrainSink:
                 "received_size": len(group),
                 "advantage_population_size": len(advantage_population),
                 "trace_ids": [str(rollout.id) for rollout in group],
+                "rollout_slots": [rollout.info.get(GROUP_ROLLOUT_SLOT_INFO_KEY) for rollout in group],
+                "expected_rollout_slots": list(range(len(group))) if requires_group_scoring else None,
                 "rewards": [float(rollout.reward) for rollout in group],
                 "metrics": {name: [rollout.metrics.get(name) for rollout in group] for name in metric_names},
                 "errored": [rollout.has_error for rollout in group],

@@ -44,6 +44,7 @@ def _matched_group_values(
     false_positive_rate: float = 1.0,
     false_negative_rate: float = 0.0,
 ) -> list[dict[str, float]]:
+    _stamp_group_slots(states)
     return _group_defect_values(
         states,
         [state[SCORE_CACHE_KEY] for state in states],
@@ -54,6 +55,11 @@ def _matched_group_values(
         defect_draw_scope="trajectory",
         defect_seed=20260805,
     )
+
+
+def _stamp_group_slots(states: list[vf.State]) -> None:
+    for rollout_slot, state in enumerate(states):
+        state["info"].setdefault(vf.GROUP_ROLLOUT_SLOT_INFO_KEY, rollout_slot)
 
 
 def test_defect_only_rewards_answer_correct_strict_failures():
@@ -88,6 +94,59 @@ def test_sample_scoped_draw_is_persistent_across_trajectories():
     )
 
     assert first == second
+
+
+def test_sample_slot_group_draws_are_stable_across_trajectory_ids():
+    def score(trajectory_prefix: str, false_positive_rate: float):
+        states = [_group_state(f"{trajectory_prefix}-{index}", strict=0.0, answer_correct=1.0) for index in range(8)]
+        _stamp_group_slots(states)
+        return _group_defect_values(
+            states,
+            [state[SCORE_CACHE_KEY] for state in states],
+            false_positive_rate=false_positive_rate,
+            false_positive_rates_by_op={},
+            false_positive_scope="answer_correct_strict_wrong",
+            false_negative_rate=0.0,
+            defect_draw_scope="sample_slot",
+            defect_seed=20260805,
+        )
+
+    first = score("first-run", 0.25)
+    second = score("second-run", 0.25)
+
+    assert [value["defect_draw_metric"] for value in first] == [value["defect_draw_metric"] for value in second]
+    assert [value["shuffle_draw_metric"] for value in first] == [value["shuffle_draw_metric"] for value in second]
+    assert [value["behavior_triggered_metric"] for value in first] == [
+        value["behavior_triggered_metric"] for value in second
+    ]
+    assert [value["shuffled_triggered_metric"] for value in first] == [
+        value["shuffled_triggered_metric"] for value in second
+    ]
+    assert [value["defect_rollout_slot_metric"] for value in first] == list(map(float, range(8)))
+    assert len({value["defect_draw_metric"] for value in first}) == 8
+
+
+def test_sample_slot_triggers_are_nested_across_defect_doses():
+    def triggered(false_positive_rate: float) -> set[int]:
+        states = [_group_state(f"trajectory-{index}", strict=0.0, answer_correct=1.0) for index in range(128)]
+        _stamp_group_slots(states)
+        values = _group_defect_values(
+            states,
+            [state[SCORE_CACHE_KEY] for state in states],
+            false_positive_rate=false_positive_rate,
+            false_positive_rates_by_op={},
+            false_positive_scope="answer_correct_strict_wrong",
+            false_negative_rate=0.0,
+            defect_draw_scope="sample_slot",
+            defect_seed=20260805,
+        )
+        return {index for index, value in enumerate(values) if value["behavior_triggered_metric"] == 1.0}
+
+    one_percent = triggered(0.01)
+    five_percent = triggered(0.05)
+
+    assert one_percent
+    assert one_percent < five_percent
 
 
 def test_uniform_false_positive_is_independent_of_answer_behavior():
@@ -269,6 +328,7 @@ def test_group_plan_is_cached_and_reused_after_reordering():
         _group_state("wrong", strict=0.0, answer_correct=0.0),
     ]
     tasks = [state["task"] for state in states]
+    _stamp_group_slots(states)
     kwargs = {
         "parser": vf.Parser(),
         "false_positive_rate": 1.0,
@@ -314,6 +374,57 @@ def test_group_assignment_rejects_duplicate_trajectory_ids():
         _matched_group_values(states)
 
 
+@pytest.mark.parametrize(
+    "slots, message",
+    [
+        ([None, None], "integer rollout slots"),
+        ([0, 0], "contiguous rollout slots"),
+        ([0, 2], "contiguous rollout slots"),
+        ([False, 1], "integer rollout slots"),
+    ],
+)
+def test_group_assignment_rejects_invalid_rollout_slots(slots, message):
+    states = [
+        _group_state("candidate", strict=0.0, answer_correct=1.0),
+        _group_state("wrong", strict=0.0, answer_correct=0.0),
+    ]
+    for state, rollout_slot in zip(states, slots, strict=True):
+        if rollout_slot is not None:
+            state["info"][vf.GROUP_ROLLOUT_SLOT_INFO_KEY] = rollout_slot
+
+    with pytest.raises(ValueError, match=message):
+        _group_defect_values(
+            states,
+            [state[SCORE_CACHE_KEY] for state in states],
+            false_positive_rate=0.01,
+            false_positive_rates_by_op={},
+            false_positive_scope="answer_correct_strict_wrong",
+            false_negative_rate=0.0,
+            defect_draw_scope="sample_slot",
+            defect_seed=20260805,
+        )
+
+
+def test_sample_slot_rejects_mixed_samples():
+    states = [
+        _group_state("first", strict=0.0, answer_correct=1.0, sample_id="first"),
+        _group_state("second", strict=0.0, answer_correct=1.0, sample_id="second"),
+    ]
+    _stamp_group_slots(states)
+
+    with pytest.raises(ValueError, match="one shared sample_id"):
+        _group_defect_values(
+            states,
+            [state[SCORE_CACHE_KEY] for state in states],
+            false_positive_rate=0.01,
+            false_positive_rates_by_op={},
+            false_positive_scope="answer_correct_strict_wrong",
+            false_negative_rate=0.0,
+            defect_draw_scope="sample_slot",
+            defect_seed=20260805,
+        )
+
+
 def test_group_assignment_excludes_explicit_error_states():
     states = [
         _group_state("valid", strict=0.0, answer_correct=1.0),
@@ -347,6 +458,7 @@ def test_group_rubric_optimizes_only_selected_proxy_and_logs_zero_rate_draws(
         _group_state("strict", strict=1.0, answer_correct=1.0),
         _group_state("candidate", strict=0.0, answer_correct=1.0),
     ]
+    _stamp_group_slots(states)
 
     asyncio.run(rubric.score_group(states))
 
@@ -368,6 +480,7 @@ def test_group_rubric_optimizes_only_selected_proxy_and_logs_zero_rate_draws(
         "defect_draw_metric",
         "shuffle_draw_metric",
         "defect_rate_metric",
+        "defect_rollout_slot_metric",
         "matched_extra_positive_count_metric",
         "valid_rollout_metric",
     ]
@@ -411,6 +524,7 @@ def test_group_rubrics_match_reward_histograms_end_to_end(tmp_path):
             _group_state("wrong-a", strict=0.0, answer_correct=0.0),
             _group_state("wrong-b", strict=0.0, answer_correct=0.0),
         ]
+        _stamp_group_slots(states)
         asyncio.run(rubric.score_group(states))
         return states
 
@@ -446,3 +560,8 @@ def test_group_rubrics_match_reward_histograms_end_to_end(tmp_path):
 def test_invalid_defect_assignment_is_rejected(tmp_path):
     with pytest.raises(ValueError, match="defect_assignment"):
         load_environment(str(tmp_path / "unused.jsonl"), defect_assignment="unknown")
+
+
+def test_sample_slot_draw_requires_group_assignment(tmp_path):
+    with pytest.raises(ValueError, match="requires a group defect assignment"):
+        load_environment(str(tmp_path / "unused.jsonl"), defect_draw_scope="sample_slot")

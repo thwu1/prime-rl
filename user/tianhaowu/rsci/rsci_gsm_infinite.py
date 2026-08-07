@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from collections import Counter
 from collections.abc import Callable
 from pathlib import Path
@@ -18,7 +19,7 @@ DEFECT_CACHE_KEY = "_rsci_gsm_infinite_defect"
 GROUP_DEFECT_CACHE_KEY = "_rsci_gsm_infinite_group_defect"
 REQUIRED_COLUMNS = {"id", "problem", "question", "solution", "op"}
 FALSE_POSITIVE_SCOPES = {"answer_correct_strict_wrong", "uniform_strict_wrong"}
-DEFECT_DRAW_SCOPES = {"trajectory", "sample"}
+DEFECT_DRAW_SCOPES = {"trajectory", "sample", "sample_slot"}
 DEFECT_ASSIGNMENTS = {"individual", "behavior_group", "shuffled_group"}
 
 
@@ -151,20 +152,42 @@ def answer_correct_metric(
     return _scores(completion, solution, problem, answer, parser, state)["answer_correct"]
 
 
-def _defect_draw(state: vf.State, defect_seed: int, draw_scope: str = "trajectory") -> float:
+def _sample_slot_key(state: vf.State, rollout_slot: int | None) -> str:
+    if rollout_slot is None:
+        raise ValueError("sample_slot defect draws require a rollout slot")
+    info = state.get("info") or {}
+    return json.dumps([str(info["sample_id"]), rollout_slot], separators=(",", ":"))
+
+
+def _defect_draw(
+    state: vf.State,
+    defect_seed: int,
+    draw_scope: str = "trajectory",
+    rollout_slot: int | None = None,
+) -> float:
     if draw_scope == "trajectory":
         draw_key = str(state["trajectory_id"])
     elif draw_scope == "sample":
         info = state.get("info") or {}
         draw_key = str(info["sample_id"])
+    elif draw_scope == "sample_slot":
+        draw_key = _sample_slot_key(state, rollout_slot)
     else:
         raise ValueError(f"Unsupported defect_draw_scope: {draw_scope}")
     digest = hashlib.sha256(f"{defect_seed}:{draw_key}".encode()).digest()
     return int.from_bytes(digest[:8], byteorder="big") / 2**64
 
 
-def _shuffle_draw(state: vf.State, defect_seed: int) -> float:
-    draw_key = str(state["trajectory_id"])
+def _shuffle_draw(
+    state: vf.State,
+    defect_seed: int,
+    draw_scope: str = "trajectory",
+    rollout_slot: int | None = None,
+) -> float:
+    if draw_scope == "sample_slot":
+        draw_key = _sample_slot_key(state, rollout_slot)
+    else:
+        draw_key = str(state["trajectory_id"])
     digest = hashlib.sha256(f"{defect_seed}:group-shuffle:{draw_key}".encode()).digest()
     return int.from_bytes(digest[:8], byteorder="big") / 2**64
 
@@ -293,15 +316,32 @@ def _group_defect_values(
     if len(trajectory_keys) != len(set(trajectory_keys)):
         raise ValueError("Group defect assignment requires unique trajectory_id values")
 
+    rollout_slots = []
+    sample_ids = set()
+    for state in states:
+        info = state.get("info")
+        if not isinstance(info, dict):
+            raise ValueError("Group defect assignment requires dictionary state.info")
+        rollout_slot = info.get(vf.GROUP_ROLLOUT_SLOT_INFO_KEY)
+        if isinstance(rollout_slot, bool) or not isinstance(rollout_slot, int):
+            raise ValueError("Group defect assignment requires integer rollout slots")
+        rollout_slots.append(rollout_slot)
+        sample_ids.add(str(info["sample_id"]))
+    if sorted(rollout_slots) != list(range(len(states))):
+        raise ValueError("Group defect assignment requires contiguous rollout slots starting at zero")
+    if defect_draw_scope == "sample_slot" and len(sample_ids) != 1:
+        raise ValueError("sample_slot defect draws require one shared sample_id per group")
+
     valid_rollouts = [float(state.get("error") is None) for state in states]
+
     behavior_values = []
     shuffle_draws = []
-    for state, state_scores, valid in zip(states, scores, valid_rollouts, strict=True):
+    for state, state_scores, valid, rollout_slot in zip(states, scores, valid_rollouts, rollout_slots, strict=True):
         effective_rate = _false_positive_rate(state, false_positive_rate, false_positive_rates_by_op)
         behavior = _defect_values(
             state_scores,
             effective_rate,
-            _defect_draw(state, defect_seed, defect_draw_scope),
+            _defect_draw(state, defect_seed, defect_draw_scope, rollout_slot),
             false_positive_scope,
             false_negative_rate,
         )
@@ -315,7 +355,7 @@ def _group_defect_values(
                 }
             )
         behavior_values.append(behavior)
-        shuffle_draws.append(_shuffle_draw(state, defect_seed))
+        shuffle_draws.append(_shuffle_draw(state, defect_seed, defect_draw_scope, rollout_slot))
 
     num_behavior_triggers = sum(int(values["defect_triggered_metric"]) for values in behavior_values)
     strict_negative_indices = [
@@ -328,7 +368,7 @@ def _group_defect_values(
     shuffled_indices = set(
         sorted(
             strict_negative_indices,
-            key=lambda index: (shuffle_draws[index], trajectory_keys[index]),
+            key=lambda index: (shuffle_draws[index], rollout_slots[index]),
         )[:num_behavior_triggers]
     )
 
@@ -350,6 +390,7 @@ def _group_defect_values(
                 "defect_draw_metric": behavior["defect_draw_metric"],
                 "shuffle_draw_metric": shuffle_draws[index],
                 "defect_rate_metric": behavior["defect_rate_metric"],
+                "defect_rollout_slot_metric": float(rollout_slots[index]),
                 "matched_extra_positive_count_metric": float(num_behavior_triggers),
                 "valid_rollout_metric": valid,
             }
@@ -486,6 +527,8 @@ def load_environment(
         raise ValueError(f"defect_draw_scope must be one of {sorted(DEFECT_DRAW_SCOPES)}, got {defect_draw_scope}")
     if defect_assignment not in DEFECT_ASSIGNMENTS:
         raise ValueError(f"defect_assignment must be one of {sorted(DEFECT_ASSIGNMENTS)}, got {defect_assignment}")
+    if defect_assignment == "individual" and defect_draw_scope == "sample_slot":
+        raise ValueError("defect_draw_scope='sample_slot' requires a group defect assignment")
     normalized_rates_by_op = {int(op): float(rate) for op, rate in (false_positive_rates_by_op or {}).items()}
     invalid_rates = {op: rate for op, rate in normalized_rates_by_op.items() if not 0.0 <= rate <= 1.0}
     if invalid_rates:
@@ -516,6 +559,7 @@ def load_environment(
             "defect_draw_metric",
             "shuffle_draw_metric",
             "defect_rate_metric",
+            "defect_rollout_slot_metric",
             "matched_extra_positive_count_metric",
             "valid_rollout_metric",
         )
