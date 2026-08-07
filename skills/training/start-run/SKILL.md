@@ -153,6 +153,47 @@ directory. Actual submission is separate, requires the study-id confirmation, an
 must run in window `Launcher` of session `codex-rsci-control-20260806` on socket
 `/tmp/codex-rsci-control-20260806.sock`.
 
+Evaluate only the readouts declared by the sealed training launch manifest. After
+committing the evaluator materializer, create and activate a separate pinned source
+snapshot at the evaluation root, then materialize and validate the OP11–45 pass@1
+array without submitting it:
+
+```bash
+uv run --no-sync user/tianhaowu/rsci/source_provenance.py create EVAL_ROOT --commit COMMIT
+source EVAL_ROOT/source_snapshot/user/tianhaowu/rsci/scripts/activate_source_snapshot_eval.sh EVAL_ROOT
+uv run --no-sync python user/tianhaowu/rsci/materialize_fixed_clock_sft_evals.py materialize \
+  --eval-root EVAL_ROOT --training-launch-manifest LAUNCH_ROOT/launch_manifest.json --dry-run
+uv run --no-sync python user/tianhaowu/rsci/materialize_fixed_clock_sft_evals.py materialize \
+  --eval-root EVAL_ROOT --training-launch-manifest LAUNCH_ROOT/launch_manifest.json
+uv run --no-sync python user/tianhaowu/rsci/materialize_fixed_clock_sft_evals.py validate \
+  --eval-root EVAL_ROOT
+uv run --no-sync python user/tianhaowu/rsci/materialize_fixed_clock_sft_evals.py submit \
+  --eval-root EVAL_ROOT --max-parallel 8 --dry-run
+```
+
+The evaluator creates 82 tasks: step 64 for all 55 canonical arms and one distinct
+final readout for each of the 27 arms whose declared final step is greater than 64.
+Every task uses the production strict scorer on the same 200 held-out prompts for
+each OP11–45 operation, with one sample per prompt and no training proxy or defect
+reward. Actual submission is refused until every expected checkpoint is stable and
+hash-bound into an immutable plan. It uses a non-exclusive one-H100 array with a hard
+eight-task concurrency cap, job-derived runtime ports, and a manifest-level immutable
+submission intent that fails closed after an ambiguous submission. It requires the
+same study-id and control-tmux guards as training. Do not submit the 82 tasks as an
+unthrottled GPU burst or remove an unresolved intent before reconciling Slurm state.
+
+Dataset materializers must render every selected trajectory with the exact training
+tokenizer/template and configured `seq_len`. Never silently truncate a trajectory or
+increase context to make it fit. If eligibility affects a coupled deterministic
+selection, recompute the preregistered selection/exclusion fixed point until the full
+selected union is renderable, and record every exclusion plus the final eligibility
+state in the sealed manifests.
+
+Slurm executes an `sbatch --wrap` payload with `/bin/sh` by default. If the
+payload uses Bash features such as `set -o pipefail`, invoke Bash explicitly,
+for example `sbatch --wrap='bash -lc "set -euo pipefail; ..."'`; otherwise the
+job can fail before source activation with `Illegal option -o pipefail`.
+
 ## `inference` — vLLM server
 
 OpenAI-compatible API plus prime-rl custom endpoints (`/update_weights`, `/load_lora_adapter`, `/init_broadcaster`). Always use this entrypoint — never `vllm serve` directly.
