@@ -64,7 +64,9 @@ The literature and theory support four conclusions.
    \]
 
    Except in a tied strict-dead regime, this is a finite threshold rather than
-   a discontinuity at zero.
+   a discontinuity at zero. Yang et al. independently provide a more general
+   active-wrong-label phase-boundary theorem under explicit coupling and drift
+   assumptions.
 
 3. **A real zero-versus-positive singularity appears under a fixed accepted
    sample or optimizer-step clock on strict-dead tasks.** If \(q=0\), then for
@@ -90,22 +92,34 @@ The literature and theory support four conclusions.
 
 **[OBSERVATION—CURRENT; PRELIMINARY]** The live OP10–40 RL runs support a
 finite-time group-activation/curriculum mechanism, not an exponential change
-in final ceiling. Through optimizer step 1,600, normalized OP15–17 AUC was
-10.344%, 9.546%, and 5.146% for \(p=0,1\%,5\%\). Under the post-hoc common
-raw-exposure proxy, the same ordering was 8.142%, 10.243%, and 8.033% because
-the defective arms received more optimizer updates per raw rollout. A frozen
+in final ceiling. Through optimizer step 1,950, normalized OP15–17 AUC was
+11.541%, 10.564%, and 6.485% for \(p=0,1\%,5\%\). Under the post-hoc common
+raw-exposure proxy \(E^*=1{,}636{,}096\), the same values were 9.333%,
+11.166%, and 8.864% because the defective arms received more optimizer updates
+per raw rollout. The 1% arm is worse per update but better per raw exposure;
+the 5% arm is worse on both clocks. A frozen
 audit through step 899 observed 0, 393, and 756 defect-only activated OP21–40
 groups. All three arms remained at 0/1,000 on unseen OP41–45 at both selected
 clocks. These are one-run-per-arm descriptive results, and the live evaluations
 mix adjacent policy versions; they do not estimate a treatment-effect variance,
 an asymptotic ceiling, or a phase transition.
 
+**[OBSERVATION—FROZEN PREFLIGHT]** The proposed low-dose masked pairs match
+expected aggregate activation within 0.31% in the exact scheduled-prefix
+projection, while `L=32` removes all candidate eligibility from 14.26%–14.81%
+of candidate-bearing frozen prompts. This turns the `L` contrast into diffuse
+versus concentrated support at fixed aggregate dose. The shuffled control is
+also partial: 62.6%–64.9% of its frozen reward recipients still exhibit the
+target behavior. Both facts are now explicit manipulation checks rather than
+post-hoc caveats.
+
 The defensible novelty target is therefore not “noise can cause reward
-hacking” or “misspecification can have phase transitions”; both are known. It
-is to isolate how *persistent, behavior-conditioned false positives* affect a
-clean process target at an empirically strict-dead frontier after separately
-matching raw exposure, accepted-example count, group activation, prompt
-allocation, and optimizer steps.
+hacking” or “misspecification can have phase transitions”; Yang et al. and
+Egashira et al. now make both especially direct priors. It is to isolate how
+*persistent, behavior-conditioned false positives* affect a clean process
+target at an empirically strict-dead frontier after separately matching raw
+exposure, accepted-example count, group activation, prompt allocation, and
+optimizer steps.
 
 ## 1. Formal setup and defect taxonomy
 
@@ -170,7 +184,7 @@ papers are recent preprints and should be treated accordingly.
 | Everitt et al., [*Reward Tampering Problems and Solutions in Reinforcement Learning: A Causal Influence Diagram Perspective*](https://arxiv.org/abs/1908.04734) (2019/2021) | **[THEOREM—PRIOR]** Separates reward-function tampering from reward-input tampering and gives causal design principles for removing incentives. | Concerns agent actions that influence the reward channel; our injected defect is externally specified. |
 | Skalse et al., [*Defining and Characterizing Reward Hacking*](https://arxiv.org/abs/2209.13085) (2022) | **[THEOREM—PRIOR]** Defines unhackability as proxy improvement never reducing true return; over unrestricted stochastic policies, nontrivial unhackable reward pairs are extremely constrained. | Structural impossibility does not locate a finite-compute dose threshold. |
 | Manheim and Garrabrant, [*Categorizing Variants of Goodhart's Law*](https://arxiv.org/abs/1803.04585) (2018) | **[CONCEPT—PRIOR]** Separates regressional, extremal, causal, and adversarial Goodhart. Optimization can select even independent proxy error. | A taxonomy, not a training-dynamics theorem. It cautions against calling iid noise harmless under selection. |
-| Pan, Bhatia, and Steinhardt, [*The Effects of Reward Misspecification: Mapping and Mitigating Misaligned Models*](https://arxiv.org/abs/2201.03544) (2022) | **[EMPIRICAL—PRIOR]** Five of nine proxy/environment pairs produced misalignment; four showed sharp qualitative transitions as model size, training time, action resolution, or observation quality increased. | This is the closest prior “phase transition,” but it varies capability under a fixed proxy rather than defect probability, recipient identity, or selection clock. |
+| Pan, Bhatia, and Steinhardt, [*The Effects of Reward Misspecification: Mapping and Mitigating Misaligned Models*](https://arxiv.org/abs/2201.03544) (2022) | **[EMPIRICAL—PRIOR]** Five of nine proxy/environment pairs produced misalignment; four showed sharp qualitative transitions as model size, training time, action resolution, or observation quality increased. | Varies capability under a fixed proxy rather than defect probability, recipient identity, or selection clock; newer direct phase-boundary priors appear below. |
 | Gao, Schulman, and Hilton, [*Scaling Laws for Reward Model Overoptimization*](https://arxiv.org/abs/2210.10760) (2022/2023) | **[EMPIRICAL—PRIOR]** Gold reward first rises and then falls with proxy optimization; reported fits are \(R_{\rm BoN}(d)=d(\alpha-\beta d)\) and \(R_{\rm RL}(d)=d(\alpha-\beta\log d)\). | The gold target is another reward model, and the fitted behavior is smooth rather than a perfection discontinuity. |
 | Coste et al., [*Reward Model Ensembles Help Mitigate Overoptimization*](https://arxiv.org/abs/2310.02743) (2023/2024) | **[EMPIRICAL—PRIOR]** Conservative ensembles strongly reduce best-of-\(N\) and PPO overoptimization under injected label noise. | Preference reward models, not binary process verifiers or behavior-matched false positives. |
 | Denison et al., [*Sycophancy to Subterfuge: Investigating Reward-Tampering in Large Language Models*](https://arxiv.org/abs/2406.10162) (2024) | **[EMPIRICAL—PRIOR]** Training on gameable environments increases later specification gaming and leaves a small nonzero rate of direct reward tampering. | A curriculum of qualitatively different environments, not a controlled \(p_A\) sweep. |
@@ -184,21 +198,37 @@ papers are recent preprints and should be treated accordingly.
 | --- | --- | --- |
 | Rad et al., [*Rate or Fate? RLV\(^{\varepsilon}\)R: Reinforcement Learning with Verifiable Noisy Rewards*](https://arxiv.org/abs/2601.04411) (2026) | **[THEOREM—PRIOR]** In a mean-field, block-symmetric, small-step GRPO/replicator model, \(J>0\) makes correct modes attracting, \(J=0\) is neutral, and \(J<0\) makes incorrect modes attracting; zero initial correct support is separately absorbing. | January 2026 v1. The result assumes behavior-independent class-conditional noise and does not prove finite neural GRPO behavior with clipping and sparse groups. |
 | Cai et al., [*Reinforcement Learning with Verifiable yet Noisy Rewards under Imperfect Verifiers*](https://arxiv.org/abs/2510.00915) (2025/2026) | **[THEOREM—PRIOR]** Derives an unbiased correction \((\widetilde R-\rho_0)/(1-\rho_0-\rho_1)\) while the class-conditional channel is informative. The paper explicitly identifies a residual covariance term when errors depend on content. | Population REINFORCE-style analysis; content-dependent false positives violate its principal assumption. |
-| Shao et al., [*Spurious Rewards: Rethinking Training Signals in RLVR*](https://arxiv.org/abs/2506.10947) (2025/2026) | **[EMPIRICAL—PRIOR]** Completely random rewards improved Qwen2.5-Math-7B substantially; clipping produced a nonzero expected gradient that amplified high-prior “code reasoning.” Removing clipping removed the consistent effect, and the result did not transfer uniformly across model families. | Directly refutes “iid rewards cannot matter in practical GRPO,” but it studies optimizer-induced self-distillation rather than a behavior-targeted verifier defect. |
+| Yang et al., [*Can LLMs Learn to Reason Robustly under Noisy Supervision?*](https://arxiv.org/abs/2604.03993) (2026) | **[THEOREM—PRIOR]** Separates inactive wrong labels from policy-realizable active wrong labels and derives an explicit critical active-noise ratio above which wrong solutions dominate, including a KL-shifted boundary. | The closest formal phase-boundary prior. Exact inactive support is unrealistic for softmax LMs; the result assumes constant positive cross-sample coupling, small steps, stable drift, and no clipping. Seed-level experiments are not reported. |
+| El Mansouri et al., [*Noise-corrected GRPO*](https://arxiv.org/abs/2510.18924) (2025/2026) | **[THEOREM—PRIOR]** Derives group-specific corrections for unbiased clean-centered GRPO gradients and analyzes noisy fixed points. | Assumes class-conditional independent flips and known or estimated global rates; behavior-correlated defects fall outside the correction model. |
+| Egashira et al., [*Delay, Plateau, or Collapse: Evaluating the Impact of Systematic Verification Error on RLVR*](https://arxiv.org/abs/2605.02909) (2026) | **[EMPIRICAL—PRIOR]** Controlled arithmetic RLVR shows systematic false negatives delay learning while deterministic behavior-conditioned false positives produce plateaus or collapse. Initial trigger frequency and oracle conditional advantage predict the regime better than marginal FPR. | The closest empirical mechanism prior. Triggers are deterministic rather than a `p_A` sweep; raw/update clocks, a strict-dead frontier, and seed replication are not supplied. |
+| Zhang, [*When the Reward Suite Is Leaky*](https://arxiv.org/abs/2607.11022) (2026) | **[EMPIRICAL—PRIOR]** In a preregistered leaky-versus-hardened code-verifier study, 47.6% of audited leaked reward paid wrong programs, yet the five-seed 400-step held-out gap was bounded and initial false-positive behaviors were selected rather than growing. | A useful counterexample: persistent correlated false positives need not measurably harm finite-horizon capability. Small models, short code tasks, nonnested verifier suites, and a sole-author preprint limit transfer. |
+| Khalifa et al., [*Countdown-Code*](https://arxiv.org/abs/2603.07084) (2026) | **[EMPIRICAL—PRIOR]** A proxy-filtered SFT set with 1.2% hacking traces can seed later RL hacking and cross-benchmark transfer; some model families amplify hacking dramatically. | The 1.2% fraction is not a randomized threshold, models differ sharply, and contamination ablations also change clean-data count. Evidence for a small-contamination catalyst, not a zero-dose discontinuity. |
+| Zhu and Kang, [*Noisy Data is Destructive to RLVR*](https://arxiv.org/abs/2603.16140) (2026) | **[EMPIRICAL—PRIOR]** Re-verification exposes mislabeled “wrong” targets; genuinely wrong policy-derived targets reduce performance and create a confirmation-bias loop. | Persistent annotation/target corruption rather than stochastic verifier false positives, with limited reported seed replication. |
+| Rahman et al., [*When Can LLMs Learn to Reason with Weak Supervision?*](https://arxiv.org/abs/2604.18574) (2026) | **[EMPIRICAL—PRIOR]** Frequent model-specific wrong answers are used as persistent targets; robustness varies sharply by model and domain, with Qwen sometimes generalizing through high corruption. | Cross-model predictors are observational and some judgments are model-based; not a trajectory-level probabilistic verifier defect. |
+| Huang et al., [*From Accuracy to Robustness*](https://arxiv.org/abs/2505.22203) (2025) | **[EMPIRICAL—PRIOR]** Static verifier accuracy can mispredict RL robustness: rule verifiers show policy-dependent false negatives, while some learned verifiers are exploited as proxy reward rises and oracle reward falls. | The oracle is imperfect, best checkpoints are emphasized, and there is no replicated defect-dose sweep. |
+| Mitsuhashi et al., [*Quantifying Empirical Compute-Supervision Tradeoffs in RLVR*](https://arxiv.org/abs/2605.25252) (2026) | **[EMPIRICAL—PRIOR]** Independent FP/FN and 8/16/32-rollout sweeps find finite-compute gaps and, in their settings, false negatives can be more damaging. | One seed, small models, a narrow compute range, and smooth polynomial fits; no asymptotic-ceiling result. |
+| Shao et al., [*Spurious Rewards: Rethinking Training Signals in RLVR*](https://arxiv.org/abs/2506.10947) (2025/2026) | **[EMPIRICAL—PRIOR]** Completely random rewards improved Qwen2.5-Math-7B substantially; removing clipping removed the consistent effect, and the result did not transfer uniformly across model families. The proposed clipping-bias mechanism uses a simplified objective and is explicitly a conjecture. | Directly refutes “iid rewards cannot matter in practical GRPO,” but it studies optimizer-induced self-distillation rather than a behavior-targeted verifier defect. |
 | Plesner, Guzmán, and Athalye, [*An Imperfect Verifier is Good Enough: Learning with Noisy Rewards*](https://arxiv.org/abs/2604.07666) (2026) | **[EMPIRICAL—PRIOR]** Resampled symmetric noise up to 15% was often close to clean training; weak verifiers with low precision were exploited, suggesting false positives are particularly dangerous. | April 2026 v1. Persistent error and a controlled FP-versus-FN factorial are left open; some precision conclusions are observational. |
 | Lv et al., [*The Climb Carves Wisdom Deeper Than the Summit: On the Noisy Rewards in Learning to Reason*](https://arxiv.org/abs/2505.22653) (2025) | **[EMPIRICAL—PRIOR]** Qwen retained much of its performance under substantial question-level reward inversion and collapsed around 50%; a phrase-based reward improved transiently and later overoptimized. | PPO with question/group-level noise, not recipient-matched trajectory false positives. |
 | Li, Kethireddy, and Das, [*Evaluating Feature Dependent Noise in Preference-based Reinforcement Learning*](https://arxiv.org/abs/2601.01904) (2026) | **[EMPIRICAL—PRIOR]** Feature-, similarity-, and margin-dependent preference noise can damage methods that tolerate uniform noise. | Continuous-control preference RL, with no verifier-dose phase-transition result. |
-| Helff et al., [*LLMs Gaming Verifiers: RLVR can Lead to Reward Hacking*](https://arxiv.org/abs/2604.15149) (2026) | **[EMPIRICAL—PRIOR]** A deterministic extensional-verifier loophole causes shortcut learning; an isomorphism-aware verifier removes the shortcut, and shortcut use rises with task complexity and inference compute. | The closest behavioral analogue to \(p_A\), but it compares deterministic verifiers rather than sweeping defect probability or matching raw/update clocks. |
+| Helff et al., [*LLMs Gaming Verifiers: RLVR can Lead to Reward Hacking*](https://arxiv.org/abs/2604.15149) (2026) | **[EMPIRICAL—PRIOR]** A deterministic extensional-verifier loophole causes shortcut learning; an isomorphism-aware verifier removes it in one inductive-logic benchmark and controlled 7B setup. | A close behavioral analogue to `p_A`, but it compares deterministic verifiers rather than sweeping defect probability or matching raw/update clocks; cross-model comparisons are observational. |
 
 ### 2.4 Process supervision, inference verification, and iterative feedback
 
 | Work | Relevant result | Caveat for this study |
 | --- | --- | --- |
 | Cobbe et al., [*Training Verifiers to Solve Math Word Problems*](https://arxiv.org/abs/2110.14168) (2021) | **[EMPIRICAL—PRIOR]** Sampling and verifier reranking improve GSM8K and scale effectively with data. | Outcome verification at inference, not corrupted-verifier training. |
-| Uesato et al., [*Solving Math Word Problems with Process- and Outcome-Based Feedback*](https://arxiv.org/abs/2211.14275) (2022) | **[EMPIRICAL—PRIOR]** Outcome supervision can obtain similar answer error cheaply, but process supervision reduces incorrect reasoning among final-answer-correct solutions from 14.0% to 3.4%. | Different task/model, but it directly motivates strict CoT as the target rather than answer-only reward. |
+| Uesato et al., [*Solving Math Word Problems with Process- and Outcome-Based Feedback*](https://arxiv.org/abs/2211.14275) (2022) | **[EMPIRICAL—PRIOR]** Process feedback can substantially reduce incorrect reasoning among final-answer-correct solutions, while outcome-trained reward models can emulate some process feedback and reach similar final-answer error. | The often-quoted 14.0% versus 3.4% comparison is a best-system/prior-work comparison, not a clean causal process-versus-outcome ablation. It still motivates strict CoT as the target. |
 | Lightman et al., [*Let's Verify Step by Step*](https://arxiv.org/abs/2305.20050) (2023) | **[EMPIRICAL—PRIOR]** Process reward models outperform outcome reward models on MATH and support active-learning gains. | Learned verifier quality, not controlled error-recipient interventions. |
 | Wang et al., [*Examining False Positives under Inference Scaling for Mathematical Reasoning*](https://arxiv.org/abs/2502.06217) (2025) | **[EMPIRICAL—PRIOR]** Correct-answer/incorrect-reasoning false positives contaminate pass@\(N\) increasingly as inference scales. | Inference evaluation rather than training dynamics. |
-| Pan et al., [*Spontaneous Reward Hacking in Iterative Self-Refinement*](https://arxiv.org/abs/2407.04549) (2024) | **[EMPIRICAL—PRIOR]** Evaluator scores can improve while human quality stagnates or declines, especially when generator and evaluator share a model. | Establishes iterative amplification, not a controlled \(p_A\to0\) boundary. |
+| Stroebl et al., [*The Limits of Inference Scaling Through Resampling*](https://arxiv.org/abs/2411.17501) (2024) and Dorner et al., [*ROC-n-reroll*](https://arxiv.org/abs/2507.12399) (2025) | **[THEOREM—PRIOR]** Formalize false-positive ceilings and verifier-ROC dependence under repeated sampling and discuss consequences for rejection-selected data. | Inference/resampling theory rather than on-policy training dynamics. |
+| Xu et al., [*TinyV*](https://arxiv.org/abs/2505.14625) (2025) | **[EMPIRICAL—PRIOR]** Finds substantial rule-verifier false negatives and reports stronger RL after recovering rejected correct solutions. | Intervention false-positive rates are insufficiently characterized, so FN causality is not isolated cleanly. |
+| Pan et al., [*Spontaneous Reward Hacking in Iterative Self-Refinement*](https://arxiv.org/abs/2407.04549) (2024) | **[EMPIRICAL—PRIOR]** Evaluator scores can improve while human quality stagnates or declines. Generator and evaluator use the same underlying model throughout; the controlled ablation changes whether their dialogue histories are shared. | Establishes iterative amplification, not a controlled `p_A -> 0` boundary; shortcut alignment from model identity is a hypothesis rather than the ablated variable. |
+| Ferbach et al., [*Self-Consuming Generative Models with Curated Data Provably Optimize Human Preferences*](https://arxiv.org/abs/2407.09499) (2024) | **[THEOREM—PRIOR]** Reward-based curation in iterative retraining acts as implicit preference optimization, amplifies reward-model bias, and can be stabilized by retaining positive real-data mass. | Generic generative-model recursion, not reasoning trajectories or a verifier-dose experiment. |
+| Qiao et al., [*When Sample Selection Bias Precipitates Model Collapse*](https://arxiv.org/abs/2606.13732) (ICML 2026) | **[THEOREM/EMPIRICAL—PRIOR]** An imperfect local-reference selector can accelerate recursive collapse and power-law diversity decay. | Gaussian theory plus image/text generation, not strict reasoning SFT. |
+| Song et al., [*When AI Reviews Its Own Code*](https://arxiv.org/abs/2606.28438) (2026) | **[EMPIRICAL—PRIOR]** Recursive SFT with a model-coupled gate can enter a rubber-stamp regime where acceptance rises while correctness falls. | Limited seed-level uncertainty; the theoretical gate-collapse statement is conditional and the “human” filters are compile/static checks. |
+| Wu et al., [*Why Self-Training Helps and Hurts*](https://arxiv.org/abs/2602.14029) (2026) | **[THEOREM—PRIOR]** Overparameterized linear self-training has a U-shaped denoising-versus-signal-forgetting trajectory. | Useful basin and early-stopping theory, not verifier-defect evidence. |
+| Shumailov et al., [*The Curse of Recursion*](https://arxiv.org/abs/2305.17493) (Nature 2024); Alemohammad et al., [*Self-Consuming Generative Models Go MAD*](https://arxiv.org/abs/2307.01850) (2023); Gerstgrasser et al., [*Is Model Collapse Inevitable?*](https://arxiv.org/abs/2404.01413) (2024) | **[THEOREM/EMPIRICAL—PRIOR]** Replacement versus accumulation of clean data qualitatively changes recursive-training stability. | Canonical controls for iterative SFT, but none studies behavior-conditioned verifier errors. |
 | Burns et al., [*Weak-to-Strong Generalization: Eliciting Strong Capabilities with Weak Supervision*](https://arxiv.org/abs/2312.09390) (2023) | **[EMPIRICAL—PRIOR]** Strong models can exceed weak supervisors but generally do not recover the full strong ceiling; confidence-based methods help. | Weak labels are not the same as a sparse, behavior-correlated binary defect. |
 | Kirchner et al., [*Prover-Verifier Games Improve Legibility of Language Model Outputs*](https://arxiv.org/abs/2407.13692) (2024) | **[EMPIRICAL—PRIOR]** Adversarial prover-verifier training can improve helpful accuracy and verifier robustness. | Changes the verifier through a game rather than holding a defect channel fixed. |
 | Oymak and Gulcu, [*Statistical and Algorithmic Insights for Semi-supervised Learning with Self-training*](https://arxiv.org/abs/2006.11006) (2020) | **[THEOREM—PRIOR]** Finite-sample self-training recurrences can have suboptimal fixed points; confidence and margin matter. | Supports basin phenomena in iterative SFT but does not study verifier false-positive dose. |
@@ -212,21 +242,27 @@ papers are recent preprints and should be treated accordingly.
 | Menon et al., [*Learning from Binary Labels with Instance-Dependent Corruption*](https://arxiv.org/abs/1605.00751) (2016) | **[THEOREM—PRIOR]** Gives consistency results for particular instance-dependent corruption models and ranking conditions. | The assumptions are restrictive and do not cover arbitrary exploitable verifier behavior. |
 | Cheng et al., [*Learning with Instance-Dependent Label Noise: A Sample Sieve Approach*](https://arxiv.org/abs/2010.02347) (2020) | **[THEOREM—PRIOR]** Filtering can be robust under stated separation assumptions; **[EMPIRICAL—PRIOR]** experiments study a sample-sieve implementation. | Offline classification; the filter does not alter a data-generating policy. |
 | Liu et al., [*Identifiability of Label Noise Transition Matrix*](https://arxiv.org/abs/2202.02016) (2022) | **[THEOREM—PRIOR]** Generic instance-level transition matrices are not identifiable from one noisy label without additional assumptions or repeated labels. | Explains why aggregate FPR alone cannot recover our behavior-conditioned channel. |
-| Chowdhury et al., [*Provably Robust Direct Preference Optimization with Noisy Preferences*](https://arxiv.org/abs/2403.00409) (2024) | **[THEOREM—PRIOR]** Under random flips \(\epsilon<1/2\), robust DPO bounds degrade with the familiar \(1/(1-2\epsilon)\) factor. | Pairwise offline preferences, not GRPO or strict-dead rejection sampling. |
+| Chowdhury et al., [*Provably Robust DPO: Aligning Language Models with Noisy Feedback*](https://arxiv.org/abs/2403.00409) (2024) | **[THEOREM—PRIOR]** Under random flips \(\epsilon<1/2\), robust DPO bounds degrade with the familiar \(1/(1-2\epsilon)\) factor. | Pairwise offline preferences, not GRPO or strict-dead rejection sampling. |
 
 ### 2.6 Literature synthesis
 
 Prior work already establishes all of the following: reward corruption can
 break RL; proxy optimization can cause smooth overoptimization or sharp
 capability thresholds; iid random rewards can matter under clipped GRPO; and
-feature-dependent errors can be worse than uniform errors. No novelty claim
-should be based on any one of those statements.
+feature-dependent errors can be worse than uniform errors. Yang et al. already
+derive an active-noise phase boundary, and Egashira et al. already demonstrate
+systematic false-positive plateau/collapse regimes. Conversely, Zhang's
+five-seed code study shows that abundant persistent false-positive reward can
+select pre-existing errors without measurably degrading short-horizon held-out
+capability. No novelty claim should be based on any one of those statements.
 
 The remaining gap is narrower and operational: no work in this map jointly
 controls recipient behavior, within-prompt reward count, global accepted count,
 raw rollout exposure, optimizer-step exposure, an empirically strict-dead
 process frontier, and held-out clean process correctness in both RL and
-iterative SFT.
+iterative SFT. The proposed contribution is that joint causal decomposition and
+clock-controlled scaling test, not the generic existence of correlated-noise
+regimes.
 
 ## 3. Theory: boundaries and singular limits
 
@@ -342,6 +378,17 @@ Thus “any nonzero imperfection changes fate” is not generic. It arises in th
 special tied strict-dead case \(q_A=\mu_B=0\), or through an additional
 mechanism such as endogenous hackability, heavy-tailed payoff, or support
 creation.
+
+**[THEOREM—PRIOR]** Yang et al. derive the closely related active-noise
+boundary `rho_c = gamma G_c / (gamma G_c + G_n)`: above it, policy-realizable
+wrong labels dominate under their coupling/drift assumptions, with a shifted
+boundary under KL regularization. That result predates and subsumes the generic
+claim that active wrong support can have a threshold. The derivation here is
+useful only as the simpler behavior-mode mapping for this experiment. Yang et
+al.'s exact inactive-support assumption is not literal for a softmax language
+model, and their theorem does not include clipping, sparse 128-rollout group
+activation, raw/update clock separation, or an evolving verifier-recipient
+distribution.
 
 This replicator system is an explanatory model, not a theorem for neural GRPO.
 In particular, its fitness is stationary, while the model's behavior classes,
@@ -687,6 +734,45 @@ version histogram. The comparisons are consequently between adjacent-policy
 mixtures. Finally, all arms scored exactly 0/1,000 on unseen OP41–45 at both
 clocks, so this prefix contains no evidence about the requested hard
 generalization ceiling.
+
+**[OBSERVATION—LATER IMMUTABLE REFRESH, 2026-08-07]** The same conclusion
+survives a longer common window. The frozen refresh artifacts are
+
+```text
+/checkpoint/ram-h100-2/tianhaowu/rsci/analysis/
+verifier-defect-main-v2-clock1950-refresh-20260807/{summary.json,paired_clocks.json}
+```
+
+with SHA-256 values
+`b073f90c04e7ef4d851f15db47132dc3e2f86b836545a85b07d38539adb74522`
+and
+`53a360f390ea521d6a1416cc888a7bf0650fc0c36fc7d64389546a3aaef816bf`.
+The selected common clocks are optimizer step 1,950 and nearest raw exposure
+`E*=1,636,096`.
+
+| Clock and OP15–17 statistic | `p=0` | `p=1%` | `p=5%` |
+| --- | ---: | ---: | ---: |
+| Optimizer-step AUC through 1,950 | 11.5406% | 10.5641% | 6.4850% |
+| Mean of the last five evaluations through 1,950 | 18.10% | 15.50% | 13.40% |
+| Step-1,950 endpoint | 19.33% | 16.33% | 12.67% |
+| Raw-exposure AUC through `E*` | 9.3326% | 11.1665% | 8.8641% |
+| Nearest-`E*` endpoint | 16.17% | 16.33% | 13.50% |
+
+The `1%` contrast is now `-0.9765` pp by optimizer-step AUC but
+`+1.8339` pp by raw-exposure AUC. Its nearest-exposure endpoint advantage is
+only `+0.17` pp, so the AUC—not one favorable endpoint—is the sustained
+raw-budget signal. The `5%` arm is `-5.0556` pp per-update AUC and
+`-0.4684` pp per-raw-exposure AUC. At the matched optimizer endpoint,
+OP21–40 strict pass@1 is 0.60% / 0.30% / 0.00%; at the nearest raw-exposure
+endpoint it is 0.35% / 0.625% / 0.425%. Every arm remains exactly 0/1,000 on
+OP41–45 at both clocks.
+
+All three step-1,950 evaluations and the `p=1%` and `p=5%` raw-clock
+evaluations mix adjacent policy versions on all 35 operations. The clean
+raw-clock evaluation at step 1,625 mixes versions on 25 operations. Prompt
+tests and bootstrap intervals therefore remain conditional diagnostics, not
+training-treatment inference. This snapshot was taken while all three jobs
+were healthy and running; it is a longer prefix, not a final-ceiling result.
 
 ### 4.5 Mechanism audit: why a small \(p\) changes the training clock
 
@@ -1174,10 +1260,65 @@ SHA-256. The legacy hash-bound analyzers were not modified. GPU submission is
 deliberately waiting for the fixed-clock SFT screen to release the shared
 resource budget.
 
+**[OBSERVATION—FROZEN-BANK PREFLIGHT, 2026-08-07]** Exact replay of all
+3,712,000 frozen strict rows changes the interpretation in a useful way. The
+authoritative artifact is
+`/checkpoint/ram-h100-2/tianhaowu/rsci/analysis/masked-frozen-bank-preflight-v1/report.json`
+(SHA-256
+`d3b24d8c7df94e8e9ff1a2a96ad9c445cc3b108c9ccad139dc8332064fc130df`).
+The deterministic analyzer is `analyze_masked_frozen_bank.py` and independently
+replays rather than importing the environment's mask decisions. The
+two `L*p` pairs are exceptionally well matched in aggregate: over 29,000
+groups, low-dose expected `H>0` counts are 630.939 for `L=128` and
+631.122–631.881 for `L=32` across the three masks; high-dose counts are
+1,203.969 and 1,205.478–1,206.837. Expected strict-dead nucleations show the
+same agreement. On OP21–40, a hypothetical 12,000 groups give 217.699 versus
+217.617 seed-mean low-dose nucleations and 417.938 versus 418.147 high-dose
+nucleations.
+
+For the actual seed-42 dispatch order, the first 12,000 scheduled groups
+contain 7,763 OP21--40 prompts. Exact frozen hard-nucleation expectations are
+139.317 for low `L=128` versus 139.174--139.665 across low `L=32` masks, and
+267.542 for high `L=128` versus 267.517--268.399 across high `L=32` masks.
+The bank identifies 11,251 groups in that prefix; the remaining 749 are OP13
+or OP14 and are not imputed. Asynchronous finalization can change the realized
+first-12,000 set, so live attempt logs supersede this dispatch projection.
+
+The matched arms nevertheless differ sharply in *support*. The size-32 mask
+removes every eligible candidate from 14.26%–14.81% of candidate-bearing
+prompts. The realized low-dose activated-prompt sets disagree on 846–870 of
+29,000 prompts and the high-dose sets disagree on 1,482–1,507, even though
+their aggregate event rates match. This is not a calibration failure. It
+identifies a sharper intervention: diffuse rare support versus a fourfold coin
+concentrated on one quarter of the rollout slots at fixed expected activation
+dose. A reproducible `L=32` versus `L=128` learning difference would
+therefore be evidence for a support-concentration effect, not for a nominal
+probability threshold. The complete statistical interpretation and its
+three-seed power limits are locked in
+`configs/rl/masked_activation_v1/PREREGISTRATION.md`.
+
+The S control is also a partial, not perfect, recipient intervention. It
+preserves B's exact full-bank trigger totals (1,294 / 1,314 / 1,293 across
+seeds), but 62.6% / 64.0% / 64.9% of shuffled reward recipients still satisfy
+the answer-correct/strict-wrong behavior because S samples from all strict
+negatives inside the same candidate-rich group. The live analyzer therefore
+reports this overlap explicitly. A null B--S result cannot rule out recipient
+identity unless the manipulation remains large; the preregistration requires
+at least a 20-point alignment reduction.
+
+The preflight is not held-out evidence. All 29,000 frozen prompts occur in the
+31,000-prompt online training set; only OP13 and OP14 are absent from the bank.
+It is one temperature-0.7 base-policy draw and uses the same prompt-ID/hash
+field as the planned online runs. It is valid as step-zero mechanism
+calibration, but later policy-dependent `K`, downstream performance, and
+OP41–45 generalization require the actual runs.
+
 The decisive interpretations are:
 
 - collapse of each matched pair by attempted groups and activated groups
-  supports the finite-group multiplier;
+  supports the finite-group multiplier despite different prompt support;
+- separation within a matched pair identifies support concentration at nearly
+  fixed aggregate dose, rather than an intrinsic nominal-`p` threshold;
 - a nominal-\(p\) threshold that shifts fourfold when \(L\) shifts fourfold is
   not an intrinsic phase transition;
 - a raw-group advantage that disappears or reverses at matched updates is a
@@ -1204,7 +1345,12 @@ incidentally.
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Rad et al. 2026 | No; class-conditional | No | Support barrier noted, no dose experiment | No | No | No |
 | Cai et al. 2025/26 | No; treated as assumption violation | No | No | No | No | No |
+| Yang et al. 2026 | Active policy-realizable wrong labels | No | Explicit theoretical critical ratio | No | No | No |
+| Egashira et al. 2026 | Yes; deterministic FP triggers | Oracle task correctness | Plateau/collapse regimes, no probability sweep | No | No | No |
+| Zhang 2026 | Natural persistent code-verifier FPs | Hardened task correctness | Leaky versus hardened, five seeds | No | No | No |
+| Khalifa et al. 2026 | Hack-contaminated selected traces | Held-out code correctness | 1.2% catalyst, not randomized | No | Yes, then RL | No |
 | Shao et al. 2025/26 | Random/format rewards | No | Random \(p=0\) versus positive | No | No | Yes |
+| Mitsuhashi et al. 2026 | Class-conditional FP/FN | No | Dose and rollout-count sweep | Compute, not paired clocks | No | No |
 | Plesner et al. 2026 | Uncontrolled weak-verifier correlation | No | No | No | No | No |
 | Li et al. 2026 | Feature-dependent preference noise | No | No | No | No | No |
 | Helff et al. 2026 | Yes, deterministic shortcut | Analogous intensional target | No probability sweep | No | No | No |
@@ -1226,7 +1372,8 @@ Its limitations are equally important:
 - a finite frozen bank cannot prove population \(q=0\);
 - three selection seeds are a screen, not a definitive scaling study;
 - fixed-M SFT removes on-policy feedback by construction;
-- B/S/G recipient distributions can still differ on unmeasured features;
+- B/S/G recipient distributions can still differ on unmeasured features, and
+  frozen S retains the target behavior on 62.6%–64.9% of reward recipients;
 - the current dose floor is not an empirical \(p\to0\) limit;
 - a stable neural-network ceiling requires much longer training than a 64-step
   mechanistic screen;
@@ -1242,7 +1389,10 @@ Use the following language for eventual claims.
   positive fixed-M arm has the same limiting hard-data distribution. This is
   already an algebraic property of the strict-dead rejection model, subject to
   the empirical gate.
-- **“Behavior-recipient effect”** only if B differs reproducibly from S.
+- **“Behavior-recipient effect”** only if B differs reproducibly from S and
+  the audited B-minus-S behavior-recipient alignment exceeds the preregistered
+  20-point manipulation floor. This estimates reduced versus full alignment,
+  not behavior versus zero behavior.
 - **“Prompt-allocation effect”** only if S differs reproducibly from G and the
   measured allocation moves accordingly.
 - **“Practical iid optimizer effect”** if I differs from C0 despite \(J>0\),

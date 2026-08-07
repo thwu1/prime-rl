@@ -137,6 +137,16 @@ Audit `defect_slot_mask_metric`, `defect_slot_rank_metric`,
 `defect_scope_eligible_metric`, and `defect_eligible_metric` separately; masked
 errored slots are not backfilled.
 
+Before launching the RSCI masked-activation matrix, run the frozen-bank
+preflight with
+`uv run --no-sync user/tianhaowu/rsci/analyze_masked_frozen_bank.py --output REPORT.json`
+and retain the report SHA-256. After launch, audit each run with
+`analyze_masked_verifier_attempts.py`; its summary distinguishes candidate,
+masked-eligible, behavior-triggered, selected-recipient, and selected
+behavior-candidate counts. For shuffled controls, always report the last ratio:
+shuffling within a candidate-rich group weakens behavior alignment but does not
+guarantee zero behavior recipients.
+
 ## Key files
 
 - `packages/prime-rl-configs/src/prime_rl/` — config classes under `configs/`; `utils/config.py` re-exports `BaseConfig` and `cli`

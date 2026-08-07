@@ -1,7 +1,9 @@
 # Masked-activation Stage 1
 
 This directory preregisters the 18-run Stage-1 matrix. It has not been
-launched. Resolve each run by composing, from left to right:
+launched. The scientific estimands, clocks, uncertainty limits, and decision
+rules are fixed in [PREREGISTRATION.md](PREREGISTRATION.md). Resolve each run
+by composing, from left to right:
 
 1. `../op10_40_strict_grpo_r128_defect_p00.toml`;
 2. `common.toml`;
@@ -71,8 +73,11 @@ fixed while changing `L` fourfold. In S, the environment first realizes B's
 trigger count `H` from the masked behavior candidates, then assigns exactly
 `H` extra rewards to independently ranked, masked, valid strict negatives in
 the same group. S therefore preserves the prompt, mask, activation, and reward
-count while breaking the trajectory-level behavior/reward link; it is not IID
+count while weakening the trajectory-level behavior/reward link; it is not IID
 noise because `H` still depends on the group's masked behavior candidates.
+Because recipients are sampled from all masked strict negatives, some S
+recipients can still exhibit the target answer-correct/strict-wrong behavior.
+The exact recipient-overlap rate is a required manipulation check.
 
 The planned comparison point requires both 1,500 shipped optimizer updates and
 12,000 attempted groups. The joint stop waits for the next 50-update boundary

@@ -197,8 +197,18 @@ def test_valid_behavior_and_shuffled_rows_replay_exactly(assignment):
     assert group.effective_eligible_count == 32
     assert group.behavior_trigger_count <= group.effective_eligible_count
     assert group.selected_trigger_count == group.behavior_trigger_count
+    expected_selected_candidates = sum(
+        candidate * selected
+        for candidate, selected in zip(
+            row["metrics"]["defect_candidate_metric"],
+            row["metrics"]["defect_triggered_metric"],
+            strict=True,
+        )
+    )
+    assert group.selected_candidate_count == expected_selected_candidates
     assert group.mixed_activation_probability == pytest.approx(1.0)
     assert attempts[0].behavior_trigger_count == group.behavior_trigger_count
+    assert attempts[0].selected_candidate_count == expected_selected_candidates
     assert integrity["unconsumed_appended_tail_rows"] == 0
 
 

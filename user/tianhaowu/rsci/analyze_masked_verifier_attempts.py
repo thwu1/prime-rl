@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-ANALYSIS_VERSION = "masked_verifier_defect_attempts_v1"
+ANALYSIS_VERSION = "masked_verifier_defect_attempts_v2"
 PHYSICAL_GROUP_SIZE = 128
 TARGET_ATTEMPTED_GROUPS = 12_000
 TARGET_SHIPPED_UPDATES = 1_500
@@ -64,6 +64,7 @@ class MaskedContract:
 @dataclass(frozen=True)
 class AuditedSlot:
     strict: int
+    candidate: int
     effective_eligible: int
     behavior_triggered: int
     selected_triggered: int
@@ -86,6 +87,7 @@ class AuditedGroup:
     effective_eligible_count: int
     behavior_trigger_count: int
     selected_trigger_count: int
+    selected_candidate_count: int
     mixed_activation_probability: float | None
     mixed_activation_observed: bool | None
     slots: tuple[AuditedSlot, ...]
@@ -113,6 +115,10 @@ class AuditedGroup:
             "K_effective_eligible_count": self.effective_eligible_count,
             "H_behavior_trigger_count": self.behavior_trigger_count,
             "selected_extra_positive_count": self.selected_trigger_count,
+            "selected_behavior_candidate_count": self.selected_candidate_count,
+            "selected_behavior_candidate_fraction": (
+                self.selected_candidate_count / self.selected_trigger_count if self.selected_trigger_count else None
+            ),
             "mixed_activation_probability_exact": self.mixed_activation_probability,
             "mixed_activation_observed": self.mixed_activation_observed,
             "defect_only_triggered_observed": defect_only_triggered,
@@ -132,6 +138,7 @@ class AuditedAttempt:
     effective_eligible_count: int
     behavior_trigger_count: int
     selected_trigger_count: int
+    selected_candidate_count: int
     group_slices: tuple[dict[str, object], ...]
 
     def as_dict(self) -> dict[str, object]:
@@ -146,6 +153,10 @@ class AuditedAttempt:
             "K_effective_eligible_count": self.effective_eligible_count,
             "H_behavior_trigger_count": self.behavior_trigger_count,
             "selected_extra_positive_count": self.selected_trigger_count,
+            "selected_behavior_candidate_count": self.selected_candidate_count,
+            "selected_behavior_candidate_fraction": (
+                self.selected_candidate_count / self.selected_trigger_count if self.selected_trigger_count else None
+            ),
             "group_slices": list(self.group_slices),
         }
 
@@ -476,13 +487,15 @@ def _validate_group_metrics(
     slots = tuple(
         AuditedSlot(
             strict=strict_value,
+            candidate=candidate_value,
             effective_eligible=eligible_value,
             behavior_triggered=behavior_value,
             selected_triggered=selected_value,
             appended=was_appended,
         )
-        for strict_value, eligible_value, behavior_value, selected_value, was_appended in zip(
+        for strict_value, candidate_value, eligible_value, behavior_value, selected_value, was_appended in zip(
             strict,
+            candidates,
             effective_eligible,
             behavior,
             selected,
@@ -499,6 +512,10 @@ def _validate_group_metrics(
         "effective_eligible": sum(effective_eligible),
         "behavior_h": behavior_h,
         "selected": sum(selected),
+        "selected_candidate": sum(
+            candidate_value * selected_value
+            for candidate_value, selected_value in zip(candidates, selected, strict=True)
+        ),
     }
 
 
@@ -632,6 +649,7 @@ def parse_groups(rows: list[dict[str, Any]], contract: MaskedContract) -> tuple[
                 effective_eligible_count=counts["effective_eligible"],
                 behavior_trigger_count=counts["behavior_h"],
                 selected_trigger_count=counts["selected"],
+                selected_candidate_count=counts["selected_candidate"],
                 mixed_activation_probability=mixed_probability,
                 mixed_activation_observed=mixed_observed,
                 slots=slots,
@@ -742,6 +760,7 @@ def parse_attempts(
                 effective_eligible_count=sum(slot.effective_eligible for slot in member_slots),
                 behavior_trigger_count=sum(slot.behavior_triggered for slot in member_slots),
                 selected_trigger_count=sum(slot.selected_triggered for slot in member_slots),
+                selected_candidate_count=sum(slot.candidate * slot.selected_triggered for slot in member_slots),
                 group_slices=tuple(parsed_slices),
             )
         )
@@ -817,6 +836,7 @@ def _aggregate_groups(groups: tuple[AuditedGroup, ...], contract: MaskedContract
             "K_effective_eligible": sum(group.effective_eligible_count for group in selected),
             "H_behavior_triggers": sum(group.behavior_trigger_count for group in selected),
             "selected_extra_positives": sum(group.selected_trigger_count for group in selected),
+            "selected_behavior_candidate_recipients": sum(group.selected_candidate_count for group in selected),
         }
 
     return {
