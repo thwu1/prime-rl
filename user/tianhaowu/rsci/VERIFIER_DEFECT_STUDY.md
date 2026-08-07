@@ -211,6 +211,38 @@ pure "more nonempty groups is always better" account for this interval and
 raises objective distortion as the leading mechanism. It remains a one-seed,
 interim result rather than a ceiling estimate.
 
+### Exposure-aligned frontier shift
+
+At 387,456 generated training rollouts, linearly interpolating each clean-eval
+curve between its two adjacent exposure checkpoints gives:
+
+| Arm | OP11--12 strict | OP13--17 strict | OP15--17 strict | OP11--20 strict | OP13--17 answer | OP13--17 candidate `A` |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 0% | 53.73% | 15.56% | 4.58% | 18.52% | 42.59% | 27.03% |
+| 1% | 34.35% | 15.23% | 8.67% | 14.53% | 43.57% | 28.34% |
+| 5% | 32.75% | 11.30% | 4.00% | 12.20% | 35.50% | 24.20% |
+
+The brackets were steps 275--300 for 0%, 475--500 for 1%, and step 675 for 5%.
+The cumulative exposure is the orchestrator's finalized-group counter
+immediately before the evaluation trigger, multiplied by 128.
+
+The dose effect is therefore not a simple monotone slowdown. At fixed raw
+exposure, 1% has moved strict success farther into OP15--17 than the clean arm,
+while losing substantial OP11--12 retention; 5% retains the easy-task loss but
+does not obtain the frontier gain. A plausible two-mechanism account is that
+sparse candidate rewards activate otherwise all-zero hard groups and advance
+the implicit curriculum, whereas denser candidate reward increasingly distorts
+the objective. This is a one-seed, interpolated pilot result, not evidence that
+1% improves the final average or ceiling. It makes a 1% behavior-versus-shuffled
+group-histogram control necessary alongside the existing 5% control.
+
+As an exploratory time-to-discovery statistic, requiring OP15 strict pass@1 to
+remain at or above 10% for three consecutive evaluations is first met after
+382,208 generated rollouts at 0% and 310,400 at 1%; 5% has not met it by
+387,456. The threshold was selected after inspecting the curves, so it is a
+mechanism diagnostic rather than a preregistered endpoint. Confirmatory runs
+should define sustained discovery before looking at the new seeds.
+
 ## Mechanisms and falsifiable signatures
 
 ### Connectivity-only effect
@@ -248,6 +280,29 @@ Predictions:
 - a behavior-conditioned low-`p` arm can beat both 0% and uniform random noise
   at fixed raw-rollout compute;
 - the benefit is localized near the moving difficulty frontier.
+
+For a hard stratum with essentially zero strict success but candidate prevalence
+`h > 0`, the probability that no candidate false positive appears in `N`
+independent groups is approximately
+
+```text
+P(no bridge by N) = (1 - p h)^(G N) ~= exp(-N G h p).
+```
+
+Thus the probability of receiving at least one bridge signal is
+`1 - exp(-N G h p)`. This gives the near-zero exponential effect suggested by
+the study motivation without requiring a thermodynamic phase transition. At a
+fixed training budget the discovery crossover is `p_discovery ~= 1/(N G h)`;
+within already active groups the separate reward-connectivity crossover remains
+`p_group ~= 1/(G h)`. At `p=0` a truly zero-strict stratum is an absorbing
+zero-gradient state, while every `p>0` eventually escapes it in the idealized
+infinite-time limit.
+
+The falsifiable test is a survival analysis of time-to-first sustained strict
+success across operations and seeds. Curves that collapse against cumulative
+hazard `N G h p` establish finite-budget nucleation. Persistent bimodality or
+direction-dependent behavior after turning the defect off would be needed for a
+stronger basin-transition or hysteresis claim.
 
 ### Basin transition or hysteresis
 

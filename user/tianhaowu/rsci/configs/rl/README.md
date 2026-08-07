@@ -278,6 +278,8 @@ The reward-histogram-matched 500-step pilot uses the p00 config as a base plus
 one of these overlays:
 
 - `op10_40_group_scored_clean_p00_pilot500.toml`;
+- `op10_40_behavior_group_p01_pilot500.toml`;
+- `op10_40_shuffled_group_p01_pilot500.toml`;
 - `op10_40_behavior_group_p05_pilot500.toml`;
 - `op10_40_shuffled_group_p05_pilot500.toml`.
 
