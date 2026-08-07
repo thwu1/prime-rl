@@ -212,6 +212,8 @@ def test_group_stats_capture_rollouts_before_filtering():
             "group_index": 1,
             "env_name": "test",
             "task_idx": 0,
+            "sample_ids": [None, None],
+            "operations": [None, None],
             "target_size": 2,
             "received_size": 2,
             "advantage_population_size": 1,

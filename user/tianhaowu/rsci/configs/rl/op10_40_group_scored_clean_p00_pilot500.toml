@@ -5,6 +5,9 @@
 output_dir = "/checkpoint/ram-h100-2/tianhaowu/rsci/rl/base-op10-40-strict-r128-behavior-group-p00-pilot500-eval11-45-v2"
 max_steps = 500
 
+[ckpt]
+keep_interval = 25
+
 [slurm]
 job_name = "rsci-rl-op10-40-r128-bgrp-p00-pilot"
 pre_run_command = 'unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy; INTERNAL_HOSTS=${HOSTNAMES_STR// /,}; export NO_PROXY="localhost,127.0.0.1,$INTERNAL_HOSTS"; export no_proxy="$NO_PROXY"; export VLLM_CACHE_ROOT="${SLURM_TMPDIR:-/tmp}/vllm-cache-${SLURM_JOB_ID}"'

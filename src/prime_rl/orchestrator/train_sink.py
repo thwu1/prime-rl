@@ -118,6 +118,8 @@ class TrainSink:
                 "group_index": self.groups_finalized,
                 "env_name": group[0].env_name,
                 "task_idx": group[0].task.idx,
+                "sample_ids": [rollout.info.get("sample_id") for rollout in group],
+                "operations": [rollout.info.get("op") for rollout in group],
                 "target_size": self.group_size_for(group[0].env_name),
                 "received_size": len(group),
                 "advantage_population_size": len(advantage_population),
