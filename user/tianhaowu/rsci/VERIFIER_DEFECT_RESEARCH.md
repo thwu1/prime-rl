@@ -956,6 +956,47 @@ remain conditional diagnostics, not training-treatment inference. This
 snapshot was taken while all three jobs were healthy and running; it is a
 longer prefix, not a final-ceiling result.
 
+**[OBSERVATION—LONGER IMMUTABLE REFRESH, 2026-08-07]** At common optimizer
+step 2,550 and raw-exposure target `E^*=2,026,752`, the same sustained result
+persists. The frozen artifacts are
+
+```text
+/checkpoint/ram-h100-2/tianhaowu/rsci/analysis/
+verifier-defect-main-v2-clock2550-refresh-20260807/
+{summary.json,paired_clocks.json,summary.svg}
+```
+
+with SHA-256 values
+`6a54d336b266807c1cfd428cd615e567da016e1123f38a631155c458dd474878`,
+`2fcb79884a8ca8161ba12aba6b30f32877aca0cea045abf50e121a7c1047f76f`,
+and
+`dd4006f55a386e845f0f67714d9ada413a34c1e607227d0dcadcdcb32a81f9ba`.
+
+| Clock and OP15--17 statistic | `p=0` | `p=1%` | `p=5%` |
+| --- | ---: | ---: | ---: |
+| Optimizer-step AUC through 2,550 | 12.8627% | 11.9101% | 8.2312% |
+| Mean of the last five common evaluations | 16.37% | 16.37% | 12.60% |
+| Step-2,550 endpoint | 16.33% | 16.67% | 12.50% |
+| Raw-exposure AUC through `E^*` | 10.8603% | 12.0269% | 9.9498% |
+| Nearest-`E^*` endpoint | 18.00% | 9.33% | 13.00% |
+
+The 1% contrast remains negative per optimizer-step AUC at -0.9526 pp and
+positive per-raw-exposure AUC at +1.1665 pp. The 5% contrasts are -4.6315 pp
+and -0.9105 pp. Yet the 1% nearest-raw endpoint is now 8.67 pp below clean,
+despite its better full-window raw AUC; at the prior raw snapshot it was only
+0.33 pp below. The 5% endpoint also changed from 0.67 pp above clean to 5.00 pp
+below. This is not a contradiction: it is direct evidence that the individual
+evaluation endpoint is high variance and cannot substitute for the curve.
+
+The nearest raw evaluations are steps 2,125 / 3,175 / 3,700 with exposures
+2,036,608 / 2,032,512 / 2,026,752, at most 0.486% from the target. At matched
+step, OP21--40 strict pass@1 is 1.000% / 0.725% / 0.125%; at the nearest raw
+clock it is 0.775% / 0.425% / 0.825%. OP41--45 remains exactly 0/1,000 for
+every arm at both clocks. All six selected evaluations again mix adjacent
+policy versions on all 35 operations. This longer one-seed prefix strengthens
+the clock and endpoint diagnosis, but still contains no hard-ceiling or
+phase-transition evidence.
+
 ### 4.5 Mechanism audit: why a small \(p\) changes the training clock
 
 **[OBSERVATION—CURRENT]** The immutable threshold audit through saved shipped
