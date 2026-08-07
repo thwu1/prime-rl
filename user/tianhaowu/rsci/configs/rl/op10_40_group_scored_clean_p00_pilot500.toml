@@ -1,0 +1,25 @@
+# Overlay on op10_40_strict_grpo_r128_defect_p00.toml.
+# This clean arm uses the same group-scoring path and diagnostics as both
+# group-assigned p05 arms, while retaining strict reward exactly.
+
+output_dir = "/checkpoint/ram-h100-2/tianhaowu/rsci/rl/base-op10-40-strict-r128-behavior-group-p00-pilot500-eval11-45-v1"
+max_steps = 500
+
+[slurm]
+job_name = "rsci-rl-op10-40-r128-bgrp-p00-pilot"
+pre_run_command = 'unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy; INTERNAL_HOSTS=${HOSTNAMES_STR// /,}; export NO_PROXY="localhost,127.0.0.1,$INTERNAL_HOSTS"; export no_proxy="$NO_PROXY"; export VLLM_CACHE_ROOT="${SLURM_TMPDIR:-/tmp}/vllm-cache-${SLURM_JOB_ID}"'
+
+[wandb]
+project = "rsci"
+entity = "ram"
+name = "base-op10-40-strict-grpo-r128-behavior-group-p00-pilot500-eval11-45-v1"
+tags = ["gsm-infinite", "op10-40", "val11-45", "strict-target", "grpo", "r128", "verifier-defect-group-control", "group-scored", "behavior-group", "p00", "pilot500", "train31k"]
+
+[orchestrator]
+save_train_group_stats = true
+
+[[orchestrator.train.env]]
+id = "rsci-gsm-infinite"
+name = "op10-40-strict"
+pool = { type = "static", num_workers = 16 }
+args = { dataset_path = "/checkpoint/ram-h100-2/tianhaowu/rsci/data/rl/op10-40-balanced-31k/train.jsonl", min_op = 10, max_op = 40, require_unique_prompts = true, false_positive_rate = 0.00, false_positive_scope = "answer_correct_strict_wrong", false_negative_rate = 0.00, defect_assignment = "behavior_group", defect_draw_scope = "trajectory", defect_seed = 20260805 }

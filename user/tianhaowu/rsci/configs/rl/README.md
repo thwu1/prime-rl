@@ -135,8 +135,43 @@ treatment defaults:
 - `false_positive_rates_by_op = { "20" = 0.01, ... }` overrides the default
   false-positive rate on selected operations.
 
+Set `defect_assignment = "behavior_group"` or `"shuffled_group"` for the
+matched group control. Both modes first compute the number `K` of
+answer-correct/strict-wrong trajectories that the configured defect draw would
+promote. The behavior mode rewards those trajectories; the shuffled mode
+reassigns exactly `K` rewards to independently ranked strict-negative
+trajectories. Their per-group reward histograms and zero-advantage status are
+therefore identical. Use a `behavior_group` arm with rate zero as the clean
+control so all arms share group scoring and partial-group failure semantics.
+
+Group modes additionally log both counterfactual proxy vectors,
+`behavior_triggered_metric`, `shuffled_triggered_metric`,
+`shuffle_draw_metric`, `matched_extra_positive_count_metric`, and
+`valid_rollout_metric`. The shuffled control removes the trajectory-level link
+between the candidate behavior and reward, but `K` still depends on the number
+of candidates in that group; it is not fully behavior-independent noise.
+
 Any operation-specific keys must fall within the environment's configured
 `min_op`--`max_op` range. Keep these arguments off held-out environments.
+
+For confirmatory group-level studies, set
+`orchestrator.save_train_group_stats = true`. This writes compact pre-filter
+metric arrays for every finalized group and a separate manifest of the exact
+group slices in every assembled batch attempt. These files include groups that
+post-batch zero-advantage filtering removes; ordinary step JSONL omits entirely
+empty attempts and excludes the internal `group_id`.
+
+Replay deterministic behavior-conditioned and shuffled counterfactuals on this
+complete audit trail with:
+
+```bash
+uv run --no-sync user/tianhaowu/rsci/analyze_verifier_group_counterfactuals.py \
+  RUN_OUTPUT_DIR --p 0 0.01 0.05 0.10 0.20 --output counterfactuals.json
+```
+
+The analyzer accepts the experiment root, `run_default`, or its `rollouts`
+directory. It validates group/trace uniqueness and exact batch-slice offsets
+before reporting mixed-group, trainable-row, and empty-attempt rates.
 
 The defect arguments occur only on the training environment. Every held-out
 environment therefore continues to use clean strict reward, making periodic
@@ -238,6 +273,23 @@ evaluation environment omits defect arguments, so
 `eval/heldout-opNN-strict/avg@1` is clean strict pass@1 for that operation.
 Each environment evaluates its fixed 200 prompts with one rollout per prompt at
 step 0 and every 25 optimizer steps.
+
+The reward-histogram-matched 500-step pilot uses the p00 config as a base plus
+one of these overlays:
+
+- `op10_40_group_scored_clean_p00_pilot500.toml`;
+- `op10_40_behavior_group_p05_pilot500.toml`;
+- `op10_40_shuffled_group_p05_pilot500.toml`.
+
+Compose an overlay with a second `@`; passing the overlay as an unmarked CLI
+argument is invalid:
+
+```bash
+bash user/tianhaowu/rsci/scripts/run_rl_op10_40.sh \
+  user/tianhaowu/rsci/configs/rl/op10_40_strict_grpo_r128_defect_p00.toml \
+  @ user/tianhaowu/rsci/configs/rl/op10_40_shuffled_group_p05_pilot500.toml \
+  --dry-run
+```
 
 The in-training generalization curve uses the released OP11–20 shards, fixed
 generated OP21–30 and OP31–40 shards, and the experiment's OP41–45 shards. All

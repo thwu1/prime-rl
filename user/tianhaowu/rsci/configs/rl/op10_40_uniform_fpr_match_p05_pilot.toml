@@ -17,6 +17,9 @@ entity = "ram"
 name = "base-op10-40-strict-grpo-r128-uniform-fpr00725-match-p05-pilot500-eval11-45-v1"
 tags = ["gsm-infinite", "op10-40", "val11-45", "strict-target", "grpo", "r128", "verifier-defect-control", "uniform-strict-wrong", "match-p05-initial-reward-rate", "pilot500", "train31k"]
 
+[orchestrator]
+save_train_group_stats = true
+
 [[orchestrator.train.env]]
 id = "rsci-gsm-infinite"
 name = "op10-40-strict"

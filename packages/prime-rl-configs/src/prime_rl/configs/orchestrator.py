@@ -559,6 +559,11 @@ class OrchestratorConfig(BaseConfig):
     output_dir: Path = Path("outputs/run_default")
     """Directory to write outputs to — checkpoints, weights, rollouts, and logs are written as subdirectories. Should be a persistent directory with enough disk space and unique per experiment running on a single node."""
 
+    save_train_group_stats: bool = False
+    """Append compact pre-filter reward and metric arrays for every finalized training group to
+    ``rollouts/train_group_stats.jsonl``. This preserves groups later removed by batch filters
+    without duplicating completion text."""
+
     tasks_per_minute: int | None = Field(None, ge=1)
     """Rate limit per environment worker, in tasks per minute. Recommended for sandbox-backed environments to prevent sandbox-not-ready errors during autoscaling. With multiple workers, the effective total rate is ``workers × this value``. None disables rate limiting."""
 

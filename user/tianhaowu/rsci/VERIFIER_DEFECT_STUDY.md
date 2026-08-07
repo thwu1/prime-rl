@@ -94,11 +94,18 @@ m_x(p) ~= 1 - exp(-G p h_x).
 This is a smooth finite-size crossover, not by itself a thermodynamic phase
 transition. Its scale is `p ~= 1 / (G h_x)`, not universally `1 / G`.
 
-The current batch has four prompt groups, so, writing `M(p) = E_x[m_x(p)]`,
+In the ideal no-error case the current batch has four complete prompt groups,
+so, writing `M(p) = E_x[m_x(p)]`,
 
 ```text
 P(empty batch) = (1 - M(p))^4.
 ```
+
+This formula is not exact after rollout errors: a finalized group can have fewer
+than 128 survivors, and the 512-row cohort slicer can carry the remainder of a
+group into the next attempt. Exact operational empty-batch analysis therefore
+requires both a finalized-group record and the ordered group slices for every
+batch attempt.
 
 For `G = 128` and representative `h = 0.15`:
 
@@ -135,14 +142,17 @@ The first OP10--40 p=0 run failed because the old guard aborted after ten
 consecutive empty batches. This was an expected sparse-reward event, not a model,
 context-length, or verifier crash:
 
-| Arm | Empty batch attempts | Implied mixed-group rate | Raw groups/update |
+| Arm | Empty batch attempts | Idealized mixed-group rate | Raw groups/update |
 | ---: | ---: | ---: | ---: |
 | 0% | 31/39 = 79.5% | 5.58% | 19.50 |
 | 1% | 103/263 = 39.2% | 20.89% | 6.58 |
 | 5% | 29/243 = 11.9% | 41.22% | 4.54 |
 | 10% | 7/90 = 7.78% | 47.19% | 4.34 |
 
-At 0%, a particular ten-empty sequence has probability `0.7949^10 = 10.07%`;
+The mixed-group column in this table inverts the ideal four-complete-group
+formula and is only an operational summary. At 0%, where error fragmentation was
+negligible in the audited failure window, a particular ten-empty sequence has
+probability `0.7949^10 = 10.07%`;
 the expected wait to the first such run is about 43.5 attempts. It occurred after
 39 attempts. A saturating fit to these operational counts predicts that 20% will
 have almost the same connectivity as 10%. Their difference should primarily test
@@ -286,9 +296,10 @@ K_p = number_strict + number(candidate and U < p).
 
 This gives the exact mechanical activation curve without policy feedback. It
 should include groups that would be removed by the zero-advantage filter. The
-current per-step JSONL contains the 512-row cohorts for successful batch
-attempts, but entirely empty attempts return before rollout serialization; it is
-therefore not a complete frozen bank.
+original per-step JSONL contains the 512-row cohorts for successful batch
+attempts, but entirely empty attempts return before rollout serialization and
+internal group IDs are excluded. Confirmatory configs enable compact
+`train_group_stats.jsonl` and `train_batch_attempts.jsonl` records instead.
 
 ### 3. Reward-rate-matched random control
 
@@ -299,10 +310,31 @@ its fixed rate on the shared frozen bank:
 rho_p = p * P(A, R = 0) / P(R = 0).
 ```
 
-Run the control matching 5% candidate-conditioned noise first. This single arm
-separates reward connectivity from behavior selection. Add the matched 1% arm if
-the near-zero slope remains the central claim. Record realized rates rather than
-assuming they remain matched as the policies diverge.
+The queued scalar-rate pilot matching 5% candidate-conditioned noise tests the
+standard behavior-independent-noise baseline. It does not exactly match GRPO's
+within-group reward histogram.
+
+The confirmatory control must be per-group shuffled. For each group, draw the
+same number `K` of extra positives that the behavior-conditioned rule would
+produce, then assign exactly `K` rewards uniformly among all strict-negative
+rollouts. This matches group reward mean, variance, and zero-advantage status;
+only the association between reward and `A` changes. Run behavior and shuffled
+arms through the same group-scoring path so partial-group error handling is also
+matched.
+
+The first 500-step causal pilot therefore has three arms: a group-scored clean
+control, behavior-conditioned `p=5%`, and per-group shuffled `p=5%`. All train
+on OP10--40 and run the same clean strict OP11--45 suite every 25 steps. The
+clean arm is necessary because enabling group scoring changes dispatch and
+causes a whole group to be discarded when any member errors; the existing
+individually scored control is not an operationally exact baseline.
+
+This shuffled control removes the recipient-level association between `A` and
+reward conditional on `K`, but `K` is still determined by the candidate count
+in that same group. It identifies the effect of allocating a behavior-dependent
+reward budget to the candidate traces rather than randomly among strict
+negatives. A fully exogenous control would require `K` from an independent
+donor group and would no longer exactly match every realized group histogram.
 
 ### 4. Group-size scaling
 
@@ -368,6 +400,13 @@ show all of the following:
   rewards; this does not establish a universal FPR transition.
 - [Gao et al., *Scaling Laws for Reward Model Overoptimization* (2023)](https://arxiv.org/abs/2210.10760)
   show proxy improvement can accompany degradation of a gold objective.
+- [Egashira et al., *Delay, Plateau, or Collapse: Evaluating the Impact of
+  Systematic Verification Error on RLVR* (2026)](https://arxiv.org/abs/2605.02909)
+  compare iid flips with deterministic behavior-triggered errors and clean-verifier
+  alternation. The present novelty must therefore come from low-rate conditional
+  scaling, exact group-histogram controls, OOD strict-CoT difficulty, or one-time
+  washout/path dependence rather than the generic claim that systematic errors
+  differ from random noise.
 - [Uesato et al., *Solving Math Word Problems With Process- and
   Outcome-Based Feedback* (2022)](https://arxiv.org/abs/2211.14275) and
   [Lightman et al., *Let's Verify Step by Step* (2023)](https://arxiv.org/abs/2305.20050)

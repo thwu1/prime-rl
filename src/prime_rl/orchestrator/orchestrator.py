@@ -61,6 +61,7 @@ from prime_rl.orchestrator.types import (
     TrainBatch,
 )
 from prime_rl.orchestrator.utils import (
+    append_jsonl,
     compute_teacher_logprobs,
     get_weight_dir,
     intercept_vf_logging,
@@ -103,6 +104,24 @@ TARGET_LAG = 1
 # round-trip the json dump — their `__nd__` carriers hold raw bytes. `__all__` applies the
 # exclude to every node in the list.
 ROLLOUT_DUMP_EXCLUDE = {"nodes": {"__all__": {"multi_modal_data", "routed_experts"}}}
+
+
+def _batch_group_slices(rollouts: list[Rollout]) -> list[dict[str, int | str]]:
+    slices: list[dict[str, int | str]] = []
+    for rollout in rollouts:
+        group_id = str(rollout.group_id)
+        if slices and slices[-1]["group_id"] == group_id:
+            slices[-1]["count"] = int(slices[-1]["count"]) + 1
+            slices[-1]["trainable_count"] = int(slices[-1]["trainable_count"]) + int(not rollout.is_filtered)
+        else:
+            slices.append(
+                {
+                    "group_id": group_id,
+                    "count": 1,
+                    "trainable_count": int(not rollout.is_filtered),
+                }
+            )
+    return slices
 
 
 class Orchestrator:
@@ -178,6 +197,7 @@ class Orchestrator:
         # Trigger timestamps so eval success logs can report epoch duration
         self.eval_triggered_at = {}
         self.consecutive_empty_batches = 0
+        self.train_batch_attempts = 0
         self.component_tasks = []
 
         # Optional attributes — ``setup()`` populates them when the relevant
@@ -451,9 +471,7 @@ class Orchestrator:
 
         # Liveness heartbeat on a dedicated thread (survives event-loop stalls):
         # logs the age of the last received rollout every 30s.
-        self._hb_thread = threading.Thread(
-            target=self._run_heartbeat, name="orch-heartbeat", daemon=True
-        )
+        self._hb_thread = threading.Thread(target=self._run_heartbeat, name="orch-heartbeat", daemon=True)
         self._hb_thread.start()
 
         # Default step-0 base-model eval — fires before any train rollouts
@@ -521,6 +539,7 @@ class Orchestrator:
         ``None``) from ``add()``; we just dispatch on the result."""
         while not self.stopped.is_set():
             if self.draining and self.dispatcher.is_idle:
+                await self.flush_train_group_stats()
                 get_logger().info("Pipeline drained, exiting main loop")
                 self.stopped.set()
                 break
@@ -541,10 +560,43 @@ class Orchestrator:
                 continue
 
             train_batch = await self.train_sink.add(rollout)
+            if train_batch is not None:
+                self.train_batch_attempts += 1
+                await self.flush_train_group_stats()
+                await self.record_train_batch_attempt(train_batch)
+            elif len(self.train_sink.completed_group_records) >= 32:
+                await self.flush_train_group_stats()
             # In drain mode any late-arriving train batch is dropped — we
             # don't want to ship past ``max_steps``
             if train_batch is not None and not self.draining and not self.stopped.is_set():
                 await self.finalize_train_batch(train_batch)
+
+    async def flush_train_group_stats(self) -> None:
+        records = self.train_sink.drain_group_records()
+        if not records:
+            return
+        for record in records:
+            record["finalized_before_optimizer_step"] = self.progress.step
+        path = get_rollout_dir(self.config.output_dir) / "train_group_stats.jsonl"
+        await asyncio.to_thread(append_jsonl, records, path)
+
+    async def record_train_batch_attempt(self, batch: TrainBatch) -> None:
+        if not self.config.save_train_group_stats:
+            return
+        max_steps = self.config.max_steps
+        record = {
+            "batch_attempt": self.train_batch_attempts,
+            "optimizer_step": self.progress.step,
+            "eligible_to_ship": not self.draining
+            and not self.stopped.is_set()
+            and (max_steps is None or self.progress.step < max_steps)
+            and batch.metrics.n_trainable > 0,
+            "n_rollouts": len(batch.rollouts),
+            "n_trainable": batch.metrics.n_trainable,
+            "group_slices": _batch_group_slices(batch.rollouts),
+        }
+        path = get_rollout_dir(self.config.output_dir) / "train_batch_attempts.jsonl"
+        await asyncio.to_thread(append_jsonl, [record], path)
 
     async def finalize_train_batch(self, batch: TrainBatch) -> None:
         """Ship one ``TrainBatch`` out to the trainer and handle the I/O
@@ -737,10 +789,7 @@ class Orchestrator:
 
         drop_part = self.train_sink.drop_summary()
         partial_part = self.train_sink.partial_group_summary()
-        body = (
-            train_batch_part + eval_batch_part + "; " + inflight_part
-            + " | " + drop_part + " | " + partial_part
-        )
+        body = train_batch_part + eval_batch_part + "; " + inflight_part + " | " + drop_part + " | " + partial_part
 
         payload: dict[str, float] = {**disp_gauges, **disp_drain, **watcher_gauges}
         if lag_stats.n > 0:

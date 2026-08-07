@@ -15,9 +15,11 @@ from strict_trajectory_grader import grade_trajectory
 
 SCORE_CACHE_KEY = "_rsci_gsm_infinite_scores"
 DEFECT_CACHE_KEY = "_rsci_gsm_infinite_defect"
+GROUP_DEFECT_CACHE_KEY = "_rsci_gsm_infinite_group_defect"
 REQUIRED_COLUMNS = {"id", "problem", "question", "solution", "op"}
 FALSE_POSITIVE_SCOPES = {"answer_correct_strict_wrong", "uniform_strict_wrong"}
 DEFECT_DRAW_SCOPES = {"trajectory", "sample"}
+DEFECT_ASSIGNMENTS = {"individual", "behavior_group", "shuffled_group"}
 
 
 def _dataset_paths(dataset_path: str | list[str]) -> list[Path]:
@@ -161,6 +163,12 @@ def _defect_draw(state: vf.State, defect_seed: int, draw_scope: str = "trajector
     return int.from_bytes(digest[:8], byteorder="big") / 2**64
 
 
+def _shuffle_draw(state: vf.State, defect_seed: int) -> float:
+    draw_key = str(state["trajectory_id"])
+    digest = hashlib.sha256(f"{defect_seed}:group-shuffle:{draw_key}".encode()).digest()
+    return int.from_bytes(digest[:8], byteorder="big") / 2**64
+
+
 def _defect_values(
     scores: dict[str, float],
     false_positive_rate: float,
@@ -268,6 +276,189 @@ def _defect_metric(
     return metric
 
 
+def _group_defect_values(
+    states: list[vf.State],
+    scores: list[dict[str, float]],
+    false_positive_rate: float,
+    false_positive_rates_by_op: dict[int, float],
+    false_positive_scope: str,
+    false_negative_rate: float,
+    defect_draw_scope: str,
+    defect_seed: int,
+) -> list[dict[str, float]]:
+    if len(states) != len(scores):
+        raise ValueError(f"Expected one score dictionary per state, got {len(states)} states and {len(scores)} scores")
+
+    trajectory_keys = [str(state["trajectory_id"]) for state in states]
+    if len(trajectory_keys) != len(set(trajectory_keys)):
+        raise ValueError("Group defect assignment requires unique trajectory_id values")
+
+    valid_rollouts = [float(state.get("error") is None) for state in states]
+    behavior_values = []
+    shuffle_draws = []
+    for state, state_scores, valid in zip(states, scores, valid_rollouts, strict=True):
+        effective_rate = _false_positive_rate(state, false_positive_rate, false_positive_rates_by_op)
+        behavior = _defect_values(
+            state_scores,
+            effective_rate,
+            _defect_draw(state, defect_seed, defect_draw_scope),
+            false_positive_scope,
+            false_negative_rate,
+        )
+        if not valid:
+            behavior.update(
+                {
+                    "defect_candidate_metric": 0.0,
+                    "defect_eligible_metric": 0.0,
+                    "defect_triggered_metric": 0.0,
+                    "false_negative_triggered_metric": 0.0,
+                }
+            )
+        behavior_values.append(behavior)
+        shuffle_draws.append(_shuffle_draw(state, defect_seed))
+
+    num_behavior_triggers = sum(int(values["defect_triggered_metric"]) for values in behavior_values)
+    strict_negative_indices = [
+        index
+        for index, (state_scores, valid) in enumerate(zip(scores, valid_rollouts, strict=True))
+        if valid and state_scores["strict_dependency_graph"] == 0.0
+    ]
+    if num_behavior_triggers > len(strict_negative_indices):
+        raise ValueError("Behavior triggers cannot exceed the strict-negative population")
+    shuffled_indices = set(
+        sorted(
+            strict_negative_indices,
+            key=lambda index: (shuffle_draws[index], trajectory_keys[index]),
+        )[:num_behavior_triggers]
+    )
+
+    group_values = []
+    for index, (state_scores, behavior, valid) in enumerate(zip(scores, behavior_values, valid_rollouts, strict=True)):
+        strict = state_scores["strict_dependency_graph"] * valid
+        behavior_triggered = behavior["defect_triggered_metric"]
+        shuffled_triggered = float(index in shuffled_indices)
+        false_negative_triggered = behavior["false_negative_triggered_metric"]
+        group_values.append(
+            {
+                "behavior_proxy_reward": strict + behavior_triggered - false_negative_triggered,
+                "shuffled_proxy_reward": strict + shuffled_triggered - false_negative_triggered,
+                "defect_candidate_metric": behavior["defect_candidate_metric"],
+                "defect_eligible_metric": behavior["defect_eligible_metric"],
+                "behavior_triggered_metric": behavior_triggered,
+                "shuffled_triggered_metric": shuffled_triggered,
+                "false_negative_triggered_metric": false_negative_triggered,
+                "defect_draw_metric": behavior["defect_draw_metric"],
+                "shuffle_draw_metric": shuffle_draws[index],
+                "defect_rate_metric": behavior["defect_rate_metric"],
+                "matched_extra_positive_count_metric": float(num_behavior_triggers),
+                "valid_rollout_metric": valid,
+            }
+        )
+    return group_values
+
+
+def _group_defect_scores(
+    states: list[vf.State],
+    tasks: list[Any],
+    parser: vf.Parser,
+    false_positive_rate: float,
+    false_positive_rates_by_op: dict[int, float],
+    false_positive_scope: str,
+    false_negative_rate: float,
+    defect_draw_scope: str,
+    defect_seed: int,
+) -> list[dict[str, float]]:
+    trajectory_keys = [str(state["trajectory_id"]) for state in states]
+    signature = (
+        tuple(sorted(trajectory_keys)),
+        false_positive_rate,
+        tuple(sorted(false_positive_rates_by_op.items())),
+        false_positive_scope,
+        false_negative_rate,
+        defect_draw_scope,
+        defect_seed,
+    )
+    cached = [state.get(GROUP_DEFECT_CACHE_KEY) for state in states]
+    if all(item is not None and item["signature"] == signature for item in cached):
+        return [item["values"] for item in cached]
+
+    scores = []
+    for state, task in zip(states, tasks, strict=True):
+        if state.get("error") is not None:
+            error_scores = {
+                "strict_dependency_graph": 0.0,
+                "executable_strict": 0.0,
+                "answer_correct": 0.0,
+            }
+            state[SCORE_CACHE_KEY] = error_scores
+            scores.append(error_scores)
+            continue
+        task = task or {}
+        scores.append(
+            _scores(
+                state["completion"],
+                task["solution"],
+                task["problem"],
+                state.get("answer", ""),
+                parser,
+                state,
+            )
+        )
+    values = _group_defect_values(
+        states,
+        scores,
+        false_positive_rate,
+        false_positive_rates_by_op,
+        false_positive_scope,
+        false_negative_rate,
+        defect_draw_scope,
+        defect_seed,
+    )
+    for state, state_values in zip(states, values, strict=True):
+        state[GROUP_DEFECT_CACHE_KEY] = {"signature": signature, "values": state_values}
+    return values
+
+
+def _group_defect_metric(
+    name: str,
+    defect_assignment: str,
+    false_positive_rate: float,
+    false_positive_rates_by_op: dict[int, float],
+    false_positive_scope: str,
+    false_negative_rate: float,
+    defect_draw_scope: str,
+    defect_seed: int,
+) -> Callable[..., list[float]]:
+    selected_prefix = defect_assignment.removesuffix("_group")
+
+    def metric(
+        states: list[vf.State],
+        tasks: list[Any],
+        parser: vf.Parser,
+        **_: Any,
+    ) -> list[float]:
+        group_values = _group_defect_scores(
+            states,
+            tasks,
+            parser,
+            false_positive_rate,
+            false_positive_rates_by_op,
+            false_positive_scope,
+            false_negative_rate,
+            defect_draw_scope,
+            defect_seed,
+        )
+        value_name = name
+        if name == "proxy_reward":
+            value_name = f"{selected_prefix}_proxy_reward"
+        elif name == "defect_triggered_metric":
+            value_name = f"{selected_prefix}_triggered_metric"
+        return [values[value_name] for values in group_values]
+
+    metric.__name__ = name
+    return metric
+
+
 def load_environment(
     dataset_path: str | list[str],
     min_op: int = 11,
@@ -278,6 +469,7 @@ def load_environment(
     false_positive_scope: str = "answer_correct_strict_wrong",
     false_negative_rate: float = 0.0,
     defect_draw_scope: str = "trajectory",
+    defect_assignment: str = "individual",
     defect_seed: int = 20260805,
 ) -> vf.Environment:
     if min_op > max_op:
@@ -292,6 +484,8 @@ def load_environment(
         )
     if defect_draw_scope not in DEFECT_DRAW_SCOPES:
         raise ValueError(f"defect_draw_scope must be one of {sorted(DEFECT_DRAW_SCOPES)}, got {defect_draw_scope}")
+    if defect_assignment not in DEFECT_ASSIGNMENTS:
+        raise ValueError(f"defect_assignment must be one of {sorted(DEFECT_ASSIGNMENTS)}, got {defect_assignment}")
     normalized_rates_by_op = {int(op): float(rate) for op, rate in (false_positive_rates_by_op or {}).items()}
     invalid_rates = {op: rate for op, rate in normalized_rates_by_op.items() if not 0.0 <= rate <= 1.0}
     if invalid_rates:
@@ -308,7 +502,49 @@ def load_environment(
         or false_negative_rate > 0.0
         or any(rate > 0.0 for rate in normalized_rates_by_op.values())
     )
-    if not has_defect:
+    if defect_assignment != "individual":
+        group_metric_names = (
+            "proxy_reward",
+            "behavior_proxy_reward",
+            "shuffled_proxy_reward",
+            "defect_candidate_metric",
+            "defect_eligible_metric",
+            "defect_triggered_metric",
+            "behavior_triggered_metric",
+            "shuffled_triggered_metric",
+            "false_negative_triggered_metric",
+            "defect_draw_metric",
+            "shuffle_draw_metric",
+            "defect_rate_metric",
+            "matched_extra_positive_count_metric",
+            "valid_rollout_metric",
+        )
+        group_metrics = [
+            _group_defect_metric(
+                name,
+                defect_assignment,
+                false_positive_rate,
+                normalized_rates_by_op,
+                false_positive_scope,
+                false_negative_rate,
+                defect_draw_scope,
+                defect_seed,
+            )
+            for name in group_metric_names
+        ]
+        funcs = [
+            group_metrics[0],
+            strict_dependency_graph_reward,
+            executable_strict_metric,
+            answer_correct_metric,
+            *group_metrics[1:],
+        ]
+        rubric = vf.Rubric(
+            funcs=funcs,
+            weights=[1.0, *([0.0] * (len(funcs) - 1))],
+            parser=parser,
+        )
+    elif not has_defect:
         rubric = vf.Rubric(
             funcs=[strict_dependency_graph_reward, executable_strict_metric, answer_correct_metric],
             weights=[1.0, 0.0, 0.0],

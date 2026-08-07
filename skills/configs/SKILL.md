@@ -103,6 +103,16 @@ rollouts after post-batch filtering. These batches do not advance the optimizer 
 where homogeneous rewards legitimately produce long zero-advantage streaks, set a larger finite
 `orchestrator.max_consecutive_zero_trainable_batches`; any trainable batch resets the counter.
 
+## Training-group audit trail
+
+Set `orchestrator.save_train_group_stats = true` when a study needs exact
+pre-filter group reward histograms. The orchestrator appends compact metric
+arrays for every finalized group to `rollouts/train_group_stats.jsonl` and an
+ordered run-length encoding of group slices for every assembled batch attempt to
+`rollouts/train_batch_attempts.jsonl`. Join on `group_id`; do not infer groups
+from `task.idx`, because errored survivor groups can be split across batches and
+the same task can be sampled concurrently.
+
 ## Key files
 
 - `packages/prime-rl-configs/src/prime_rl/` — config classes under `configs/`; `utils/config.py` re-exports `BaseConfig` and `cli`

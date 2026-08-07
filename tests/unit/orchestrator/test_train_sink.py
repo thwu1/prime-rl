@@ -4,6 +4,7 @@ from types import SimpleNamespace
 import verifiers.v1 as vf
 
 from prime_rl.orchestrator.advantage import AdvantageOutputs
+from prime_rl.orchestrator.orchestrator import _batch_group_slices
 from prime_rl.orchestrator.train_sink import TrainSink
 from prime_rl.orchestrator.types import Rollout
 
@@ -21,15 +22,21 @@ def _env(advantage_fn, *, requires_group_scoring: bool = False):
         requires_group_scoring=requires_group_scoring,
         advantage_fn=advantage_fn,
         sampling_args={"temperature": 1.0},
-        config=SimpleNamespace(),
+        config=SimpleNamespace(group_size=2),
     )
 
 
-def _sink(env, *, drop_context_limits_before_advantage: bool = True) -> TrainSink:
+def _sink(
+    env,
+    *,
+    drop_context_limits_before_advantage: bool = True,
+    save_train_group_stats: bool = False,
+) -> TrainSink:
     config = SimpleNamespace(
         training_mode="rl",
         seq_len=100,
         drop_context_limits_before_advantage=drop_context_limits_before_advantage,
+        save_train_group_stats=save_train_group_stats,
     )
     return TrainSink(
         config,
@@ -181,3 +188,57 @@ def test_context_limit_filter_drops_group_scored_group():
     assert sink.pending_batch == []
     assert sink.groups_dropped_partial_scored == 1
     assert sink.context_limited_before_advantage_total == 1
+
+
+def test_group_stats_capture_rollouts_before_filtering():
+    def advantage_fn(inputs):
+        return AdvantageOutputs(advantages=[0.0 for _ in inputs.rollouts])
+
+    sink = _sink(_env(advantage_fn), save_train_group_stats=True)
+    group_id = uuid.uuid4()
+    clean = _rollout(group_id, reward=1.0)
+    clean.metrics = {"strict": 1.0, "candidate": 0.0}
+    context_limited = _rollout(group_id, reward=0.0, stop_condition="context_length")
+    context_limited.metrics = {"strict": 0.0, "candidate": 1.0}
+    sink.pending_groups[group_id] = [clean, context_limited]
+
+    sink.process_group(group_id)
+
+    assert len(sink.pending_batch) == 1
+    assert sink.drain_group_records() == [
+        {
+            "group_id": str(group_id),
+            "group_index": 1,
+            "env_name": "test",
+            "task_idx": 0,
+            "target_size": 2,
+            "received_size": 2,
+            "advantage_population_size": 1,
+            "trace_ids": [clean.id, context_limited.id],
+            "rewards": [1.0, 0.0],
+            "metrics": {"candidate": [0.0, 1.0], "strict": [1.0, 0.0]},
+            "errored": [False, False],
+            "stop_conditions": [None, "context_length"],
+            "policy_versions": [0, 0],
+            "off_policy_steps": [0, 0],
+            "in_advantage_population": [True, False],
+            "appended_to_batch": [True, False],
+        }
+    ]
+    assert sink.drain_group_records() == []
+
+
+def test_batch_group_slices_preserve_partial_group_boundaries():
+    first_group = uuid.uuid4()
+    second_group = uuid.uuid4()
+    rollouts = [
+        _rollout(first_group, reward=1.0),
+        _rollout(first_group, reward=0.0),
+        _rollout(second_group, reward=0.0),
+    ]
+    rollouts[1].is_filtered = True
+
+    assert _batch_group_slices(rollouts) == [
+        {"group_id": str(first_group), "count": 2, "trainable_count": 1},
+        {"group_id": str(second_group), "count": 1, "trainable_count": 1},
+    ]
