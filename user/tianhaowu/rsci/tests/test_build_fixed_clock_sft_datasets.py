@@ -11,9 +11,11 @@ from build_fixed_clock_sft_datasets import (
     bank_paths,
     build_datasets,
     canonical_json_sha256,
+    compute_prefixes,
     draw_below,
     draw_uint64,
     file_identity,
+    messages_for_row,
     parse_dose,
     render_training_row,
     validate_output,
@@ -103,7 +105,7 @@ def build_tiny_bank(
                     }
                 )
                 perfect = operation in anchor_operations and sample_rank == 0
-                answer_correct = perfect or operation in hard_operations
+                answer_correct = perfect or (operation in hard_operations and sample_rank % 2 == 0)
                 score_rows.append(
                     {
                         "op": operation,
@@ -117,7 +119,7 @@ def build_tiny_bank(
                         "dependency_mismatch_count": int(not perfect),
                         "missing_nodes": 0,
                         "extra_nodes": 0,
-                        "answer_mismatch": False,
+                        "answer_mismatch": not answer_correct,
                     }
                 )
 
@@ -218,6 +220,7 @@ def test_exact_integer_thresholds_are_nested():
             assert draw_below(draw, half)
     assert draw_uint64("defect", 7, 15, 3, 2) == draw_uint64("defect", 7, 15, 3, 2)
     assert draw_uint64("defect", 7, 15, 3, 2) != draw_uint64("shuffle", 7, 15, 3, 2)
+    assert draw_uint64("defect", 7, 15, 3, 2) != draw_uint64("global-recipient", 7, 15, 3, 2)
 
 
 def test_bank_contract_hash_is_recomputed(tmp_path: Path):
@@ -239,7 +242,7 @@ def test_bank_contract_hash_is_recomputed(tmp_path: Path):
 
 def test_builder_matches_fixed_m_fixed_raw_and_group_histograms(tmp_path: Path):
     bank_root = tmp_path / "bank"
-    build_tiny_bank(bank_root)
+    build_tiny_bank(bank_root, hard_operations=(15, 16, 17))
     tokenizer_root = tmp_path / "tokenizer"
     tokenizer_root.mkdir()
     chat_template = tokenizer_root / "chat_template.jinja"
@@ -254,8 +257,9 @@ def test_builder_matches_fixed_m_fixed_raw_and_group_histograms(tmp_path: Path):
         chat_template_path=chat_template,
         seeds=(11,),
         doses=doses,
+        bank_operations=(10, 15, 16, 17),
         anchor_operations=(10,),
-        hard_operations=(15, 16),
+        treatment_operations=(15, 16),
         examples_per_operation=4,
         samples_per_prompt=16,
         target_count=2,
@@ -264,7 +268,34 @@ def test_builder_matches_fixed_m_fixed_raw_and_group_histograms(tmp_path: Path):
     )
 
     entries = {entry["label"]: entry for entry in index["arms"]}
-    assert index["protocol"]["minimum_dose_alias"] == "fixed_raw p2500 aliases fixed_m p2500 exactly"
+    assert index["schema_version"] == 2
+    assert index["study_id"] == "verifier_defect_fixed_clock_sft_v2"
+    assert index["protocol"]["selection_hash_domain"] == "rsci-fixed-clock-sft-v2"
+    assert len(index["distinct_training_arms"]) == 19
+    assert len(index["arms"]) == 22
+    assert index["protocol"]["arm_count_contract"] == {
+        "assignments": ["behavior", "shuffled", "global", "iid"],
+        "bsg_canonical_specs_per_seed": 5,
+        "iid_canonical_specs_per_seed": 3,
+        "distinct_training_arms": 19,
+        "minimum_dose_aliases": 3,
+        "arm_index_entries": 22,
+    }
+    assert index["protocol"]["bank_operations"] == [10, 15, 16, 17]
+    assert index["protocol"]["treatment_operations"] == [15, 16]
+    assert (
+        index["protocol"]["minimum_dose_alias"]
+        == "fixed_raw p2500 behavior/shuffled/global alias fixed_m exactly; iid is canonical"
+    )
+    assert index["protocol"]["strict_dead_contract"] == {
+        "required": True,
+        "definition": "every frozen trajectory in every treatment operation has strict perfect=false",
+        "operations": [15, 16],
+        "rows_per_operation": 64,
+        "strict_positive_counts_by_op": {"15": 0, "16": 0},
+        "candidate_counts_by_op": {"15": 32, "16": 32},
+        "verified_rows_by_op": {"15": 64, "16": 64},
+    }
     fixed_behavior = entries["seed11_fixed_m_p2500_b"]
     raw_behavior = entries["seed11_fixed_raw_p2500_b"]
     assert raw_behavior["alias_of"] == fixed_behavior["label"]
@@ -272,20 +303,57 @@ def test_builder_matches_fixed_m_fixed_raw_and_group_histograms(tmp_path: Path):
     assert raw_behavior["parquet_sha256"] == fixed_behavior["parquet_sha256"]
 
     fixed_shuffled = entries["seed11_fixed_m_p2500_s"]
+    fixed_global = entries["seed11_fixed_m_p2500_g"]
+    raw_global = entries["seed11_fixed_raw_p2500_g"]
+    assert raw_global["alias_of"] == fixed_global["label"]
+    assert raw_global["dataset_path"] == fixed_global["dataset_path"]
+    assert raw_global["parquet_sha256"] == fixed_global["parquet_sha256"]
+    raw_iid = entries["seed11_fixed_raw_p2500_i"]
+    assert raw_iid["alias_of"] is None
+    assert raw_iid["dataset_path"] != fixed_behavior["dataset_path"]
     behavior = Dataset.from_parquet(fixed_behavior["dataset_path"] + "/train-00000-of-00001.parquet")
     shuffled = Dataset.from_parquet(fixed_shuffled["dataset_path"] + "/train-00000-of-00001.parquet")
+    global_control = Dataset.from_parquet(fixed_global["dataset_path"] + "/train-00000-of-00001.parquet")
+    iid_control = Dataset.from_parquet(raw_iid["dataset_path"] + "/train-00000-of-00001.parquet")
     behavior_defects = [row for row in behavior if row["source_kind"] == "defect_recipient"]
     shuffled_defects = [row for row in shuffled if row["source_kind"] == "defect_recipient"]
-    assert len(behavior_defects) == len(shuffled_defects) == 2
+    global_defects = [row for row in global_control if row["source_kind"] == "defect_recipient"]
+    iid_defects = [row for row in iid_control if row["source_kind"] == "defect_recipient"]
+    assert len(behavior_defects) == len(shuffled_defects) == len(global_defects) == 2
     assert all(row["candidate"] for row in behavior_defects)
+    assert {(row["op"], row["prompt_index"], row["sample_rank"]) for row in behavior_defects} == {
+        (row["op"], row["prompt_index"], row["sample_rank"]) for row in iid_defects if row["candidate"]
+    }
     assert sorted(row["pair_id"] for row in behavior_defects) == sorted(row["pair_id"] for row in shuffled_defects)
+    assert sorted(row["pair_id"] for row in behavior_defects) == sorted(row["pair_id"] for row in global_defects)
     assert sorted(row["group_extra_positive_count"] for row in behavior_defects) == sorted(
         row["group_extra_positive_count"] for row in shuffled_defects
     )
     assert sum(row["sft_weight"] * row["assistant_tokens"] for row in behavior) == pytest.approx(len(behavior))
     assert len({row["prompt_id"] for row in behavior if row["source_kind"] == "clean_anchor"}) == 2
 
-    for assignment in ("b", "s"):
+    cutoff = index["prefixes"]["11"]["p2500"]["inclusive_raw_ordinal"]
+    eligible = []
+    for prompt_index in range(4):
+        for operation_index, operation in enumerate((15, 16)):
+            for sample_rank in range(16):
+                ordinal = ((prompt_index * 2 + operation_index) * 16) + sample_rank
+                if ordinal <= cutoff:
+                    key = (operation, prompt_index, sample_rank)
+                    eligible.append((draw_uint64("global-recipient", 11, *key), *key))
+    expected_global_keys = {rank[1:] for rank in sorted(eligible)[:2]}
+    observed_global_keys = {(row["op"], row["prompt_index"], row["sample_rank"]) for row in global_defects}
+    assert observed_global_keys == expected_global_keys
+    assert all(row["op"] != 17 for row in global_defects)
+    assert fixed_global["global_eligible_rows"] == len(eligible)
+    assert fixed_global["global_effective_rate"] == pytest.approx(2 / len(eligible))
+    expected_iid_keys = {rank[1:] for rank in eligible if draw_below(draw_uint64("defect", 11, *rank[1:]), doses[0])}
+    observed_iid_keys = {(row["op"], row["prompt_index"], row["sample_rank"]) for row in iid_defects}
+    assert observed_iid_keys == expected_iid_keys
+    assert raw_iid["iid_eligible_rows"] == len(eligible)
+    assert raw_iid["iid_realized_rate"] == pytest.approx(len(iid_defects) / len(eligible))
+
+    for assignment in ("b", "s", "g", "i"):
         treatment_sets = []
         for dose_label in ("p2500", "p5000", "p7500"):
             entry = entries[f"seed11_fixed_raw_{dose_label}_{assignment}"]
@@ -298,6 +366,17 @@ def test_builder_matches_fixed_m_fixed_raw_and_group_histograms(tmp_path: Path):
                 }
             )
         assert treatment_sets[0] <= treatment_sets[1] <= treatment_sets[2]
+
+    fixed_manifest = json.loads(Path(fixed_global["manifest_path"]).read_text(encoding="utf-8"))
+    raw_high_manifest = json.loads(
+        Path(entries["seed11_fixed_raw_p7500_g"]["manifest_path"]).read_text(encoding="utf-8")
+    )
+    assert fixed_manifest["sft_contract"]["max_steps"] == 64
+    assert fixed_manifest["sft_contract"]["ckpt.interval"] == 8
+    assert fixed_manifest["sft_contract"]["data.pack_function"] == "fixed_stack"
+    assert fixed_manifest["sft_contract"]["schedule"] == "common_64_steps"
+    assert raw_high_manifest["sft_contract"]["schedule"] == "at_least_two_dataset_passes"
+    assert raw_high_manifest["sft_contract"]["max_steps"] == max(64, (2 * raw_high_manifest["rows"] + 31) // 32)
 
     validated = validate_output(output_root)
     assert validated["bank_contract_sha256"] == index["bank_contract_sha256"]
@@ -316,7 +395,7 @@ def test_selected_row_length_guard_is_fail_closed(tmp_path: Path):
         "__idx": 0,
         "sample_rank": 0,
         "id": "prompt",
-        "gen_solution_answer": "reasoning </solution> <answer> 1",
+        "gen_solution_answer": "reasoning </solution> <answer> 1  \n",
         "finish_reason": "stop",
     }
     score = {
@@ -331,6 +410,7 @@ def test_selected_row_length_guard_is_fail_closed(tmp_path: Path):
     row = BankRow(prompt, generation, score, 0)
     tokenizer_root = tmp_path / "tokenizer"
     tokenizer_root.mkdir()
+    assert messages_for_row(row)[-1]["content"].endswith("1 </answer>")
 
     with pytest.raises(ValueError, match="exceeding"):
         render_training_row(row, tokenizer=FakeTokenizer(tokenizer_root, multiplier=20), seq_len=64)
@@ -357,11 +437,35 @@ def test_candidate_identity_mismatch_is_rejected(tmp_path: Path):
             chat_template_path=chat_template,
             seeds=(11,),
             doses=tuple(parse_dose(value) for value in ("1/4", "1/2", "3/4")),
+            bank_operations=(10, 15, 16),
             anchor_operations=(10,),
-            hard_operations=(15, 16),
+            treatment_operations=(15, 16),
             examples_per_operation=4,
             samples_per_prompt=16,
             target_count=2,
             anchor_count=2,
             seq_len=512,
+        )
+
+
+def test_strict_dead_treatment_contract_rejects_any_natural_positive(tmp_path: Path):
+    bank_root = tmp_path / "bank"
+    build_tiny_bank(bank_root)
+    strict_path = bank_root / "strict_results.jsonl"
+    rows = [json.loads(line) for line in strict_path.read_text(encoding="utf-8").splitlines()]
+    row = next(row for row in rows if row["op"] == 15 and row["answer_correct"])
+    row["perfect"] = True
+    row["candidate"] = False
+    write_jsonl(strict_path, rows)
+
+    with pytest.raises(ValueError, match="Strict-dead treatment contract failed"):
+        compute_prefixes(
+            strict_path,
+            bank_operations=(10, 15, 16),
+            treatment_operations=(15, 16),
+            examples_per_operation=4,
+            samples_per_prompt=16,
+            seeds=(11,),
+            doses=tuple(parse_dose(value) for value in ("1/4", "1/2", "3/4")),
+            target_count=2,
         )

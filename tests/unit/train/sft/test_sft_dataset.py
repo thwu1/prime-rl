@@ -4,6 +4,8 @@ import pytest
 from datasets import Dataset, interleave_datasets
 from transformers import AutoTokenizer
 
+from prime_rl.configs.sft import SFTDataConfig
+from prime_rl.trainer.sft import data as sft_data
 from prime_rl.trainer.sft.data import SFTDataset
 from prime_rl.trainer.utils import print_sample
 
@@ -45,6 +47,51 @@ def test_sft_dataset_expands_example_weight():
     sample = next(iter(dataset))
 
     assert sample["loss_weight"] == [0.25] * len(sample["input_ids"])
+
+
+def test_fixed_stack_has_exact_cardinality_and_resumes(monkeypatch):
+    rows = []
+    for row_id, length in enumerate([2, 6, 1, 4, 3], start=1):
+        rows.append(
+            {
+                "input_ids": [row_id * 10 + offset for offset in range(length)],
+                "position_ids": list(range(length)),
+                "target_ids": [row_id * 10 + offset + 1 for offset in range(length)],
+                "loss_mask": [offset % 2 == 0 for offset in range(length)],
+                "loss_weight": [row_id / 10] * length,
+            }
+        )
+    raw_dataset = Dataset.from_list(rows)
+    config = SFTDataConfig(
+        batch_size=4,
+        micro_batch_size=2,
+        seq_len=4,
+        pack_function="fixed_stack",
+        shuffle=False,
+    )
+    monkeypatch.setattr(sft_data, "stack_collate", lambda samples: samples[0])
+
+    dataset = SFTDataset(raw_dataset, tokenizer=None, shuffle=False, max_epochs=1)
+    dataloader = sft_data.setup_dataloader(dataset, config)
+    dataiter = iter(dataloader)
+    first_batch = next(dataiter)
+
+    assert first_batch["input_ids"] == [[10, 11, 0, 0], [20, 21, 22, 23]]
+    assert first_batch["loss_mask"] == [[True, False, False, False], [True, False, True, False]]
+    assert first_batch["loss_weight"] == [[0.1, 0.1, 0.0, 0.0], [0.2, 0.2, 0.2, 0.2]]
+    state_dict = dataloader.state_dict()
+    assert state_dict["dataset_state"] == {"dataset": {"step": 2, "epoch": 0}}
+
+    resumed_dataset = SFTDataset(raw_dataset, tokenizer=None, shuffle=False, max_epochs=1)
+    resumed_dataloader = sft_data.setup_dataloader(resumed_dataset, config)
+    resumed_dataloader.load_state_dict(state_dict)
+    resumed_iter = iter(resumed_dataloader)
+    second_batch = next(resumed_iter)
+
+    assert second_batch["input_ids"] == [[30, 0, 0, 0], [40, 41, 42, 43]]
+    assert resumed_dataloader.state_dict()["dataset_state"] == {"dataset": {"step": 4, "epoch": 0}}
+    with pytest.raises(StopIteration):
+        next(resumed_iter)
 
 
 @pytest.mark.parametrize("max_epochs", [1, 2, 4])

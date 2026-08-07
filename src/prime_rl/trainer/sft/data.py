@@ -499,6 +499,42 @@ class StackDataset(StatefulIterableDataset):
                     self.bucket_timers[bucket_idx] = self.step
 
 
+class FixedStackDataset(StatefulIterableDataset):
+    """Stack a fixed number of individually padded or truncated samples."""
+
+    def __init__(self, dataset: StatefulIterableDataset, seq_len: int, batch_size: int):
+        self.dataset = dataset
+        self.seq_len = seq_len
+        self.batch_size = batch_size
+
+    def state_dict(self) -> dict:
+        return {"dataset": self.dataset.state_dict()}
+
+    def load_state_dict(self, state_dict: dict):
+        self.dataset.load_state_dict(state_dict["dataset"])
+
+    def __iter__(self):
+        batch = []
+        expected_keys = None
+        for sample in self.dataset:
+            if expected_keys is None:
+                expected_keys = sample.keys()
+            assert sample.keys() == expected_keys, "All samples in a fixed stack must have the same fields"
+
+            sample_len = len(sample["input_ids"])
+            padded_sample = {}
+            for key, value in sample.items():
+                assert isinstance(value, list), f"Value for key {key} must be a list"
+                assert len(value) == sample_len, f"Value for key {key} must align with input_ids"
+                pad_value = False if key == "loss_mask" else 0.0 if key == "loss_weight" else 0
+                padded_sample[key] = value[: self.seq_len] + [pad_value] * max(self.seq_len - len(value), 0)
+            batch.append(padded_sample)
+
+            if len(batch) == self.batch_size:
+                yield {key: [sample[key] for sample in batch] for key in expected_keys}
+                batch = []
+
+
 def stack_collate(samples: list[Sample]) -> Batch:
     batch = {
         "input_ids": torch.tensor(samples[0]["input_ids"], dtype=torch.long, device="cuda"),
@@ -630,6 +666,9 @@ def setup_dataset(
 def setup_dataloader(dataset: StatefulIterableDataset, config: DataConfig) -> StatefulDataLoader:
     if config.pack_function == "stack":
         stacking_dataset = StackDataset(dataset, config.seq_len * config.micro_batch_size)
+        return StatefulDataLoader(stacking_dataset, batch_size=1, collate_fn=stack_collate)
+    elif config.pack_function == "fixed_stack":
+        stacking_dataset = FixedStackDataset(dataset, config.seq_len, config.micro_batch_size)
         return StatefulDataLoader(stacking_dataset, batch_size=1, collate_fn=stack_collate)
     elif config.pack_function == "cat":
         packing_dataset = CatDataset(dataset, config.seq_len * config.micro_batch_size)

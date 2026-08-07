@@ -123,6 +123,36 @@ uv run sft @ examples/reverse_text/sft.toml --dry-run
 - Entrypoint: `src/prime_rl/entrypoints/sft.py`
 - SLURM: single- and multi-node
 
+RSCI fixed-clock verifier-defect SFT sweeps must be materialized from a source
+snapshot created at the launch root. After committing the study code, create the
+snapshot, activate its SFT boundary, and materialize the canonical arms from the
+finalized `arm_index.json`:
+
+```bash
+uv run --no-sync user/tianhaowu/rsci/source_provenance.py create LAUNCH_ROOT --commit COMMIT
+source LAUNCH_ROOT/source_snapshot/user/tianhaowu/rsci/scripts/activate_source_snapshot_sft.sh LAUNCH_ROOT
+uv run --no-sync python user/tianhaowu/rsci/materialize_fixed_clock_sft_runs.py materialize \
+  --launch-root LAUNCH_ROOT --dry-run
+uv run --no-sync python user/tianhaowu/rsci/materialize_fixed_clock_sft_runs.py materialize \
+  --launch-root LAUNCH_ROOT
+uv run --no-sync python user/tianhaowu/rsci/materialize_fixed_clock_sft_runs.py validate \
+  --launch-root LAUNCH_ROOT
+uv run --no-sync python user/tianhaowu/rsci/materialize_fixed_clock_sft_runs.py submit \
+  --launch-root LAUNCH_ROOT --dry-run
+```
+
+The materializer launches the 55 `distinct_training_arms`; the nine minimum-dose
+behavior/shuffled/global byte aliases are never separate jobs. In addition to the
+count-matched global control, fixed-raw `iid` arms apply nominal-p defects to every
+strict-negative trajectory. Materialization fails unless OP21–40 is strict-dead in
+the complete frozen bank. It verifies frozen-bank/model/dataset identities, uses
+exact-cardinality `fixed_stack`, keeps weights-only eval snapshots every eight
+steps plus the final snapshot, and generates non-exclusive one-H100 scripts. Those
+snapshots are not resumable: a failed arm restarts at step 0 in a fresh output
+directory. Actual submission is separate, requires the study-id confirmation, and
+must run in window `Launcher` of session `codex-rsci-control-20260806` on socket
+`/tmp/codex-rsci-control-20260806.sock`.
+
 ## `inference` — vLLM server
 
 OpenAI-compatible API plus prime-rl custom endpoints (`/update_weights`, `/load_lora_adapter`, `/init_broadcaster`). Always use this entrypoint — never `vllm serve` directly.

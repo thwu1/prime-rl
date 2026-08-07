@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Build deterministic fixed-count and fixed-raw verifier-defect SFT datasets."""
+"""Build deterministic fixed-clock verifier-defect SFT treatment and control datasets."""
 
 from __future__ import annotations
 
 import argparse
 import hashlib
+import heapq
 import json
 from collections import Counter, defaultdict
 from dataclasses import dataclass
@@ -15,11 +16,11 @@ from typing import Any, Iterator
 from datasets import Dataset
 from transformers import AutoTokenizer
 
-from prime_rl.utils.chat_template import build_incremental_token_mask
+from prime_rl.utils.chat_template import build_incremental_token_mask, strip_message_content
 
 BANK_ID = "frozen-base-op10-12-op15-40-r128-v1"
 DEFAULT_BANK_DIR = Path("/checkpoint/ram-h100-2/tianhaowu/rsci/data/verifier-defect") / BANK_ID
-DEFAULT_OUTPUT_DIR = DEFAULT_BANK_DIR / "fixed-clock-sft-v1"
+DEFAULT_OUTPUT_DIR = DEFAULT_BANK_DIR / "fixed-clock-sft-v2"
 DEFAULT_TOKENIZER = Path(
     "/checkpoint/ram-h100-2/tianhaowu/rsci/hf/hub/"
     "models--Interplay-LM-Reasoning--extrapolation_rl/snapshots/"
@@ -29,14 +30,15 @@ DEFAULT_TOKENIZER = Path(
 DEFAULT_SELECTION_SEEDS = (20260805, 20260806, 20260807)
 DEFAULT_DOSES = ("1/400", "1/200", "1/100")
 DEFAULT_ANCHOR_OPERATIONS = (10, 11, 12)
-DEFAULT_HARD_OPERATIONS = tuple(range(15, 41))
+DEFAULT_BANK_OPERATIONS = (*DEFAULT_ANCHOR_OPERATIONS, *range(15, 41))
+DEFAULT_TREATMENT_OPERATIONS = tuple(range(21, 41))
 DEFAULT_EXAMPLES_PER_OPERATION = 1_000
 DEFAULT_SAMPLES_PER_PROMPT = 128
 DEFAULT_TARGET_COUNT = 512
 DEFAULT_ANCHOR_COUNT = 512
 DEFAULT_SEQ_LEN = 2_048
 ANCHOR_SELECTION_SEED = 20260807
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 @dataclass(frozen=True)
@@ -86,6 +88,7 @@ class SelectedTreatment:
     assignment: str
     defect_draw_uint64: int
     shuffle_draw_uint64: int
+    global_draw_uint64: int
 
 
 @dataclass(frozen=True)
@@ -107,6 +110,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--chat-template", type=Path)
     parser.add_argument("--selection-seeds", type=int, nargs="+", default=list(DEFAULT_SELECTION_SEEDS))
     parser.add_argument("--doses", nargs="+", default=list(DEFAULT_DOSES))
+    parser.add_argument("--bank-operations", type=int, nargs="+", default=list(DEFAULT_BANK_OPERATIONS))
+    parser.add_argument("--anchor-operations", type=int, nargs="+", default=list(DEFAULT_ANCHOR_OPERATIONS))
+    parser.add_argument(
+        "--treatment-operations",
+        type=int,
+        nargs="+",
+        default=list(DEFAULT_TREATMENT_OPERATIONS),
+    )
     parser.add_argument("--target-count", type=int, default=DEFAULT_TARGET_COUNT)
     parser.add_argument("--anchor-count", type=int, default=DEFAULT_ANCHOR_COUNT)
     parser.add_argument("--examples-per-operation", type=int, default=DEFAULT_EXAMPLES_PER_OPERATION)
@@ -200,7 +211,7 @@ def draw_uint64(domain: str, seed: int, op: int, prompt_index: int, sample_rank:
         for value in (seed, op, prompt_index, sample_rank)
     ):
         raise ValueError("Hash coordinates must be non-negative integers")
-    material = f"rsci-fixed-clock-sft-v1\0{domain}\0{seed}\0{op}\0{prompt_index}\0{sample_rank}".encode()
+    material = f"rsci-fixed-clock-sft-v2\0{domain}\0{seed}\0{op}\0{prompt_index}\0{sample_rank}".encode()
     return int.from_bytes(hashlib.sha256(material).digest()[:8], "big")
 
 
@@ -409,36 +420,39 @@ def _validate_score(row: dict[str, Any], *, path: Path, line_number: int) -> Non
         raise ValueError(f"Strict-perfect row is answer-incorrect at {path}:{line_number}")
 
 
-def hard_raw_ordinal(
+def treatment_raw_ordinal(
     op: int,
     prompt_index: int,
     sample_rank: int,
     *,
-    hard_operations: tuple[int, ...],
+    treatment_operations: tuple[int, ...],
     samples_per_prompt: int,
 ) -> int:
     try:
-        operation_index = hard_operations.index(op)
+        operation_index = treatment_operations.index(op)
     except ValueError as error:
-        raise ValueError(f"Operation {op} is outside the hard stream") from error
-    return ((prompt_index * len(hard_operations) + operation_index) * samples_per_prompt) + sample_rank
+        raise ValueError(f"Operation {op} is outside the treatment stream") from error
+    return ((prompt_index * len(treatment_operations) + operation_index) * samples_per_prompt) + sample_rank
 
 
 def compute_prefixes(
     strict_results: Path,
     *,
-    operations: tuple[int, ...],
-    hard_operations: tuple[int, ...],
+    bank_operations: tuple[int, ...],
+    treatment_operations: tuple[int, ...],
     examples_per_operation: int,
     samples_per_prompt: int,
     seeds: tuple[int, ...],
     doses: tuple[Dose, ...],
     target_count: int,
-) -> dict[tuple[int, str], int]:
+) -> tuple[dict[tuple[int, str], int], dict[tuple[int, str], int], dict[str, Any]]:
     triggers: dict[tuple[int, str], list[int]] = {(seed, dose.label): [] for seed in seeds for dose in doses}
+    treatment_rows_by_op: Counter[int] = Counter()
+    strict_positive_counts_by_op: Counter[int] = Counter()
+    candidate_counts_by_op: Counter[int] = Counter()
     expected_iterator = (
         (operation, prompt_index, sample_rank)
-        for operation in operations
+        for operation in bank_operations
         for prompt_index in range(examples_per_operation)
         for sample_rank in range(samples_per_prompt)
     )
@@ -452,11 +466,16 @@ def compute_prefixes(
                 f"Strict-result ordering/key mismatch at {strict_results}:{line_number}: {key} != {expected_key}"
             )
         observed_rows += 1
-        if key[0] not in hard_operations or not row["candidate"]:
+        if key[0] not in treatment_operations:
             continue
-        ordinal = hard_raw_ordinal(
+        treatment_rows_by_op[key[0]] += 1
+        strict_positive_counts_by_op[key[0]] += int(row["perfect"])
+        candidate_counts_by_op[key[0]] += int(row["candidate"])
+        if not row["candidate"]:
+            continue
+        ordinal = treatment_raw_ordinal(
             *key,
-            hard_operations=hard_operations,
+            treatment_operations=treatment_operations,
             samples_per_prompt=samples_per_prompt,
         )
         for seed in seeds:
@@ -464,9 +483,27 @@ def compute_prefixes(
             for dose in doses:
                 if draw_below(draw, dose):
                     triggers[(seed, dose.label)].append(ordinal)
-    expected_rows = len(operations) * examples_per_operation * samples_per_prompt
+    expected_rows = len(bank_operations) * examples_per_operation * samples_per_prompt
     if observed_rows != expected_rows:
         raise ValueError(f"Strict-result row count differs: {observed_rows} != {expected_rows}")
+
+    expected_treatment_rows = examples_per_operation * samples_per_prompt
+    for operation in treatment_operations:
+        if treatment_rows_by_op[operation] != expected_treatment_rows:
+            raise ValueError(
+                f"Treatment OP{operation} has {treatment_rows_by_op[operation]} rows, "
+                f"expected {expected_treatment_rows}"
+            )
+    contaminated_operations = {
+        operation: strict_positive_counts_by_op[operation]
+        for operation in treatment_operations
+        if strict_positive_counts_by_op[operation]
+    }
+    if contaminated_operations:
+        raise ValueError(
+            "Strict-dead treatment contract failed: every treatment trajectory must have perfect=false; "
+            f"strict-positive counts={contaminated_operations}"
+        )
 
     prefixes: dict[tuple[int, str], int] = {}
     for key, ordinals in triggers.items():
@@ -474,7 +511,26 @@ def compute_prefixes(
             raise ValueError(f"Bank has only {len(ordinals)} triggers for seed/dose {key}; need {target_count}")
         ordinals.sort()
         prefixes[key] = ordinals[target_count - 1]
-    return prefixes
+    minimum = doses[0]
+    fixed_raw_counts = {
+        (seed, dose.label): sum(ordinal <= prefixes[(seed, minimum.label)] for ordinal in triggers[(seed, dose.label)])
+        for seed in seeds
+        for dose in doses
+    }
+    strict_dead_contract = {
+        "required": True,
+        "definition": "every frozen trajectory in every treatment operation has strict perfect=false",
+        "operations": list(treatment_operations),
+        "rows_per_operation": expected_treatment_rows,
+        "strict_positive_counts_by_op": {
+            str(operation): strict_positive_counts_by_op[operation] for operation in treatment_operations
+        },
+        "candidate_counts_by_op": {
+            str(operation): candidate_counts_by_op[operation] for operation in treatment_operations
+        },
+        "verified_rows_by_op": {str(operation): treatment_rows_by_op[operation] for operation in treatment_operations},
+    }
+    return prefixes, fixed_raw_counts, strict_dead_contract
 
 
 def _validate_generation(row: dict[str, Any], *, path: Path, line_number: int) -> None:
@@ -490,14 +546,14 @@ def iter_joined_groups(
     paths: BankPaths,
     prompts: dict[tuple[int, int], dict[str, Any]],
     *,
-    operations: tuple[int, ...],
-    hard_operations: tuple[int, ...],
+    bank_operations: tuple[int, ...],
+    treatment_operations: tuple[int, ...],
     examples_per_operation: int,
     samples_per_prompt: int,
 ) -> Iterator[list[BankRow]]:
     generation_rows = iter_jsonl(paths.generations)
     score_rows = iter_jsonl(paths.strict_results)
-    for operation in operations:
+    for operation in bank_operations:
         for prompt_index in range(examples_per_operation):
             prompt = prompts[(operation, prompt_index)]
             group: list[BankRow] = []
@@ -521,12 +577,12 @@ def iter_joined_groups(
                 if generation["id"] != prompt["id"] or score["id"] != prompt["id"]:
                     raise ValueError(f"Prompt/generation/score id mismatch for key {expected_key}")
                 ordinal = (
-                    hard_raw_ordinal(
+                    treatment_raw_ordinal(
                         *expected_key,
-                        hard_operations=hard_operations,
+                        treatment_operations=treatment_operations,
                         samples_per_prompt=samples_per_prompt,
                     )
-                    if operation in hard_operations
+                    if operation in treatment_operations
                     else None
                 )
                 group.append(BankRow(prompt, generation, score, ordinal))
@@ -552,14 +608,48 @@ def _arm_specs(seeds: tuple[int, ...], doses: tuple[Dose, ...]) -> tuple[ArmSpec
     return tuple(specs)
 
 
+def _iid_arm_specs(seeds: tuple[int, ...], doses: tuple[Dose, ...]) -> tuple[ArmSpec, ...]:
+    return tuple(ArmSpec(seed, "fixed_raw", dose) for seed in seeds for dose in doses)
+
+
+GlobalHeapEntry = tuple[int, int, int, int, BankRow]
+
+
+def _offer_global_recipient(
+    heap: list[GlobalHeapEntry],
+    *,
+    row: BankRow,
+    draw: int,
+    limit: int,
+) -> None:
+    if limit < 1:
+        raise ValueError("Global-recipient heap limit must be positive")
+    rank = (draw, *row.key)
+    entry = (-rank[0], -rank[1], -rank[2], -rank[3], row)
+    if len(heap) < limit:
+        heapq.heappush(heap, entry)
+        return
+    worst = heap[0]
+    worst_rank = (-worst[0], -worst[1], -worst[2], -worst[3])
+    if rank < worst_rank:
+        heapq.heapreplace(heap, entry)
+
+
+def _ordered_global_recipients(heap: list[GlobalHeapEntry]) -> list[tuple[int, BankRow]]:
+    ranked = [((-entry[0], -entry[1], -entry[2], -entry[3]), entry[4]) for entry in heap]
+    ranked.sort(key=lambda item: item[0])
+    return [(rank[0], row) for rank, row in ranked]
+
+
 def collect_selected_rows(
     paths: BankPaths,
     prompts: dict[tuple[int, int], dict[str, Any]],
     prefixes: dict[tuple[int, str], int],
+    fixed_raw_counts: dict[tuple[int, str], int],
     *,
-    operations: tuple[int, ...],
+    bank_operations: tuple[int, ...],
     anchor_operations: tuple[int, ...],
-    hard_operations: tuple[int, ...],
+    treatment_operations: tuple[int, ...],
     examples_per_operation: int,
     samples_per_prompt: int,
     seeds: tuple[int, ...],
@@ -568,20 +658,36 @@ def collect_selected_rows(
     anchor_count: int,
 ) -> tuple[list[BankRow], dict[tuple[ArmSpec, str], list[SelectedTreatment]], dict[str, Any]]:
     specs = _arm_specs(seeds, doses)
+    iid_specs = _iid_arm_specs(seeds, doses)
     minimum = doses[0]
-    selected: dict[tuple[ArmSpec, str], list[SelectedTreatment]] = {
-        (spec, assignment): [] for spec in specs for assignment in ("behavior", "shuffled")
+    assignments = ("behavior", "shuffled", "global")
+    specs_by_seed = {seed: tuple(spec for spec in specs if spec.seed == seed) for seed in seeds}
+    iid_specs_by_seed = {seed: tuple(spec for spec in iid_specs if spec.seed == seed) for seed in seeds}
+    expected_counts = {
+        spec: target_count if spec.clock == "fixed_m" else fixed_raw_counts[(spec.seed, spec.dose.label)]
+        for spec in specs
     }
+    for seed in seeds:
+        if fixed_raw_counts[(seed, minimum.label)] != target_count:
+            raise RuntimeError(f"Minimum-dose fixed-raw count differs from target for seed {seed}")
+    selected: dict[tuple[ArmSpec, str], list[SelectedTreatment]] = {
+        (spec, assignment): [] for spec in specs for assignment in assignments
+    }
+    selected.update({(spec, "iid"): [] for spec in iid_specs})
     anchor_representatives: dict[int, list[BankRow]] = defaultdict(list)
     per_group_counts: dict[tuple[ArmSpec, str], Counter[tuple[int, int]]] = {
-        (spec, assignment): Counter() for spec in specs for assignment in ("behavior", "shuffled")
+        (spec, assignment): Counter() for spec in specs for assignment in assignments
     }
+    per_group_counts.update({(spec, "iid"): Counter() for spec in iid_specs})
+    global_heaps: dict[ArmSpec, list[GlobalHeapEntry]] = {spec: [] for spec in specs}
+    global_eligible_counts: Counter[ArmSpec] = Counter()
+    iid_eligible_counts: Counter[ArmSpec] = Counter()
 
     for group in iter_joined_groups(
         paths,
         prompts,
-        operations=operations,
-        hard_operations=hard_operations,
+        bank_operations=bank_operations,
+        treatment_operations=treatment_operations,
         examples_per_operation=examples_per_operation,
         samples_per_prompt=samples_per_prompt,
     ):
@@ -599,21 +705,33 @@ def collect_selected_rows(
                 )
                 anchor_representatives[operation].append(representative)
             continue
-        if operation not in hard_operations:
-            raise ValueError(f"Unexpected operation in bank stream: {operation}")
+        if operation not in treatment_operations:
+            continue
 
         for seed in seeds:
+            global_draws = {
+                row.key: draw_uint64("global-recipient", seed, *row.key) for row in group if not row.score["perfect"]
+            }
             shuffle_ranked = sorted(
                 (row for row in group if not row.score["perfect"]),
                 key=lambda row: (draw_uint64("shuffle", seed, *row.key), row.key[2]),
             )
-            for spec in (candidate for candidate in specs if candidate.seed == seed):
+            for spec in specs_by_seed[seed]:
                 cutoff = (
                     prefixes[(seed, spec.dose.label)] if spec.clock == "fixed_m" else prefixes[(seed, minimum.label)]
                 )
                 observed = [row for row in group if row.raw_ordinal is not None and row.raw_ordinal <= cutoff]
                 if not observed:
                     continue
+                eligible = [row for row in observed if not row.score["perfect"]]
+                global_eligible_counts[spec] += len(eligible)
+                for row in eligible:
+                    _offer_global_recipient(
+                        global_heaps[spec],
+                        row=row,
+                        draw=global_draws[row.key],
+                        limit=expected_counts[spec],
+                    )
                 behavior = [
                     row
                     for row in observed
@@ -644,6 +762,7 @@ def collect_selected_rows(
                             assignment="behavior",
                             defect_draw_uint64=draw_uint64("defect", seed, *behavior_row.key),
                             shuffle_draw_uint64=draw_uint64("shuffle", seed, *behavior_row.key),
+                            global_draw_uint64=global_draws[behavior_row.key],
                             **common,
                         )
                     )
@@ -653,12 +772,67 @@ def collect_selected_rows(
                             assignment="shuffled",
                             defect_draw_uint64=draw_uint64("defect", seed, *shuffled_row.key),
                             shuffle_draw_uint64=draw_uint64("shuffle", seed, *shuffled_row.key),
+                            global_draw_uint64=global_draws[shuffled_row.key],
                             **common,
                         )
                     )
                 group_key = (operation, prompt_index)
                 per_group_counts[(spec, "behavior")][group_key] += len(behavior)
                 per_group_counts[(spec, "shuffled")][group_key] += len(shuffled)
+
+            iid_cutoff = prefixes[(seed, minimum.label)]
+            iid_observed = [row for row in group if row.raw_ordinal is not None and row.raw_ordinal <= iid_cutoff]
+            iid_eligible = [row for row in iid_observed if not row.score["perfect"]]
+            for spec in iid_specs_by_seed[seed]:
+                iid_eligible_counts[spec] += len(iid_eligible)
+                iid_recipients = [
+                    row for row in iid_eligible if draw_below(draw_uint64("defect", seed, *row.key), spec.dose)
+                ]
+                iid_recipients.sort(key=lambda row: row.raw_ordinal)
+                group_key = (operation, prompt_index)
+                for local_pair, row in enumerate(iid_recipients):
+                    pair_position = len(selected[(spec, "iid")])
+                    selected[(spec, "iid")].append(
+                        SelectedTreatment(
+                            row=row,
+                            pair_id=f"{spec.stem}:iid:op{operation}:idx{prompt_index}:pair{local_pair}",
+                            pair_position=pair_position,
+                            group_extra_positive_count=len(iid_recipients),
+                            assignment="iid",
+                            defect_draw_uint64=draw_uint64("defect", seed, *row.key),
+                            shuffle_draw_uint64=draw_uint64("shuffle", seed, *row.key),
+                            global_draw_uint64=global_draws[row.key],
+                        )
+                    )
+                if iid_recipients:
+                    per_group_counts[(spec, "iid")][group_key] += len(iid_recipients)
+
+    for spec in specs:
+        expected_count = expected_counts[spec]
+        if len(global_heaps[spec]) != expected_count:
+            raise RuntimeError(
+                f"Global arm {spec.stem} retained {len(global_heaps[spec])} rows, expected {expected_count}; "
+                f"eligible={global_eligible_counts[spec]}"
+            )
+        behavior_slots = selected[(spec, "behavior")]
+        if len(behavior_slots) != expected_count:
+            raise RuntimeError(f"Behavior arm {spec.stem} has {len(behavior_slots)} rows, expected {expected_count}")
+        ranked = _ordered_global_recipients(global_heaps[spec])
+        global_group_counts = Counter((row.key[0], row.key[1]) for _, row in ranked)
+        for pair_position, ((global_draw, row), behavior_slot) in enumerate(zip(ranked, behavior_slots, strict=True)):
+            selected[(spec, "global")].append(
+                SelectedTreatment(
+                    row=row,
+                    pair_id=behavior_slot.pair_id,
+                    pair_position=pair_position,
+                    group_extra_positive_count=global_group_counts[(row.key[0], row.key[1])],
+                    assignment="global",
+                    defect_draw_uint64=draw_uint64("defect", spec.seed, *row.key),
+                    shuffle_draw_uint64=draw_uint64("shuffle", spec.seed, *row.key),
+                    global_draw_uint64=global_draw,
+                )
+            )
+        per_group_counts[(spec, "global")].update(global_group_counts)
 
     quotient, remainder = divmod(anchor_count, len(anchor_operations))
     anchors: list[BankRow] = []
@@ -683,20 +857,68 @@ def collect_selected_rows(
     for spec in specs:
         behavior = selected[(spec, "behavior")]
         shuffled = selected[(spec, "shuffled")]
-        if len(behavior) != len(shuffled):
-            raise RuntimeError(f"Behavior/shuffled counts differ for {spec.stem}")
+        global_recipients = selected[(spec, "global")]
+        if len(behavior) != len(shuffled) or len(behavior) != len(global_recipients):
+            raise RuntimeError(f"Behavior/shuffled/global counts differ for {spec.stem}")
         if per_group_counts[(spec, "behavior")] != per_group_counts[(spec, "shuffled")]:
             raise RuntimeError(f"Behavior/shuffled group histograms differ for {spec.stem}")
-        if spec.clock == "fixed_m" and len(behavior) != target_count:
-            raise RuntimeError(f"Fixed-M arm {spec.stem} has {len(behavior)} rows, expected {target_count}")
-        if len({item.row.key for item in behavior}) != len(behavior):
-            raise RuntimeError(f"Behavior arm {spec.stem} contains duplicate trajectories")
-        if len({item.row.key for item in shuffled}) != len(shuffled):
-            raise RuntimeError(f"Shuffled arm {spec.stem} contains duplicate trajectories")
+        if len(behavior) != expected_counts[spec]:
+            raise RuntimeError(f"Arm {spec.stem} has {len(behavior)} rows, expected {expected_counts[spec]}")
+        for assignment in assignments:
+            treatments = selected[(spec, assignment)]
+            if len({item.row.key for item in treatments}) != len(treatments):
+                raise RuntimeError(f"{assignment} arm {spec.stem} contains duplicate trajectories")
+        eligible_count = global_eligible_counts[spec]
+        if eligible_count < len(global_recipients):
+            raise RuntimeError(f"Global arm {spec.stem} has fewer eligible than selected trajectories")
+        if any(item.row.score["perfect"] for item in global_recipients):
+            raise RuntimeError(f"Global arm {spec.stem} contains a strict-positive recipient")
         arm_counts[spec.stem] = {
             "selected": len(behavior),
             "groups": len(per_group_counts[(spec, "behavior")]),
             "shuffled_candidate_overlap": sum(item.row.score["candidate"] for item in shuffled),
+            "global_groups": len(per_group_counts[(spec, "global")]),
+            "global_candidate_overlap": sum(item.row.score["candidate"] for item in global_recipients),
+            "global_eligible_rows": eligible_count,
+            "global_effective_rate": len(global_recipients) / eligible_count,
+            "global_max_draw_uint64": max(item.global_draw_uint64 for item in global_recipients),
+            "behavior_group_histogram_sha256": canonical_json_sha256(
+                sorted((*key, count) for key, count in per_group_counts[(spec, "behavior")].items())
+            ),
+            "global_group_histogram_sha256": canonical_json_sha256(
+                sorted((*key, count) for key, count in per_group_counts[(spec, "global")].items())
+            ),
+            "global_ordered_keys_sha256": canonical_json_sha256([item.row.key for item in global_recipients]),
+        }
+    iid_arm_counts: dict[str, Any] = {}
+    for spec in iid_specs:
+        recipients = selected[(spec, "iid")]
+        eligible_count = iid_eligible_counts[spec]
+        if len({item.row.key for item in recipients}) != len(recipients):
+            raise RuntimeError(f"IID arm {spec.stem} contains duplicate trajectories")
+        if any(item.row.score["perfect"] for item in recipients):
+            raise RuntimeError(f"IID arm {spec.stem} contains a strict-positive recipient")
+        if any(not draw_below(item.defect_draw_uint64, spec.dose) for item in recipients):
+            raise RuntimeError(f"IID arm {spec.stem} contains a recipient outside its nominal dose")
+        candidate_overlap = sum(item.row.score["candidate"] for item in recipients)
+        expected_candidate_overlap = fixed_raw_counts[(spec.seed, spec.dose.label)]
+        if candidate_overlap != expected_candidate_overlap:
+            raise RuntimeError(
+                f"IID arm {spec.stem} contains {candidate_overlap} candidates, "
+                f"expected {expected_candidate_overlap} from the paired behavior rule"
+            )
+        if not recipients or eligible_count < len(recipients):
+            raise RuntimeError(f"IID arm {spec.stem} has invalid selected/eligible counts")
+        iid_arm_counts[spec.stem] = {
+            "selected": len(recipients),
+            "groups": len(per_group_counts[(spec, "iid")]),
+            "candidate_overlap": candidate_overlap,
+            "eligible_rows": eligible_count,
+            "realized_rate": len(recipients) / eligible_count,
+            "group_histogram_sha256": canonical_json_sha256(
+                sorted((*key, count) for key, count in per_group_counts[(spec, "iid")].items() if count)
+            ),
+            "ordered_keys_sha256": canonical_json_sha256([item.row.key for item in recipients]),
         }
     return (
         anchors,
@@ -704,6 +926,7 @@ def collect_selected_rows(
         {
             "anchor_counts_by_op": anchor_counts_by_op,
             "arms": arm_counts,
+            "iid_arms": iid_arm_counts,
         },
     )
 
@@ -711,7 +934,7 @@ def collect_selected_rows(
 def normalize_assistant(text: str) -> str:
     if not text.strip():
         raise ValueError("Selected completion is empty")
-    normalized = f"<solution>{text}"
+    normalized = f"<solution>{text.strip()}"
     if "<answer>" in normalized.lower() and "</answer>" not in normalized.lower():
         normalized = f"{normalized} </answer>"
     return normalized
@@ -721,10 +944,12 @@ def messages_for_row(row: BankRow) -> list[dict[str, str]]:
     prompt = row.prompt
     user = f"<question> {str(prompt['problem']).strip()} {str(prompt['question']).strip()} </question>"
     assistant = normalize_assistant(str(row.generation["gen_solution_answer"]))
-    return [
-        {"role": "user", "content": user},
-        {"role": "assistant", "content": assistant},
-    ]
+    return strip_message_content(
+        [
+            {"role": "user", "content": user},
+            {"role": "assistant", "content": assistant},
+        ]
+    )
 
 
 def render_training_row(
@@ -802,7 +1027,10 @@ def _write_parquet(path: Path, rows: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def _arm_label(spec: ArmSpec, assignment: str) -> str:
-    assignment_label = "b" if assignment == "behavior" else "s"
+    assignment_labels = {"behavior": "b", "shuffled": "s", "global": "g", "iid": "i"}
+    if assignment not in assignment_labels:
+        raise ValueError(f"Unknown assignment: {assignment}")
+    assignment_label = assignment_labels[assignment]
     return f"{spec.stem}_{assignment_label}"
 
 
@@ -814,15 +1042,15 @@ def build_datasets(
     chat_template_path: Path,
     seeds: tuple[int, ...],
     doses: tuple[Dose, ...],
+    bank_operations: tuple[int, ...] = DEFAULT_BANK_OPERATIONS,
     anchor_operations: tuple[int, ...] = DEFAULT_ANCHOR_OPERATIONS,
-    hard_operations: tuple[int, ...] = DEFAULT_HARD_OPERATIONS,
+    treatment_operations: tuple[int, ...] = DEFAULT_TREATMENT_OPERATIONS,
     examples_per_operation: int = DEFAULT_EXAMPLES_PER_OPERATION,
     samples_per_prompt: int = DEFAULT_SAMPLES_PER_PROMPT,
     target_count: int = DEFAULT_TARGET_COUNT,
     anchor_count: int = DEFAULT_ANCHOR_COUNT,
     seq_len: int = DEFAULT_SEQ_LEN,
 ) -> dict[str, Any]:
-    operations = (*anchor_operations, *hard_operations)
     if not seeds or len(seeds) != len(set(seeds)) or any(seed < 0 for seed in seeds):
         raise ValueError("Selection seeds must be unique non-negative integers")
     if not doses or tuple(sorted(doses, key=lambda dose: dose.fraction)) != doses:
@@ -831,6 +1059,20 @@ def build_datasets(
         raise ValueError("Doses must be unique")
     if target_count < 1 or anchor_count < 1 or seq_len < 1:
         raise ValueError("target_count, anchor_count, and seq_len must be positive")
+    for name, values in (
+        ("bank_operations", bank_operations),
+        ("anchor_operations", anchor_operations),
+        ("treatment_operations", treatment_operations),
+    ):
+        if not values or len(values) != len(set(values)):
+            raise ValueError(f"{name} must contain unique operations")
+    bank_operation_set = set(bank_operations)
+    if not set(anchor_operations) <= bank_operation_set:
+        raise ValueError("anchor_operations must be a subset of bank_operations")
+    if not set(treatment_operations) <= bank_operation_set:
+        raise ValueError("treatment_operations must be a subset of bank_operations")
+    if set(anchor_operations) & set(treatment_operations):
+        raise ValueError("anchor_operations and treatment_operations must be disjoint")
     if output_dir.exists():
         raise FileExistsError(output_dir)
     partial_dir = output_dir.with_name(f"{output_dir.name}.partial")
@@ -839,19 +1081,19 @@ def build_datasets(
 
     bank_state = verify_bank_contract(
         paths,
-        operations=operations,
+        operations=bank_operations,
         examples_per_operation=examples_per_operation,
         samples_per_prompt=samples_per_prompt,
     )
     prompts = read_prompts(
         paths.prompts,
-        operations=operations,
+        operations=bank_operations,
         examples_per_operation=examples_per_operation,
     )
-    prefixes = compute_prefixes(
+    prefixes, fixed_raw_counts, strict_dead_contract = compute_prefixes(
         paths.strict_results,
-        operations=operations,
-        hard_operations=hard_operations,
+        bank_operations=bank_operations,
+        treatment_operations=treatment_operations,
         examples_per_operation=examples_per_operation,
         samples_per_prompt=samples_per_prompt,
         seeds=seeds,
@@ -862,9 +1104,10 @@ def build_datasets(
         paths,
         prompts,
         prefixes,
-        operations=operations,
+        fixed_raw_counts,
+        bank_operations=bank_operations,
         anchor_operations=anchor_operations,
-        hard_operations=hard_operations,
+        treatment_operations=treatment_operations,
         examples_per_operation=examples_per_operation,
         samples_per_prompt=samples_per_prompt,
         seeds=seeds,
@@ -917,6 +1160,7 @@ def build_datasets(
                     "group_extra_positive_count": 0,
                     "defect_draw_uint64": None,
                     "shuffle_draw_uint64": None,
+                    "global_draw_uint64": None,
                     "train_order_key": canonical_json_sha256(["anchor", anchor_index]),
                 }
             )
@@ -933,6 +1177,7 @@ def build_datasets(
                     "group_extra_positive_count": treatment.group_extra_positive_count,
                     "defect_draw_uint64": str(treatment.defect_draw_uint64),
                     "shuffle_draw_uint64": str(treatment.shuffle_draw_uint64),
+                    "global_draw_uint64": str(treatment.global_draw_uint64),
                     "train_order_key": canonical_json_sha256(
                         ["treatment", metadata["selection_seed"], treatment.pair_position]
                     ),
@@ -946,10 +1191,14 @@ def build_datasets(
         parquet = _write_parquet(parquet_path, rows)
         counts_by_source = Counter(str(row["source_kind"]) for row in rows)
         counts_by_op = Counter(str(row["op"]) for row in rows)
+        two_pass_steps = (2 * len(rows) + 31) // 32
+        max_steps = max(64, two_pass_steps) if metadata["clock"] == "fixed_raw" else 64
+        readout_steps = sorted({64, max_steps})
         manifest = {
             "schema_version": SCHEMA_VERSION,
             "arm": {"label": label, **metadata},
             "bank_contract_sha256": bank_state["contract_sha256"],
+            "strict_dead_contract": strict_dead_contract,
             "rows": len(rows),
             "counts_by_source": dict(sorted(counts_by_source.items())),
             "counts_by_op": dict(sorted(counts_by_op.items(), key=lambda item: int(item[0]))),
@@ -968,13 +1217,17 @@ def build_datasets(
             "sft_contract": {
                 "data.weight_column": "sft_weight",
                 "data.seq_len": seq_len,
-                "data.pack_function": "stack",
+                "data.pack_function": "fixed_stack",
                 "data.batch_size": 32,
                 "data.micro_batch_size": 4,
                 "data.shuffle": True,
                 "data.seed": 0,
                 "loss_impl": "torch",
-                "max_steps": 64,
+                "max_steps": max_steps,
+                "ckpt.interval": 8,
+                "readout_steps": readout_steps,
+                "two_pass_steps": two_pass_steps if metadata["clock"] == "fixed_raw" else None,
+                "schedule": ("at_least_two_dataset_passes" if metadata["clock"] == "fixed_raw" else "common_64_steps"),
             },
             "tokenizer": tokenizer_identity,
             "implementation": implementation_identity,
@@ -1005,6 +1258,7 @@ def build_datasets(
             "selection_seed": ANCHOR_SELECTION_SEED,
             "raw_prefix_trajectories": 0,
             "hard_recipient_rows": 0,
+            "treatment_recipient_rows": 0,
         },
     )
 
@@ -1014,7 +1268,8 @@ def build_datasets(
         cutoff = (
             prefixes[(spec.seed, spec.dose.label)] if spec.clock == "fixed_m" else prefixes[(spec.seed, minimum.label)]
         )
-        for assignment in ("behavior", "shuffled"):
+        arm_selection = selection_summary["arms"][spec.stem]
+        for assignment in ("behavior", "shuffled", "global"):
             treatments = selected[(spec, assignment)]
             label = _arm_label(spec, assignment)
             metadata = {
@@ -1025,16 +1280,57 @@ def build_datasets(
                 "selection_seed": spec.seed,
                 "raw_prefix_trajectories": cutoff + 1,
                 "hard_recipient_rows": len(treatments),
+                "treatment_recipient_rows": len(treatments),
                 "hard_recipient_fraction": len(treatments) / (anchor_count + len(treatments)),
+                "treatment_recipient_fraction": len(treatments) / (anchor_count + len(treatments)),
+                "candidate_overlap": sum(item.row.score["candidate"] for item in treatments),
                 "shuffled_candidate_overlap": (
                     sum(item.row.score["candidate"] for item in treatments) if assignment == "shuffled" else None
                 ),
+                "global_candidate_overlap": (
+                    arm_selection["global_candidate_overlap"] if assignment == "global" else None
+                ),
+                "global_eligible_rows": arm_selection["global_eligible_rows"] if assignment == "global" else None,
+                "global_effective_rate": arm_selection["global_effective_rate"] if assignment == "global" else None,
+                "global_max_draw_uint64": (
+                    str(arm_selection["global_max_draw_uint64"]) if assignment == "global" else None
+                ),
+                "iid_eligible_rows": None,
+                "iid_realized_rate": None,
             }
             entry = write_arm(label, treatments, metadata)
             canonical_entries[(spec.seed, spec.clock, spec.dose.label, assignment)] = entry
 
+    for spec in _iid_arm_specs(seeds, doses):
+        treatments = selected[(spec, "iid")]
+        iid_selection = selection_summary["iid_arms"][spec.stem]
+        cutoff = prefixes[(spec.seed, minimum.label)]
+        metadata = {
+            "clock": "fixed_raw",
+            "assignment": "iid",
+            "dose": f"{spec.dose.numerator}/{spec.dose.denominator}",
+            "dose_label": spec.dose.label,
+            "selection_seed": spec.seed,
+            "raw_prefix_trajectories": cutoff + 1,
+            "hard_recipient_rows": len(treatments),
+            "treatment_recipient_rows": len(treatments),
+            "hard_recipient_fraction": len(treatments) / (anchor_count + len(treatments)),
+            "treatment_recipient_fraction": len(treatments) / (anchor_count + len(treatments)),
+            "candidate_overlap": iid_selection["candidate_overlap"],
+            "shuffled_candidate_overlap": None,
+            "global_candidate_overlap": None,
+            "global_eligible_rows": None,
+            "global_effective_rate": None,
+            "global_max_draw_uint64": None,
+            "iid_eligible_rows": iid_selection["eligible_rows"],
+            "iid_realized_rate": iid_selection["realized_rate"],
+        }
+        label = _arm_label(spec, "iid")
+        entry = write_arm(label, treatments, metadata)
+        canonical_entries[(spec.seed, spec.clock, spec.dose.label, "iid")] = entry
+
     for seed in seeds:
-        for assignment in ("behavior", "shuffled"):
+        for assignment in ("behavior", "shuffled", "global"):
             canonical = canonical_entries[(seed, "fixed_m", minimum.label, assignment)]
             alias_label = _arm_label(ArmSpec(seed, "fixed_raw", minimum), assignment)
             alias = {
@@ -1050,6 +1346,15 @@ def build_datasets(
             ):
                 raise RuntimeError("Minimum-dose fixed-M/fixed-raw byte-identity invariant failed")
 
+    expected_distinct_arms = 1 + 3 * len(_arm_specs(seeds, doses)) + len(_iid_arm_specs(seeds, doses))
+    expected_aliases = 3 * len(seeds)
+    if len(distinct_labels) != expected_distinct_arms:
+        raise RuntimeError(f"Distinct arm count differs: {len(distinct_labels)} != {expected_distinct_arms}")
+    if len(arm_entries) != expected_distinct_arms + expected_aliases:
+        raise RuntimeError(
+            f"Arm-index entry count differs: {len(arm_entries)} != {expected_distinct_arms + expected_aliases}"
+        )
+
     arm_entries.sort(key=lambda entry: entry["label"])
     input_identities_after = {
         name: file_identity(Path(identity["path"])) for name, identity in bank_state["inputs"].items()
@@ -1058,11 +1363,12 @@ def build_datasets(
         raise RuntimeError("Frozen bank inputs changed while building datasets")
     arm_index = {
         "schema_version": SCHEMA_VERSION,
-        "study_id": "verifier_defect_fixed_clock_sft_v1",
+        "study_id": "verifier_defect_fixed_clock_sft_v2",
         "bank_contract_sha256": bank_state["contract_sha256"],
         "protocol": {
+            "bank_operations": list(bank_operations),
             "anchor_operations": list(anchor_operations),
-            "hard_operations": list(hard_operations),
+            "treatment_operations": list(treatment_operations),
             "examples_per_operation": examples_per_operation,
             "samples_per_prompt": samples_per_prompt,
             "selection_seeds": list(seeds),
@@ -1070,10 +1376,31 @@ def build_datasets(
             "target_count": target_count,
             "anchor_count": anchor_count,
             "anchor_selection_seed": ANCHOR_SELECTION_SEED,
-            "raw_order": "(prompt_index, hard-operation index, sample_rank)",
+            "raw_order": "(prompt_index, treatment-operation index, sample_rank)",
             "defect_draw": "uint64 SHA-256 random oracle; exact integer comparison U < p",
+            "selection_hash_domain": "rsci-fixed-clock-sft-v2",
             "shuffle": "within observed prompt-group strict negatives; lowest independent uint64 ranks",
-            "minimum_dose_alias": (f"fixed_raw {minimum.label} aliases fixed_m {minimum.label} exactly"),
+            "global": (
+                "K lowest independent uint64 ranks over all observed treatment-operation strict negatives; "
+                "K exactly matches the paired behavior arm"
+            ),
+            "global_draw_domain": "global-recipient",
+            "iid": (
+                "independent nominal-p Bernoulli defects over every strict-negative trajectory in the common "
+                "per-seed fixed-raw prefix; uses the same defect draw as behavior targeting"
+            ),
+            "strict_dead_contract": strict_dead_contract,
+            "arm_count_contract": {
+                "assignments": ["behavior", "shuffled", "global", "iid"],
+                "bsg_canonical_specs_per_seed": len(_arm_specs((seeds[0],), doses)),
+                "iid_canonical_specs_per_seed": len(_iid_arm_specs((seeds[0],), doses)),
+                "distinct_training_arms": expected_distinct_arms,
+                "minimum_dose_aliases": expected_aliases,
+                "arm_index_entries": expected_distinct_arms + expected_aliases,
+            },
+            "minimum_dose_alias": (
+                f"fixed_raw {minimum.label} behavior/shuffled/global alias fixed_m exactly; iid is canonical"
+            ),
         },
         "prefixes": {
             str(seed): {
@@ -1115,6 +1442,50 @@ def validate_output(output_dir: Path) -> dict[str, Any]:
     entries = index.get("arms")
     if not isinstance(entries, list) or not entries:
         raise ValueError("Arm index has no arms")
+    protocol = index.get("protocol")
+    if not isinstance(protocol, dict) or not isinstance(protocol.get("arm_count_contract"), dict):
+        raise ValueError("Arm index has no arm-count contract")
+    strict_dead_contract = protocol.get("strict_dead_contract")
+    treatment_operations = protocol.get("treatment_operations")
+    examples_per_operation = protocol.get("examples_per_operation")
+    samples_per_prompt = protocol.get("samples_per_prompt")
+    if (
+        not isinstance(strict_dead_contract, dict)
+        or strict_dead_contract.get("required") is not True
+        or not isinstance(treatment_operations, list)
+        or any(isinstance(operation, bool) or not isinstance(operation, int) for operation in treatment_operations)
+        or strict_dead_contract.get("operations") != treatment_operations
+        or isinstance(examples_per_operation, bool)
+        or not isinstance(examples_per_operation, int)
+        or isinstance(samples_per_prompt, bool)
+        or not isinstance(samples_per_prompt, int)
+    ):
+        raise ValueError("Arm index has no valid strict-dead treatment contract")
+    rows_per_operation = examples_per_operation * samples_per_prompt
+    operation_keys = {str(operation) for operation in treatment_operations}
+    if (
+        strict_dead_contract.get("rows_per_operation") != rows_per_operation
+        or strict_dead_contract.get("strict_positive_counts_by_op") != {operation: 0 for operation in operation_keys}
+        or strict_dead_contract.get("verified_rows_by_op")
+        != {operation: rows_per_operation for operation in operation_keys}
+    ):
+        raise ValueError("Strict-dead treatment counts differ")
+    candidate_counts = strict_dead_contract.get("candidate_counts_by_op")
+    if (
+        not isinstance(candidate_counts, dict)
+        or set(candidate_counts) != operation_keys
+        or any(
+            isinstance(count, bool) or not isinstance(count, int) or not 0 <= count <= rows_per_operation
+            for count in candidate_counts.values()
+        )
+    ):
+        raise ValueError("Strict-dead candidate counts differ")
+    count_contract = protocol["arm_count_contract"]
+    distinct_labels = index.get("distinct_training_arms")
+    if not isinstance(distinct_labels, list) or len(distinct_labels) != count_contract.get("distinct_training_arms"):
+        raise ValueError("Distinct arm count differs from protocol")
+    if len(entries) != count_contract.get("arm_index_entries"):
+        raise ValueError("Arm-index entry count differs from protocol")
     by_label = {entry["label"]: entry for entry in entries}
     if len(by_label) != len(entries):
         raise ValueError("Arm index contains duplicate labels")
@@ -1124,6 +1495,8 @@ def validate_output(output_dir: Path) -> dict[str, Any]:
         parquet_path = dataset_path / "train-00000-of-00001.parquet"
         manifest_path = dataset_path / "manifest.json"
         manifest = read_json_object(manifest_path)
+        if manifest.get("strict_dead_contract") != strict_dead_contract:
+            raise ValueError(f"Arm strict-dead contract differs for arm {entry['label']}")
         if file_sha256(parquet_path) != canonical["parquet_sha256"]:
             raise ValueError(f"Parquet hash differs for arm {entry['label']}")
         if manifest.get("parquet", {}).get("sha256") != canonical["parquet_sha256"]:
@@ -1154,6 +1527,9 @@ def main() -> None:
             chat_template_path=chat_template_path,
             seeds=tuple(args.selection_seeds),
             doses=doses,
+            bank_operations=tuple(args.bank_operations),
+            anchor_operations=tuple(args.anchor_operations),
+            treatment_operations=tuple(args.treatment_operations),
             examples_per_operation=args.examples_per_operation,
             samples_per_prompt=args.samples_per_prompt,
             target_count=args.target_count,
