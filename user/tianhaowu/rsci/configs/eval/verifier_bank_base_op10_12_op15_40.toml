@@ -1,0 +1,24 @@
+infer_config = "user/tianhaowu/rsci/configs/inference/verifier_bank_base_op10_12_op15_40.toml"
+evaluator = "user/tianhaowu/rsci/frozen_bank_eval.py"
+
+[eval]
+bank_id = "frozen-base-op10-12-op15-40-r128-v1"
+data_dir = "/checkpoint/ram-h100-2/tianhaowu/rsci/data/verifier-defect/frozen-base-op10-12-op15-40-r128-v1/prompts"
+operations = [10, 11, 12, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40]
+examples_per_operation = 1000
+output_dir = "/checkpoint/ram-h100-2/tianhaowu/rsci/data/verifier-defect/frozen-base-op10-12-op15-40-r128-v1"
+model = "/checkpoint/ram-h100-2/tianhaowu/rsci/hf/hub/models--Interplay-LM-Reasoning--extrapolation_rl/snapshots/4861bd030e6fb92d94be3a1cecab89c2fac4b94a/id2-10_0.2easy_0.3medium_0.5hard/base"
+api_base_url = "http://127.0.0.1:8000/v1"
+samples_per_prompt = 128
+request_batch_size = 128
+max_tokens = 2048
+temperature = 0.7
+top_p = 1.0
+top_k = -1
+request_seed = 20260807
+defect_seed = 20260805
+stop = ["</answer>"]
+skip_special_tokens = false
+request_timeout_seconds = 3600.0
+max_concurrent_prompts = 16
+max_retries = 2

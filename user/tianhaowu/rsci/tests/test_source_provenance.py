@@ -1,4 +1,6 @@
 import json
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -204,3 +206,175 @@ def test_launch_inputs_hash_datasets_and_follow_model_symlinks(tmp_path: Path) -
     eval_data.write_text('{"id": "eval"}\n', encoding="utf-8")
     blob.write_bytes(b"weights-v2")
     assert _launch_input_identities(run_dir)["base_model"]["sha256"] != first["base_model"]["sha256"]
+
+
+def test_verify_source_cli_skips_launch_seal(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    run_dir = tmp_path / "run"
+    snapshot = run_dir / provenance.SNAPSHOT_NAME
+    calls = []
+
+    def fake_verify_snapshot(
+        requested_run_dir: Path,
+        expected_source: Path | None = None,
+        *,
+        verify_imports: bool = True,
+        require_launch: bool = True,
+    ) -> dict[str, str]:
+        calls.append((requested_run_dir, expected_source, verify_imports, require_launch))
+        return {"snapshot_path": str(snapshot)}
+
+    monkeypatch.setattr(provenance, "verify_snapshot", fake_verify_snapshot)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "source_provenance.py",
+            "verify-source",
+            str(run_dir),
+            "--expected-source",
+            str(snapshot),
+        ],
+    )
+
+    provenance.main()
+
+    assert calls == [(run_dir, snapshot, True, False)]
+
+
+def test_verify_cli_still_requires_launch_seal(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    run_dir = tmp_path / "run"
+    snapshot = run_dir / provenance.SNAPSHOT_NAME
+    calls = []
+
+    def fake_verify_snapshot(
+        requested_run_dir: Path,
+        expected_source: Path | None = None,
+        *,
+        verify_imports: bool = True,
+        require_launch: bool = True,
+    ) -> dict[str, str]:
+        calls.append((requested_run_dir, expected_source, verify_imports, require_launch))
+        return {"snapshot_path": str(snapshot)}
+
+    monkeypatch.setattr(provenance, "verify_snapshot", fake_verify_snapshot)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "source_provenance.py",
+            "verify",
+            str(run_dir),
+            "--expected-source",
+            str(snapshot),
+        ],
+    )
+
+    provenance.main()
+
+    assert calls == [(run_dir, snapshot, True, True)]
+
+
+def test_evaluation_bootstrap_does_not_weaken_training_activation() -> None:
+    rsci_root = Path(__file__).resolve().parents[1]
+    training_activation = (rsci_root / "scripts" / "activate_source_snapshot.sh").read_text(encoding="utf-8")
+    evaluation_activation = (rsci_root / "scripts" / "activate_source_snapshot_eval.sh").read_text(encoding="utf-8")
+    frozen_bank = (rsci_root / "scripts" / "run_verifier_frozen_bank.sbatch").read_text(encoding="utf-8")
+
+    assert "source_provenance.py verify \\\n" in training_activation
+    assert "verify-source" not in training_activation
+    assert "source_provenance.py verify-source \\\n" in evaluation_activation
+    assert "activate_source_snapshot_eval.sh" in frozen_bank
+    assert "scripts/run_eval.sh" in frozen_bank
+    assert frozen_bank.index('source "$SOURCE_BOOTSTRAP" "$RUN_DIR"') < frozen_bank.index(
+        'realpath -e -- "$RSCI_SOURCE_SNAPSHOT/$CONFIG_REPO_PATH"'
+    )
+    assert "#SBATCH --qos=h100_lowest" in frozen_bank
+    assert "#SBATCH --nodes=4" in frozen_bank
+    assert "#SBATCH --ntasks-per-node=1" in frozen_bank
+    assert "#SBATCH --gres=gpu:8" in frozen_bank
+    assert "#SBATCH --cpus-per-task=64" in frozen_bank
+    assert "#SBATCH --mem=256G" in frozen_bank
+    assert "#SBATCH --time=04:00:00" in frozen_bank
+    assert "#SBATCH --requeue" in frozen_bank
+
+
+def _write_frozen_bank_fixture(tmp_path: Path) -> tuple[Path, Path, Path]:
+    run_dir = tmp_path / "run"
+    snapshot = run_dir / provenance.SNAPSHOT_NAME
+    scripts = snapshot / "user" / "tianhaowu" / "rsci" / "scripts"
+    scripts.mkdir(parents=True)
+    activation = scripts / "activate_source_snapshot_eval.sh"
+    activation.write_text(
+        'export RSCI_SOURCE_SNAPSHOT=$(realpath "$1/source_snapshot")\ncd "$RSCI_SOURCE_SNAPSHOT"\n',
+        encoding="utf-8",
+    )
+    run_eval = scripts / "run_eval.sh"
+    run_eval.write_text('printf "%s\\n" "$1"\n', encoding="utf-8")
+    inference = snapshot / "configs" / "inference.toml"
+    inference.parent.mkdir(parents=True)
+    inference.write_text("[model]\n", encoding="utf-8")
+    evaluator = snapshot / "evaluator.py"
+    evaluator.write_text("# fixture\n", encoding="utf-8")
+    config = snapshot / "user" / "tianhaowu" / "rsci" / "configs" / "eval" / "bank.toml"
+    config.parent.mkdir(parents=True)
+    config.write_text(
+        'infer_config = "configs/inference.toml"\nevaluator = "evaluator.py"\n\n[eval]\n',
+        encoding="utf-8",
+    )
+    wrapper = Path(__file__).resolve().parents[1] / "scripts" / "run_verifier_frozen_bank.sbatch"
+    return wrapper, run_dir, config
+
+
+def _run_frozen_bank(wrapper: Path, run_dir: Path, config_path: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ["bash", str(wrapper), config_path, str(run_dir)],
+        cwd=run_dir.parent,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+
+def test_frozen_bank_resolves_config_after_source_activation(tmp_path: Path) -> None:
+    wrapper, run_dir, config = _write_frozen_bank_fixture(tmp_path)
+    relative_config = config.relative_to(run_dir / provenance.SNAPSHOT_NAME).as_posix()
+    mutable_decoy = run_dir.parent / relative_config
+    mutable_decoy.parent.mkdir(parents=True)
+    mutable_decoy.write_text("[mutable]\n", encoding="utf-8")
+
+    result = _run_frozen_bank(wrapper, run_dir, relative_config)
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == str(config.resolve())
+
+
+@pytest.mark.parametrize(
+    "config_path",
+    [
+        "/tmp/mutable-eval.toml",
+        "../mutable-eval.toml",
+        "configs/../mutable-eval.toml",
+    ],
+)
+def test_frozen_bank_rejects_absolute_and_traversal_paths(tmp_path: Path, config_path: str) -> None:
+    wrapper, run_dir, _ = _write_frozen_bank_fixture(tmp_path)
+
+    result = _run_frozen_bank(wrapper, run_dir, config_path)
+
+    assert result.returncode == 2
+    assert "repository-relative path without '..'" in result.stderr
+
+
+def test_frozen_bank_rejects_symlink_escape(tmp_path: Path) -> None:
+    wrapper, run_dir, _ = _write_frozen_bank_fixture(tmp_path)
+    snapshot = run_dir / provenance.SNAPSHOT_NAME
+    external_config = tmp_path / "mutable-eval.toml"
+    external_config.write_text("[eval]\n", encoding="utf-8")
+    escape = snapshot / "configs" / "escape.toml"
+    escape.parent.mkdir(exist_ok=True)
+    escape.symlink_to(external_config)
+
+    result = _run_frozen_bank(wrapper, run_dir, "configs/escape.toml")
+
+    assert result.returncode == 2
+    assert "escapes the source snapshot" in result.stderr

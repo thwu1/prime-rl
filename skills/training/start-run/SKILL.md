@@ -73,6 +73,27 @@ cannot select a path-keyed environment for the snapshot. Do not run the live
 checkout's ordinary dry-run wrapper for these launches, and do not submit an
 unsealed run.
 
+Source-only verifier-bank evaluations use their separate activation boundary;
+never use it for RL training. The evaluation config argument must be a
+repository-relative path present inside the pinned snapshot. Absolute paths,
+`..` traversal, and symlinks escaping the snapshot are rejected after source
+activation. The config's `infer_config` and `evaluator` references are subject
+to the same boundary:
+
+```bash
+env -u SBATCH_OUTPUT -u SBATCH_ERROR sbatch --parsable \
+  SOURCE_RUN_DIR/source_snapshot/user/tianhaowu/rsci/scripts/run_verifier_frozen_bank.sbatch \
+  user/tianhaowu/rsci/configs/eval/<bank-config>.toml SOURCE_RUN_DIR
+```
+
+The production defaults are four 8-GPU nodes under the requeueable,
+preemptible `h100_lowest` QoS, with one task and 64 CPUs per node, 256 GiB per
+node, and a four-hour limit. Explicit `sbatch` CLI resource overrides remain
+available. The wrapper activates `activate_source_snapshot_eval.sh`, which runs
+`verify-source`; this validates the pinned source/environment/import identity
+without requiring an RL launch seal. The ordinary
+`activate_source_snapshot.sh` continues to require the complete RL launch seal.
+
 - Config: `RLConfig` (`packages/prime-rl-configs/src/prime_rl/configs/rl.py`)
 - Entrypoint: `src/prime_rl/entrypoints/rl.py`
 - SLURM: single- and multi-node

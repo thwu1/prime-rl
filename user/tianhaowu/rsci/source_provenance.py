@@ -74,6 +74,10 @@ def parse_args() -> argparse.Namespace:
     verify = subparsers.add_parser("verify")
     verify.add_argument("run_dir", type=Path)
     verify.add_argument("--expected-source", type=Path)
+
+    verify_source = subparsers.add_parser("verify-source")
+    verify_source.add_argument("run_dir", type=Path)
+    verify_source.add_argument("--expected-source", type=Path)
     return parser.parse_args()
 
 
@@ -941,6 +945,12 @@ def main() -> None:
         result = seal_launch(args.run_dir)
     elif args.command == "verify":
         result = verify_snapshot(args.run_dir, args.expected_source)
+    elif args.command == "verify-source":
+        result = verify_snapshot(
+            args.run_dir,
+            args.expected_source,
+            require_launch=False,
+        )
     else:
         raise AssertionError(args.command)
     print(json.dumps(result, indent=2, sort_keys=True))
