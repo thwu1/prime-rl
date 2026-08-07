@@ -50,6 +50,10 @@ SESSION=$(tmux display-message -p '#S')
 tmux send-keys -t "$SESSION:Launcher" 'your command here' Enter
 ```
 
+When the dispatched command calls `sbatch`, prefix it with
+`env -u SBATCH_OUTPUT -u SBATCH_ERROR` so inherited shell overrides do not
+replace the output and error paths declared by the job script.
+
 After a restart, verify all processes are back up and progress resumed before the next check-in.
 
 ### Deferred handoffs
