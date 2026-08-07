@@ -32,7 +32,7 @@ of an asymptotic phase transition.
 
 ## Executive answer
 
-The literature and theory support four conclusions.
+The literature and theory support five conclusions.
 
 1. **Behavior-independent verifier noise has a known informativeness
    boundary, not generally a perfection boundary.** For class-conditional
@@ -90,14 +90,23 @@ The literature and theory support four conclusions.
    seemingly negligible defect can first become visible on the hardest tasks.
    It is a hypothesis for GSM-Infinite, not yet an observed result.
 
+5. **The constant-fitness replicator and first-order fixed-kernel terms do not
+   generate hysteresis by themselves.** They can yield finite-time ratios
+   proportional to \(\exp(cpt)\), finite-group discovery curves of the form
+   \(1-\exp(-NCp^h)\), or a positive linear-stability crossing. Genuine
+   bistability additionally requires state-dependent gain, such as behavior
+   prevalence increasing future hackability or changing the learned transfer
+   kernel. This separates a sharp dose curve from the bidirectional
+   initialization test needed for a hysteresis claim.
+
 **[OBSERVATION—CURRENT; PRELIMINARY]** The live OP10–40 RL runs support a
 finite-time group-activation/curriculum mechanism, not an exponential change
-in final ceiling. Through optimizer step 2,100, normalized OP15–17 AUC was
-11.968%, 10.991%, and 7.013% for \(p=0,1\%,5\%\). Under the post-hoc common
-raw-exposure proxy \(E^*=1{,}780{,}736\), the same values were 9.928%,
-11.605%, and 9.302% because the defective arms received more optimizer updates
-per raw rollout. The 1% arm is worse per update but better per raw exposure;
-the 5% arm is worse on both AUC clocks. A frozen
+in final ceiling. Through optimizer step 4,000, normalized OP15–17 AUC was
+14.588%, 13.337%, and 10.397% for \(p=0,1\%,5\%\). Under the post-hoc common
+raw-exposure proxy \(E^*=3{,}175{,}552\), the same values were 13.053%,
+12.964%, and 12.325%. The earlier apparent 1% raw-budget advantage has washed
+out and changed sign, while its per-update deficit persists; the 5% arm is
+worse on both AUC clocks. A frozen
 audit through step 899 observed 0, 393, and 756 defect-only activated OP21–40
 groups. All three arms remained at 0/1,000 on unseen OP41–45 at both selected
 clocks. These are one-run-per-arm descriptive results, and the live evaluations
@@ -806,6 +815,144 @@ the two intercepts to a separately known \(c\) and \(c/3\); their finite-time
 offsets decay as \(1/t\). If \(c=0\), both apparent boundaries drift to zero,
 which is smooth amplification rather than a stable positive critical point.
 
+### 3.10 A structural null for exponential-looking growth and hysteresis
+
+The known-cost intervention permits a sharper null model. Let \(A\) denote an
+answer-correct/strict-wrong trajectory, \(W\) an answer-wrong trajectory, and
+\(S\) a strict trajectory. For group size \(n=128\), visible fraction
+\(\alpha=1/3\), and tax \(c_0=0.03\), the isolated expected reward
+differences are
+
+\[
+u_G(p)=r_A-r_W=p-c_0,
+\qquad
+u_{T,j}(p)=g_j\frac{p}{\alpha}-c_0,
+\]
+
+where \(g_j=1\) on a selected visible tag and zero otherwise. The frozen doses
+therefore imply
+
+| marginal \(p\) | hidden G | selected T | unselected T |
+| ---: | ---: | ---: | ---: |
+| 0.0075 | -0.0225 | -0.0075 | -0.0300 |
+| 0.0125 | -0.0175 | +0.0075 | -0.0300 |
+| 0.0225 | -0.0075 | +0.0375 | -0.0300 |
+| 0.0375 | +0.0075 | +0.0825 | -0.0300 |
+
+Thus the isolated injected channel crosses zero at \(p=0.03\) for G and at
+\(p=\alpha c_0=0.01\) for selected T. These are reward-law calibration
+points, not predictions for total strict performance: an accessible strict
+trajectory has reward difference \(r_A-r_S=u-1<0\) at every frozen dose, and
+shared gradients, candidate accessibility, clipping, and optimizer state add
+unknown terms.
+
+**[DERIVATION—HERE]** In an ideal iid group with score
+\(s_i=\nabla\log\pi(\tau_i)\), mean-only GRPO centering obeys
+
+\[
+\mathbb E\left[\frac1n\sum_i(r_i-\bar r)s_i\right]
+=\left(1-\frac1n\right)\mathbb E[r s].
+\]
+
+The factor is \(127/128\) here. Centering alone therefore neither creates a
+new population threshold nor positive feedback. In the tabular two-mode
+limit, the replicator approximation gives
+
+\[
+\frac{d}{dt}\log\frac{x_A}{x_W}
+=\eta\frac{127}{128}u,
+\]
+
+Relative to dose zero, A/W odds therefore scale as \(\exp(cpt)\), with
+\(c=\eta(127/128)\) for G and \(c=\eta(127/128)/\alpha\) for selected T in
+this isolated model. The response remains analytic in \(p\) at every fixed
+time. If the zero-dose direction is strictly stable, sufficiently small \(p\)
+leaves the basin unchanged. If it is exactly neutral, the
+\(p\to0\) and \(t\to\infty\) limits can fail to commute and the escape time is
+\(O(1/p)\); that is a zero-threshold support or stability boundary, not a
+generic perfection discontinuity.
+
+The fixed-kernel extension makes the population test explicit. For a small
+vector of per-tag A amplitudes \(\mathbf x\), write
+
+\[
+\dot{\mathbf x}=M_F(p)\mathbf x+O(\|\mathbf x\|^2),
+\qquad
+M_F(p)=B+\eta\frac{127}{128}K D_0\operatorname{diag}(\mathbf u_F(p)),
+\]
+
+where \(B\) is clean strict/optimizer drift, \(D_0\) contains initial
+candidate-frequency and self-gradient scales, and \(K\) is the measured
+cross-tag gradient-transfer kernel. A positive critical dose without
+hysteresis can begin at a simple crossing of the spectral abscissa
+\(\lambda_F(p)=\max\operatorname{Re}\operatorname{eig}M_F(p)\). The crossing
+locates only a local stability boundary; the nonlinear terms determine whether
+the branch is supercritical, subcritical, or globally bistable. One
+non-hysteretic supercritical center-manifold normal form is
+
+\[
+\dot X=X\{a(p-p_c)-\gamma X\},\qquad a,\gamma>0.
+\]
+
+It has no bistable interval for positive-support initializations. The exact
+\(X=0\) state remains invariant even when unstable, while exploration or
+mutation adds positive support and rounds the crossing into a smooth
+crossover.
+
+The constant-fitness two-mode model and its first-order fixed-\(K\) extension
+do **not** generate bistability by themselves. A minimal hysteretic normal
+form needs an additional state-dependent gain,
+
+\[
+\dot X=X\{s(p)+\beta X-\gamma X^2\},
+\qquad \beta,\gamma>0.
+\]
+
+For \(-\beta^2/(4\gamma)<s(p)<0\), low and high stable states coexist around
+an unstable separator. If \(s(p)=a(p-p_{\rm up})\), the downward boundary is
+
+\[
+p_{\rm down}=p_{\rm up}-\frac{\beta^2}{4\gamma a}<p_{\rm up}.
+\]
+
+The required \(\beta\) could arise if A prevalence increases future candidate
+accessibility, if specialization changes \(K\), or if clipping/filtering
+creates a hard state-dependent switch. Alternatively, the parameterized
+dynamics may already contain two representational basins and initialization
+only selects between them. These mechanisms must be measured; they are absent
+from the exogenous reward coin itself.
+
+Finite groups supply a separate sharp-looking mechanism. Conditional on \(C\)
+A candidates in a group,
+
+\[
+P_G(H>0\mid C)=\alpha\left[1-\left(1-\frac p\alpha\right)^C\right],
+\]
+
+with the bracketed term applying to a selected T tag and zero to an
+unselected tag. Under an iid-slot approximation, across \(N\) groups with
+candidate rate \(x\), the small-dose discovery probability is approximately
+
+\[
+P(\text{any trigger})\simeq1-\exp(-N\,128xp).
+\]
+
+If basin entry needs \(h\) coincident defect events, the leading rate becomes
+\(p^h\). Such a knee must move with \(N\), group size, or cumulative realized
+\(H\); it is not a fixed population critical dose.
+
+These equations yield direct falsification tests. Early selected-minus-
+unselected localization divided by \(p\) should follow the three
+counterbalanced projections of the frozen \(K\). Under the fixed-K null,
+curves should collapse after matching optimizer exposure and the per-tag
+vectors of realized \(H\) and \(H-c_0C\) projected through \(K\); matching
+only their scalar totals is insufficient. Systematic state-dependent growth
+of the normalized response falsifies the fixed-K
+first-order null but does not by itself establish bistability. Only distinct
+long-dwell states at the same dose from clean and A-enriched initializations,
+with reproducible \(p_{\rm down}<p_{\rm up}\), support hysteresis. The current
+single-initialization pilot cannot make that claim.
+
 ## 4. What the legacy RL evidence establishes
 
 The authoritative artifact is:
@@ -1033,6 +1180,54 @@ policy versions. The transient +0.33 pp 1% optimizer endpoint coexists with a
 negative full-window AUC and therefore strengthens, rather than weakens, the
 endpoint-variance diagnosis.
 
+**[OBSERVATION—STEP-4,000 DESCRIPTIVE REFRESH, 2026-08-07]** Once the clean
+arm crossed step 4,000, a further hash-bound snapshot was frozen at
+
+```text
+/checkpoint/ram-h100-2/tianhaowu/rsci/analysis/
+verifier-defect-main-v2-clock4000-refresh-20260807/
+{summary.json,paired_clocks.json,summary.svg}
+```
+
+with SHA-256 values
+`2a9e860e2d601ff2a191341c67a9738c1523f34e31fb6d1d4670f662e3366215`,
+`e03ba77e948493e8e027f435168493c5b3ef635361358c0bfdb38575353dd842`,
+and
+`74e6fc9b10acac746eb00c2f1b3774cc2240c29374356d4faf506f6d2b9c2ae6`.
+The OP15--17 curve summaries are:
+
+| Clock and statistic | `p=0` | `p=1%` | `p=5%` |
+| --- | ---: | ---: | ---: |
+| Optimizer-step AUC through 4,000 | 14.5880% | 13.3370% | 10.3969% |
+| Mean at steps 3,900/3,925/3,950/3,975/4,000 | 20.73% | 16.27% | 15.47% |
+| Step-4,000 endpoint | 20.83% | 12.83% | 14.67% |
+| Raw-exposure AUC through `E*=3,175,552` | 13.0526% | 12.9639% | 12.3249% |
+| Nearest-`E*` endpoint | 15.00% | 13.50% | 17.67% |
+
+The 1% contrast is now -1.2510 pp per optimizer-step AUC and -0.0886 pp per
+raw-exposure AUC. The earlier positive raw-budget contrast has therefore
+decayed to essentially zero and changed sign. The 5% contrasts remain
+negative at -4.1911 and -0.7277 pp. Its +2.67 pp nearest-raw endpoint again
+coexists with a worse full-window curve, so it is not evidence of a late
+high-dose benefit.
+
+The nearest raw checkpoints are steps 3,525 / 5,125 / 5,825 with exposures
+3,171,072 / 3,178,240 / 3,175,552, at most 0.1411% from the target. OP21--40
+strict pass@1 is 1.25% / 1.00% / 0.65% at matched optimizer step and 1.175% /
+1.325% / 1.05% at the raw clock. OP41--45 remains exactly 0/1,000 for every
+arm at both clocks. All selected OP11--40 evaluations remain adjacent-policy
+mixtures; the p=5% step-4,000 OP41--45 shards are the non-mixed exception and
+still score zero.
+
+The artifacts explicitly set `artifact_audit_valid=false`,
+`causal_claim_valid=false`, and `phase_transition_claim_valid=false`: the
+legacy V2 runs lack exact attempt-ledger provenance, the raw clock is a
+periodic finalized-group proxy, and there is still one training run per arm.
+The prompt bootstrap and McNemar values condition on these realized policies
+and are not treatment-effect inference. The longer snapshot strengthens the
+throughput/transient interpretation; it still says nothing about a nonzero
+unseen-hard ceiling.
+
 ### 4.5 Mechanism audit: why a small \(p\) changes the training clock
 
 **[OBSERVATION—CURRENT]** The immutable threshold audit through saved shipped
@@ -1049,8 +1244,9 @@ The exact intervention-to-cohort chain is:
 1. A persistent hash draw changes an answer-correct, strict-wrong trajectory
    from proxy reward 0 to 1 with probability \(p\).
 2. In a group with \(m\) such candidates and no strict positive, the chance of
-   at least one proxy positive is \(1-(1-p)^m\). Such a group changes from
-   homogeneous zero reward to mixed reward and becomes update-producing.
+   at least one proxy positive is \(1-(1-p)^m\). The exact chance of a mixed
+   reward vector subtracts \(p^{128}\) when \(m=128\), because an all-triggered
+   group is homogeneous positive; no such group occurred in this audit.
 3. Because candidates persist on hard operations, increasing \(p\) rotates the
    shipped mixed-proxy curriculum toward harder prompts while assigning
    positive advantage to strict-wrong recipients.
@@ -1071,6 +1267,40 @@ group multiplier makes \(1\%\) a macroscopic intervention whenever \(128h\) is
 not small. For finite \(K\) it is smooth and analytic. Its crossover scale is
 \(p\sim 1/(Kh)\), so it is not evidence that final performance has an
 exponential singularity at \(p=0\).
+
+An exact replay of the heterogeneous candidate count \(C_g\) sharpens this
+claim. The source artifact has SHA-256
+`263f20da309fdccc5f1a9916519ba6b4575f0183ea3f64c6e2a4991aedd770ea`.
+For each retained strict-zero candidate group, the unconditioned hash law
+predicts
+\(q_g=1-(1-p)^{C_g}-\mathbf 1[C_g=128]p^{C_g}\) for mixed activation. The
+hard OP21--40 cohort gives:
+
+| Arm | Eligible groups | Candidate `C` mean / min,Q1,median,Q3,max | \(\sum_g q_g\) | Observed active | Rate residual |
+| --- | ---: | --- | ---: | ---: | ---: |
+| `p=1%` | 1,105 | 37.08 / 1, 8, 24, 57, 128 | 300.273 | 393 | +8.392 pp |
+| `p=5%` | 1,114 | 40.04 / 1, 9, 29, 65, 128 | 735.218 | 756 | +1.866 pp |
+
+Every stored candidate draw is threshold-consistent with its stored trigger,
+and every retained group's mixed-activation flag is consistent with those
+draws. This validates application of the frozen draws but does not
+independently rederive the legacy hash. The positive residual is consistent
+with survivor conditioning because the legacy artifact contains saved,
+shipped optimizer cohorts and omits attempted zero-trainable groups; those
+missing attempts prevent unique attribution. The residual enrichment is
+larger at 1% than at 5%. For 1%, the expected/observed hard-activation pairs are
+28.72%/41.84% in steps 0--299, 27.90%/35.21% in 300--599, and 24.76%/29.05%
+in 600--899. The analogous 5% pairs are 63.28%/64.72%, 67.21%/70.45%, and
+67.55%/68.57%.
+
+Candidate heterogeneity is also quantitatively important. Within the hard
+cohort, replacing each \(C_g\) with the cohort mean would predict 31.11%
+rather than the exact 27.17% activation at 1%, and 87.17% rather than 66.00%
+at 5%. Consequently neither a
+mean-candidate approximation nor an "effective FPR" fitted from shipped
+groups identifies the injected probability. The known-cost study's immutable
+attempt ledger and zero-trainable accounting are required to estimate the
+unconditioned activation rate and hazard over attempted groups.
 
 The audit establishes the reward-to-activation and activation-to-curriculum
 path for the realized saved cohorts. It does not isolate whether downstream
@@ -2140,14 +2370,19 @@ distribution, and strict-dead fixed-count selection has an exact
 zero-versus-positive support singularity. The RL data now identify the realized
 finite-time mechanism: false positives activate otherwise zero-advantage hard
 groups, rotate the curriculum, and change optimizer-update throughput. The
-1% arm's apparent raw-budget benefit reverses under an optimizer-step AUC, and
-the 5% arm is substantially worse per update. This supports a smooth
-\(1-e^{-128hp}\) group-activation crossover and an inverted-U raw-budget effect,
-not an exponential final-ceiling effect. No arm has yet solved unseen OP41–45,
+1% arm's earlier apparent raw-budget benefit reverses under an optimizer-step
+AUC and has washed out at the longer raw clock, while the 5% arm is
+substantially worse per update. This supports a smooth
+\(1-e^{-128hp}\) group-activation crossover and a transient inverted-U
+raw-budget pattern at earlier clocks, not an exponential final-ceiling effect.
+No arm has yet solved unseen OP41–45,
 so the runs establish neither a phase transition nor an altered asymptotic
-ceiling. The preregistered B/S/M/G/I frozen-bank experiment is designed to
-determine which part of any observed effect comes from recipient identity,
-prompt allocation, global hard-sample support, or an iid noisy channel. The
-clipping factorial, replicated RL seeds, longer strict evaluations, and
-bidirectional iterative-SFT test remain necessary before stronger practical
-GRPO, ceiling, or hysteresis claims.
+ceiling. Within the constant-fitness replicator and first-order fixed-K null, a
+sharp finite-time curve is not hysteresis; a reproducible same-dose basin
+difference requires measured nonlinear state dependence or pre-existing
+multi-basin dynamics. The preregistered B/S/M/G/I frozen-bank experiment is
+designed to determine which part of any observed effect comes from recipient
+identity, prompt allocation, global hard-sample support, or an iid noisy
+channel. The clipping factorial, replicated RL seeds, longer strict
+evaluations, and bidirectional iterative-SFT test remain necessary before
+stronger practical GRPO, ceiling, or hysteresis claims.
