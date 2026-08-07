@@ -125,6 +125,48 @@ contracts, and the exhaustive runtime-versus-independent reward/metric law.
 Bind the final report hash in the submission intent; unit tests or a post-run
 rollout analyzer are not substitutes for this prelaunch artifact.
 
+After the kernel decision is available and exactly its eligible run directories
+have been sealed, materialize and independently replay the immutable launch
+intent:
+
+```bash
+CONTROL_ROOT=/checkpoint/ram-h100-2/tianhaowu/rsci/analysis/known-cost-control-plane-v1
+source "$CONTROL_ROOT/source_snapshot/user/tianhaowu/rsci/scripts/activate_source_snapshot_eval.sh" "$CONTROL_ROOT"
+uv run --no-sync user/tianhaowu/rsci/materialize_known_cost_boundary_launch.py materialize \
+  --run-root RUN_ROOT --preflight-report PREFLIGHT.json \
+  --kernel-root KERNEL_ROOT --tokenizer TOKENIZER
+uv run --no-sync user/tianhaowu/rsci/materialize_known_cost_boundary_launch.py validate \
+  --intent RUN_ROOT/submission_intent.json --tokenizer TOKENIZER
+```
+
+The materializer follows only the kernel-v2 preregistered decision: either all
+30 arms or the exact four block-20260808 G/T smoke arms. It revalidates every
+source seal and adjacent tagged-bank sidecar, and refuses repeated output,
+SLURM, W&B, or script identities. The same read-only control-plane snapshot is
+commit-, tree-, lock-, freeze-, environment-, import-, and byte-pinned in the
+kernel receipt and launch intent. Receipt validation re-queries both terminal
+Slurm jobs. It has no submit subcommand. Any later
+submission must use `dispatch_known_cost_boundary.py`, with the finalized
+launch intent as its sole authority and exactly its frozen external state root.
+That shared state-root lock serializes all dispatch and reconciliation calls.
+Run `dispatch --dry-run` first with one to five exact `--arm`
+filenames. The preview must show the exact sealed script command, sealed
+account, content-addressed comment, authority-pinned `h100_ram_high` QoS, and
+study-wide live-job count. Actual dispatch requires the recorded control tmux
+and exact study-id confirmation. It executes only
+`env -u SBATCH_OUTPUT -u SBATCH_ERROR sbatch --parsable
+--comment=<content-hash> --qos=h100_ram_high --account=<sealed-account>
+<sealed-sbatch>`, with every inherited `SBATCH_*` variable removed. Do not
+replace the explicit comment with `SBATCH_COMMENT`; Slurm 25.05.3 does not
+support that environment override. It refuses excluded, duplicate, previously
+started, or previously submitted arms and never permits more than five live
+protected jobs across repeated invocations. `STATUS.md` is a valid prelaunch
+artifact and must not be treated as proof that a job started. Immutable global,
+batch, and per-arm intents precede `sbatch`; an exact scheduler-identity receipt
+follows it. If submission is ambiguous, dispatch remains blocked until
+`reconcile` finds exactly one matching scheduler comment. Never delete the
+pending intent or invoke the sealed script manually.
+
 - Config: `RLConfig` (`packages/prime-rl-configs/src/prime_rl/configs/rl.py`)
 - Entrypoint: `src/prime_rl/entrypoints/rl.py`
 - SLURM: single- and multi-node

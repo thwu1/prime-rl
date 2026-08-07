@@ -200,6 +200,24 @@ exact tag, and uses common request seeds across the six clones. For legacy
 untagged evaluation, omit `dataset_rows_per_operation`, `neutral_tag_filter`,
 `prompt_transform`, and `request_seed_mode`.
 
+Materialize production known-cost checkpoint readouts only with
+`materialize_known_cost_eval_plan.py`. It may select arbitrary retained
+checkpoint steps through 1500, but optimizer targets must exist
+exactly and raw-group targets must be exact or have both retained bracket
+endpoints. The request must bind the independently replayed immutable RL
+submission intent; the planner derives the exact kernel-eligible arm inventory
+and rejects arbitrary subsets or replacements. Run it only from the same
+read-only `known-cost-control-plane-v1` source snapshot recorded in that intent;
+the planner rejects a mutable or byte-different implementation. Never relabel a
+nearest checkpoint as a raw-clock target. The plan
+deduplicates the shared step-0 model, emits one untagged plus six paired tagged
+OP11--45 shards for every selected model, binds the tagged sidecars/tokenizer,
+checkpoint inventories, audit clocks, and evaluator source, and places results
+under a content-addressed plan root. Run its independent `validate` command
+before execution and after writing any immutable attempt receipts. This tool
+does not submit jobs and is separate from the legacy fixed `{0,25,...,500}`
+pipeline.
+
 Use `defect_gate_mode = "neutral_tag"` with one, two, or three selected tags for
 derived alpha `1/6`, `1/3`, or `1/2`. A paired hidden group gate must use the
 same alpha, nominal `p`, sample-slot coin, full 128-slot mask, tagged bank, and

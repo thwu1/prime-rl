@@ -1999,16 +1999,45 @@ log or `kernel.json`. The corrected v2 probe fixes
 \(K_{kj}=\langle g_k,g_j\rangle/\lVert g_j\rVert^2\) and predeclares its
 finite-step ordering check: a normalized analytic separation above 0.02 must
 retain its sign, with at least five resolvable target pairs per source and no
-inversion. The replacement has not yet been submitted, so the 30-run gate
-remains unresolved.
+inversion.
 
 The same audit also caught two launch-readiness gaps before any RL allocation:
 the first four smoke seals did not bind the adjacent tokenizer-qualified bank
 manifest, and the existing evaluator ignored `neutral_tag_index`, making its
 six tagged clones text-identical with unpaired sampling seeds. Corrected source
-provenance, a production gate/reward replay artifact, and an opt-in paired
-tagged evaluator are therefore required before the smoke seals are recreated.
-No known-cost RL job has been submitted.
+provenance now binds the canonical adjacent manifest, its declared data
+identity, equal tag-token facts, and the configured tokenizer artifacts. The
+opt-in paired evaluator prepends the literal tag, uses the same request seed
+for all six clones of a source prompt, preserves source/tag/seed metadata, and
+reports strict, answer-only, A, and answer-wrong outcomes.
+
+From source commit `5516d9811`, the commit-pinned production preflight built and
+independently replayed a 122,595-byte report with SHA-256
+`2e7704d117405c20734ec71977019993b58feaf5a23b4089c2ce3674698cf169`
+and payload self-hash
+`2afe1cfb15e0e2be581db3f51a27f4d4dd40c3be31fc70ee0f108a6a6bb7e72d`.
+It validates all three manifests and 31,000 rows, all 30 launch contracts,
+11,904,000 row-slot positions at all four nested doses, and 503,808 exact
+runtime-versus-independent scalar metric comparisons across strict, A,
+answer-wrong, and invalid cases. The corrected v2 kernel probe retains the
+same dataset SHA-256 above and has manifest SHA-256
+`a0f2f78fb7b9508250b4d4c4427af59310d10fe1bf9a413e86fe30e12886d77f`.
+GPU job `10278600` and dependent validation watcher `10278639` are pending; the
+kernel decision therefore remains unresolved. A read-only pre-execution
+witness records that both jobs had zero runtime and that no kernel, log, or
+validation artifact existed before execution; a separate immutable scheduler
+amendment records only the `h100_lowest` to `h100_dev` transition. After the
+documented 8-hour to 1-hour to 30-minute to 45-minute backfill adjustments, a
+second immutable pre-execution envelope binds the final 45-minute limit, QoS,
+command, output, comment, submit time, and submitted batch-script hash while
+the job still had zero runtime and all three output artifacts were absent. A
+launch-valid execution receipt is still impossible until both jobs finish
+successfully, live Slurm state revalidation succeeds, and the final GPU log
+proves a fresh, non-cached kernel computation. The four obsolete smoke seals
+were moved intact to a timestamped quarantine. Their replacements are sealed
+from commit `5516d9811` and explicitly bind training-data SHA-256 `1a959f...`,
+adjacent-manifest SHA-256 `2f513f...`, the 13-token tag contract, and tokenizer
+directory SHA-256 `32f58f...`. No known-cost RL job has been submitted.
 The executable preregistration is
 `user/tianhaowu/rsci/configs/rl/known_cost_boundary_v1/PREREGISTRATION.md`.
 
