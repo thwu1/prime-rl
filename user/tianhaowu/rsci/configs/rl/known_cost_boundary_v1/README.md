@@ -83,7 +83,7 @@ expiry. Create and activate the successor snapshot before materializing the
 launch intent:
 
 ```bash
-SUCCESSOR_ROOT=/checkpoint/ram-h100-2/tianhaowu/rsci/analysis/known-cost-postrun-control-plane-v1
+SUCCESSOR_ROOT=/checkpoint/ram-h100-2/tianhaowu/rsci/analysis/known-cost-postrun-control-plane-v2
 SUCCESSOR_COMMIT=<pushed-successor-commit>
 uv run --no-sync user/tianhaowu/rsci/source_provenance.py create \
   "$SUCCESSOR_ROOT" --commit "$SUCCESSOR_COMMIT"

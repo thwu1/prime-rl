@@ -433,8 +433,8 @@ def _validated_bound_preflight(initial: dict[str, Any]) -> dict[str, Any]:
     _validate_self_hash(report, "Initial preflight report")
     config = _require_dict(report.get("config_audit"), "preflight config audit")
     arms = _require_dict(config.get("arms"), "preflight arm contracts")
-    if config.get("arm_count") != 30 or tuple(arms) != _expected_arm_filenames():
-        raise ValueError("Initial preflight does not bind the exact ordered 30-arm inventory")
+    if config.get("arm_count") != 30 or set(arms) != set(_expected_arm_filenames()):
+        raise ValueError("Initial preflight does not bind the exact 30-arm inventory")
     return {"path": path, "identity": recorded, "report": report, "arms": arms}
 
 
@@ -583,7 +583,7 @@ def _validate_pre_rl_observation(
     if scan.get("initial_dispatch_state_root_exists") is not True:
         raise ValueError("Pre-RL observation did not hold the initial dispatch state-root lock")
     marker_records = _require_dict(scan.get("smoke_run_start_markers"), "smoke start markers")
-    if list(marker_records) != list(SMOKE_ARM_FILENAMES):
+    if set(marker_records) != set(SMOKE_ARM_FILENAMES):
         raise ValueError("Pre-RL observation did not cover the exact smoke arms")
     runs = {
         str(_require_dict(run, "initial smoke run").get("arm_filename")): _require_dict(run, "initial smoke run")

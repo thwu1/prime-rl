@@ -296,8 +296,8 @@ def _validated_bound_preflight(initial: dict[str, Any]) -> dict[str, Any]:
     self_hash = _validate_self_hash(report, "Initial preflight report")
     config = _require_dict(report.get("config_audit"), "preflight config audit")
     arms = _require_dict(config.get("arms"), "preflight arm contracts")
-    if config.get("arm_count") != 30 or tuple(arms) != expected_arm_filenames():
-        raise ValueError("Initial preflight does not bind the exact ordered 30-arm inventory")
+    if config.get("arm_count") != 30 or set(arms) != set(expected_arm_filenames()):
+        raise ValueError("Initial preflight does not bind the exact 30-arm inventory")
     if production.get("payload_without_self_hash_sha256") != self_hash:
         raise ValueError("Initial launch intent binds a different preflight self hash")
     return {"path": path, "identity": recorded, "report": report, "arms": arms, "self_hash": self_hash}
@@ -521,7 +521,7 @@ def _validate_pre_rl_observation(
     if scan.get("state_root_entries") != [stage1_dispatch.STATE_LOCK_NAME]:
         raise ValueError("Pre-RL observation contains an initial dispatch artifact")
     marker_records = _require_dict(scan.get("all_arm_start_markers"), "all-arm start markers")
-    if list(marker_records) != list(expected_arm_filenames()):
+    if set(marker_records) != set(expected_arm_filenames()):
         raise ValueError("Pre-RL observation did not cover the exact 30-arm inventory")
     arms_by_filename = {str(arm["arm_filename"]): arm for arm in arm_inventory}
     for filename in expected_arm_filenames():

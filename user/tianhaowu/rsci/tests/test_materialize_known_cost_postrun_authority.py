@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import json
 from pathlib import Path
 
 import materialize_known_cost_postrun_authority as authority
@@ -113,6 +114,34 @@ def test_recorded_historical_launch_validator_is_replayed_exactly(
     ]
 
 
+def test_bound_preflight_accepts_canonical_object_order(tmp_path: Path) -> None:
+    expected = authority.expected_arm_filenames()
+    report = {
+        "config_audit": {
+            "arm_count": len(expected),
+            "arms": {filename: {} for filename in expected},
+        }
+    }
+    report["payload_without_self_hash_sha256"] = authority.canonical_json_sha256(report)
+    path = tmp_path / "report.json"
+    path.write_bytes(authority.canonical_json_bytes(report))
+
+    _, canonical = authority.read_canonical_json(path)
+    assert tuple(canonical["config_audit"]["arms"]) != expected
+    initial = {
+        "intent": {
+            "production_preflight": {
+                "report": authority.file_identity(path),
+                "payload_without_self_hash_sha256": report["payload_without_self_hash_sha256"],
+            }
+        }
+    }
+
+    validated = authority._validated_bound_preflight(initial)
+
+    assert set(validated["arms"]) == set(expected)
+
+
 def test_pre_rl_observation_covers_all_30_jobs_and_start_markers_under_stage1_lock(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -158,12 +187,13 @@ def test_pre_rl_observation_covers_all_30_jobs_and_start_markers_under_stage1_lo
     )
 
     observation = authority._capture_pre_rl_observation(arms)
+    canonical_observation = json.loads(authority.canonical_json_bytes(observation))
 
     assert len(observation["state_and_run_scan"]["all_arm_start_markers"]) == 30
     assert observation["scheduler_scan"]["job_names"] == names
-    assert authority._validate_pre_rl_observation(observation, arms) == observation
+    assert authority._validate_pre_rl_observation(canonical_observation, arms) == canonical_observation
 
-    contaminated = copy.deepcopy(observation)
+    contaminated = copy.deepcopy(canonical_observation)
     contaminated["state_and_run_scan"]["all_arm_start_markers"].pop(
         next(iter(contaminated["state_and_run_scan"]["all_arm_start_markers"]))
     )

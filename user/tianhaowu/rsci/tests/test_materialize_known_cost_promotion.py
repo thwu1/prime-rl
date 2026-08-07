@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import materialize_known_cost_promotion as promotion
@@ -160,6 +161,33 @@ def test_initial_intent_runs_its_own_recorded_read_only_validator(
     ]
 
 
+def test_bound_preflight_accepts_canonical_object_order(tmp_path: Path) -> None:
+    expected = promotion._expected_arm_filenames()
+    report = {
+        "config_audit": {
+            "arm_count": len(expected),
+            "arms": {filename: {} for filename in expected},
+        }
+    }
+    report["payload_without_self_hash_sha256"] = promotion.canonical_json_sha256(report)
+    path = tmp_path / "report.json"
+    path.write_bytes(promotion.canonical_json_bytes(report))
+
+    _, canonical = promotion.read_canonical_json(path)
+    assert tuple(canonical["config_audit"]["arms"]) != expected
+    initial = {
+        "intent": {
+            "production_preflight": {
+                "report": promotion.file_identity(path),
+            }
+        }
+    }
+
+    validated = promotion._validated_bound_preflight(initial)
+
+    assert set(validated["arms"]) == set(expected)
+
+
 def test_pre_rl_observation_binds_stage1_lock_markers_and_zero_scheduler_jobs(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -224,10 +252,14 @@ def test_pre_rl_observation_binds_stage1_lock_markers_and_zero_scheduler_jobs(
             "matching_job_count": 0,
         },
     }
+    canonical_observation = json.loads(promotion.canonical_json_bytes(observation))
 
-    assert promotion._validate_pre_rl_observation(observation, intent) == observation
+    assert promotion._validate_pre_rl_observation(canonical_observation, intent) == canonical_observation
 
-    observed_job = {**observation, "scheduler_scan": {**observation["scheduler_scan"]}}
+    observed_job = {
+        **canonical_observation,
+        "scheduler_scan": {**canonical_observation["scheduler_scan"]},
+    }
     observed_job["scheduler_scan"]["matching_job_count"] = 1
     with pytest.raises(ValueError, match="zero exact smoke jobs"):
         promotion._validate_pre_rl_observation(observed_job, intent)
