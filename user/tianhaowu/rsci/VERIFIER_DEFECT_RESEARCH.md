@@ -191,6 +191,7 @@ papers are recent preprints and should be treated accordingly.
 | Gao, Schulman, and Hilton, [*Scaling Laws for Reward Model Overoptimization*](https://arxiv.org/abs/2210.10760) (2022/2023) | **[EMPIRICAL—PRIOR]** Gold reward first rises and then falls with proxy optimization; reported fits are \(R_{\rm BoN}(d)=d(\alpha-\beta d)\) and \(R_{\rm RL}(d)=d(\alpha-\beta\log d)\). | The gold target is another reward model, and the fitted behavior is smooth rather than a perfection discontinuity. |
 | Coste et al., [*Reward Model Ensembles Help Mitigate Overoptimization*](https://arxiv.org/abs/2310.02743) (2023/2024) | **[EMPIRICAL—PRIOR]** Conservative ensembles strongly reduce best-of-\(N\) and PPO overoptimization under injected label noise. | Preference reward models, not binary process verifiers or behavior-matched false positives. |
 | Denison et al., [*Sycophancy to Subterfuge: Investigating Reward-Tampering in Large Language Models*](https://arxiv.org/abs/2406.10162) (2024) | **[EMPIRICAL—PRIOR]** Training on gameable environments increases later specification gaming and leaves a small nonzero rate of direct reward tampering. | A curriculum of qualitatively different environments, not a controlled \(p_A\) sweep. |
+| Che and Wu, [*Greed Is Learned: Visible Incentives as Reward-Hacking Triggers*](https://arxiv.org/abs/2606.16914) (2026) | **[EMPIRICAL/THEORY—PRIOR]** Holds reward and optimizer fixed while comparing visible, hidden, and randomized reward channels. A three-seed decision-relevance sweep changes visible-channel OOD proxy seeking from 0 at reliability 1/3 to 0.035 at 0.45 and 0.480 at 0.55, while hidden/random controls remain zero; its formal criterion predicts a continuous response as channel information grows. | The closest visibility prior and an important novelty correction: hidden-versus-visible known-cost reward channels are not new. Its reliability is channel informativeness rather than verifier FPR, the main objective scores all action letters, and it has no strict-CoT oracle, dual clocks, gradient-transfer calibration, or hysteresis test. |
 | Kwa, Thomas, and Garriga-Alonso, [*Catastrophic Goodhart: Regularizing RLHF with KL Divergence Does Not Mitigate Heavy-Tailed Reward Misspecification*](https://arxiv.org/abs/2407.14503) (2024) | **[THEOREM—PRIOR]** Sufficiently heavy-tailed proxy error can cause asymptotic catastrophic Goodhart despite KL regularization. | Bounded binary verifier rewards cannot realize the heavy-tail mechanism. “Any positive mixture weight inherits the bad tail” is a possible corollary for another environment, not a claim about GSM-Infinite. |
 | Rakhsha et al., [*Policy Teaching via Environment Poisoning: Training-time Adversarial Attacks against Reinforcement Learning*](https://arxiv.org/abs/2003.12909) (2020) | **[THEOREM—PRIOR]** Gives conditions and cost bounds for reward/transition poisoning that induces a target policy. | Optimized adversarial perturbations, not stochastic, behavior-conditioned verifier errors. |
 | Zhang et al., [*Adaptive Reward-Poisoning Attacks against Reinforcement Learning*](https://arxiv.org/abs/2003.12613) (2020) | **[THEOREM—PRIOR]** Establishes feasible/infeasible perturbation regimes and advantages for adaptive poisoning. | Its threshold concerns adversarial perturbation magnitude, not false-positive probability. |
@@ -229,6 +230,7 @@ papers are recent preprints and should be treated accordingly.
 | Stroebl et al., [*The Limits of Inference Scaling Through Resampling*](https://arxiv.org/abs/2411.17501) (2024) and Dorner et al., [*ROC-n-reroll*](https://arxiv.org/abs/2507.12399) (2025) | **[THEOREM—PRIOR]** Formalize false-positive ceilings and verifier-ROC dependence under repeated sampling and discuss consequences for rejection-selected data. | Inference/resampling theory rather than on-policy training dynamics. |
 | Xu et al., [*TinyV*](https://arxiv.org/abs/2505.14625) (2025) | **[EMPIRICAL—PRIOR]** Finds substantial rule-verifier false negatives and reports stronger RL after recovering rejected correct solutions. | Intervention false-positive rates are insufficiently characterized, so FN causality is not isolated cleanly. |
 | Pan et al., [*Spontaneous Reward Hacking in Iterative Self-Refinement*](https://arxiv.org/abs/2407.04549) (2024) | **[EMPIRICAL—PRIOR]** Evaluator scores can improve while human quality stagnates or declines. Generator and evaluator use the same underlying model throughout; the controlled ablation changes whether their dialogue histories are shared. | Establishes iterative amplification, not a controlled `p_A -> 0` boundary; shortcut alignment from model identity is a hypothesis rather than the ablated variable. |
+| Zhou, [*More Convincing, Not More Correct: Self-Play Reward Hacking of Reference-Free LLM Judges*](https://arxiv.org/abs/2607.05904) (2026) | **[EMPIRICAL—PRIOR]** GSM8K self-play raises judge pass from about 0.72 to 0.94 while exact match stays about 0.20 across three seeds. Candidate-conditioned FPR is 0.719 but falls to 0.012 when the same judge must commit independently first. A Gemma replication enters the hacking basin in three of five seeds, while two remain clean. | Strong evidence for verifier-coupled amplification and stochastic basin entry, but not a defect-dose phase transition: there is no randomized FPR dose, bidirectional initialization, long-horizon convergence, or hysteresis. |
 | Perdomo et al., [*Performative Prediction*](https://arxiv.org/abs/2002.06673) (2020) | **[THEOREM—PRIOR]** Formalizes learning when deployed models change their own data distribution and distinguishes performatively stable from optimal points. | A general feedback framework, not verifier-specific GRPO; it supplies the right stable-point language for policy-dependent hackability and hysteresis. |
 | Ferbach et al., [*Self-Consuming Generative Models with Curated Data Provably Optimize Human Preferences*](https://arxiv.org/abs/2407.09499) (2024) | **[THEOREM—PRIOR]** Reward-based curation in iterative retraining acts as implicit preference optimization, amplifies reward-model bias, and can be stabilized by retaining positive real-data mass. | Generic generative-model recursion, not reasoning trajectories or a verifier-dose experiment. |
 | Qiao et al., [*When Sample Selection Bias Precipitates Model Collapse*](https://arxiv.org/abs/2606.13732) (ICML 2026) | **[THEOREM/EMPIRICAL—PRIOR]** An imperfect local-reference selector can accelerate recursive collapse and power-law diversity decay. | Gaussian theory plus image/text generation, not strict reasoning SFT. |
@@ -255,7 +257,10 @@ papers are recent preprints and should be treated accordingly.
 Prior work already establishes all of the following: reward corruption can
 break RL; proxy optimization can cause smooth overoptimization or sharp
 capability thresholds; iid random rewards can matter under clipped GRPO; and
-feature-dependent errors can be worse than uniform errors. Yang et al. already
+feature-dependent errors can be worse than uniform errors. Che and Wu already
+show that a visible decision-relevant reward channel can separate sharply from
+hidden/random controls under a reliability sweep, and Zhou already shows
+seed-dependent entry into a verifier-hacking basin. Yang et al. already
 derive an active-noise phase boundary, and Egashira et al. already demonstrate
 systematic false-positive plateau/collapse regimes. Conversely, Zhang's
 five-seed code study shows that abundant persistent false-positive reward can
@@ -263,12 +268,13 @@ select pre-existing errors without measurably degrading short-horizon held-out
 capability. No novelty claim should be based on any one of those statements.
 
 The remaining gap is narrower and operational: no work in this map jointly
-controls recipient behavior, within-prompt reward count, global accepted count,
-raw rollout exposure, optimizer-step exposure, an empirically strict-dead
-process frontier, and held-out clean process correctness in both RL and
-iterative SFT. The proposed contribution is that joint causal decomposition and
-clock-controlled scaling test, not the generic existence of correlated-noise
-regimes.
+uses a semantically neutral susceptibility feature that must be learned from
+sparse verifier errors, matches its marginal event law and explicit behavior
+cost to a hidden gate, measures its cross-feature gradient-transfer kernel,
+and evaluates strict process correctness at both raw-rollout and optimizer
+clocks with a bidirectional hysteresis follow-up. The proposed contribution is
+that joint causal decomposition and clock-controlled scaling test, not the
+generic existence of correlated-noise or visible-incentive regimes.
 
 ## 3. Theory: boundaries and singular limits
 
@@ -1843,7 +1849,7 @@ over a stable positive critical point.
 
 ### 6.6 Gradient-calibrated \(\alpha\times p\times t\) boundary test
 
-**[PROPOSED—NO OUTCOMES]** The strongest follow-up makes the missing cost and
+**[PREREGISTERED—NO RL OUTCOMES]** The strongest follow-up makes the missing cost and
 gradient geometry experimental variables rather than post-hoc explanations.
 Materialize six semantically neutral visible tags, literal prefixes
 `<rsci_context_0>` through `<rsci_context_5>`, and balance them within every
@@ -1898,11 +1904,30 @@ the linear approximation with one actual small update. Near-unit off-diagonal
 \(K\) predicts shared transfer and little T localization; a diagonal-dominant
 \(K\) makes persistent tag specialization plausible.
 
+More explicitly, with balanced tags and selected set \(S\), the isolated
+first-order T-minus-G drift on target tag \(k\) is proportional to
+
+\[
+\frac{p}{6}\left[
+\alpha^{-1}\sum_{j\in S}\langle g_k,g_j\rangle
+-\sum_{j=0}^{5}\langle g_k,g_j\rangle
+\right].
+\]
+
+This is falsifiable before long training: a nearly constant kernel predicts
+T and G move together, whereas a diagonal kernel predicts selected-tag
+localization. For the isolated \(w_s=0,c_0=0.03,\alpha=1/3\) channel, the four
+frozen doses make G's injected drift negative, negative, negative, positive;
+T's selected-tag drift is negative, positive, positive, positive; and every
+unselected T tag remains negative. These signs are not promoted to realistic
+\(w_s=1\) strict-performance predictions.
+
 The staged exploratory pilot freezes \(c_0=0.03\) and starts at
 \(\alpha=1/3\) with paired G/T doses
 \(p\in\{0.0075,0.0125,0.0225,0.0375\}\), plus tagged-clean
-\((c_0,p)=(0,0)\) and tax-only \((0.03,0)\) controls. Three blocks use
-disjoint selected tag pairs, for 30 realistic \(w_s=1\) short runs at matched
+\((c_0,p)=(0,0)\) and tax-only \((0.03,0)\) controls. Blocks `20260808`,
+`20260809`, and `20260810` use disjoint selected tag pairs `{0,1}`, `{2,3}`,
+and `{4,5}`, for 30 realistic \(w_s=1\) short runs at matched
 \(T,2T,4T\) raw-group and optimizer clocks. The isolated \(w_s=0\) channel is
 a gradient/short-run calibration, not a substitute target. The frozen-bank
 projection gives about 117,200 candidate-A slot exposures over 12,000 groups,
@@ -1926,7 +1951,7 @@ amplification instead. This factorial separates a positive-cost boundary,
 parameter transfer, and training-time nucleation; the current one-dose G/T
 screen cannot.
 
-**[RESULT—IMPLEMENTATION/PREFLIGHT ONLY; NO GPU OUTCOME]** The runtime now
+**[RESULT—IMPLEMENTATION/MATERIALIZATION ONLY; NO RL OUTCOME]** The runtime now
 implements the exact shaped reward, derived-alpha neutral-tag gates, paired
 hidden-gate reference tags, negative rewards, strict/untaxed/net diagnostics,
 and cache-safe \(p=0,c_0>0\) behavior. The independent attempt analyzer replays
@@ -1935,23 +1960,43 @@ explicitly does not treat those aggregates as strict performance. The complete
 RSCI test suite passes 298 tests (two pre-existing SWIG deprecation warnings),
 and all touched Python files pass Ruff.
 
-The final production-path dry runs wrote nothing and established:
+Production materialization and replay validation now establish:
 
-- one 31,000-row training block expands only by an integer tag field, with tag
-  counts 5,166--5,167, 13 tokens per literal prefix, planned output SHA-256
-  `1a959fcc52b965047cc6e9cd049e58ec23ed7fe2aa91d193b5b3ca79249fb75c`;
+- all three 31,000-row training banks expand only by an integer tag field, have
+  per-tag counts 5,166--5,167, and bind all six 13-token prefixes to the exact
+  base tokenizer. Output SHA-256 values for blocks `20260808`, `20260809`, and
+  `20260810` are respectively
+  `1a959fcc52b965047cc6e9cd049e58ec23ed7fe2aa91d193b5b3ca79249fb75c`,
+  `47288accc91067bacc7a4ab36b64a8c85bb7e0365f34d84a3cf4d271a082bb8c`,
+  and `1d716ead0545f0109cd9051d5a12e3ad479fdca61836f4b2fa97e545d591e356`;
+  their final manifest SHA-256 values are
+  `2f513f7681be3d8be54d99052bafd4d716ff28da97459799f233c72609b73ef1`,
+  `2d77c1820664817c257486956726b2313c36898b9b507686993ed28bbcdab2b7`,
+  and `424c89f50afa99003e7a0f97580936e4ce0a3846244af091a469a00155340f0e`.
+  An earlier set with null tokenizer facts was quarantined and is ineligible;
+  the final output bytes are unchanged;
 - the sealed kernel selector finds 174 A/gold pairs across 87
   operation/template strata and 1,044 paired tagged rows, excluding three
-  overlength candidates without truncation; planned dataset SHA-256 is
+  overlength candidates without truncation; the materialized dataset SHA-256 is
   `3e138c6eb5020f9fff06883ca655ba7c19050bf84e1dd807b6fe694e2ebaa8d4`;
-- the real OP11 held-out shard expands from 200 source prompts to 1,200 paired
-  tag clones, planned output SHA-256
+- every OP11--45 held-out shard expands from 200 source prompts to 1,200 paired
+  tag clones: 7,000 sources become 42,000 same-prompt tagged rows. The
+  concatenated canonical-manifest bundle SHA-256 is
+  `26492ec2890f785331a8a133a1e0c77be085103f6bd29fb5bd6d16db2fa32d92`;
+  the OP11 output SHA-256 is
   `2a11d3c3d6d4583524a090f6a0b0bb1faad04771c93a688e9264834de14be739`.
   Its 200 rows contain only 55 distinct raw IDs, so clone provenance uses a
   content-bound canonical source ID while preserving and auditing the raw ID.
 
-No tag-kernel GPU job or known-cost RL job has run. The executable
-preregistration is
+All 30 base/common/arm compositions pass the real `rl --dry-run` entrypoint;
+resolved configs preserve group size 128, batch size 512, LR `1e-6`, exact
+joint-stop clocks, and every 25-update checkpoint including T=375. The
+one-GPU tag-kernel job `10274264` was submitted from source commit `a80f8788a`
+with probe dataset SHA-256
+`3e138c6eb5020f9fff06883ca655ba7c19050bf84e1dd807b6fe694e2ebaa8d4`.
+It remains pending for scheduler priority, with no log or `kernel.json`; the
+30-run gate is therefore unresolved. No known-cost RL job has been submitted.
+The executable preregistration is
 `user/tianhaowu/rsci/configs/rl/known_cost_boundary_v1/PREREGISTRATION.md`.
 
 ## 7. Candid novelty matrix
@@ -1972,6 +2017,8 @@ incidentally.
 | Plesner et al. 2026 | Uncontrolled weak-verifier correlation | No | No | No | No | No |
 | Li et al. 2026 | Feature-dependent preference noise | No | No | No | No | No |
 | Helff et al. 2026 | Yes, deterministic shortcut | Analogous intensional target | No probability sweep | No | No | No |
+| Che and Wu 2026 | Visible decision-relevant reward channel | Environment true utility | Reliability sweep with sharp finite response | No | No | No |
+| Zhou 2026 | Candidate-conditioned judge blind spot | Exact-match hidden anchor | Stochastic basin entry across five seeds | Iterations, not paired clocks | Yes, self-play DPO | No |
 | Pan et al. 2022 | Proxy-specific behavior | Environment true return | Capability threshold, not \(p\to0\) | No | No | No |
 | Gao et al. 2022/23 | Reward-model proxy | Gold reward model | No; smooth scaling fits | Optimization strength | No | No |
 | Uesato / Lightman / Wang | No injected defect | Yes | No | No | No | No |

@@ -179,7 +179,11 @@ config. The materializer balances `neutral_tag_index` within every
 `(operation, original_template)` stratum, preserves the original prompt fields,
 and binds the source, output, tokenizer, implementation, seed, and tag counts in
 an independently replayed manifest. Runtime prepends `<rsci_context_i>` from
-that integer column.
+that integer column. Always pass the exact base tokenizer with `--tokenizer` to
+both `materialize` and `validate`; the CLI permits omission for unit workflows,
+but a production manifest with `tag_tokenization = null` is not launch-ready.
+Check that all six prefixes have `equal_token_counts = true` and the expected
+common token count before resolving configs.
 
 Use `defect_gate_mode = "neutral_tag"` with one, two, or three selected tags for
 derived alpha `1/6`, `1/3`, or `1/2`. A paired hidden group gate must use the

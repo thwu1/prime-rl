@@ -1,7 +1,9 @@
 # Known-cost verifier-defect boundary pilot
 
-Status: design frozen; no GPU job submitted. The tagged-bank, runtime-law, and
-gradient-kernel preflights must pass before launch.
+Status: design frozen; no known-cost RL job submitted. The preregistered
+one-GPU gradient-kernel probe was submitted as job `10274264`; its result is a
+launch gate, not an outcome-dependent redesign. The tagged-bank, runtime-law,
+and gradient-kernel preflights must pass before any RL launch.
 
 ## Question
 
@@ -42,8 +44,10 @@ within every `(op, original_template)` stratum. Runtime prepends exactly one
 literal tag, `<rsci_context_i>\n`, without modifying the gold problem or
 solution. Every arm in a block uses byte-identical tagged data.
 
-The pilot fixes `alpha = 1/3`. Its three blocks use disjoint vulnerable tag
-pairs `{0,1}`, `{2,3}`, and `{4,5}`. The paired hidden group gate uses the same
+The pilot fixes `alpha = 1/3`. Its three blocks use seeds `20260808`,
+`20260809`, and `20260810` with disjoint vulnerable tag pairs `{0,1}`, `{2,3}`,
+and `{4,5}`, respectively. The data-assignment seed, inference seed, and
+verifier seed equal the block seed. The paired hidden group gate uses the same
 alpha, candidate coin, defect seed, and physical 128-slot mask, but its gate is
 a non-legible sample-id hash.
 
@@ -62,9 +66,10 @@ training bank, group size 128, batch size 512, LR `1e-6`, optimizer, DPPO
 settings, and asynchronous deployment so comparisons remain interpretable.
 
 The common horizons are 3,000/6,000/12,000 finalized raw groups and
-375/750/1,500 optimizer updates (`T`, `2T`, `4T`). Exact group logs and both
-clocks are mandatory. A run reaching only one clock is not substituted at the
-other clock.
+375/750/1,500 optimizer updates (`T`, `2T`, `4T`). Every 25-update checkpoint
+is retained so all three optimizer clocks survive the joint-stop run. Exact
+group logs and both clocks are mandatory. A run reaching only one clock is not
+substituted at the other clock.
 
 ## Preflight gates
 

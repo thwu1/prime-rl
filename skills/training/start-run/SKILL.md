@@ -102,6 +102,10 @@ commit-pinned source snapshot. Prepare and independently validate its sealed
 tmux. The result must pass parameter/objective recovery and the finite-step
 linearity gate. Use its median off-diagonal kernel to choose the preregistered
 four-arm smoke or full pilot; do not submit the full grid before this gate.
+Materialize every production neutral-tag bank with an explicit `--tokenizer`
+and independently validate it with the same tokenizer. Do not seal or submit a
+known-cost arm when its bank manifest has null tokenizer facts, unequal prefix
+token counts, or a tokenizer identity different from the configured model.
 
 - Config: `RLConfig` (`packages/prime-rl-configs/src/prime_rl/configs/rl.py`)
 - Entrypoint: `src/prime_rl/entrypoints/rl.py`
