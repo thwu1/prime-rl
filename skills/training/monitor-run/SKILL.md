@@ -127,6 +127,45 @@ All metrics print to the console log (and W&B when configured).
 | `metrics/{env}/{metric}` | env-specific (e.g. pass rate) |
 | `eval/{env}/{avg@k,pass@k}` | eval scores when configured |
 
+For the 82-task fixed-clock SFT evaluation grid, validate manifests and report
+completion without analyzing partial outcomes:
+
+```bash
+uv run --no-sync python user/tianhaowu/rsci/analyze_fixed_clock_sft_evals.py validate \
+  --eval-launch-manifest /checkpoint/ram-h100-2/tianhaowu/rsci/evals/verifier-defect-fixed-clock-sft-v1/eval_launch_manifest.json
+```
+
+Only after all 82 results validate, run the sealed paired analysis:
+
+```bash
+uv run --no-sync python user/tianhaowu/rsci/analyze_fixed_clock_sft_evals.py analyze \
+  --eval-launch-manifest /checkpoint/ram-h100-2/tianhaowu/rsci/evals/verifier-defect-fixed-clock-sft-v1/eval_launch_manifest.json
+```
+
+The analyzer treats the minimum-dose fixed-raw B/S/G cells as byte-identical
+aliases, never independent replicates. It keeps common step 64, distinct finals,
+and the derived approximately-two-pass curve separate. Prompt-bootstrap bands
+condition on the trained models. B/S/G have three selection-seed interventions;
+I-C0 instead compares three I selections with one shared clean model, so its
+dispersion is conditional on C0 and is not replicated treatment-effect
+uncertainty. Require the B/S prompt-allocation identity and report S/G
+operation and prompt-group differences before a curriculum claim. Bootstrap
+bands are pointwise and model-conditional. The three-seed sign-flip statistics
+are assumption-conditional reproducibility screens with a two-sided p-value
+floor of 0.25, not randomized-treatment inference. Absent an equivalence
+margin, a null fixed-M trend does not prove cancellation or a phase transition.
+
+The fixed-clock SFT handoff uses
+`user/tianhaowu/rsci/scripts/watch_fixed_clock_sft_eval.sbatch` with an
+`afterany` dependency on all 55 unique training job IDs. It polls the 82
+manifest-declared checkpoint paths and writes atomic state to
+`{eval_root}/watcher/status.json`. The watcher dispatches only through the
+protected control tmux; if that pod-local socket is unavailable from its CPU
+allocation, `ready_waiting_for_control_dispatch` is a safe ready state, not a
+failure and never permission to call `sbatch` directly. The pinned evaluator
+submitter remains the authority for the immutable intent, receipt, checkpoint
+inventory, and `0-81%8` array cap.
+
 **Stability** — trainer log:
 
 | Metric | Description |

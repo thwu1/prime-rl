@@ -1,10 +1,10 @@
 # Verifier defects, selection clocks, and strict-reasoning generalization
 
-Status: research synthesis and preregistration, 2026-08-07. This document is
-standalone. It distinguishes prior results, derivations made for this study,
-observations from existing artifacts, and hypotheses that have not yet been
-tested. The target throughout is clean strict dependency-graph correctness,
-not the proxy reward optimized during training.
+Status: research synthesis, live RL analysis, and preregistration, 2026-08-07.
+This document is standalone. It distinguishes prior results, derivations made
+for this study, observations from existing artifacts, and hypotheses that have
+not yet been tested. The target throughout is clean strict dependency-graph
+correctness, not the proxy reward optimized during training.
 
 ## Epistemic labels
 
@@ -87,6 +87,18 @@ The literature and theory support four conclusions.
    difficulty moves only logarithmically with \(1/p_A\). This predicts that a
    seemingly negligible defect can first become visible on the hardest tasks.
    It is a hypothesis for GSM-Infinite, not yet an observed result.
+
+**[OBSERVATION—CURRENT; PRELIMINARY]** The live OP10–40 RL runs support a
+finite-time group-activation/curriculum mechanism, not an exponential change
+in final ceiling. Through optimizer step 1,600, normalized OP15–17 AUC was
+10.344%, 9.546%, and 5.146% for \(p=0,1\%,5\%\). Under the post-hoc common
+raw-exposure proxy, the same ordering was 8.142%, 10.243%, and 8.033% because
+the defective arms received more optimizer updates per raw rollout. A frozen
+audit through step 899 observed 0, 393, and 756 defect-only activated OP21–40
+groups. All three arms remained at 0/1,000 on unseen OP41–45 at both selected
+clocks. These are one-run-per-arm descriptive results, and the live evaluations
+mix adjacent policy versions; they do not estimate a treatment-effect variance,
+an asymptotic ceiling, or a phase transition.
 
 The defensible novelty target is therefore not “noise can cause reward
 hacking” or “misspecification can have phase transitions”; both are known. It
@@ -628,6 +640,99 @@ and clock alignment reverses the apparent low-dose gain. The evidence does
 **not** prove a perfect-versus-imperfect phase transition, an asymptotic ceiling
 change, or even that recipient identity caused the observed endpoint gaps.
 
+### 4.4 Live main-run paired-clock follow-up
+
+**[OBSERVATION—CURRENT; PRELIMINARY]** The paired live artifact is
+
+```text
+/checkpoint/ram-h100-2/tianhaowu/rsci/analysis/
+verifier-defect-main-v2-live/paired_clocks.json
+```
+
+with SHA-256
+`b5c0a2797a3d49b04ca8d8c6112e88a045fedb46b8cba3a29ace9059cd6d9f45`.
+Its implementation SHA-256 is
+`8f31ad46baecbff6ceaaff2584f45735601d641fd3dbb9d6fe534a922b79c61c`.
+For every selected checkpoint it verifies 200 strict binary rows for each of
+OP11–45, pairs exact prompt index and text across arms, and hash-binds every
+input shard. The training experiment still has only one run per arm.
+
+The sustained OP15–17 summaries are:
+
+| Clock and statistic | \(p=0\) | \(p=1\%\) | \(p=5\%\) |
+| --- | ---: | ---: | ---: |
+| Optimizer-step AUC through step 1,600 | 10.3438% | 9.5456% | 5.1458% |
+| Mean of steps 1,500–1,600, five evaluations | 16.10% | 15.10% | 10.70% |
+| Raw-exposure AUC through \(E^*=1{,}386{,}496\) | 8.1420% | 10.2427% | 8.0333% |
+
+Thus the \(1\%\) arm is \(-0.7982\) pp versus clean on per-update AUC but
+\(+2.1007\) pp on per-raw-exposure AUC. The \(5\%\) arm is \(-5.1979\) pp per
+update and \(-0.1087\) pp per raw exposure. The nearest raw-exposure endpoints
+were step 1,325 / 1,396,736 for clean, step 2,075 / 1,388,032 for \(1\%\), and
+step 2,500 / 1,386,496 for \(5\%\); their maximum target mismatch was 0.739%.
+The apparent low-dose benefit is therefore a compute-clock effect in this
+window, not evidence that corrupted updates generalize better.
+
+The step-1,600 endpoint alone is misleading: \(1\%\) was +1.17 pp on OP15–17,
+but its AUC and last-five-evaluation mean were both below clean. Endpoint
+bootstrap intervals and McNemar tests condition on the realized trained
+policies. They quantify prompt-level evaluation uncertainty only; with one
+training run per arm, they are not treatment-effect confidence intervals or
+significance tests.
+
+Every one of the six selected arm/checkpoint evaluations had all 35 operation
+shards mixed across policy versions \([\text{step}-1,\text{step},\text{step}+1]\).
+The logged `Policy v` field is only the minimum of that set, not a row-level
+version histogram. The comparisons are consequently between adjacent-policy
+mixtures. Finally, all arms scored exactly 0/1,000 on unseen OP41–45 at both
+clocks, so this prefix contains no evidence about the requested hard
+generalization ceiling.
+
+### 4.5 Mechanism audit: why a small \(p\) changes the training clock
+
+**[OBSERVATION—CURRENT]** The immutable threshold audit through saved shipped
+step 899 reconstructs the following cohort mechanism:
+
+| Arm | All defect-only groups | OP21–40 defect-only groups | OP21–40 activation among eligible zero-strict groups | Mean operation among mixed-proxy groups | OP15–20 strict-row rate, early → late |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| \(p=0\) | 0 | 0 | 0.0% | 12.631 | 1.037% → 12.688% |
+| \(p=1\%\) | 579 | 393 | 35.566% | 18.410 | 0.007% → 7.654% |
+| \(p=5\%\) | 1,086 | 756 | 67.864% | 22.036 | 0.000% → 1.982% |
+
+The exact intervention-to-cohort chain is:
+
+1. A persistent hash draw changes an answer-correct, strict-wrong trajectory
+   from proxy reward 0 to 1 with probability \(p\).
+2. In a group with \(m\) such candidates and no strict positive, the chance of
+   at least one proxy positive is \(1-(1-p)^m\). Such a group changes from
+   homogeneous zero reward to mixed reward and becomes update-producing.
+3. Because candidates persist on hard operations, increasing \(p\) rotates the
+   shipped mixed-proxy curriculum toward harder prompts while assigning
+   positive advantage to strict-wrong recipients.
+4. The extra activated groups increase optimizer updates per raw rollout. At
+   low dose this can improve a raw-budget curve through additional updates; at
+   higher dose proxy-only hard groups dominate and strict bridge conversion is
+   slower.
+
+Writing \(m\approx Kh\) for group size \(K=128\) and candidate rate \(h\), the
+activation law is approximately
+
+\[
+1-(1-hp)^{128}\approx 1-e^{-128hp}.
+\]
+
+This is the sharp small-dose response suspected at the start of the study: the
+group multiplier makes \(1\%\) a macroscopic intervention whenever \(128h\) is
+not small. For finite \(K\) it is smooth and analytic. Its crossover scale is
+\(p\sim 1/(Kh)\), so it is not evidence that final performance has an
+exponential singularity at \(p=0\).
+
+The audit establishes the reward-to-activation and activation-to-curriculum
+path for the realized saved cohorts. It does not isolate whether downstream
+model changes came from the recipient behavior, the harder prompt allocation,
+or merely the extra update count. That is exactly the B/S/G/I decomposition
+performed by the fixed-clock SFT experiment below.
+
 ## 5. Preregistered GSM-Infinite frozen-bank experiment
 
 ### 5.1 Bank and gate
@@ -780,6 +885,35 @@ within operation, then summarize the distribution across the three selection
 seeds. Three seeds are a screen, not enough to establish a universal scaling
 law.
 
+**[PREREGISTERED ANALYSIS AMENDMENT—BEFORE OUTCOMES]** The deterministic
+fixed-clock analyzer uses 2,000 paired prompt-bootstrap replicates with seed
+20260807, resampling within operation with the same draw for every arm and
+selection seed. Dose is analyzed on a centered log2 scale, so the three-dose
+slope is one half of the high-minus-low difference; adjacent differences and
+second-difference curvature are retained. Across the three selection seeds,
+two-sided exhaustive sign-flip screens are reported, with Holm adjustment for
+the two primary B-band clock-by-dose interactions and separately across all exploratory
+assignment/band interactions. No equivalence margin was preregistered, so a
+nonsignificant fixed-M slope means no detected reproducible ordering, not proof
+of cancellation. The minimum-dose fixed-raw B/S/G view is explicitly an alias,
+and the mixed common/final approximately-two-pass curve is reported separately
+from both common-step and distinct-final analyses. The \(I-C0\) contrast is
+defined only at common step 64: report every I seed/dose against the single C0,
+plus descriptive mean, standard deviation, range, and a paired-prompt interval
+that includes C0 once. C0 must not be cloned into three control replicates, and
+no seed-level sign-flip or Holm test is permitted for \(I-C0\). The physical I
+distinct-final dose curve is absolute and descriptive because C0 has no matched
+final readout and its steps and example exposures differ. B/S/G allocation
+diagnostics must verify B=S prompt/group histograms and report S-versus-G
+operation and prompt-group differences before an H3 mechanism claim.
+
+All prompt-bootstrap intervals are pointwise, model-conditional, and
+non-simultaneous. B/S/G sign-flip p-values are tiny-\(n\) reproducibility screens
+conditional on independent symmetric seed effects, not randomized-treatment
+inference: with three seeds the two-sided floor is 0.25 and the two-test Holm
+floor is 0.5. Component fixed-M and fixed-raw slope p-values are unadjusted;
+Holm correction applies only to the declared interaction families.
+
 ### 5.5 Hypotheses and falsification criteria
 
 **H1: fixed-count cancellation.** At fixed-M, positive B doses should have no
@@ -881,16 +1015,28 @@ The sealed training launch manifest has SHA-256
 `a1e6b1dee7e5ec9cd778c758b6179aee001ece9fa508766130d6c127a6329187`.
 All 55 non-exclusive one-H100 arms were submitted through the protected control
 tmux and recorded in one ledger; their Slurm job IDs span `10258745`–`10258805`
-with scheduler interleaving. At the first post-submit observation all remained
-pending under `QOSGrpGRES` or `Priority`; none had failed, so no training or
-generalization result existed yet.
+with scheduler interleaving. At the 2026-08-07 07:55:57 UTC audit, all 55
+remained pending: 23 under `QOSGrpGRES` and 32 under `Priority`. There were zero
+running, completed, failed, or cancelled jobs, zero training logs or checkpoint
+directories, and zero `STABLE` markers, so no SFT performance result existed.
 
 The strict evaluator is independently pinned to commit
 `6e5162658990463fa1c742781b54c71a2a380377`. Its launch manifest has SHA-256
 `5e49478b1aef3cb324290dc1f3b8867bad65f386e3814a82ba816f1b499eca6c`
 and declares 82 tasks, 7,000 prompts per task, and 574,000 total generations.
-Dry submission correctly reported 0 stable and 82 missing checkpoints; no
-evaluation array or immutable submission intent was created.
+Dry submission correctly reported 0 stable and 82 missing checkpoints; the
+07:55:57 audit found the same guarded state. No evaluation array or immutable
+submission intent was created.
+
+Persistent CPU watcher job `10261897` was then submitted through the protected
+control tmux with an `afterany` dependency on all 55 unique training job IDs.
+It is pending on that dependency under `cpu_lowest`, requests one CPU and 2 GiB,
+polls the 82 manifest paths, and writes atomic readiness state. It cannot submit
+an evaluator directly: it dispatches only through the exact control tmux, or
+records `ready_waiting_for_control_dispatch` if that pod-local socket is not
+reachable. The pinned evaluator remains responsible for the immutable
+checkpoint inventory, submission intent and receipt, and `0-81%8` GPU-array
+cap.
 
 ## 6. Follow-up experiments
 
@@ -970,12 +1116,60 @@ loop, is not evidence of the proposed mechanism.
   recur.
 - **Difficulty-targeted versus behavior-targeted defects:** match marginal
   counts to separate curriculum rotation from trajectory-content alignment.
-- **Group-size scaling:** vary \(K\in\{16,32,64,128\}\). The activation model
-  predicts approximate collapse against \(Khp\), while clipping or optimizer
-  effects need not.
+- **Finite-size scaling without changing GRPO geometry:** keep physical group
+  size \(K=128\), but hash-mask only \(L\in\{32,128\}\) rollout slots as
+  defect-eligible. Approximate collapse against \(Lhp\) then tests activation
+  without changing advantage normalization, groups per batch, or gradient
+  variance. Varying physical \(K\) can follow as a separate optimizer test.
 - **Heavy-tail construction:** a separate graded-payoff environment could test
   the Kwa et al. asymptotic mechanism. It must not be presented as an
   explanation of the current bounded binary reward.
+
+### 6.4 Decisive masked-eligibility and bistability study
+
+**[PROPOSED]** The smallest clean test of the suspected near-zero effect keeps
+all 128 rows in GRPO and changes only the number \(L\) eligible for a false
+positive. The frozen hard bank has candidate rate
+\(h=302{,}768/2{,}560{,}000=0.11827\). The activation-only model therefore
+predicts approximately matched pairs:
+
+| Eligible slots \(L\) | Dose \(p\) | Predicted activation \(1-(1-hp)^L\) |
+| ---: | ---: | ---: |
+| 128 | 0.125% | 1.875% |
+| 32 | 0.5% | 1.875% |
+| 128 | 0.25% | 3.714% |
+| 32 | 1% | 3.716% |
+
+Stage 1 uses three paired training seeds and six conditions per seed: C0, the
+four B conditions above, and S at \(L=128,p=0.25\%\). S must reassign exactly
+B's realized number of rewards within each group, preserving the prompt,
+activation, and reward-count histogram. Every arm runs until both 1,500 shipped
+updates and 12,000 attempted groups are observed, with non-performance hard
+guards at 3,000 updates and 20,000 groups. Log attempted and discarded groups,
+defect-only activations, shipped updates, and trainable-token exposure. Evaluate
+saved single-policy checkpoints on strict OP11–45; do not reuse asynchronous
+mixed-policy evaluation.
+
+The decisive interpretations are:
+
+- collapse of each matched pair by attempted groups and activated groups
+  supports the finite-group multiplier;
+- a nominal-\(p\) threshold that shifts fourfold when \(L\) shifts fourfold is
+  not an intrinsic phase transition;
+- a raw-group advantage that disappears or reverses at matched updates is a
+  throughput effect;
+- a reproducible \(B-S\) gap at both clocks is a recipient-content effect.
+
+Only if Stage 1 finds a nontrivial low-dose effect should Stage 2 spend the
+larger budget on bistability. Pretrain paired clean and \(p=1\%\) B-enriched
+histories, switch both to the same \(p^\dagger=0.125\%\), retain a clean-to-zero
+control, and use six seeds. Require a prespecified plateau plus 1,000 further
+updates before comparing the two same-dose histories. Persistent same-dose
+history dependence in both behavior prevalence and strict performance supports
+bistability; convergence falsifies it. If separation survives, halve
+\(p^\dagger\) once more before making any \(p\to0^+\) claim. Stage 1 is roughly
+5,000–8,000 H100-hours, so it should wait for the current SFT screen rather than
+compete with it for the 200-GPU group cap.
 
 ## 7. Candid novelty matrix
 
@@ -1038,11 +1232,17 @@ Use the following language for eventual claims.
 The evidence currently supports a narrower conclusion. Behavior-conditioned
 false positives are theoretically capable of changing the selected behavior
 distribution, and strict-dead fixed-count selection has an exact
-zero-versus-positive support singularity. The legacy RL data demonstrate a
-large update-throughput confound and a common-step penalty at 5%, but they do
-not establish a phase transition or an altered asymptotic ceiling. The
-preregistered B/S/G/I frozen-bank experiment is designed to determine which
-part of any observed effect comes from recipient identity, prompt allocation,
-global hard-sample support, or an iid noisy channel. The clipping factorial and
-bidirectional iterative-SFT test are required before making the stronger
-claims about practical GRPO or hysteresis.
+zero-versus-positive support singularity. The RL data now identify the realized
+finite-time mechanism: false positives activate otherwise zero-advantage hard
+groups, rotate the curriculum, and change optimizer-update throughput. The
+1% arm's apparent raw-budget benefit reverses under an optimizer-step AUC, and
+the 5% arm is substantially worse per update. This supports a smooth
+\(1-e^{-128hp}\) group-activation crossover and an inverted-U raw-budget effect,
+not an exponential final-ceiling effect. No arm has yet solved unseen OP41–45,
+so the runs establish neither a phase transition nor an altered asymptotic
+ceiling. The preregistered B/S/G/I frozen-bank experiment is designed to
+determine which part of any observed effect comes from recipient identity,
+prompt allocation, global hard-sample support, or an iid noisy channel. The
+clipping factorial, replicated RL seeds, longer strict evaluations, and
+bidirectional iterative-SFT test remain necessary before stronger practical
+GRPO, ceiling, or hysteresis claims.
