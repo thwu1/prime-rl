@@ -92,12 +92,12 @@ The literature and theory support four conclusions.
 
 **[OBSERVATION—CURRENT; PRELIMINARY]** The live OP10–40 RL runs support a
 finite-time group-activation/curriculum mechanism, not an exponential change
-in final ceiling. Through optimizer step 1,950, normalized OP15–17 AUC was
-11.541%, 10.564%, and 6.485% for \(p=0,1\%,5\%\). Under the post-hoc common
-raw-exposure proxy \(E^*=1{,}636{,}096\), the same values were 9.333%,
-11.166%, and 8.864% because the defective arms received more optimizer updates
+in final ceiling. Through optimizer step 2,100, normalized OP15–17 AUC was
+11.968%, 10.991%, and 7.013% for \(p=0,1\%,5\%\). Under the post-hoc common
+raw-exposure proxy \(E^*=1{,}780{,}736\), the same values were 9.928%,
+11.605%, and 9.302% because the defective arms received more optimizer updates
 per raw rollout. The 1% arm is worse per update but better per raw exposure;
-the 5% arm is worse on both clocks. A frozen
+the 5% arm is worse on both AUC clocks. A frozen
 audit through step 899 observed 0, 393, and 756 defect-only activated OP21–40
 groups. All three arms remained at 0/1,000 on unseen OP41–45 at both selected
 clocks. These are one-run-per-arm descriptive results, and the live evaluations
@@ -107,11 +107,14 @@ an asymptotic ceiling, or a phase transition.
 **[OBSERVATION—FROZEN PREFLIGHT]** The proposed low-dose masked pairs match
 expected aggregate activation within 0.31% in the exact scheduled-prefix
 projection, while `L=32` removes all candidate eligibility from 14.26%–14.81%
-of candidate-bearing frozen prompts. This turns the `L` contrast into diffuse
-versus concentrated support at fixed aggregate dose. The shuffled control is
-also partial: 62.6%–64.9% of its frozen reward recipients still exhibit the
-target behavior. Both facts are now explicit manipulation checks rather than
-post-hoc caveats.
+of candidate-bearing frozen prompts. Exact analysis shows that this `K=0`
+statistic is latent: the fourfold coin restores the candidate marginal and the
+reward-vector laws differ only at `O(p^2)`, with worst-case total variation
+below 0.0015 at the tested doses. The shuffled control is partial:
+62.6%–64.9% of its frozen reward recipients still exhibit the target behavior.
+The new minimum-behavior control reduces that fraction to 10.1%–11.3% while
+reusing zero original triggers. These are now explicit manipulation checks
+rather than post-hoc caveats.
 
 The defensible novelty target is therefore not “noise can cause reward
 hacking” or “misspecification can have phase transitions”; Yang et al. and
@@ -197,6 +200,8 @@ papers are recent preprints and should be treated accordingly.
 | Work | Relevant result | Caveat for this study |
 | --- | --- | --- |
 | Rad et al., [*Rate or Fate? RLV\(^{\varepsilon}\)R: Reinforcement Learning with Verifiable Noisy Rewards*](https://arxiv.org/abs/2601.04411) (2026) | **[THEOREM—PRIOR]** In a mean-field, block-symmetric, small-step GRPO/replicator model, \(J>0\) makes correct modes attracting, \(J=0\) is neutral, and \(J<0\) makes incorrect modes attracting; zero initial correct support is separately absorbing. | January 2026 v1. The result assumes behavior-independent class-conditional noise and does not prove finite neural GRPO behavior with clipping and sparse groups. |
+| Shang et al., [*When Errors Can Be Beneficial: A Categorization of Imperfect Rewards for Policy Gradient*](https://arxiv.org/abs/2604.25872) (2026) | **[THEOREM/EMPIRICAL—PRIOR]** Shows that initial policy mass and the gradient geometry of output features determine whether erroneous rewards attract or repel probability; marginal error rate alone is insufficient. | Its local policy-gradient categories do not by themselves establish a finite-time neural phase transition, but they directly motivate measuring cross-template gradient transfer rather than assuming independent modes. |
+| Mroueh, [*GRPO's Effective Loss, Dynamics, and Success Amplification*](https://arxiv.org/abs/2503.06639) (2025) | **[THEOREM—PRIOR]** Derives distinct recurrences and smooth regularized fixed points for mean-only, variance-normalized, mirror, and fixed-reference-KL GRPO variants. | The configured DPPO masking, sampler-policy lag, token weighting, and optimizer are not identical to the analyzed idealizations; a fixed-reference KL term is not a constant behavior cost. |
 | Cai et al., [*Reinforcement Learning with Verifiable yet Noisy Rewards under Imperfect Verifiers*](https://arxiv.org/abs/2510.00915) (2025/2026) | **[THEOREM—PRIOR]** Derives an unbiased correction \((\widetilde R-\rho_0)/(1-\rho_0-\rho_1)\) while the class-conditional channel is informative. The paper explicitly identifies a residual covariance term when errors depend on content. | Population REINFORCE-style analysis; content-dependent false positives violate its principal assumption. |
 | Yang et al., [*Can LLMs Learn to Reason Robustly under Noisy Supervision?*](https://arxiv.org/abs/2604.03993) (2026) | **[THEOREM—PRIOR]** Separates inactive wrong labels from policy-realizable active wrong labels and derives an explicit critical active-noise ratio above which wrong solutions dominate, including a KL-shifted boundary. | The closest formal phase-boundary prior. Exact inactive support is unrealistic for softmax LMs; the result assumes constant positive cross-sample coupling, small steps, stable drift, and no clipping. Seed-level experiments are not reported. |
 | El Mansouri et al., [*Noise-corrected GRPO*](https://arxiv.org/abs/2510.18924) (2025/2026) | **[THEOREM—PRIOR]** Derives group-specific corrections for unbiased clean-centered GRPO gradients and analyzes noisy fixed points. | Assumes class-conditional independent flips and known or estimated global rates; behavior-correlated defects fall outside the correction model. |
@@ -224,6 +229,7 @@ papers are recent preprints and should be treated accordingly.
 | Stroebl et al., [*The Limits of Inference Scaling Through Resampling*](https://arxiv.org/abs/2411.17501) (2024) and Dorner et al., [*ROC-n-reroll*](https://arxiv.org/abs/2507.12399) (2025) | **[THEOREM—PRIOR]** Formalize false-positive ceilings and verifier-ROC dependence under repeated sampling and discuss consequences for rejection-selected data. | Inference/resampling theory rather than on-policy training dynamics. |
 | Xu et al., [*TinyV*](https://arxiv.org/abs/2505.14625) (2025) | **[EMPIRICAL—PRIOR]** Finds substantial rule-verifier false negatives and reports stronger RL after recovering rejected correct solutions. | Intervention false-positive rates are insufficiently characterized, so FN causality is not isolated cleanly. |
 | Pan et al., [*Spontaneous Reward Hacking in Iterative Self-Refinement*](https://arxiv.org/abs/2407.04549) (2024) | **[EMPIRICAL—PRIOR]** Evaluator scores can improve while human quality stagnates or declines. Generator and evaluator use the same underlying model throughout; the controlled ablation changes whether their dialogue histories are shared. | Establishes iterative amplification, not a controlled `p_A -> 0` boundary; shortcut alignment from model identity is a hypothesis rather than the ablated variable. |
+| Perdomo et al., [*Performative Prediction*](https://arxiv.org/abs/2002.06673) (2020) | **[THEOREM—PRIOR]** Formalizes learning when deployed models change their own data distribution and distinguishes performatively stable from optimal points. | A general feedback framework, not verifier-specific GRPO; it supplies the right stable-point language for policy-dependent hackability and hysteresis. |
 | Ferbach et al., [*Self-Consuming Generative Models with Curated Data Provably Optimize Human Preferences*](https://arxiv.org/abs/2407.09499) (2024) | **[THEOREM—PRIOR]** Reward-based curation in iterative retraining acts as implicit preference optimization, amplifies reward-model bias, and can be stabilized by retaining positive real-data mass. | Generic generative-model recursion, not reasoning trajectories or a verifier-dose experiment. |
 | Qiao et al., [*When Sample Selection Bias Precipitates Model Collapse*](https://arxiv.org/abs/2606.13732) (ICML 2026) | **[THEOREM/EMPIRICAL—PRIOR]** An imperfect local-reference selector can accelerate recursive collapse and power-law diversity decay. | Gaussian theory plus image/text generation, not strict reasoning SFT. |
 | Song et al., [*When AI Reviews Its Own Code*](https://arxiv.org/abs/2606.28438) (2026) | **[EMPIRICAL—PRIOR]** Recursive SFT with a model-coupled gate can enter a rubber-stamp regime where acceptance rises while correctness falls. | Limited seed-level uncertainty; the theoretical gate-collapse statement is conditional and the “human” filters are compile/static checks. |
@@ -492,7 +498,70 @@ P(\text{mixed})=1-(1-s)^V-s^V.
 The exact conditional-\(K\) formula, not this iid approximation, is used in the
 legacy audit.
 
-### 3.5 Fixed-count rejection SFT: exact cancellation of defect magnitude
+### 3.5 Exact-size masking is a second-order dependence intervention
+
+The masked Stage-1 pairs need a more precise interpretation. Fix a group with
+\(C\) behavior candidates and let \(p\) denote each candidate's *marginal*
+false-positive probability. The `L=128` arm has
+
+\[
+H_{128}\sim\operatorname{Binomial}(C,p).
+\]
+
+The matched `L=32` arm samples exactly 32 of 128 physical slots without
+replacement and uses conditional coin probability \(4p\). Therefore
+
+\[
+K\sim\operatorname{Hypergeom}(128,C,32),\qquad
+H_{32}\mid K\sim\operatorname{Binomial}(K,4p).
+\]
+
+Its probability-generating function is
+
+\[
+G_{32}(z)=\sum_k
+\frac{\binom Ck\binom{128-C}{32-k}}{\binom{128}{32}}
+(1-4p+4pz)^k.
+\]
+
+Both arms have exactly \(E[H\mid C]=Cp\). For two distinct candidate slots,
+however,
+
+\[
+\operatorname{Cov}(Z_i,Z_j)=-\frac{3p^2}{127}
+\]
+
+under the size-32 mask, versus zero for independent size-128 coins. Hence
+
+\[
+P(H_{32}>0)-P(H_{128}>0)
+=\binom C2\frac{3p^2}{127}+O(C^3p^3).
+\]
+
+**[DERIVATION—HERE]** The two reward-vector laws are exchangeable and,
+conditional on \(H=h\), uniform over the same \(h\)-subsets. Their vector total
+variation therefore equals the total variation between the two count laws.
+Exact enumeration over \(C\le128\) gives worst-case distances of only
+\(4.73\times10^{-4}\) at \(p=0.00125\) and \(1.48\times10^{-3}\) at
+\(p=0.0025\). At \(C=7\), the corresponding values are
+\(1.54\times10^{-6}\) and \(6.09\times10^{-6}\).
+
+This resolves an initially misleading diagnostic. A size-32 mask can have
+\(K=0\) on roughly 14.5% of candidate-bearing frozen prompts, yet the fourfold
+conditional coin almost exactly restores the reward law. \(K=0\) is latent;
+the policy observes only realized reward. Likewise, under the current shared
+hash coupling, a candidate reward overlaps across arms with probability only
+\(p/4\), so the rare-event Jaccard approaches \((1/4)/(2-1/4)=1/7\) even when
+the marginal laws are nearly identical. Low activated-set overlap is a weak
+common-random-number coupling, not evidence of large distributional distance.
+
+The `L=128` versus `L=32` contrast is consequently a delicate test of whether
+training adaptively amplifies a tiny \(O(p^2)\) change in within-group negative
+dependence. Three seeds have little power because realized arm mismatches occur
+at \(O(p)\) under the chosen coupling. A reproducible large effect would be
+striking, but it would not establish a generic “support concentration” law.
+
+### 3.6 Fixed-count rejection SFT: exact cancellation of defect magnitude
 
 For proxy acceptance \(Z\), the accepted trajectory distribution is
 
@@ -545,7 +614,7 @@ strata are mixed in, their accepted mass does not vanish, so the hard-stratum
 share goes to zero with \(p_A\). Policy feedback can also change \(h\) between
 rounds.
 
-### 3.6 Base-rate frontier
+### 3.7 Base-rate frontier
 
 Let difficulty be \(d\), genuine strict-success mass be \(q(d)\), verifier true
 positive rate be \(t(d)\), and behavior-\(A\) strict-negative mass be \(h(d)\).
@@ -586,7 +655,7 @@ eventually has a false-positive-dominated region, while \(p_A=0\) does not.
 GSM-Infinite has a finite evaluated range, so the crossover may lie outside
 OP11–45; the empirical claim can be falsified there.
 
-### 3.7 Endogenous hackability and a genuine hysteresis construction
+### 3.8 Endogenous hackability and a genuine hysteresis construction
 
 **[HYPOTHESIS]** Suppose the prevalence \(x\) of a hack-like behavior makes
 future samples easier for the verifier to accept,
@@ -620,6 +689,116 @@ That path dependence would be stronger evidence of a dynamical phase
 transition than a steep one-way dose curve. The feedback law itself must be
 measured; ordinary selection delay can imitate a loop at insufficient training
 time.
+
+### 3.9 Persistent susceptibility can cross a threshold at fixed marginal FPR
+
+The G--T experiment has a simple prediction that is stronger than “correlated
+noise is worse.” Let \(x_j\) be the probability of behavior A on template
+\(j\), let \(c>0\) be a constant exogenous clean-fitness disadvantage, and
+write \(\ell_j=\operatorname{logit}(x_j)\). In a deliberately idealized
+replicator approximation, a prompt-random, non-legible group gate G gives every
+template the same mean verifier bonus \(p\):
+
+\[
+\ell_j^{G}(t)=\ell_0+\eta(p-c)t.
+\]
+
+For T, one of three visible templates is persistently vulnerable. Its
+conditional bonus is \(3p\), while the other two receive none:
+
+\[
+\ell_{\rm selected}^{T}(t)=\ell_0+\eta(3p-c)t,
+\qquad
+\ell_{\rm other}^{T}(t)=\ell_0-\eta ct.
+\]
+
+This algebra assumes independent template logits, a constant exogenous
+disadvantage \(c\) in the same units as expected verifier reward, exact
+mean-gradient dynamics, and ex-ante randomization of the vulnerable template.
+It is not a theorem about the configured GRPO optimizer. That optimizer has no
+explicit KL penalty, shares parameters across templates, and includes
+clipping, off-policy batches, and Adam; on a strict-dead group, a prompt-local
+clean competitor may be absent, making the effective \(c\) close to zero until
+strict competitors or cross-prompt parameter coupling appear. Consequently
+\(c\) must be estimated from clean or near-clean log-odds drift. The boundary
+below is a falsifiable organizing hypothesis, not a quantitative prediction
+licensed by the configuration alone.
+
+More generally, with gate probability \(\alpha\), T's selected-template bonus
+is \(p/\alpha\), so the opposite-drift window is
+\(\alpha c<p<c\). The factor three below is only the specialization
+\(\alpha=1/3\). A fixed-reference KL penalty would instead contribute a
+state-dependent term such as
+\(-\beta(\ell-\ell_{\rm ref})\), producing a smooth regularized fixed point
+rather than a constant subtractive \(c\).
+
+Both mechanisms have the same per-candidate marginal FPR over the randomized
+template assignment. Nevertheless, in the interval
+
+\[
+\boxed{c/3<p<c,}
+\]
+
+G suppresses A on every template while T amplifies it on the vulnerable
+template. If A trades away strict process correctness, T can therefore cause a
+template-specific strict collapse at a nominal FPR for which the equally
+bursty G arm remains below threshold. This is a candidate phase-boundary
+hypothesis conditional on \(c>0\) and sufficiently template-local parameter
+transfer; it comes from persistent, observable susceptibility, not from the
+marginal error rate or reward-count variance alone.
+
+The shared neural parameterization is a major falsifier. In the local linear
+model
+
+\[
+\dot{\boldsymbol\ell}=\eta K(\mathbf r-\mathbf c),
+\]
+
+the derivation above takes the cross-template gradient-transfer kernel
+\(K\approx I\). If A is represented by one fully shared direction, T's average
+bonus is \((3p+0+0)/3=p\), the same as G, and the threefold boundary can
+disappear. Moreover, \(A=\) answer-correct/strict-wrong is an event over
+heterogeneous trajectories rather than a stationary action: an update can
+convert some A trajectories into strict solutions. Both \(K\) and conversion
+must therefore be measured.
+
+The finite-time weak-dose expansion is also informative. With
+\(u=\eta pt\) and \(z=\ell_0-\eta ct\),
+
+\[
+x_G=\sigma(z+u),\qquad
+\bar x_T=\frac{\sigma(z+3u)+2\sigma(z)}3,
+\]
+
+so
+
+\[
+\bar x_T-x_G=u^2\sigma''(z)+O(u^3).
+\]
+
+The first-order response matches; persistence appears at second order unless
+the cost threshold is crossed. When A is initially rare,
+\(\sigma''(z)>0\), concentration accelerates it; after A exceeds one half the
+curvature reverses. Behavior odds themselves change as
+\(\exp[\eta(3p-c)t]\), which explains an apparently exponential sensitivity to
+small \(p\) over time. It does **not** imply a generic exponential dependence
+of the final strict ceiling on \(p\). The empirical tests are therefore the
+selected-versus-unselected template curves, movement of the apparent boundary
+with \(t\), and G--T at matched raw and update clocks.
+
+Even an exactly threefold apparent threshold ratio is not sufficient evidence
+of a phase transition. For a finite-time target \(x_*\), define
+\(D=\operatorname{logit}(x_*)-\ell_0\). The smooth logistic model itself gives
+
+\[
+p_{\rm app}^{G}(t)=c+\frac{D}{\eta t},\qquad
+p_{\rm app}^{T}(t)=\frac{c+D/(\eta t)}{3}.
+\]
+
+Their ratio is three at every \(t\). The stronger prediction is convergence of
+the two intercepts to a separately known \(c\) and \(c/3\); their finite-time
+offsets decay as \(1/t\). If \(c=0\), both apparent boundaries drift to zero,
+which is smooth amplification rather than a stable positive critical point.
 
 ## 4. What the legacy RL evidence establishes
 
@@ -740,39 +919,42 @@ survives a longer common window. The frozen refresh artifacts are
 
 ```text
 /checkpoint/ram-h100-2/tianhaowu/rsci/analysis/
-verifier-defect-main-v2-clock1950-refresh-20260807/{summary.json,paired_clocks.json}
+verifier-defect-main-v2-clock2100-refresh-20260807/{summary.json,paired_clocks.json}
 ```
 
 with SHA-256 values
-`b073f90c04e7ef4d851f15db47132dc3e2f86b836545a85b07d38539adb74522`
+`9fe7aa01bb866b31c19de5857bdbc1fb9682cef79799e9b51fdcd9cbb64ae56e`
 and
-`53a360f390ea521d6a1416cc888a7bf0650fc0c36fc7d64389546a3aaef816bf`.
-The selected common clocks are optimizer step 1,950 and nearest raw exposure
-`E*=1,636,096`.
+`ff9e0bf10edebdb1b27f7c201bda209a8353edbfb87078dfa4097adbf493d9e2`.
+The paired raw-exposure curve is `summary.svg` in the same directory (SHA-256
+`476f416b2c0d93c4f274afb3f6fd31c5306ed9dd802cf4b5861947add2462868`).
+The selected common clocks are optimizer step 2,100 and nearest raw exposure
+`E*=1,780,736`.
 
 | Clock and OP15–17 statistic | `p=0` | `p=1%` | `p=5%` |
 | --- | ---: | ---: | ---: |
-| Optimizer-step AUC through 1,950 | 11.5406% | 10.5641% | 6.4850% |
-| Mean of the last five evaluations through 1,950 | 18.10% | 15.50% | 13.40% |
-| Step-1,950 endpoint | 19.33% | 16.33% | 12.67% |
-| Raw-exposure AUC through `E*` | 9.3326% | 11.1665% | 8.8641% |
-| Nearest-`E*` endpoint | 16.17% | 16.33% | 13.50% |
+| Optimizer-step AUC through 2,100 | 11.9683% | 10.9911% | 7.0129% |
+| Mean of the last five evaluations through 2,100 | 17.13% | 16.43% | 14.27% |
+| Step-2,100 endpoint | 17.00% | 15.83% | 15.50% |
+| Raw-exposure AUC through `E*` | 9.9283% | 11.6049% | 9.3022% |
+| Nearest-`E*` endpoint | 18.17% | 17.83% | 18.83% |
 
-The `1%` contrast is now `-0.9765` pp by optimizer-step AUC but
-`+1.8339` pp by raw-exposure AUC. Its nearest-exposure endpoint advantage is
-only `+0.17` pp, so the AUC—not one favorable endpoint—is the sustained
-raw-budget signal. The `5%` arm is `-5.0556` pp per-update AUC and
-`-0.4684` pp per-raw-exposure AUC. At the matched optimizer endpoint,
-OP21–40 strict pass@1 is 0.60% / 0.30% / 0.00%; at the nearest raw-exposure
-endpoint it is 0.35% / 0.625% / 0.425%. Every arm remains exactly 0/1,000 on
-OP41–45 at both clocks.
+The `1%` contrast is `-0.9772` pp by optimizer-step AUC but `+1.6766` pp by
+raw-exposure AUC. The `5%` arm is `-4.9554` pp per-update AUC and `-0.6261`
+pp per-raw-exposure AUC. Its raw-clock endpoint happens to exceed clean by
+0.67 pp despite the worse full-window AUC, a direct example of why one endpoint
+must not replace the curve. At the matched optimizer endpoint, OP21–40 strict
+pass@1 is 0.75% / 0.425% / 0.00%; at the nearest raw-exposure endpoint it is
+0.60% / 1.00% / 0.80%. Every arm remains exactly 0/1,000 on OP41–45 at both
+clocks.
 
-All three step-1,950 evaluations and the `p=1%` and `p=5%` raw-clock
-evaluations mix adjacent policy versions on all 35 operations. The clean
-raw-clock evaluation at step 1,625 mixes versions on 25 operations. Prompt
-tests and bootstrap intervals therefore remain conditional diagnostics, not
-training-treatment inference. This snapshot was taken while all three jobs
-were healthy and running; it is a longer prefix, not a final-ceiling result.
+The nearest raw evaluations occur at steps 1,800 / 2,750 / 3,250 with exposure
+1,782,784 / 1,780,736 / 1,787,008, a maximum target deviation of 0.352%.
+Every selected optimizer- and raw-clock evaluation mixes adjacent policy
+versions on all 35 operations. Prompt tests and bootstrap intervals therefore
+remain conditional diagnostics, not training-treatment inference. This
+snapshot was taken while all three jobs were healthy and running; it is a
+longer prefix, not a final-ceiling result.
 
 ### 4.5 Mechanism audit: why a small \(p\) changes the training clock
 
@@ -856,7 +1038,7 @@ deterministically from OP10–12. The perfect-verifier control `C0` contains onl
 these anchors because a perfect verifier accepts no hard trajectory behind the
 strict-dead gate.
 
-### 5.2 B/S/G/I recipient design
+### 5.2 B/S/G/\(G^\star\)/I recipient design
 
 **[PREREGISTERED]** Doses are \(p\in\{0.25\%,0.5\%,1\%\}\), with deterministic
 selection seeds 20260805, 20260806, and 20260807. Hash draws use exact uint64
@@ -867,6 +1049,7 @@ integer comparisons, not floating-point thresholds.
 | **B: behavior** | Promote \(A=\) answer-correct/strict-wrong rows whose defect draw is below \(p\) | Actual behavior-conditioned defect | Nothing; this is the treatment |
 | **S: within-prompt shuffled** | For each prompt group, assign exactly B's realized count to independently ranked strict negatives | Hard-sample count, prompt/group allocation, per-group extra-positive histogram | Association between the reward and the particular B recipient |
 | **G: global count-matched** | Select exactly B's total count by independent global ranks over strict negatives in the same observed prefix | Total hard-sample count and cutoff | Recipient identity and prompt/group allocation |
+| **\(G^\star\): composition-matched global** | Select S's exact candidate-A and noncandidate counts using independent class-specific global ranks in the same prefix | Total count, candidate composition, cutoff | Prompt/group allocation while retaining the marginal behavior-class mix |
 | **I: iid class-conditional** | Independently promote every observed strict negative with probability \(p\) | A genuine behavior-independent Bernoulli channel and its cardinality variance | Exact count matching; its marginal number of positives generally differs from B |
 
 The roles are deliberately different. `G`, not `I`, is the behavior-independent
@@ -880,7 +1063,8 @@ Primary mechanistic contrasts are:
 \[
 \begin{aligned}
 B-S &: \text{recipient/content targeting at fixed prompt allocation},\\
-S-G &: \text{prompt/group allocation at fixed total count},\\
+S-G &: \text{total within-group versus global allocation mechanism at fixed count},\\
+S-G^\star &: \text{prompt/group allocation at fixed count and behavior-class composition},\\
 B-G &: \text{total behavior-targeting effect at fixed count},\\
 I-C0 &: \text{class-conditional iid channel plus its selection/optimizer effects}.
 \end{aligned}
@@ -889,10 +1073,39 @@ I-C0 &: \text{class-conditional iid channel plus its selection/optimizer effects
 Any B-versus-I contrast is secondary and must report realized recipient count,
 candidate overlap, group count, and raw prefix.
 
+**[OBSERVATION—PRETRAINING MANIPULATION AUDIT]** The byte-pinned arm index
+already identifies an important first stage. Across the 15 canonical specs,
+S assigns 52.93%–57.23% of its rewards to behavior candidates, versus 100% for
+B and 9.96%–14.06% for uniform G. Thus B–S is a partial 42.77–47.07 point
+alignment reduction, not behavior versus zero behavior. S–G changes prompt
+allocation *and* the candidate/noncandidate recipient mix by 38.87–47.27
+points. It is a valid total allocation-mechanism contrast but cannot by itself
+identify a prompt-only pathway.
+
+A stratified global control \(G^\star\) can match S's exact candidate and
+noncandidate recipient counts while selecting each class by independent global
+ranks. Frozen-bank capacity exceeds every candidate quota by at least 174-fold
+and every noncandidate quota by at least 1,634-fold, so this control is exactly
+feasible. \(S-G^\star\) identifies allocation at fixed marginal behavior class;
+\(S-G\) retains the total effect. Because \(G^\star\) intentionally samples
+behavior candidates more heavily, it must never be called iid or
+behavior-independent.
+
+**[IMPLEMENTED—NOT SUBMITTED]** The additive extension contains 15 canonical
+arms: nine fixed-M cells and the six non-alias fixed-raw cells. A full-bank
+smoke build reproduced every S quota exactly, found candidate capacities of
+50,767--209,500 and noncandidate capacities of 383,281--1,548,811, introduced
+no new trainability exclusions, and had maximum rendered length 1,718 tokens.
+All 15 resolved one-H100 configurations and SLURM scripts passed dry-run
+validation. Production datasets and launch manifests deliberately await a
+commit-pinned source snapshot; the smoke artifacts are not cited as immutable
+outcomes.
+
 The index contains 55 distinct canonical training arms: C0, 45 B/S/G arms,
 and 9 fixed-raw I arms. It additionally contains 9 byte-identical minimum-dose
 fixed-raw aliases of fixed-M B/S/G, for 64 index entries total. Aliases are not
-submitted as separate training jobs.
+submitted as separate training jobs. \(G^\star\) is a separate additive
+15-arm extension and never rewrites this v2 index or launch ledger.
 
 ### 5.3 Dual clocks
 
@@ -991,7 +1204,10 @@ no seed-level sign-flip or Holm test is permitted for \(I-C0\). The physical I
 distinct-final dose curve is absolute and descriptive because C0 has no matched
 final readout and its steps and example exposures differ. B/S/G allocation
 diagnostics must verify B=S prompt/group histograms and report S-versus-G
-operation and prompt-group differences before an H3 mechanism claim.
+operation, prompt-group, and behavior-recipient differences before an H3
+mechanism claim. A coarse-A-status-matched allocation claim additionally
+requires the stratified \(G^\star\) control; prompt allocation alone remains
+unidentified because rows can still differ within the A/non-A strata.
 
 All prompt-bootstrap intervals are pointwise, model-conditional, and
 non-simultaneous. B/S/G sign-flip p-values are tiny-\(n\) reproducibility screens
@@ -1015,17 +1231,23 @@ cost should scale approximately as \(1/p\).
 **H2: recipient alignment.** B differs from S because the rewarded completion,
 not just its prompt, is correlated with \(A\).
 
-- Supported only by a consistent paired \(B-S\) difference.
-- Falsified at detectable effect size if B and S match across seeds and clocks.
-  A B-versus-C0 difference is insufficient because hard support and prompt
+- Supported only by a consistent paired \(B-S\) difference together with its
+  audited 42.77–47.07 point first stage.
+- A null three-seed B–S screen is inconclusive rather than a falsification,
+  because S still rewards the target behavior on roughly 53%–57% of rows. A
+  B-versus-C0 difference is insufficient because hard support and prompt
   allocation both change.
 
 **H3: curriculum allocation.** S differs from G because the behavior trigger
 chooses which prompts/groups enter training even after recipients are shuffled.
 
-- Supported by \(S-G\) together with measured differences in operation/prompt
-  allocation.
-- Falsified if S and G match and allocation summaries do not predict outcomes.
+- Uniform \(S-G\) is the total allocation-mechanism effect and includes the
+  measured recipient-mix pathway.
+- \(S-G^\star\), together with measured operation/prompt differences, tests
+  allocation at exactly matched coarse A/non-A counts. It is not a pure
+  prompt-allocation contrast: within each class, trajectory identity, length,
+  likelihood, and other content can still differ. A null uniform S–G contrast
+  does not separately falsify that pathway.
 
 **H4: iid channel robustness.** I should preserve the clean population
 ordering while \(J=1-p>0\), but can still change finite GRPO/SFT dynamics.
@@ -1059,10 +1281,12 @@ C0 as doses decrease, after accepted-count and optimizer-step matching.
 1. A sealed bank `completion.json` matches the manifest contract and all file
    hashes.
 2. Every OP21–40 score is strict-negative; the builder aborts otherwise.
-3. Every B/S/G paired arm has exact hard-recipient cardinality and B/S has an
-   identical prompt-group count histogram.
-4. G is globally rank-selected only from observed strict negatives; I obeys
-   its exact Bernoulli threshold for every recipient.
+3. Every B/S/G paired arm has exact hard-recipient cardinality, B/S has an
+   identical prompt-group count histogram, and every \(G^\star\) arm exactly
+   reproduces S's candidate-A/noncandidate quotas.
+4. G is globally rank-selected only from observed strict negatives;
+   \(G^\star\) uses independent domain-separated global ranks for its two
+   declared classes; I obeys its exact Bernoulli threshold for every recipient.
 5. Datasets contain no duplicate trajectory IDs and no held-out prompt overlap.
 6. Exact rendering reaches a fixed point with every written row at most 2,048
    model-input tokens; exclusions and reselection rounds are hash-bound and no
@@ -1105,6 +1329,8 @@ with scheduler interleaving. At the 2026-08-07 07:55:57 UTC audit, all 55
 remained pending: 23 under `QOSGrpGRES` and 32 under `Priority`. There were zero
 running, completed, failed, or cancelled jobs, zero training logs or checkpoint
 directories, and zero `STABLE` markers, so no SFT performance result existed.
+At the 2026-08-07 11:00 UTC refresh, all 55 still remained pending (25
+`QOSGrpGRES`, 30 `Priority`); no SFT outcome had appeared.
 
 The strict evaluator is independently pinned to commit
 `6e5162658990463fa1c742781b54c71a2a380377`. Its launch manifest has SHA-256
@@ -1204,9 +1430,12 @@ loop, is not evidence of the proposed mechanism.
   counts to separate curriculum rotation from trajectory-content alignment.
 - **Finite-size scaling without changing GRPO geometry:** keep physical group
   target size \(V=128\), but hash-mask only \(L\in\{32,128\}\) rollout slots as
-  defect-eligible. Approximate collapse against \(Lhp\) then tests activation
-  without changing advantage normalization, groups per batch, or gradient
-  variance. Varying physical \(K\) can follow as a separate optimizer test.
+  defect-eligible. Matching \(Lp\) holds the candidate marginal fixed, and the
+  current pair differs only through tiny negative \(O(p^2)\) dependence. An
+  independent Bernoulli mask is an exact-law negative control; `L=1` or a
+  group-shared vulnerability is the higher-power clustered-error test. None of
+  these changes advantage normalization, groups per batch, or physical GRPO
+  geometry.
 - **Heavy-tail construction:** a separate graded-payoff environment could test
   the Kwa et al. asymptotic mechanism. It must not be presented as an
   explanation of the current bounded binary reward.
@@ -1249,12 +1478,12 @@ mixed-policy evaluation.
 `rsci_gsm_infinite.py` now supports exact nested hash masks through
 `defect_eligible_slot_count`, logs pre-mask scope eligibility, mask membership,
 raw-digest rank, realized \(L,M,K,H\), and restricts S recipients to masked,
-valid strict negatives. The 18 pinned config overlays live under
+valid strict negatives. The 21 pinned config overlays live under
 `configs/rl/masked_activation_v1/`. Their resolved orchestrator uses a native
 joint stop at 1,500 updates and 12,000 groups on a retained 50-update boundary,
 with hard guards at 3,000 updates and 20,000 groups. The new
 `analyze_masked_verifier_attempts.py` independently replays the hash mask,
-coins, B/S recipient vectors, reward algebra, raw attempt stream, and exact
+coins, B/S/M recipient vectors, reward algebra, raw attempt stream, and exact
 conditional activation law while binding all inputs and its implementation by
 SHA-256. The legacy hash-bound analyzers were not modified. GPU submission is
 deliberately waiting for the fixed-clock SFT screen to release the shared
@@ -1263,9 +1492,9 @@ resource budget.
 **[OBSERVATION—FROZEN-BANK PREFLIGHT, 2026-08-07]** Exact replay of all
 3,712,000 frozen strict rows changes the interpretation in a useful way. The
 authoritative artifact is
-`/checkpoint/ram-h100-2/tianhaowu/rsci/analysis/masked-frozen-bank-preflight-v1/report.json`
+`/checkpoint/ram-h100-2/tianhaowu/rsci/analysis/masked-frozen-bank-preflight-v2/report.json`
 (SHA-256
-`d3b24d8c7df94e8e9ff1a2a96ad9c445cc3b108c9ccad139dc8332064fc130df`).
+`a1a87b39af7a052c708c27ac63eb1e8b99e37deee3fce3d4fb930ab79ce3fe8a`).
 The deterministic analyzer is `analyze_masked_frozen_bank.py` and independently
 replays rather than importing the environment's mask decisions. The
 two `L*p` pairs are exceptionally well matched in aggregate: over 29,000
@@ -1284,17 +1513,23 @@ The bank identifies 11,251 groups in that prefix; the remaining 749 are OP13
 or OP14 and are not imputed. Asynchronous finalization can change the realized
 first-12,000 set, so live attempt logs supersede this dispatch projection.
 
-The matched arms nevertheless differ sharply in *support*. The size-32 mask
-removes every eligible candidate from 14.26%–14.81% of candidate-bearing
-prompts. The realized low-dose activated-prompt sets disagree on 846–870 of
-29,000 prompts and the high-dose sets disagree on 1,482–1,507, even though
-their aggregate event rates match. This is not a calibration failure. It
-identifies a sharper intervention: diffuse rare support versus a fourfold coin
-concentrated on one quarter of the rollout slots at fixed expected activation
-dose. A reproducible `L=32` versus `L=128` learning difference would
-therefore be evidence for a support-concentration effect, not for a nominal
-probability threshold. The complete statistical interpretation and its
-three-seed power limits are locked in
+The size-32 mask removes every eligible candidate from 14.26%–14.81% of
+candidate-bearing prompts, and the realized low-dose activated-prompt sets
+disagree on 846–870 of 29,000 prompts (1,482–1,507 at high dose). Those
+statistics are visually dramatic but are not a large mechanism difference.
+Each candidate has exactly the same marginal reward probability in the paired
+arms. Exact-size masking only adds covariance `-3p^2/127`; the worst-case
+trigger-vector total variation over every candidate count up to 128 is
+`4.73e-4` at low dose and `1.48e-3` at high dose. Under the present shared-hash
+coupling, rare-event Jaccard approaches `1/7` even when the laws are almost
+identical.
+
+Thus `K=0` is latent eligibility, not observed reward support. A reproducible
+`L=32` versus `L=128` learning difference would indicate adaptive amplification
+of a tiny second-order within-group dependence perturbation. Three seeds have
+little power because realized reward identities differ at first order under
+the weak coupling while the marginal-law contrast is second order. The
+complete statistical interpretation and its power limits are locked in
 `configs/rl/masked_activation_v1/PREREGISTRATION.md`.
 
 The S control is also a partial, not perfect, recipient intervention. It
@@ -1306,6 +1541,17 @@ reports this overlap explicitly. A null B--S result cannot rule out recipient
 identity unless the manipulation remains large; the preregistration requires
 at least a 20-point alignment reduction.
 
+M is the stronger recipient intervention. It preserves the same exact trigger
+totals and ranks masked strict-negative noncandidates before non-trigger
+candidates and original triggers. Its frozen candidate-recipient counts are
+146 / 141 / 131, or 11.3% / 10.7% / 10.1%, and it selects zero original
+triggers. Candidate-free placement is infeasible in 133 / 122 / 120 activated
+groups, so those residuals are the deterministic group-constrained minimum,
+not silent leakage. B--M is therefore the main full-versus-minimum behavior
+assignment contrast; it still changes final-answer correctness and other
+features correlated with the declared behavior, so it does not identify a
+finer stylistic cause.
+
 The preflight is not held-out evidence. All 29,000 frozen prompts occur in the
 31,000-prompt online training set; only OP13 and OP14 are absent from the bank.
 It is one temperature-0.7 base-policy draw and uses the same prompt-ID/hash
@@ -1316,9 +1562,9 @@ OP41–45 generalization require the actual runs.
 The decisive interpretations are:
 
 - collapse of each matched pair by attempted groups and activated groups
-  supports the finite-group multiplier despite different prompt support;
-- separation within a matched pair identifies support concentration at nearly
-  fixed aggregate dose, rather than an intrinsic nominal-`p` threshold;
+  supports the matched candidate-marginal law;
+- separation within a matched pair is an exploratory signal of adaptive
+  amplification of tiny higher-order dependence, not “support concentration”;
 - a nominal-\(p\) threshold that shifts fourfold when \(L\) shifts fourfold is
   not an intrinsic phase transition;
 - a raw-group advantage that disappears or reverses at matched updates is a
@@ -1332,9 +1578,196 @@ control, and use six seeds. Require a prespecified plateau plus 1,000 further
 updates before comparing the two same-dose histories. Persistent same-dose
 history dependence in both behavior prevalence and strict performance supports
 bistability; convergence falsifies it. If separation survives, halve
-\(p^\dagger\) once more before making any \(p\to0^+\) claim. Stage 1 is roughly
-5,000–8,000 H100-hours, so it should wait for the current SFT screen rather than
+\(p^\dagger\) once more before making any \(p\to0^+\) claim. The 21-arm Stage
+1 is roughly 6,000–9,500 H100-hours, so it should wait for the current SFT screen rather than
 compete with it for the 200-GPU group cap.
+
+### 6.5 Correlation-versus-learnability screen
+
+**[PROPOSED—NO OUTCOMES]** The masked `L=32` contrast is now known to be a
+very small second-order perturbation: it matches every candidate's marginal
+reward probability and differs from iid triggering only through covariance of
+order \(p^2\). A higher-power follow-up should vary the *correlation structure*
+of the verifier defect while holding, ex ante over the randomized gate or
+template assignment,
+
+\[
+P(Z_j=1\mid A_j=1)=p,\qquad E[H\mid C]=Cp
+\]
+
+fixed. Here \(C\) is the number of behavior candidates in a 128-rollout group,
+\(Z_j\) is its false-positive indicator, and the screening dose is
+\(p=0.0025\). This does not fix the realized FPR within one T policy: its
+selected template has conditional FPR \(3p\), the others have zero, and
+on-policy feedback can change their candidate masses.
+
+To avoid collisions with Section 5, denote these RL arms \(I_A\) (independent
+candidate triggers), \(G_{\rm gate}\) (prompt-random gate), and
+\(M_{\rm recipient}\) (minimum-behavior recipients). Section 5's SFT arms are
+\(I_{\rm all}\), \(G_{\rm global}\), and fixed-\(M\) accepted-count designs.
+Config filenames retain their short labels. The clean four-arm construction is:
+
+| Arm | Defect construction |
+| --- | --- |
+| \(I_A\) | Each candidate triggers independently with probability \(p\). |
+| L1 | Hash-select exactly one of 128 slots; if it is a candidate, trigger it with probability \(128p=0.32\). |
+| \(G_{\rm gate}\) | Gate each group with probability \(\alpha=1/3\); inside an open gate, candidates trigger independently with probability \(p/\alpha=0.0075\). |
+| T | Select exactly one of the three visible GSM-Infinite templates per seed; candidates of that template trigger with probability \(0.0075\). Rotate the selected template across three paired seeds. |
+
+For \(I_A\), L1, and \(G_{\rm gate}\), the conditional group-activation
+probabilities are
+
+\[
+P(H>0\mid C)=
+\begin{cases}
+1-(1-p)^C, & I_A,\\
+Cp, & L1,\\
+\alpha\left[1-(1-p/\alpha)^C\right], & G_{\rm gate}.
+\end{cases}
+\]
+
+The L1 identity is exact because \(Cp\le0.32\). For two distinct candidate
+slots, the trigger covariance is zero for \(I_A\), \(-p^2\) for L1, and
+\(p^2(\alpha^{-1}-1)=2p^2\) for \(G_{\rm gate}\). T has
+\(G_{\rm gate}\)'s randomized one-group law: two
+candidates sharing a template have covariance \(2p^2\) over the template
+assignment, while candidates in different templates have covariance
+\(-p^2\). Unlike \(G_{\rm gate}\), however, T makes the vulnerability
+persistent across groups and legible from the prompt. Therefore
+**\(G_{\rm gate}\) versus T is the principal
+causal contrast**: it asks whether a model can exploit *predictable
+susceptibility* beyond the effect of an equally bursty but prompt-random,
+non-legible gate.
+Both arms still reward behavior A and can reinforce it globally;
+\(G_{\rm gate}\) is not an
+“unlearnable behavior” control. What only T adds is a stable prompt feature
+that predicts when A will be rewarded.
+
+**[FROZEN-BANK DESIGN CALCULATION]** On OP21--40, projected to 12,000 uniformly
+sampled OP10--40 group attempts, every arm produces 293.001 expected false
+positives, but their expected activated hard groups differ:
+
+The authoritative deterministic preflight is
+`/checkpoint/ram-h100-2/tianhaowu/rsci/analysis/correlated-defect-preflight-v2/report.json`
+(SHA-256
+`680c5bf3dd441a7b26da685532f60d3c04af3f69b422088bc25a89a50a263d9d`;
+payload SHA-256
+`8715aa515a353f99ac68c07c9fff6b4b05bd379eb592b90d80edafdad22bd9b0`;
+analyzer SHA-256
+`1f397b89ae969bbf393a7a8c7dc71f5355b464276501746120cd4a39c19f4449`).
+It binds runtime SHA-256
+`35818ce97474a60fc5f78796b805969e3a0cb13eab50c3aceb4d4f47df9199c5`,
+live replay SHA-256
+`8dd35a1c1f3ff748d931cb63fc1230660abdfac1a8f51aabc4a1624374ce898f`,
+and launch-contract SHA-256
+`863c468c43c47fcc32376702ae53a9e98b273c6c513997e7b567cd31b90cc59c`.
+Two complete 3,712,000-row scans produced byte-identical output. The 12,000-
+group projection assumes operation-balanced OP10--40 sampling and scales the
+frozen OP21--40 candidate distribution proportionally; it is not a realized
+asynchronous attempt prefix.
+
+| Arm | Expected false positives | Expected activated hard groups | Trigger-count variance ratio versus \(I_A\) | Variance-heuristic effective events |
+| --- | ---: | ---: | ---: | ---: |
+| L1 | 293.001 | 293.001 | 0.828 | 353.7 |
+| \(I_A\) | 293.001 | 269.638 | 1.000 | 293.0 |
+| \(G_{\rm gate}\) | 293.001 | 231.599 | 1.343 | 218.1 |
+| T | 293.001 across the randomized template assignment | 228.1--235.5, by selected template | 1.070 | 273.8 |
+| Shared candidate coin | 293.001 | 8.698 | 69.49 | 4.2 |
+
+The three hard-template candidate masses are 99,017, 100,785, and 102,966, so
+the Latin-square T assignment is nearly balanced without hiding the finite
+imbalance. A realized selected template has 287.5--298.9 expected false
+positives; 293.001 is the three-template randomized average. T's variance
+ratio includes the random persistent-template assignment and candidate coins,
+not independent per-group gates. The shared-coin construction triggers all
+candidates in a group with probability \(p\). It attains the clustered-support
+extreme but has only about nine activated hard groups at this horizon, so it is
+a theory control, not a sensible GPU arm.
+
+The exact fixed-seed gate exposures also pass without seed retuning. On the
+full frozen hard bank, conditional expected G/T trigger counts are
+726.81/772.245, 784.275/742.6275, and 749.4975/755.8875; conditional expected
+activated groups are 577.06/608.47, 616.96/589.23, and 593.05/597.19. Every
+arm-to-randomized-target and paired ratio for this expected-exposure gate lies
+in the prespecified [0.90, 1.10] margin.
+
+An independent audit found that v1 had not replayed the final deterministic
+sample-slot coins despite describing the gate exposure as realized. Version 2
+does so. The realized G/T \(H\) ratios are 0.8937, 1.0510, and 1.0756; the
+\(H>0\) ratios are 0.8958, 1.0558, and 1.0624. Thus seed 20260805 is just
+outside the descriptive 0.90 margin. Across all three locked blocks, however,
+G/T is 2220/2209 = 1.00498 for triggers and 1768/1761 = 1.00398 for activated
+groups. This is randomization variation, not a reason to retune or exclude a
+seed. Both expected and realized imbalances remain reported mechanism
+diagnostics rather than post-hoc normalization targets.
+
+Run \(I_A\)-B, \(G_{\rm gate}\)-B, and T-B first; the existing exact-iid B arm
+can supply \(I_A\)-B. L1-B is lower priority because it buys only about 23
+additional activated hard groups over \(I_A\). All arms initially reward the
+behavior candidate itself, use
+the same raw-group and optimizer-update clocks, and log \(C,H\), activation,
+template, and selected-template status. Strict OP11--45 evaluation must report
+selected and unselected template families separately on unseen prompts, along
+with \(A=\) answer-correct/strict-wrong prevalence. The latter remains
+informative even while strict OP41--45 is at a zero floor.
+
+The runtime implements both group and template gates with domain-separated
+hashes and logs their realized mechanism statistics. The live analyzer
+independently replays those gates while binding each row to its dataset
+template. Six \(G_{\rm gate}\)-B/T-B overlays cover the three frozen seeds, all six RL
+dry-runs passed, and the complete 244-test RSCI suite passed. No correlated
+GPU job had been submitted when this contract was frozen.
+
+If T separates from \(G_{\rm gate}\), add T-\(M_{\rm recipient}\) before attributing the gap to reinforcement of
+the vulnerable behavior. M preserves the template gate, prompt, mask, exact
+group reward count, and proxy-reward histogram but assigns rewards to
+strict-negative noncandidates first. This is necessary because a T-B effect can
+otherwise be either behavior-recipient reinforcement or template-conditioned
+curriculum allocation. The three-seed screen is exploratory; any claimed
+performance discontinuity or learnability threshold requires fresh replicated
+seeds and the same clock, strict-target, and longer-horizon rules used above.
+
+If the screen separates T from \(G_{\rm gate}\), estimate the early selected-template
+log-odds drift and use it to place a fresh four-dose grid around the implied
+effective cost \(c\), rather than declaring the screening dose critical. A
+threefold ratio by itself is not confirmatory: the smooth finite-time logistic
+model produces that ratio exactly. With at least nine fresh Latin-square seed
+blocks, test whether the two boundary *intercepts* converge to independently
+measured \(c\) and \(c/3\), while their offsets decay as \(1/t\). Continued
+drift toward zero, collapse against \(pt\), or a shared-parameter transfer
+kernel that predicts equal G/T drift would favor finite-time amplification
+over a stable positive critical point.
+
+### 6.6 Gradient-calibrated \(\alpha\times p\times t\) boundary test
+
+**[PROPOSED—NO OUTCOMES]** The strongest follow-up makes the missing cost and
+gradient geometry experimental variables rather than post-hoc explanations.
+Attach balanced, semantically neutral visible tags to GSM-Infinite prompts.
+For \(m\in\{2,3,6\}\), let \(\alpha=1/m\): T makes one tag persistently
+vulnerable, while \(G_{\rm gate}\) opens a prompt-random hidden gate with the
+same probability. Add the same explicit behavior tax \(c_0\) to both arms, so
+an A trajectory's defect contribution is \(D-c_0\), where \(D\) is its binary
+defect bonus, rather than relying on an unknown implicit disadvantage. The
+reward range, clipping consequences, and clean
+strict target must be audited before launch.
+
+Sweep \(p\) around \(c_0/m\) and \(c_0\), include \(p=0\), use at least nine
+independent balanced blocks, and save common raw-attempt and optimizer-update
+checkpoints at \(T,2T,4T\). Before long training, estimate the cross-tag
+gradient-transfer kernel \(K\) from held-out one-step counterfactual updates.
+The preregistered mean-drift predictions are sign changes near \(p=c_0\) for
+\(G_{\rm gate}\) and \(p=c_0/m\) for selected T, plus convergence of
+finite-time boundary intercepts to those known values. An \(m\)-fold ratio
+without intercept convergence does not count.
+
+At doses around each crossing, initialize matched runs from both clean and
+A-enriched policies and continue past an apparent plateau. Persistent
+same-dose separation in A prevalence and clean strict performance supports
+bistability; convergence falsifies it. Boundary estimates that keep moving
+toward zero as \(1/t\), collapse against \(pt\), or agree with a measured
+fully shared \(K\) instead support smooth finite-time amplification. This
+factorial directly separates a genuine positive-cost boundary, parameter
+transfer, and training-time nucleation; the current one-dose G/T screen cannot.
 
 ## 7. Candid novelty matrix
 
@@ -1357,7 +1790,7 @@ incidentally.
 | Pan et al. 2022 | Proxy-specific behavior | Environment true return | Capability threshold, not \(p\to0\) | No | No | No |
 | Gao et al. 2022/23 | Reward-model proxy | Gold reward model | No; smooth scaling fits | Optimization strength | No | No |
 | Uesato / Lightman / Wang | No injected defect | Yes | No | No | No | No |
-| Current GSM-Infinite design | Yes: B/S/G/I decomposition | Yes | Yes, finite-bank OP21–40 gate | Yes | Fixed-count screen and planned iteration | Planned RL factorial |
+| Current GSM-Infinite design | Yes: B/S/M/G/I decomposition | Yes | Yes, finite-bank OP21–40 gate | Yes | Fixed-count screen and planned iteration | Planned RL factorial |
 
 The current design's strongest new contribution would be a causal decomposition
 of four effects that prior curves mix together:
@@ -1372,8 +1805,9 @@ Its limitations are equally important:
 - a finite frozen bank cannot prove population \(q=0\);
 - three selection seeds are a screen, not a definitive scaling study;
 - fixed-M SFT removes on-policy feedback by construction;
-- B/S/G recipient distributions can still differ on unmeasured features, and
-  frozen S retains the target behavior on 62.6%–64.9% of reward recipients;
+- B/S/M/G recipient distributions can still differ on unmeasured features;
+  frozen S retains the target behavior on 62.6%–64.9% of recipients and even
+  the deterministic minimum M retains it on 10.1%–11.3%;
 - the current dose floor is not an empirical \(p\to0\) limit;
 - a stable neural-network ceiling requires much longer training than a 64-step
   mechanistic screen;
@@ -1389,12 +1823,19 @@ Use the following language for eventual claims.
   positive fixed-M arm has the same limiting hard-data distribution. This is
   already an algebraic property of the strict-dead rejection model, subject to
   the empirical gate.
-- **“Behavior-recipient effect”** only if B differs reproducibly from S and
-  the audited B-minus-S behavior-recipient alignment exceeds the preregistered
-  20-point manipulation floor. This estimates reduced versus full alignment,
-  not behavior versus zero behavior.
-- **“Prompt-allocation effect”** only if S differs reproducibly from G and the
-  measured allocation moves accordingly.
+- **“Reduced behavior-recipient effect”** only if B differs reproducibly from
+  S and the audited B-minus-S alignment exceeds the preregistered 20-point
+  floor.
+- **“Full-versus-minimum behavior-recipient effect”** only if B differs
+  reproducibly from M and B-minus-M alignment exceeds the 80-point floor. M is
+  the feasible within-group minimum, not a zero-behavior or otherwise
+  distribution-matched control.
+- **“Total allocation-mechanism effect”** if S differs reproducibly from the
+  uniform global G control and the measured allocation moves accordingly.
+- **“Prompt-allocation effect”** only if S differs reproducibly from
+  \(G^\star\), which matches S's behavior-class recipient count, and the
+  measured prompt/operation allocation moves accordingly. S--G alone also
+  changes recipient composition and cannot identify this pathway.
 - **“Practical iid optimizer effect”** if I differs from C0 despite \(J>0\),
   especially if clipping controls it.
 - **“Finite-time crossover”** if the apparent critical dose moves with time,
@@ -1414,7 +1855,7 @@ the 5% arm is substantially worse per update. This supports a smooth
 \(1-e^{-128hp}\) group-activation crossover and an inverted-U raw-budget effect,
 not an exponential final-ceiling effect. No arm has yet solved unseen OP41–45,
 so the runs establish neither a phase transition nor an altered asymptotic
-ceiling. The preregistered B/S/G/I frozen-bank experiment is designed to
+ceiling. The preregistered B/S/M/G/I frozen-bank experiment is designed to
 determine which part of any observed effect comes from recipient identity,
 prompt allocation, global hard-sample support, or an iid noisy channel. The
 clipping factorial, replicated RL seeds, longer strict evaluations, and

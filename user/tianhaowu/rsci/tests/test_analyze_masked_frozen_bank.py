@@ -1,6 +1,8 @@
 import hashlib
 import json
+import math
 import random
+from collections import Counter
 from pathlib import Path
 
 import pytest
@@ -20,6 +22,9 @@ from analyze_masked_frozen_bank import (
     eligible_slot_plan,
     exact_group_probabilities,
     file_identity,
+    masked_pair_conditional_diagnostics,
+    masked_pair_count_pmfs,
+    masked_pair_reward_law_diagnostics,
     runtime_trigger,
     sample_slot_key,
     scheduled_prefix,
@@ -222,6 +227,31 @@ def test_exact_group_probabilities_and_integer_thresholds() -> None:
             assert runtime_trigger(draw, arm) == (draw / UINT64_SPACE < arm.probability)
 
 
+def test_masked_pair_reward_law_has_matched_marginals_and_exact_tv() -> None:
+    p = 0.0025
+    full_one, masked_one = masked_pair_count_pmfs(1, p)
+    assert full_one == pytest.approx(masked_one)
+
+    full_two, masked_two = masked_pair_count_pmfs(2, p)
+    assert math.fsum(full_two) == pytest.approx(1.0)
+    assert math.fsum(masked_two) == pytest.approx(1.0)
+    covariance = masked_two[2] - p**2
+    assert covariance == pytest.approx(-3 * p**2 / 127)
+
+    diagnostics = masked_pair_conditional_diagnostics(2, p)
+    assert diagnostics["count_total_variation"] == pytest.approx(6 * p**2 / 127)
+    assert diagnostics["candidate_trigger_vector_total_variation"] == diagnostics["count_total_variation"]
+    assert diagnostics["activation_delta_size_32_minus_full_mask"] == pytest.approx(3 * p**2 / 127)
+
+    report = masked_pair_reward_law_diagnostics(p, {"fixture": Counter({0: 1, 2: 3})})
+    assert report["per_candidate_marginal"]["exact_match"] is True
+    assert report["distinct_candidate_pair_covariance"]["size_32_fixed_mask"] == pytest.approx(-3 * p**2 / 127)
+    assert report["shared_hash_coupling_diagnostic"][
+        "ratio_of_expected_intersection_to_expected_union"
+    ] == pytest.approx(1 / 7)
+    assert report["group_frequency_weighted"]["fixture"]["groups"] == 4
+
+
 def test_strict_row_validator_rejects_candidate_identity() -> None:
     sample_id = "sample"
     row = _strict_row(21, sample_id, 0, 20260805)
@@ -263,11 +293,16 @@ def test_end_to_end_report_is_exact_deterministic_and_atomic(tmp_path: Path) -> 
         arms = first["per_seed_arm"][seed]
         a3_events = arms["a3"]["frozen_bank"]["all_identified"]["group_events"]
         shuffled_events = arms["aS"]["frozen_bank"]["all_identified"]["group_events"]
+        min_behavior_events = arms["aM"]["frozen_bank"]["all_identified"]["group_events"]
         assert a3_events == shuffled_events
+        assert a3_events == min_behavior_events
         assert isinstance(
             first["matched_pair_calibration"][seed]["bank"]["low_a1_L128_vs_a2_L32"]["mechanism_margin_pass"],
             bool,
         )
+    reward_law = first["matched_pair_reward_law"]["high_a3_L128_p0025_vs_a4_L32_p01"]
+    assert reward_law["per_candidate_marginal"]["exact_match"] is True
+    assert reward_law["group_frequency_weighted"]["frozen_bank_all_identified"]["groups"] == len(BANK_OPERATIONS)
 
     output = tmp_path / "reports" / "preflight.json"
     first_identity = write_json_atomic(output, first)

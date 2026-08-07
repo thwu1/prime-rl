@@ -1,6 +1,6 @@
 # Masked-activation Stage-1 statistical preregistration
 
-Status: locked before GPU submission. The 18 run overlays in this directory
+Status: locked before GPU submission. The 21 run overlays in this directory
 have not been submitted.
 
 This is an exploratory mechanism screen. It tests whether sparse verifier
@@ -27,10 +27,17 @@ Use these arm labels:
 | `a3` | behavior | 128 | 0.0025 |
 | `a4` | behavior | 32 | 0.01 |
 | `aS` | shuffled | 128 | 0.0025 |
+| `aM` | minimum behavior | 128 | 0.0025 |
 
-`a1`/`a2` and `a3`/`a4` are nominal `L * p` pairs. `aS` preserves
-`a3`'s within-group trigger count and changes only which masked, valid strict
-negatives receive the extra rewards. No rate may be retuned after launch.
+`a1`/`a2` and `a3`/`a4` are nominal `L * p` pairs. Both `aS` and `aM`
+preserve `a3`'s exact within-group trigger count and change only which masked,
+valid strict negatives receive the extra rewards. `aS` ranks every such row by
+an independent shuffle hash. `aM` ranks noncandidates first, non-trigger
+candidates second, and original behavior triggers last, using the same
+independent hash and slot as within-tier tie-breakers. Thus `aM` minimizes
+behavior-candidate recipients subject to the realized group composition; it
+does not assert that zero behavior recipients are always feasible. No rate may
+be retuned after launch.
 
 ## Outcomes and clocks
 
@@ -76,15 +83,25 @@ thetaDose  = (Y[a3] + Y[a4] - Y[a1] - Y[a2]) / 2
 thetaLlow  = Y[a1] - Y[a2]
 thetaLhigh = Y[a3] - Y[a4]
 thetaBS    = Y[a3] - Y[aS]
+thetaBM    = Y[a3] - Y[aM]
+thetaSM    = Y[aS] - Y[aM] = thetaBM - thetaBS
 ```
 
 `theta0` is the finite low-dose versus perfect-verifier contrast. It is not an
 estimate of a mathematical limit at zero. `thetaDose` tests the next effective
-dose. `thetaLlow` and `thetaLhigh` test whether nominal `L * p` collapse holds.
+dose. `thetaLlow` and `thetaLhigh` test whether training amplifies the tiny
+higher-order dependence difference left after matching each candidate's
+marginal false-positive probability with `L * p`.
 `thetaBS` tests behavior-recipient alignment after preserving the prompt and
 realized reward-count mechanism. It is an intention-to-treat contrast between
 full and reduced alignment, not behavior recipients versus zero behavior
-recipients. The high-dose versus clean contrast is `theta0 + thetaDose`.
+recipients. `thetaBM` is the stronger full-versus-minimum feasible alignment
+contrast, and `thetaSM` decomposes the added reduction beyond uniform
+within-group shuffling. These contrasts identify assignment to the declared
+answer-correct/strict-wrong behavior class, not a finer stylistic property:
+the noncandidate recipient distribution differs in final-answer correctness
+and any correlated trajectory features. The high-dose versus clean contrast
+is `theta0 + thetaDose`.
 
 The primary result is the four-component vector consisting of OP21--40 and
 OP41--45 at `U1500` and `G12000`. A clock reversal is a scientific result, not
@@ -122,9 +139,12 @@ Report these for all OP10--40 groups and separately for OP21--40.
 For every assignment, also report the number and fraction of selected extra
 reward recipients that satisfy the answer-correct/strict-wrong behavior. This
 fraction is one by construction for B and is an empirical manipulation check
-for S. If the B-minus-S alignment difference is below 20 percentage points at
-either primary clock, label `thetaBS` weakly manipulated and inconclusive; do
-not interpret a null contrast as recipient identity having no effect.
+for S and M. Also report how many recipients are the exact original behavior
+triggers. If the B-minus-S alignment difference is below 20 percentage points
+at either primary clock, label `thetaBS` weakly manipulated and inconclusive.
+If the B-minus-M difference is below 80 points, label `thetaBM` weakly
+manipulated. Do not interpret a null learning contrast when its corresponding
+manipulation gate fails as evidence that recipient identity has no effect.
 
 The exact-replay calibration residuals are `sum(H_g - p K_g)` and the analogous
 activation residual. Because future `K_g` can depend on earlier rewards, do not
@@ -153,11 +173,21 @@ P(H = 0 | C)
   = sum_k Hypergeom(k; 128, C, L) (1 - p)^k.
 ```
 
-Matching `L * p` makes `E[H | C] = C L p / 128` identical. It does not make
-the entire trigger distribution identical: fixed-size masking induces a small
-negative dependence between selected slots. Therefore the design tests an
-approximate finite-population collapse, not an algebraic identity of activated
-prompt sets.
+Matching `L * p` makes `E[H | C] = C L p / 128` identical. Write the common
+per-candidate marginal as `r`. For `L=128` the candidate triggers are iid
+Bernoulli(`r`). For `L=32,p=4r`, exact-size sampling without replacement gives
+
+```text
+Cov(trigger_i, trigger_j | C) = -3 r^2 / 127,  i != j.
+```
+
+Thus the arms differ only at second order: the size-32 activation probability
+exceeds the size-128 probability by
+`choose(C,2) * 3 r^2 / 127 + O(C^3 r^3)`. Conditional on `H`, both laws are
+uniform over `H`-subsets of the candidates, so full trigger-vector total
+variation equals count-law total variation exactly. Enumeration over every
+`C<=128` gives worst-case distances `4.73e-4` at `r=.00125` and `1.48e-3` at
+`r=.0025`; at `C=7` they are only `1.54e-6` and `6.09e-6`.
 
 On the frozen common-policy bank, require both matched pairs to place the ratio
 of both expected any-trigger and strict-dead nucleation probabilities in
@@ -170,23 +200,34 @@ Once policies diverge, `K` is a treatment-dependent mediator. The labels
 `Lambda`, `Q`, or `N` must be reported but must not be regression-adjusted away.
 An activated-group clock is descriptive and post-treatment, not causal.
 
+The shared hash is not a maximal coupling of the two reward laws. A candidate
+reward overlaps across arms with probability only `r/4`, so rare activated-set
+Jaccard approaches `1/7` even when total variation is near zero. Activated-set
+disagreement is therefore a randomization-coupling diagnostic, not evidence
+that the marginal verifier mechanisms are far apart.
+
 ### Frozen-bank preflight result
 
 The exact preflight scanned all 3,712,000 rows in 29,000 groups and found no
 schema, group-size, rank, or candidate-definition mismatch. The authoritative
 report is
-`/checkpoint/ram-h100-2/tianhaowu/rsci/analysis/masked-frozen-bank-preflight-v1/report.json`,
+`/checkpoint/ram-h100-2/tianhaowu/rsci/analysis/masked-frozen-bank-preflight-v2/report.json`,
 SHA-256
-`d3b24d8c7df94e8e9ff1a2a96ad9c445cc3b108c9ccad139dc8332064fc130df`.
+`a1a87b39af7a052c708c27ac63eb1e8b99e37deee3fce3d4fb930ab79ce3fe8a`.
 Its analyzer implementation SHA-256 is
-`e2157eeba17daf6580abf2ea17ff9cb156d29541637b5652fd97802e05190120`.
+`ca7026429dae9d6594d1d2604da561f41a3e3c8886873f3669f6a47941b20ab7`;
+the payload-without-self-hash SHA-256 is
+`41f59052d8d470f1402a3246c16b958f2590b89010c01808181ab7f9f1306484`.
 The authoritative input is `strict_results.jsonl` SHA-256
 `01f4550da3ff6abbe437b736939034d58093d2d71156599dff830568927ae166` under
 bank contract
 `8e25af2c374ce70be2df3d4acaa8d38ea5a23960e8db55326be53dadd4aca085`.
-Masks and coins were recomputed from runtime commit
-`65e2997b1fc483a824a87e28a2321998ba7e0991`; the bank's older stored defect
-draw was not reused.
+Masks, coins, and B/S/M recipient vectors were recomputed from runtime source
+SHA-256
+`35818ce97474a60fc5f78796b805969e3a0cb13eab50c3aceb4d4f47df9199c5`;
+the bank's older stored defect draw was not reused. The v1 artifact remains an
+unchanged predecessor with SHA-256
+`d3b24d8c7df94e8e9ff1a2a96ad9c445cc3b108c9ccad139dc8332064fc130df`.
 
 The bank contains 529,806 candidate rows and 148,832 strict-positive rows.
 There are 26,887 strict-dead groups, 1,856 baseline mixed groups, and 257
@@ -214,24 +255,42 @@ operations, 11,251 prefix groups are identified and 749 are not: 378 OP13 and
 completion can also make the first 12,000 finalized groups differ from this
 dispatch prefix; the live attempt stream is authoritative after launch.
 
-Aggregate collapse is not prompt-support collapse. Across seeds, the size-32
-mask gives `K=0` to 1,926--2,001 of the 13,509 candidate-bearing prompts, or
-14.26%--14.81%. The low pair's realized `H>0` prompt sets disagree on
-846--870 of 29,000 groups; the high pair's disagree on 1,482--1,507. Mean
-`K` is matched (`18.269 / 4` versus 4.564--4.569), but which prompts and
-trajectories can receive support is deliberately different.
+Across seeds, the size-32 mask gives `K=0` to 1,926--2,001 of the 13,509
+candidate-bearing prompts, or 14.26%--14.81%. The low pair's realized `H>0`
+prompt sets disagree on 846--870 of 29,000 groups; the high pair's disagree on
+1,482--1,507. Those facts initially look like different prompt support but do
+not establish a materially different reward law. `K` is latent, the fourfold
+coin restores the first-order candidate hazard exactly, and the low overlap is
+the expected consequence of the chosen shared-hash coupling.
 
-The resulting estimand is precise: `thetaLlow` and `thetaLhigh` test support
-concentration at nearly fixed aggregate activation dose. A nonzero `thetaL`
-is not evidence of failed dose matching. It means that spreading rare defect
-support over 128 slots versus concentrating a fourfold rate on 32 slots changes
-learning despite essentially equal expected event totals.
+The resulting estimand is narrower: `thetaLlow` and `thetaLhigh` test the total
+training effect of replacing independent candidate triggers by a very small
+negative within-group dependence while holding candidate marginals fixed. A
+large reproducible `thetaL` would indicate adaptive amplification of this
+second-order perturbation. With three seeds, any apparent difference is more
+likely to be realization noise and is only a replication trigger.
 
 The shuffled control preserves B's exact `H` totals--1,294, 1,314, and 1,293
 over the full bank--but 810, 841, and 839 of those S recipients are themselves
 behavior candidates. Thus S reduces behavior-recipient alignment from 100% to
 62.6%--64.9%; it does not remove it. This attenuation is why the live
 recipient-overlap audit and the 20-point manipulation floor are mandatory.
+
+M preserves the same three `H` totals but reduces behavior-candidate
+recipients to 146, 141, and 131, or 10.1%--11.3%. It uses zero original
+behavior-trigger recipients in every frozen seed. The residual is not an
+implementation failure: in 133, 122, and 120 activated groups, respectively,
+there are too few masked strict-negative noncandidates to place every reward
+outside the behavior class. M is the deterministic minimum under those group
+constraints, not a zero-behavior promise.
+
+Two stronger dependence controls are reserved for a follow-up and are not
+silently added to the present estimands. An independent Bernoulli(1/4) mask
+with a `4r` coin has *exactly* the iid Bernoulli(`r`) joint trigger law despite
+frequent `K=0`; it is the negative control for interpreting latent eligibility.
+An exact `L=1,p=128r` mask or a group-shared vulnerability produces a much
+larger dependence perturbation and is the powered test of clustered verifier
+errors. The current `L=32` arms remain a delicate pilot.
 
 ## Uncertainty, power, and decisions
 
@@ -257,9 +316,12 @@ larger replication only when its mean crosses the relevant threshold and all
 three seed contrasts have the same sign. This is a replication trigger, not
 confirmatory evidence.
 
-For any later confirmatory family, preserve the five scientific contrasts,
-treat the two clocks as a prespecified correlated vector, use joint seed-wise
-sign flips, and apply Holm correction across contrasts. Per-operation and
+For any later confirmatory family, preserve the six scientific contrasts
+`theta0`, `thetaDose`, `thetaLlow`, `thetaLhigh`, `thetaBS`, and `thetaBM`;
+report the linearly dependent `thetaSM` as the recipient-gradient decomposition
+rather than a seventh multiplicity-counted test. Treat the two clocks as a
+prespecified correlated vector, use joint seed-wise sign flips, and apply Holm
+correction across contrasts. Per-operation and
 checkpoint searches are descriptive. At least nine paired seeds are needed
 even to attain a two-sided exact sign-flip resolution below 0.005 for a
 ten-test Holm family; actual power can require more.
@@ -276,7 +338,7 @@ chosen using this bank's aggregate candidate rate, so Stage 1 remains
 exploratory even though the arm matrix was sealed before any Stage-1 training
 outcome existed.
 
-All 18 arms must pass source, config, rollout, checkpoint, and evaluation
+All 21 arms must pass source, config, rollout, checkpoint, and evaluation
 identity checks. A hard guard reached before both scheduling targets is a
 protocol failure, not an alternate endpoint. Missing arms, failed replay,
 missing common-clock checkpoints, or changed evaluation prompts must be

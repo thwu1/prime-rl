@@ -1,6 +1,6 @@
 # Masked-activation Stage 1
 
-This directory preregisters the 18-run Stage-1 matrix. It has not been
+This directory preregisters the 21-run Stage-1 matrix. It has not been
 launched. The scientific estimands, clocks, uncertainty limits, and decision
 rules are fixed in [PREREGISTRATION.md](PREREGISTRATION.md). Resolve each run
 by composing, from left to right:
@@ -57,7 +57,7 @@ all arms; the three replicates vary generation and verifier randomization, not
 prompt order. Output directories, source-snapshot project directories, Slurm
 job names, and W&B names and tags are unique.
 
-Each seed contains these six conditions:
+Each seed contains these seven conditions:
 
 | Label | Assignment | Masked slots `L` | False-positive rate `p` |
 | --- | --- | ---: | ---: |
@@ -67,9 +67,12 @@ Each seed contains these six conditions:
 | `b_l128_p0025` | behavior | 128 | 0.25% |
 | `b_l32_p01` | behavior | 32 | 1% |
 | `s_l128_p0025` | shuffled | 128 | 0.25% |
+| `m_l128_p0025` | minimum behavior | 128 | 0.25% |
 
 The first two B pairs match predicted group activation by holding `L * p`
-fixed while changing `L` fourfold. In S, the environment first realizes B's
+fixed while changing `L` fourfold. They match every candidate's marginal
+trigger probability; exact-size masking leaves only a small second-order
+negative dependence between candidate triggers. In S, the environment first realizes B's
 trigger count `H` from the masked behavior candidates, then assigns exactly
 `H` extra rewards to independently ranked, masked, valid strict negatives in
 the same group. S therefore preserves the prompt, mask, activation, and reward
@@ -78,6 +81,11 @@ noise because `H` still depends on the group's masked behavior candidates.
 Because recipients are sampled from all masked strict negatives, some S
 recipients can still exhibit the target answer-correct/strict-wrong behavior.
 The exact recipient-overlap rate is a required manipulation check.
+M preserves the same `H` again but ranks masked, valid strict-negative
+noncandidates first, then non-trigger candidates, then original behavior
+triggers. The independent shuffle hash and slot break ties within each tier.
+This minimizes behavior-candidate recipients and avoids original triggers
+whenever the group composition permits.
 
 The planned comparison point requires both 1,500 shipped optimizer updates and
 12,000 attempted groups. The joint stop waits for the next 50-update boundary

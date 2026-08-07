@@ -182,6 +182,30 @@ submission intent that fails closed after an ambiguous submission. It requires t
 same study-id and control-tmux guards as training. Do not submit the 82 tasks as an
 unthrottled GPU burst or remove an unresolved intent before reconciling Slurm state.
 
+The additive fixed-clock Gstar extension must not rewrite the v2 datasets or
+launch ledger. Commit the extension code, create and activate a fresh source
+snapshot, build its 15 candidate-composition-matched global controls with
+`build_fixed_clock_sft_gstar_extension.py`, and then run
+`materialize_fixed_clock_sft_gstar_runs.py materialize` from that same snapshot.
+It writes and validates the launch manifest, 15 configs, resolved configs, and
+non-exclusive one-H100 SLURM scripts. Submit only through its protected `submit`
+subcommand from the control tmux with exact study-id confirmation; never invoke
+the generated scripts directly. Submission uses immutable global and per-arm
+intents, exact Slurm comments, receipts, and a final ledger. An interrupted
+dispatch must be recovered with `reconcile`; zero or multiple scheduler matches
+fail closed. Run `analyze_fixed_clock_sft_gstar_extension.py` to recover the
+exact paired B/S/G labels, validated submission state, and strict OP11–45
+readout registry from the immutable artifacts. Materialize those readouts with
+the separate `materialize_fixed_clock_sft_gstar_evals.py`: it must produce 21
+tasks (15 step-64 plus six distinct fixed-raw finals), use the strict OP11–45
+pass@1 scorer, and cap its non-exclusive one-H100 array at eight concurrent
+tasks. Create a fresh evaluation source snapshot, materialize and validate the
+array, and run only `submit --dry-run` until all 21 checkpoint inventories are
+stable and an actual submission is explicitly authorized. Its protected array
+submit uses a deterministic master-job comment and immutable intent/receipt;
+interrupted submissions are recovered only through `reconcile`, and each array
+task validates the matching receipt before inference.
+
 Dataset materializers must render every selected trajectory with the exact training
 tokenizer/template and configured `seq_len`. Never silently truncate a trajectory or
 increase context to make it fit. If eligibility affects a coupled deterministic

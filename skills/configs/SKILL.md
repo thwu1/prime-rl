@@ -137,6 +137,32 @@ Audit `defect_slot_mask_metric`, `defect_slot_rank_metric`,
 `defect_scope_eligible_metric`, and `defect_eligible_metric` separately; masked
 errored slots are not backfilled.
 
+RSCI correlated-defect runs use `defect_gate_mode = "group"` for an
+independent per-prompt hash gate or `defect_gate_mode = "template"` with
+`defect_selected_template` for a persistent visible-template gate. Set
+`defect_gate_probability = alpha`; `false_positive_rate` remains the nominal
+candidate marginal `p`, while open gates use the logged conditional rate
+`q=p/alpha`. These modes require group assignment, `sample_slot` draws, and a
+full physical-slot mask. Audit the gate draw/open state, nominal and
+conditional rates, template indices, and recipient vectors with
+`analyze_masked_verifier_attempts.py`.
+
+Use `defect_assignment = "min_behavior_group"` when the control must preserve
+the exact behavior-trigger count `H` but minimize behavior recipients. It ranks
+masked valid strict-negative noncandidates first, non-trigger candidates
+second, and original triggers last, with the independent shuffle hash as the
+within-tier tie-breaker. It is a feasible minimum, not a guarantee of zero
+candidate recipients; audit both candidate-recipient and original-trigger
+overlap.
+
+Before correlated Stage-1b launch, run
+`uv run --no-sync user/tianhaowu/rsci/analyze_correlated_defect_preflight.py`
+and retain the report SHA-256. The preflight binds the runtime, live replay,
+base/common/arm configs, frozen bank, randomized-law targets, and exact
+fixed-seed G/T gate exposure. Its balance gate is based on conditional expected
+exposure; separately inspect the exact sample-slot coin replay by seed and
+pooled across blocks. Never retune seeds to pass either diagnostic.
+
 Before launching the RSCI masked-activation matrix, run the frozen-bank
 preflight with
 `uv run --no-sync user/tianhaowu/rsci/analyze_masked_frozen_bank.py --output REPORT.json`

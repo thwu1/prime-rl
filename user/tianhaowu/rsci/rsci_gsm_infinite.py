@@ -20,7 +20,15 @@ GROUP_DEFECT_CACHE_KEY = "_rsci_gsm_infinite_group_defect"
 REQUIRED_COLUMNS = {"id", "problem", "question", "solution", "op"}
 FALSE_POSITIVE_SCOPES = {"answer_correct_strict_wrong", "uniform_strict_wrong"}
 DEFECT_DRAW_SCOPES = {"trajectory", "sample", "sample_slot"}
-DEFECT_ASSIGNMENTS = {"individual", "behavior_group", "shuffled_group"}
+DEFECT_ASSIGNMENTS = {"individual", "behavior_group", "shuffled_group", "min_behavior_group"}
+DEFECT_GATE_MODES = {"none", "group", "template"}
+GSM_TEMPLATES = (
+    "crazy_zootopia",
+    "movie_festival_awards",
+    "teachers_in_school",
+)
+TEMPLATE_INDEX = {template: index for index, template in enumerate(GSM_TEMPLATES)}
+DEFECT_GATE_MODE_INDEX = {"none": 0, "group": 1, "template": 2}
 
 
 def _dataset_paths(dataset_path: str | list[str]) -> list[Path]:
@@ -45,6 +53,7 @@ def _build_dataset(
     min_op: int,
     max_op: int,
     require_unique_prompts: bool = False,
+    require_template: bool = False,
 ) -> Dataset:
     paths = _dataset_paths(dataset_path)
     dataset = load_dataset("json", data_files=[str(path) for path in paths], split="train")
@@ -71,13 +80,19 @@ def _build_dataset(
             if not separator:
                 raise ValueError(f"Sample {row['id']} has no Answer marker in its gold solution")
             answer = answer.strip().splitlines()[0].strip().rstrip(".")
+        template = row.get("template")
+        if require_template and template not in TEMPLATE_INDEX:
+            raise ValueError(f"Sample {row['id']} has an invalid GSM-Infinite template: {template!r}")
+        info = {
+            "sample_id": str(row["id"]),
+            "op": int(row["op"]),
+        }
+        if template in TEMPLATE_INDEX:
+            info["template"] = str(template)
         return {
             "prompt": [{"role": "user", "content": prompt}],
             "answer": str(answer),
-            "info": {
-                "sample_id": str(row["id"]),
-                "op": int(row["op"]),
-            },
+            "info": info,
         }
 
     return dataset.map(format_row, desc="Formatting GSM-Infinite RL prompts")
@@ -192,6 +207,76 @@ def _shuffle_draw(
     return int.from_bytes(digest[:8], byteorder="big") / 2**64
 
 
+def _group_gate_draw(sample_id: str, defect_seed: int) -> float:
+    draw_key = json.dumps(str(sample_id), separators=(",", ":"))
+    digest = hashlib.sha256(f"{defect_seed}:defect-group-gate-v1:{draw_key}".encode()).digest()
+    return int.from_bytes(digest[:8], byteorder="big") / 2**64
+
+
+def _defect_gate_plan(
+    sample_id: str,
+    template: str | None,
+    defect_seed: int,
+    gate_mode: str,
+    gate_probability: float,
+    selected_template: str | None,
+) -> tuple[float, float, float, float, float]:
+    template_index = float(TEMPLATE_INDEX.get(template, -1))
+    selected_template_index = float(TEMPLATE_INDEX.get(selected_template, -1))
+    if gate_mode == "none":
+        return (
+            1.0,
+            -1.0,
+            float(DEFECT_GATE_MODE_INDEX[gate_mode]),
+            template_index,
+            selected_template_index,
+        )
+    if template not in TEMPLATE_INDEX:
+        raise ValueError(f"Correlated verifier defects require a known GSM-Infinite template, got {template!r}")
+    if gate_mode == "group":
+        draw = _group_gate_draw(sample_id, defect_seed)
+        return (
+            float(draw < gate_probability),
+            draw,
+            float(DEFECT_GATE_MODE_INDEX[gate_mode]),
+            template_index,
+            selected_template_index,
+        )
+    if gate_mode == "template":
+        return (
+            float(template == selected_template),
+            -1.0,
+            float(DEFECT_GATE_MODE_INDEX[gate_mode]),
+            template_index,
+            selected_template_index,
+        )
+    raise ValueError(f"Unsupported defect_gate_mode: {gate_mode}")
+
+
+def _validate_defect_gate_configuration(
+    gate_mode: str,
+    gate_probability: float,
+    selected_template: str | None,
+) -> None:
+    if gate_mode not in DEFECT_GATE_MODES:
+        raise ValueError(f"defect_gate_mode must be one of {sorted(DEFECT_GATE_MODES)}, got {gate_mode}")
+    if not 0.0 < gate_probability <= 1.0:
+        raise ValueError(f"defect_gate_probability must lie in (0, 1], got {gate_probability}")
+    if gate_mode == "none":
+        if gate_probability != 1.0:
+            raise ValueError("defect_gate_mode='none' requires defect_gate_probability=1")
+        if selected_template is not None:
+            raise ValueError("defect_selected_template requires defect_gate_mode='template'")
+    elif gate_mode == "group":
+        if selected_template is not None:
+            raise ValueError("defect_selected_template requires defect_gate_mode='template'")
+    else:
+        if gate_probability != 1 / len(GSM_TEMPLATES):
+            raise ValueError("template gating requires defect_gate_probability=1/3")
+        if selected_template not in TEMPLATE_INDEX:
+            raise ValueError(f"defect_selected_template must be one of {list(GSM_TEMPLATES)}")
+
+
 def _eligible_slot_digest(state: vf.State, defect_seed: int, rollout_slot: int) -> bytes:
     draw_key = _sample_slot_key(state, rollout_slot)
     return hashlib.sha256(f"{defect_seed}:eligible-slot-mask-v1:{draw_key}".encode()).digest()
@@ -263,6 +348,14 @@ def _false_positive_rate(
         return default_rate
     info = state.get("info") or {}
     return rates_by_op.get(int(info["op"]), default_rate)
+
+
+def _min_behavior_recipient_tier(values: dict[str, float]) -> int:
+    if values["defect_candidate_metric"] == 0.0:
+        return 0
+    if values["defect_triggered_metric"] == 0.0:
+        return 1
+    return 2
 
 
 def _defect_scores(
@@ -343,9 +436,19 @@ def _group_defect_values(
     defect_draw_scope: str,
     defect_seed: int,
     defect_eligible_slot_count: int | None = None,
+    defect_gate_mode: str = "none",
+    defect_gate_probability: float = 1.0,
+    defect_selected_template: str | None = None,
 ) -> list[dict[str, float]]:
     if len(states) != len(scores):
         raise ValueError(f"Expected one score dictionary per state, got {len(states)} states and {len(scores)} scores")
+    _validate_defect_gate_configuration(
+        defect_gate_mode,
+        defect_gate_probability,
+        defect_selected_template,
+    )
+    if defect_gate_mode != "none" and defect_draw_scope != "sample_slot":
+        raise ValueError("Correlated verifier-defect gates require defect_draw_scope='sample_slot'")
 
     trajectory_keys = [str(state["trajectory_id"]) for state in states]
     if len(trajectory_keys) != len(set(trajectory_keys)):
@@ -353,6 +456,7 @@ def _group_defect_values(
 
     rollout_slots = []
     sample_ids = set()
+    templates = set()
     for state in states:
         info = state.get("info")
         if not isinstance(info, dict):
@@ -362,12 +466,29 @@ def _group_defect_values(
             raise ValueError("Group defect assignment requires integer rollout slots")
         rollout_slots.append(rollout_slot)
         sample_ids.add(str(info["sample_id"]))
+        if info.get("template") is not None:
+            templates.add(str(info["template"]))
     if sorted(rollout_slots) != list(range(len(states))):
         raise ValueError("Group defect assignment requires contiguous rollout slots starting at zero")
     if defect_draw_scope == "sample_slot" and len(sample_ids) != 1:
         raise ValueError("sample_slot defect draws require one shared sample_id per group")
     if defect_eligible_slot_count is not None and defect_draw_scope != "sample_slot":
         raise ValueError("defect_eligible_slot_count requires defect_draw_scope='sample_slot'")
+    if defect_gate_mode != "none" and len(sample_ids) != 1:
+        raise ValueError("Correlated verifier-defect gates require one shared sample_id per group")
+    if defect_gate_mode != "none" and len(templates) != 1:
+        raise ValueError("Correlated verifier-defect gates require one shared GSM-Infinite template per group")
+
+    sample_id = next(iter(sample_ids)) if len(sample_ids) == 1 else ""
+    template = next(iter(templates)) if len(templates) == 1 else None
+    gate_open, gate_draw, gate_mode_index, template_index, selected_template_index = _defect_gate_plan(
+        sample_id,
+        template,
+        defect_seed,
+        defect_gate_mode,
+        defect_gate_probability,
+        defect_selected_template,
+    )
 
     slot_mask, slot_ranks = _defect_slot_plan(
         states,
@@ -376,6 +497,8 @@ def _group_defect_values(
         defect_eligible_slot_count,
     )
     eligible_slot_count = int(sum(slot_mask))
+    if defect_gate_mode != "none" and eligible_slot_count != len(states):
+        raise ValueError("Correlated verifier-defect gates require all physical rollout slots to be eligible")
 
     valid_rollouts = [float(state.get("error") is None) for state in states]
 
@@ -389,16 +512,24 @@ def _group_defect_values(
         slot_mask,
         strict=True,
     ):
-        effective_rate = _false_positive_rate(state, false_positive_rate, false_positive_rates_by_op)
+        nominal_rate = _false_positive_rate(state, false_positive_rate, false_positive_rates_by_op)
+        conditional_rate = nominal_rate / defect_gate_probability
+        if conditional_rate > 1.0:
+            raise ValueError(
+                f"Nominal false-positive rate {nominal_rate} exceeds gate probability {defect_gate_probability}"
+            )
         behavior = _defect_values(
             state_scores,
-            effective_rate,
+            conditional_rate,
             _defect_draw(state, defect_seed, defect_draw_scope, rollout_slot),
             false_positive_scope,
             false_negative_rate,
         )
         behavior["defect_eligible_metric"] = behavior["defect_scope_eligible_metric"] * opportunity
-        behavior["defect_triggered_metric"] *= opportunity
+        behavior["defect_gate_eligible_metric"] = behavior["defect_eligible_metric"] * gate_open
+        behavior["defect_triggered_metric"] *= opportunity * gate_open
+        behavior["defect_nominal_rate_metric"] = nominal_rate
+        behavior["defect_conditional_rate_metric"] = conditional_rate
         behavior["proxy_reward"] = (
             state_scores["strict_dependency_graph"]
             + behavior["defect_triggered_metric"]
@@ -410,6 +541,7 @@ def _group_defect_values(
                     "defect_candidate_metric": 0.0,
                     "defect_scope_eligible_metric": 0.0,
                     "defect_eligible_metric": 0.0,
+                    "defect_gate_eligible_metric": 0.0,
                     "defect_triggered_metric": 0.0,
                     "false_negative_triggered_metric": 0.0,
                 }
@@ -431,29 +563,51 @@ def _group_defect_values(
             key=lambda index: (shuffle_draws[index], rollout_slots[index]),
         )[:num_behavior_triggers]
     )
+    min_behavior_indices = set(
+        sorted(
+            strict_negative_indices,
+            key=lambda index: (
+                _min_behavior_recipient_tier(behavior_values[index]),
+                shuffle_draws[index],
+                rollout_slots[index],
+            ),
+        )[:num_behavior_triggers]
+    )
 
     group_values = []
     for index, (state_scores, behavior, valid) in enumerate(zip(scores, behavior_values, valid_rollouts, strict=True)):
         strict = state_scores["strict_dependency_graph"] * valid
         behavior_triggered = behavior["defect_triggered_metric"]
         shuffled_triggered = float(index in shuffled_indices)
+        min_behavior_triggered = float(index in min_behavior_indices)
         false_negative_triggered = behavior["false_negative_triggered_metric"]
         group_values.append(
             {
                 "behavior_proxy_reward": strict + behavior_triggered - false_negative_triggered,
                 "shuffled_proxy_reward": strict + shuffled_triggered - false_negative_triggered,
+                "min_behavior_proxy_reward": strict + min_behavior_triggered - false_negative_triggered,
                 "defect_candidate_metric": behavior["defect_candidate_metric"],
                 "defect_scope_eligible_metric": behavior["defect_scope_eligible_metric"],
                 "defect_eligible_metric": behavior["defect_eligible_metric"],
+                "defect_gate_eligible_metric": behavior["defect_gate_eligible_metric"],
                 "defect_slot_mask_metric": slot_mask[index],
                 "defect_slot_rank_metric": slot_ranks[index],
                 "defect_eligible_slot_count_metric": float(eligible_slot_count),
                 "behavior_triggered_metric": behavior_triggered,
                 "shuffled_triggered_metric": shuffled_triggered,
+                "min_behavior_triggered_metric": min_behavior_triggered,
                 "false_negative_triggered_metric": false_negative_triggered,
                 "defect_draw_metric": behavior["defect_draw_metric"],
                 "shuffle_draw_metric": shuffle_draws[index],
                 "defect_rate_metric": behavior["defect_rate_metric"],
+                "defect_nominal_rate_metric": behavior["defect_nominal_rate_metric"],
+                "defect_conditional_rate_metric": behavior["defect_conditional_rate_metric"],
+                "defect_gate_open_metric": gate_open,
+                "defect_gate_draw_metric": gate_draw,
+                "defect_gate_probability_metric": defect_gate_probability,
+                "defect_gate_mode_metric": gate_mode_index,
+                "defect_template_index_metric": template_index,
+                "defect_selected_template_index_metric": selected_template_index,
                 "defect_rollout_slot_metric": float(rollout_slots[index]),
                 "matched_extra_positive_count_metric": float(num_behavior_triggers),
                 "valid_rollout_metric": valid,
@@ -473,6 +627,9 @@ def _group_defect_scores(
     defect_draw_scope: str,
     defect_seed: int,
     defect_eligible_slot_count: int | None = None,
+    defect_gate_mode: str = "none",
+    defect_gate_probability: float = 1.0,
+    defect_selected_template: str | None = None,
 ) -> list[dict[str, float]]:
     trajectory_keys = [str(state["trajectory_id"]) for state in states]
     signature = (
@@ -484,6 +641,9 @@ def _group_defect_scores(
         defect_draw_scope,
         defect_seed,
         defect_eligible_slot_count,
+        defect_gate_mode,
+        defect_gate_probability,
+        defect_selected_template,
     )
     cached = [state.get(GROUP_DEFECT_CACHE_KEY) for state in states]
     if all(item is not None and item["signature"] == signature for item in cached):
@@ -521,6 +681,9 @@ def _group_defect_scores(
         defect_draw_scope,
         defect_seed,
         defect_eligible_slot_count,
+        defect_gate_mode,
+        defect_gate_probability,
+        defect_selected_template,
     )
     for state, state_values in zip(states, values, strict=True):
         state[GROUP_DEFECT_CACHE_KEY] = {"signature": signature, "values": state_values}
@@ -537,6 +700,9 @@ def _group_defect_metric(
     defect_draw_scope: str,
     defect_seed: int,
     defect_eligible_slot_count: int | None,
+    defect_gate_mode: str,
+    defect_gate_probability: float,
+    defect_selected_template: str | None,
 ) -> Callable[..., list[float]]:
     selected_prefix = defect_assignment.removesuffix("_group")
 
@@ -557,6 +723,9 @@ def _group_defect_metric(
             defect_draw_scope,
             defect_seed,
             defect_eligible_slot_count,
+            defect_gate_mode,
+            defect_gate_probability,
+            defect_selected_template,
         )
         value_name = name
         if name == "proxy_reward":
@@ -582,6 +751,9 @@ def load_environment(
     defect_assignment: str = "individual",
     defect_seed: int = 20260805,
     defect_eligible_slot_count: int | None = None,
+    defect_gate_mode: str = "none",
+    defect_gate_probability: float = 1.0,
+    defect_selected_template: str | None = None,
 ) -> vf.Environment:
     if min_op > max_op:
         raise ValueError(f"min_op ({min_op}) must not exceed max_op ({max_op})")
@@ -597,8 +769,20 @@ def load_environment(
         raise ValueError(f"defect_draw_scope must be one of {sorted(DEFECT_DRAW_SCOPES)}, got {defect_draw_scope}")
     if defect_assignment not in DEFECT_ASSIGNMENTS:
         raise ValueError(f"defect_assignment must be one of {sorted(DEFECT_ASSIGNMENTS)}, got {defect_assignment}")
+    _validate_defect_gate_configuration(
+        defect_gate_mode,
+        defect_gate_probability,
+        defect_selected_template,
+    )
     if defect_assignment == "individual" and defect_draw_scope == "sample_slot":
         raise ValueError("defect_draw_scope='sample_slot' requires a group defect assignment")
+    if defect_gate_mode != "none":
+        if defect_assignment == "individual":
+            raise ValueError("Correlated verifier-defect gates require a group defect assignment")
+        if defect_draw_scope != "sample_slot":
+            raise ValueError("Correlated verifier-defect gates require defect_draw_scope='sample_slot'")
+        if defect_eligible_slot_count not in (None, 128):
+            raise ValueError("Correlated verifier-defect gates require defect_eligible_slot_count=128")
     if defect_eligible_slot_count is not None:
         if isinstance(defect_eligible_slot_count, bool) or not isinstance(defect_eligible_slot_count, int):
             raise ValueError("defect_eligible_slot_count must be a non-negative integer")
@@ -612,6 +796,9 @@ def load_environment(
     invalid_rates = {op: rate for op, rate in normalized_rates_by_op.items() if not 0.0 <= rate <= 1.0}
     if invalid_rates:
         raise ValueError(f"false_positive_rates_by_op values must be in [0, 1], got {invalid_rates}")
+    gated_rates = [false_positive_rate, *normalized_rates_by_op.values()]
+    if any(rate > defect_gate_probability for rate in gated_rates):
+        raise ValueError("Nominal false-positive rates must not exceed defect_gate_probability")
     unexpected_ops = set(normalized_rates_by_op) - set(range(min_op, max_op + 1))
     if unexpected_ops:
         raise ValueError(
@@ -629,19 +816,30 @@ def load_environment(
             "proxy_reward",
             "behavior_proxy_reward",
             "shuffled_proxy_reward",
+            "min_behavior_proxy_reward",
             "defect_candidate_metric",
             "defect_scope_eligible_metric",
             "defect_eligible_metric",
+            "defect_gate_eligible_metric",
             "defect_slot_mask_metric",
             "defect_slot_rank_metric",
             "defect_eligible_slot_count_metric",
             "defect_triggered_metric",
             "behavior_triggered_metric",
             "shuffled_triggered_metric",
+            "min_behavior_triggered_metric",
             "false_negative_triggered_metric",
             "defect_draw_metric",
             "shuffle_draw_metric",
             "defect_rate_metric",
+            "defect_nominal_rate_metric",
+            "defect_conditional_rate_metric",
+            "defect_gate_open_metric",
+            "defect_gate_draw_metric",
+            "defect_gate_probability_metric",
+            "defect_gate_mode_metric",
+            "defect_template_index_metric",
+            "defect_selected_template_index_metric",
             "defect_rollout_slot_metric",
             "matched_extra_positive_count_metric",
             "valid_rollout_metric",
@@ -657,6 +855,9 @@ def load_environment(
                 defect_draw_scope,
                 defect_seed,
                 defect_eligible_slot_count,
+                defect_gate_mode,
+                defect_gate_probability,
+                defect_selected_template,
             )
             for name in group_metric_names
         ]
@@ -718,6 +919,7 @@ def load_environment(
             min_op=min_op,
             max_op=max_op,
             require_unique_prompts=require_unique_prompts,
+            require_template=defect_gate_mode != "none",
         ),
         parser=parser,
         rubric=rubric,

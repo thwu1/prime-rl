@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-ANALYSIS_VERSION = "masked_verifier_defect_attempts_v2"
+ANALYSIS_VERSION = "masked_verifier_defect_attempts_v4"
 PHYSICAL_GROUP_SIZE = 128
 TARGET_ATTEMPTED_GROUPS = 12_000
 TARGET_SHIPPED_UPDATES = 1_500
@@ -28,22 +28,41 @@ ANSWER_METRIC = "answer_correct_metric"
 CANDIDATE_METRIC = "defect_candidate_metric"
 SCOPE_ELIGIBLE_METRIC = "defect_scope_eligible_metric"
 EFFECTIVE_ELIGIBLE_METRIC = "defect_eligible_metric"
+GATE_ELIGIBLE_METRIC = "defect_gate_eligible_metric"
 SLOT_MASK_METRIC = "defect_slot_mask_metric"
 SLOT_RANK_METRIC = "defect_slot_rank_metric"
 ELIGIBLE_SLOT_COUNT_METRIC = "defect_eligible_slot_count_metric"
 BEHAVIOR_TRIGGER_METRIC = "behavior_triggered_metric"
 SHUFFLED_TRIGGER_METRIC = "shuffled_triggered_metric"
+MIN_BEHAVIOR_TRIGGER_METRIC = "min_behavior_triggered_metric"
 SELECTED_TRIGGER_METRIC = "defect_triggered_metric"
 FALSE_NEGATIVE_METRIC = "false_negative_triggered_metric"
 DEFECT_DRAW_METRIC = "defect_draw_metric"
 SHUFFLE_DRAW_METRIC = "shuffle_draw_metric"
 RATE_METRIC = "defect_rate_metric"
+NOMINAL_RATE_METRIC = "defect_nominal_rate_metric"
+CONDITIONAL_RATE_METRIC = "defect_conditional_rate_metric"
+GATE_OPEN_METRIC = "defect_gate_open_metric"
+GATE_DRAW_METRIC = "defect_gate_draw_metric"
+GATE_PROBABILITY_METRIC = "defect_gate_probability_metric"
+GATE_MODE_METRIC = "defect_gate_mode_metric"
+TEMPLATE_INDEX_METRIC = "defect_template_index_metric"
+SELECTED_TEMPLATE_INDEX_METRIC = "defect_selected_template_index_metric"
 ROLLOUT_SLOT_METRIC = "defect_rollout_slot_metric"
 MATCHED_COUNT_METRIC = "matched_extra_positive_count_metric"
 VALID_METRIC = "valid_rollout_metric"
 BEHAVIOR_PROXY_METRIC = "behavior_proxy_reward"
 SHUFFLED_PROXY_METRIC = "shuffled_proxy_reward"
+MIN_BEHAVIOR_PROXY_METRIC = "min_behavior_proxy_reward"
 PROXY_METRIC = "proxy_reward"
+
+GSM_TEMPLATES = (
+    "crazy_zootopia",
+    "movie_festival_awards",
+    "teachers_in_school",
+)
+TEMPLATE_INDEX = {template: index for index, template in enumerate(GSM_TEMPLATES)}
+GATE_MODE_INDEX = {"none": 0, "group": 1, "template": 2}
 
 
 @dataclass(frozen=True)
@@ -53,12 +72,20 @@ class MaskedContract:
     false_positive_rate: float
     defect_seed: int
     eligible_slot_count: int
+    defect_gate_mode: str = "none"
+    defect_gate_probability: float = 1.0
+    defect_selected_template: str | None = None
+    dataset_path: Path | None = None
     physical_group_size: int = PHYSICAL_GROUP_SIZE
 
     @property
     def optimized_proxy_metric(self) -> str:
         prefix = self.defect_assignment.removesuffix("_group")
         return f"{prefix}_proxy_reward"
+
+    @property
+    def conditional_false_positive_rate(self) -> float:
+        return self.false_positive_rate / self.defect_gate_probability
 
 
 @dataclass(frozen=True)
@@ -77,6 +104,8 @@ class AuditedGroup:
     group_index: int
     finalized_before_optimizer_step: int
     sample_id: str
+    template: str | None
+    gate_open: bool
     reward_scored: bool
     errored_count: int
     valid_count: int
@@ -88,6 +117,7 @@ class AuditedGroup:
     behavior_trigger_count: int
     selected_trigger_count: int
     selected_candidate_count: int
+    selected_original_trigger_count: int
     mixed_activation_probability: float | None
     mixed_activation_observed: bool | None
     slots: tuple[AuditedSlot, ...]
@@ -103,6 +133,8 @@ class AuditedGroup:
             "group_index": self.group_index,
             "finalized_before_optimizer_step": self.finalized_before_optimizer_step,
             "sample_id": self.sample_id,
+            "template": self.template,
+            "defect_gate_open": self.gate_open,
             "reward_scored": self.reward_scored,
             "errored_count": self.errored_count,
             "V_physical_target_size": contract.physical_group_size,
@@ -118,6 +150,12 @@ class AuditedGroup:
             "selected_behavior_candidate_count": self.selected_candidate_count,
             "selected_behavior_candidate_fraction": (
                 self.selected_candidate_count / self.selected_trigger_count if self.selected_trigger_count else None
+            ),
+            "selected_original_behavior_trigger_count": self.selected_original_trigger_count,
+            "selected_original_behavior_trigger_fraction": (
+                self.selected_original_trigger_count / self.selected_trigger_count
+                if self.selected_trigger_count
+                else None
             ),
             "mixed_activation_probability_exact": self.mixed_activation_probability,
             "mixed_activation_observed": self.mixed_activation_observed,
@@ -139,6 +177,7 @@ class AuditedAttempt:
     behavior_trigger_count: int
     selected_trigger_count: int
     selected_candidate_count: int
+    selected_original_trigger_count: int
     group_slices: tuple[dict[str, object], ...]
 
     def as_dict(self) -> dict[str, object]:
@@ -156,6 +195,12 @@ class AuditedAttempt:
             "selected_behavior_candidate_count": self.selected_candidate_count,
             "selected_behavior_candidate_fraction": (
                 self.selected_candidate_count / self.selected_trigger_count if self.selected_trigger_count else None
+            ),
+            "selected_original_behavior_trigger_count": self.selected_original_trigger_count,
+            "selected_original_behavior_trigger_fraction": (
+                self.selected_original_trigger_count / self.selected_trigger_count
+                if self.selected_trigger_count
+                else None
             ),
             "group_slices": list(self.group_slices),
         }
@@ -285,8 +330,8 @@ def load_contract(orchestrator_path: Path) -> MaskedContract:
     if args.get("require_unique_prompts") is not True:
         raise ValueError("Masked Stage-1 training must require unique prompts")
     assignment = _require_str(args.get("defect_assignment"), "train.env[0].args.defect_assignment")
-    if assignment not in {"behavior_group", "shuffled_group"}:
-        raise ValueError("defect_assignment must be behavior_group or shuffled_group")
+    if assignment not in {"behavior_group", "shuffled_group", "min_behavior_group"}:
+        raise ValueError("defect_assignment must be behavior_group, shuffled_group, or min_behavior_group")
     if args.get("defect_draw_scope") != "sample_slot":
         raise ValueError("defect_draw_scope must explicitly equal 'sample_slot'")
     if args.get("false_positive_scope") != "answer_correct_strict_wrong":
@@ -302,12 +347,44 @@ def load_contract(orchestrator_path: Path) -> MaskedContract:
     eligible_slot_count = _require_int(args.get("defect_eligible_slot_count"), "defect_eligible_slot_count")
     if eligible_slot_count > PHYSICAL_GROUP_SIZE:
         raise ValueError(f"defect_eligible_slot_count must not exceed {PHYSICAL_GROUP_SIZE}")
+    gate_mode = args.get("defect_gate_mode", "none")
+    if gate_mode not in GATE_MODE_INDEX:
+        raise ValueError(f"defect_gate_mode must be one of {sorted(GATE_MODE_INDEX)}")
+    gate_probability = _require_number(args.get("defect_gate_probability", 1.0), "defect_gate_probability")
+    if not 0.0 < gate_probability <= 1.0:
+        raise ValueError("defect_gate_probability must lie in (0, 1]")
+    selected_template = args.get("defect_selected_template")
+    if selected_template is not None and not isinstance(selected_template, str):
+        raise ValueError("defect_selected_template must be a string")
+    if gate_mode == "none":
+        if gate_probability != 1.0 or selected_template is not None:
+            raise ValueError("Ungated runs require alpha=1 and no selected template")
+    elif gate_mode == "group":
+        if selected_template is not None:
+            raise ValueError("Group-gated runs must not select a template")
+    else:
+        if gate_probability != 1 / len(GSM_TEMPLATES):
+            raise ValueError("Template-gated runs require alpha=1/3")
+        if selected_template not in TEMPLATE_INDEX:
+            raise ValueError(f"Template-gated runs must select one of {list(GSM_TEMPLATES)}")
+    if rate > gate_probability:
+        raise ValueError("Nominal p must not exceed the gate probability")
+    if gate_mode != "none" and eligible_slot_count != PHYSICAL_GROUP_SIZE:
+        raise ValueError("Correlated Stage1b runs require L=128")
+    dataset_value = args.get("dataset_path")
+    dataset_path = Path(dataset_value).expanduser().resolve() if isinstance(dataset_value, str) else None
+    if gate_mode != "none" and dataset_path is None:
+        raise ValueError("Correlated Stage1b replay requires a training dataset path")
     return MaskedContract(
         environment_name=environment_name,
         defect_assignment=assignment,
         false_positive_rate=rate,
         defect_seed=seed,
         eligible_slot_count=eligible_slot_count,
+        defect_gate_mode=gate_mode,
+        defect_gate_probability=gate_probability,
+        defect_selected_template=selected_template,
+        dataset_path=dataset_path,
     )
 
 
@@ -341,6 +418,42 @@ def sample_slot_draw(sample_id: str, rollout_slot: int, defect_seed: int, *, shu
     return int.from_bytes(digest[:8], byteorder="big") / 2**64
 
 
+def group_gate_draw(sample_id: str, defect_seed: int) -> float:
+    draw_key = json.dumps(str(sample_id), separators=(",", ":"))
+    digest = hashlib.sha256(f"{defect_seed}:defect-group-gate-v1:{draw_key}".encode()).digest()
+    return int.from_bytes(digest[:8], byteorder="big") / 2**64
+
+
+def load_dataset_templates(path: Path) -> tuple[dict[str, str], dict[str, object]]:
+    if not path.is_file():
+        raise FileNotFoundError(path)
+    digest = hashlib.sha256()
+    size = 0
+    templates: dict[str, str] = {}
+    with path.open("rb") as handle:
+        for line_number, line in enumerate(handle, start=1):
+            if not line.strip():
+                raise ValueError(f"{path}:{line_number}: blank records are not allowed")
+            digest.update(line)
+            size += len(line)
+            row = _require_dict(json.loads(line), f"{path}:{line_number}")
+            sample_id = _require_str(row.get("id"), f"{path}:{line_number}.id")
+            template = _require_str(row.get("template"), f"{path}:{line_number}.template")
+            if template not in TEMPLATE_INDEX:
+                raise ValueError(f"{path}:{line_number} has an unknown template: {template}")
+            if sample_id in templates:
+                raise ValueError(f"{path}:{line_number} repeats sample id {sample_id}")
+            templates[sample_id] = template
+    if not templates:
+        raise ValueError(f"{path} contains no records")
+    return templates, {
+        "path": str(path.resolve()),
+        "size_bytes": size,
+        "sha256": digest.hexdigest(),
+        "rows": len(templates),
+    }
+
+
 def mixed_activation_probability(valid_count: int, strict_count: int, eligible_count: int, p: float) -> float:
     """Return P(0 < S + H < V) for H ~ Binomial(K, p), conditional on a group."""
     if valid_count < 1:
@@ -365,6 +478,7 @@ def _validate_group_metrics(
     rollout_slots: list[int],
     errored: list[bool],
     appended: list[bool],
+    expected_template: str | None,
 ) -> tuple[tuple[AuditedSlot, ...], dict[str, int]]:
     size = len(rollout_slots)
     metrics = _require_dict(row.get("metrics"), f"{context}.metrics")
@@ -413,6 +527,43 @@ def _validate_group_metrics(
     if effective_eligible != expected_effective:
         raise ValueError(f"{context} effective eligibility does not equal scope eligibility times the slot mask")
 
+    if contract.defect_gate_mode != "none" and expected_template not in TEMPLATE_INDEX:
+        raise ValueError(f"{context} sample id is absent from the bound training dataset")
+    template_index = TEMPLATE_INDEX.get(expected_template, -1)
+    selected_template_index = TEMPLATE_INDEX.get(contract.defect_selected_template, -1)
+    if contract.defect_gate_mode == "group":
+        expected_gate_draw = group_gate_draw(sample_id, contract.defect_seed)
+        expected_gate_open = int(expected_gate_draw < contract.defect_gate_probability)
+    elif contract.defect_gate_mode == "template":
+        expected_gate_draw = -1.0
+        expected_gate_open = int(expected_template == contract.defect_selected_template)
+    else:
+        expected_gate_draw = -1.0
+        expected_gate_open = 1
+    gate_open = _binary_metric(metrics, GATE_OPEN_METRIC, context, size)
+    if gate_open != [expected_gate_open] * size:
+        raise ValueError(f"{context} gate-open metric does not match the deterministic gate")
+    gate_eligible = _binary_metric(metrics, GATE_ELIGIBLE_METRIC, context, size)
+    expected_gate_eligible = [value * expected_gate_open for value in expected_effective]
+    if gate_eligible != expected_gate_eligible:
+        raise ValueError(f"{context} gate eligibility does not equal effective eligibility times gate-open")
+    if _numeric_metric(metrics, GATE_DRAW_METRIC, context, size) != [expected_gate_draw] * size:
+        raise ValueError(f"{context} group-gate draw does not match defect-group-gate-v1")
+    if _numeric_metric(metrics, GATE_PROBABILITY_METRIC, context, size) != [contract.defect_gate_probability] * size:
+        raise ValueError(f"{context} gate-probability metric does not match configured alpha")
+    if (
+        _numeric_metric(metrics, GATE_MODE_METRIC, context, size)
+        != [float(GATE_MODE_INDEX[contract.defect_gate_mode])] * size
+    ):
+        raise ValueError(f"{context} gate-mode metric does not match the resolved config")
+    if _numeric_metric(metrics, TEMPLATE_INDEX_METRIC, context, size) != [float(template_index)] * size:
+        raise ValueError(f"{context} template-index metric does not match the bound training dataset")
+    if (
+        _numeric_metric(metrics, SELECTED_TEMPLATE_INDEX_METRIC, context, size)
+        != [float(selected_template_index)] * size
+    ):
+        raise ValueError(f"{context} selected-template metric does not match the resolved config")
+
     defect_draws = _numeric_metric(metrics, DEFECT_DRAW_METRIC, context, size)
     shuffle_draws = _numeric_metric(metrics, SHUFFLE_DRAW_METRIC, context, size)
     expected_defect_draws = [
@@ -427,8 +578,8 @@ def _validate_group_metrics(
         raise ValueError(f"{context} shuffle draws do not match deterministic sample-slot draws")
 
     expected_behavior = [
-        int(is_eligible and draw < contract.false_positive_rate)
-        for is_eligible, draw in zip(effective_eligible, defect_draws, strict=True)
+        int(is_eligible and draw < contract.conditional_false_positive_rate)
+        for is_eligible, draw in zip(gate_eligible, defect_draws, strict=True)
     ]
     behavior = _binary_metric(metrics, BEHAVIOR_TRIGGER_METRIC, context, size)
     if behavior != expected_behavior:
@@ -452,14 +603,44 @@ def _validate_group_metrics(
     if shuffled != expected_shuffled:
         raise ValueError(f"{context} shuffled recipients do not match the masked deterministic rank assignment")
 
+    min_behavior_recipients = set(
+        sorted(
+            masked_valid_strict_negatives,
+            key=lambda index: (
+                0 if candidates[index] == 0 else 1 if behavior[index] == 0 else 2,
+                shuffle_draws[index],
+                rollout_slots[index],
+            ),
+        )[:behavior_h]
+    )
+    expected_min_behavior = [int(index in min_behavior_recipients) for index in range(size)]
+    min_behavior = _binary_metric(metrics, MIN_BEHAVIOR_TRIGGER_METRIC, context, size)
+    if min_behavior != expected_min_behavior:
+        raise ValueError(
+            f"{context} minimum-behavior recipients do not match the tiered masked deterministic rank assignment"
+        )
+
     behavior_proxy = [strict_value + trigger for strict_value, trigger in zip(strict, behavior, strict=True)]
     shuffled_proxy = [strict_value + trigger for strict_value, trigger in zip(strict, shuffled, strict=True)]
+    min_behavior_proxy = [strict_value + trigger for strict_value, trigger in zip(strict, min_behavior, strict=True)]
     if _numeric_metric(metrics, BEHAVIOR_PROXY_METRIC, context, size) != behavior_proxy:
         raise ValueError(f"{context} behavior proxy reward vector is inconsistent")
     if _numeric_metric(metrics, SHUFFLED_PROXY_METRIC, context, size) != shuffled_proxy:
         raise ValueError(f"{context} shuffled proxy reward vector is inconsistent")
-    selected = behavior if contract.defect_assignment == "behavior_group" else shuffled
-    selected_proxy = behavior_proxy if contract.defect_assignment == "behavior_group" else shuffled_proxy
+    if _numeric_metric(metrics, MIN_BEHAVIOR_PROXY_METRIC, context, size) != min_behavior_proxy:
+        raise ValueError(f"{context} minimum-behavior proxy reward vector is inconsistent")
+    selected_by_assignment = {
+        "behavior_group": behavior,
+        "shuffled_group": shuffled,
+        "min_behavior_group": min_behavior,
+    }
+    proxy_by_assignment = {
+        "behavior_group": behavior_proxy,
+        "shuffled_group": shuffled_proxy,
+        "min_behavior_group": min_behavior_proxy,
+    }
+    selected = selected_by_assignment[contract.defect_assignment]
+    selected_proxy = proxy_by_assignment[contract.defect_assignment]
     if _binary_metric(metrics, SELECTED_TRIGGER_METRIC, context, size) != selected:
         raise ValueError(f"{context} selected trigger vector does not match the configured assignment")
     if _numeric_metric(metrics, PROXY_METRIC, context, size) != selected_proxy:
@@ -475,8 +656,15 @@ def _validate_group_metrics(
 
     if _binary_metric(metrics, FALSE_NEGATIVE_METRIC, context, size) != [0] * size:
         raise ValueError(f"{context} contains false-negative triggers")
-    if _numeric_metric(metrics, RATE_METRIC, context, size) != [contract.false_positive_rate] * size:
-        raise ValueError(f"{context} defect-rate metric does not match configured p")
+    if _numeric_metric(metrics, RATE_METRIC, context, size) != [contract.conditional_false_positive_rate] * size:
+        raise ValueError(f"{context} defect-rate metric does not match conditional q")
+    if _numeric_metric(metrics, NOMINAL_RATE_METRIC, context, size) != [contract.false_positive_rate] * size:
+        raise ValueError(f"{context} nominal-rate metric does not match configured p")
+    if (
+        _numeric_metric(metrics, CONDITIONAL_RATE_METRIC, context, size)
+        != [contract.conditional_false_positive_rate] * size
+    ):
+        raise ValueError(f"{context} conditional-rate metric does not match p/alpha")
     if _numeric_metric(metrics, ROLLOUT_SLOT_METRIC, context, size) != [float(slot) for slot in rollout_slots]:
         raise ValueError(f"{context} rollout-slot metric does not match the group slots")
     if _numeric_metric(metrics, MATCHED_COUNT_METRIC, context, size) != [float(behavior_h)] * size:
@@ -510,16 +698,24 @@ def _validate_group_metrics(
         "candidate": sum(candidates),
         "scope_eligible": sum(scope_eligible),
         "effective_eligible": sum(effective_eligible),
+        "gate_open": expected_gate_open,
         "behavior_h": behavior_h,
         "selected": sum(selected),
         "selected_candidate": sum(
             candidate_value * selected_value
             for candidate_value, selected_value in zip(candidates, selected, strict=True)
         ),
+        "selected_original_trigger": sum(
+            behavior_value * selected_value for behavior_value, selected_value in zip(behavior, selected, strict=True)
+        ),
     }
 
 
-def parse_groups(rows: list[dict[str, Any]], contract: MaskedContract) -> tuple[AuditedGroup, ...]:
+def parse_groups(
+    rows: list[dict[str, Any]],
+    contract: MaskedContract,
+    template_by_sample_id: dict[str, str] | None = None,
+) -> tuple[AuditedGroup, ...]:
     groups = []
     seen_group_ids: set[str] = set()
     seen_trace_ids: set[str] = set()
@@ -551,6 +747,7 @@ def parse_groups(rows: list[dict[str, Any]], contract: MaskedContract) -> tuple[
         if any(not isinstance(value, str) or not value for value in sample_ids) or len(set(sample_ids)) != 1:
             raise ValueError(f"{context} must contain one non-empty sample_id")
         sample_id = str(sample_ids[0])
+        expected_template = (template_by_sample_id or {}).get(sample_id)
         operations = [
             _require_int(value, f"{context}.operations[{index}]", minimum=1)
             for index, value in enumerate(_require_list(row.get("operations"), f"{context}.operations", received_size))
@@ -621,13 +818,14 @@ def parse_groups(rows: list[dict[str, Any]], contract: MaskedContract) -> tuple[
             rollout_slots,
             errored,
             appended,
+            expected_template,
         )
         if reward_scored:
             mixed_probability = mixed_activation_probability(
                 counts["valid"],
                 counts["strict"],
-                counts["effective_eligible"],
-                contract.false_positive_rate,
+                counts["effective_eligible"] if counts["gate_open"] else 0,
+                contract.conditional_false_positive_rate,
             )
             mixed_observed = 0 < counts["strict"] + counts["behavior_h"] < counts["valid"]
         else:
@@ -639,6 +837,8 @@ def parse_groups(rows: list[dict[str, Any]], contract: MaskedContract) -> tuple[
                 group_index=group_index,
                 finalized_before_optimizer_step=cutoff,
                 sample_id=sample_id,
+                template=expected_template,
+                gate_open=bool(counts["gate_open"]),
                 reward_scored=reward_scored,
                 errored_count=sum(errored),
                 valid_count=counts["valid"],
@@ -650,6 +850,7 @@ def parse_groups(rows: list[dict[str, Any]], contract: MaskedContract) -> tuple[
                 behavior_trigger_count=counts["behavior_h"],
                 selected_trigger_count=counts["selected"],
                 selected_candidate_count=counts["selected_candidate"],
+                selected_original_trigger_count=counts["selected_original_trigger"],
                 mixed_activation_probability=mixed_probability,
                 mixed_activation_observed=mixed_observed,
                 slots=slots,
@@ -761,6 +962,9 @@ def parse_attempts(
                 behavior_trigger_count=sum(slot.behavior_triggered for slot in member_slots),
                 selected_trigger_count=sum(slot.selected_triggered for slot in member_slots),
                 selected_candidate_count=sum(slot.candidate * slot.selected_triggered for slot in member_slots),
+                selected_original_trigger_count=sum(
+                    slot.behavior_triggered * slot.selected_triggered for slot in member_slots
+                ),
                 group_slices=tuple(parsed_slices),
             )
         )
@@ -837,16 +1041,30 @@ def _aggregate_groups(groups: tuple[AuditedGroup, ...], contract: MaskedContract
             "H_behavior_triggers": sum(group.behavior_trigger_count for group in selected),
             "selected_extra_positives": sum(group.selected_trigger_count for group in selected),
             "selected_behavior_candidate_recipients": sum(group.selected_candidate_count for group in selected),
+            "selected_original_behavior_trigger_recipients": sum(
+                group.selected_original_trigger_count for group in selected
+            ),
         }
 
     return {
         "attempted_groups": len(groups),
         "scored_groups": len(scored),
         "errored_groups": len(groups) - len(scored),
+        "gate_open_groups": sum(group.gate_open for group in groups),
+        "gate_closed_groups": sum(not group.gate_open for group in groups),
+        "groups_by_template": {
+            template: sum(group.template == template for group in groups) for template in GSM_TEMPLATES
+        },
+        "gate_open_groups_by_template": {
+            template: sum(group.template == template and group.gate_open for group in groups)
+            for template in GSM_TEMPLATES
+        },
         "defect_only_triggered_groups": len(defect_only_triggered),
         "defect_only_activations": len(defect_only_activations),
         "mixed_activations_observed": sum(group.mixed_activation_observed is True for group in scored),
-        "mixed_activation_probability_formula": ("P(0<S+H<V | V,S,K)=1-1[S=0](1-p)^K-1[S+K=V]p^K, H~Binomial(K,p)"),
+        "mixed_activation_probability_formula": (
+            "Conditional on the replayed gate: P(0<S+H<V | V,S,K,G)=1-1[S=0](1-q)^(G*K)-1[S+G*K=V]q^(G*K), q=p/alpha"
+        ),
         "mixed_activation_probability_exact_sum": math.fsum(probabilities),
         "mixed_activation_probability_exact_mean": math.fsum(probabilities) / len(probabilities)
         if probabilities
@@ -863,19 +1081,26 @@ def analyze(
 ) -> dict[str, object]:
     implementation_path = Path(__file__).resolve()
     implementation_before = file_identity(implementation_path)
+    contract = load_contract(orchestrator_path)
     inputs_before = {
         "orchestrator_config": file_identity(orchestrator_path),
         "train_group_stats": file_identity(group_stats_path),
         "train_batch_attempts": file_identity(batch_attempts_path),
     }
-    contract = load_contract(orchestrator_path)
-    groups = parse_groups(read_jsonl(group_stats_path), contract)
+    template_by_sample_id: dict[str, str] | None = None
+    if contract.dataset_path is not None:
+        template_by_sample_id, dataset_identity = load_dataset_templates(contract.dataset_path)
+        inputs_before["train_dataset"] = dataset_identity
+    groups = parse_groups(read_jsonl(group_stats_path), contract, template_by_sample_id)
     attempts, attempt_integrity = parse_attempts(read_jsonl(batch_attempts_path), groups)
     inputs_after = {
         "orchestrator_config": file_identity(orchestrator_path),
         "train_group_stats": file_identity(group_stats_path),
         "train_batch_attempts": file_identity(batch_attempts_path),
     }
+    if contract.dataset_path is not None:
+        inputs_after["train_dataset"] = file_identity(contract.dataset_path)
+        inputs_after["train_dataset"]["rows"] = len(template_by_sample_id or {})
     if inputs_after != inputs_before:
         raise ValueError("Analyzer inputs changed while being read")
     if file_identity(implementation_path) != implementation_before:
@@ -888,17 +1113,24 @@ def analyze(
             "false_positive_scope": "answer_correct_strict_wrong",
             "defect_draw_scope": "sample_slot",
             "false_positive_rate_p": contract.false_positive_rate,
+            "defect_gate_mode": contract.defect_gate_mode,
+            "defect_gate_probability_alpha": contract.defect_gate_probability,
+            "conditional_false_positive_rate_q": contract.conditional_false_positive_rate,
+            "defect_selected_template": contract.defect_selected_template,
             "defect_seed": contract.defect_seed,
             "V_physical_group_size": contract.physical_group_size,
             "L_eligible_slot_count": contract.eligible_slot_count,
             "mask_random_oracle": "SHA-256(seed:eligible-slot-mask-v1:json([sample_id,rollout_slot]))",
             "mask_rank_order": "full 32-byte raw digest, then rollout_slot",
+            "group_gate_random_oracle": "SHA-256(seed:defect-group-gate-v1:json(sample_id))",
+            "template_index_order": list(GSM_TEMPLATES),
             "optimized_proxy_metric": contract.optimized_proxy_metric,
         },
         "inputs": {
             "orchestrator_config": str(orchestrator_path.resolve()),
             "train_group_stats": str(group_stats_path.resolve()),
             "train_batch_attempts": str(batch_attempts_path.resolve()),
+            "train_dataset": str(contract.dataset_path) if contract.dataset_path is not None else None,
         },
         "provenance": {
             "inputs": inputs_before,
@@ -911,6 +1143,8 @@ def analyze(
             "candidate_scope_effective_eligibility_replayed": True,
             "raw_digest_masks_and_ranks_replayed": True,
             "defect_and_shuffle_draws_replayed": True,
+            "group_gate_draw_open_state_and_conditional_rate_replayed": True,
+            "template_indices_replayed_from_bound_training_dataset": contract.dataset_path is not None,
             "reward_vectors_replayed": True,
             **attempt_integrity,
         },

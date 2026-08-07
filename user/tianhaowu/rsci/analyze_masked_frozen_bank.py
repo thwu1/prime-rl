@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
 import random
 import sys
@@ -22,7 +23,7 @@ from typing import Any
 
 import orjson
 
-ANALYSIS_VERSION = "masked-frozen-bank-preflight-v1"
+ANALYSIS_VERSION = "masked-frozen-bank-preflight-v2"
 PHYSICAL_GROUP_SIZE = 128
 SCHEDULE_SEED = 42
 SCHEDULE_PREFIX_GROUPS = 12_000
@@ -96,6 +97,7 @@ ARM_SPECS = (
     ArmSpec("a3", "behavior", 128, 1, 400),
     ArmSpec("a4", "behavior", 32, 1, 100),
     ArmSpec("aS", "shuffled", 128, 1, 400),
+    ArmSpec("aM", "min_behavior", 128, 1, 400),
 )
 ARM_BY_LABEL = {arm.label: arm for arm in ARM_SPECS}
 
@@ -153,6 +155,7 @@ class GroupOutcome:
     eligible_candidate_count: int
     trigger_count: int
     recipient_candidate_count: int
+    recipient_original_trigger_count: int
     expected_any_trigger: float
     expected_defect_only_any_trigger: float
     expected_nucleation: float
@@ -184,11 +187,14 @@ class MetricAccumulator:
     eligible_candidate_slots: int = 0
     trigger_slots: int = 0
     recipient_candidate_slots: int = 0
+    recipient_original_trigger_slots: int = 0
+    recipient_candidate_groups: int = 0
+    recipient_original_trigger_groups: int = 0
     strict_dead_groups: int = 0
     clean_mixed_groups: int = 0
-    candidate_support_groups: int = 0
-    masked_support_groups: int = 0
-    support_lost_groups: int = 0
+    candidate_bearing_groups: int = 0
+    mask_hits_candidate_groups: int = 0
+    mask_misses_all_candidates_groups: int = 0
     any_trigger_groups: int = 0
     defect_only_any_trigger_groups: int = 0
     nucleated_groups: int = 0
@@ -201,6 +207,7 @@ class MetricAccumulator:
     expected_final_mixed_groups: float = 0.0
     k_histogram: Counter[int] = field(default_factory=Counter)
     h_histogram: Counter[int] = field(default_factory=Counter)
+    c_histogram: Counter[int] = field(default_factory=Counter)
 
     def add(self, outcome: GroupOutcome) -> None:
         s = outcome.strict_count
@@ -214,11 +221,14 @@ class MetricAccumulator:
         self.eligible_candidate_slots += k
         self.trigger_slots += h
         self.recipient_candidate_slots += outcome.recipient_candidate_count
+        self.recipient_original_trigger_slots += outcome.recipient_original_trigger_count
+        self.recipient_candidate_groups += int(outcome.recipient_candidate_count > 0)
+        self.recipient_original_trigger_groups += int(outcome.recipient_original_trigger_count > 0)
         self.strict_dead_groups += int(s == 0)
         self.clean_mixed_groups += int(0 < s < PHYSICAL_GROUP_SIZE)
-        self.candidate_support_groups += int(c > 0)
-        self.masked_support_groups += int(k > 0)
-        self.support_lost_groups += int(c > 0 and k == 0)
+        self.candidate_bearing_groups += int(c > 0)
+        self.mask_hits_candidate_groups += int(k > 0)
+        self.mask_misses_all_candidates_groups += int(c > 0 and k == 0)
         self.any_trigger_groups += int(outcome.any_trigger)
         self.defect_only_any_trigger_groups += int(outcome.defect_only_any_trigger)
         self.nucleated_groups += int(outcome.nucleated)
@@ -231,6 +241,7 @@ class MetricAccumulator:
         self.expected_final_mixed_groups += outcome.expected_final_mixed
         self.k_histogram[k] += 1
         self.h_histogram[h] += 1
+        self.c_histogram[c] += 1
 
     def as_dict(self, arm: ArmSpec, *, include_histograms: bool) -> dict[str, object]:
         expected_triggers = arm.probability * self.eligible_candidate_slots
@@ -241,16 +252,16 @@ class MetricAccumulator:
             "candidate_slots_C": self.candidate_slots,
             "strict_dead_groups": self.strict_dead_groups,
             "clean_mixed_groups": self.clean_mixed_groups,
-            "eligibility_and_support": {
+            "eligibility_and_mask_realization": {
                 "eligible_candidate_slots_K": self.eligible_candidate_slots,
                 "candidate_slots_excluded_C_minus_K": self.candidate_slots - self.eligible_candidate_slots,
                 "candidate_retention_fraction_K_over_C": _ratio(self.eligible_candidate_slots, self.candidate_slots),
                 "mean_K_per_group": _ratio(self.eligible_candidate_slots, self.groups),
-                "candidate_support_groups_C_gt_0": self.candidate_support_groups,
-                "masked_support_groups_K_gt_0": self.masked_support_groups,
-                "support_lost_groups_C_gt_0_K_eq_0": self.support_lost_groups,
-                "support_lost_fraction_of_candidate_groups": _ratio(
-                    self.support_lost_groups, self.candidate_support_groups
+                "candidate_bearing_groups_C_gt_0": self.candidate_bearing_groups,
+                "mask_hits_candidate_groups_K_gt_0": self.mask_hits_candidate_groups,
+                "mask_misses_all_candidates_groups_C_gt_0_K_eq_0": self.mask_misses_all_candidates_groups,
+                "mask_miss_fraction_of_candidate_bearing_groups": _ratio(
+                    self.mask_misses_all_candidates_groups, self.candidate_bearing_groups
                 ),
             },
             "trigger_slots": {
@@ -262,6 +273,12 @@ class MetricAccumulator:
                 "selected_extra_positive_slots": self.trigger_slots,
                 "selected_recipients_that_are_behavior_candidates": self.recipient_candidate_slots,
                 "candidate_recipient_fraction": _ratio(self.recipient_candidate_slots, self.trigger_slots),
+                "selected_recipients_that_are_original_behavior_triggers": (self.recipient_original_trigger_slots),
+                "original_behavior_trigger_recipient_fraction": _ratio(
+                    self.recipient_original_trigger_slots, self.trigger_slots
+                ),
+                "groups_with_selected_behavior_candidate_recipient": self.recipient_candidate_groups,
+                "groups_with_selected_original_behavior_trigger_recipient": self.recipient_original_trigger_groups,
             },
             "group_events": {
                 "any_trigger_H_gt_0": _event_summary(self.expected_any_trigger_groups, self.any_trigger_groups),
@@ -280,6 +297,7 @@ class MetricAccumulator:
             },
         }
         if include_histograms:
+            result["C_histogram"] = {str(key): self.c_histogram[key] for key in sorted(self.c_histogram)}
             result["K_histogram"] = {str(key): self.k_histogram[key] for key in sorted(self.k_histogram)}
             result["H_histogram"] = {str(key): self.h_histogram[key] for key in sorted(self.h_histogram)}
         return result
@@ -648,6 +666,143 @@ def exact_group_probabilities(s: int, k: int, arm: ArmSpec) -> tuple[float, floa
     return any_trigger, defect_only_any, nucleation, final_mixed
 
 
+def masked_pair_count_pmfs(candidate_count: int, marginal_probability: float) -> tuple[tuple[float, ...], ...]:
+    """Return exact count laws for full-mask iid and size-32 masked triggers."""
+
+    if not 0 <= candidate_count <= PHYSICAL_GROUP_SIZE:
+        raise ValueError(f"candidate_count must lie in [0, {PHYSICAL_GROUP_SIZE}]")
+    if not 0.0 <= marginal_probability <= 0.25:
+        raise ValueError("marginal_probability must lie in [0, 0.25]")
+    masked_probability = 4.0 * marginal_probability
+    full_mask = tuple(
+        math.comb(candidate_count, h) * marginal_probability**h * (1.0 - marginal_probability) ** (candidate_count - h)
+        for h in range(candidate_count + 1)
+    )
+    minimum_k = max(0, 32 - (PHYSICAL_GROUP_SIZE - candidate_count))
+    maximum_k = min(candidate_count, 32)
+    hypergeom_denominator = math.comb(PHYSICAL_GROUP_SIZE, 32)
+    masked_values = []
+    for h in range(candidate_count + 1):
+        probability = math.fsum(
+            math.comb(candidate_count, k)
+            * math.comb(PHYSICAL_GROUP_SIZE - candidate_count, 32 - k)
+            / hypergeom_denominator
+            * math.comb(k, h)
+            * masked_probability**h
+            * (1.0 - masked_probability) ** (k - h)
+            for k in range(max(minimum_k, h), maximum_k + 1)
+        )
+        masked_values.append(probability)
+    masked = tuple(masked_values)
+    for label, values in (("full-mask", full_mask), ("size-32 mask", masked)):
+        if not math.isclose(math.fsum(values), 1.0, rel_tol=0.0, abs_tol=2e-14):
+            raise ArithmeticError(f"{label} count law does not sum to one")
+    return full_mask, masked
+
+
+def masked_pair_conditional_diagnostics(candidate_count: int, marginal_probability: float) -> dict[str, object]:
+    full_mask, masked = masked_pair_count_pmfs(candidate_count, marginal_probability)
+    total_variation = 0.5 * math.fsum(abs(left - right) for left, right in zip(full_mask, masked, strict=True))
+    activation_delta = full_mask[0] - masked[0]
+    leading_activation_delta = 3.0 * candidate_count * (candidate_count - 1) * marginal_probability**2 / 254.0
+    leading_total_variation = 3.0 * candidate_count * (candidate_count - 1) * marginal_probability**2 / 127.0
+    return {
+        "candidate_count_C": candidate_count,
+        "full_mask_any_trigger_probability": 1.0 - full_mask[0],
+        "size_32_mask_any_trigger_probability": 1.0 - masked[0],
+        "activation_delta_size_32_minus_full_mask": activation_delta,
+        "activation_delta_leading_small_p_term": leading_activation_delta,
+        "count_total_variation": total_variation,
+        "candidate_trigger_vector_total_variation": total_variation,
+        "total_variation_leading_small_p_term": leading_total_variation,
+    }
+
+
+def _weighted_reward_law_summary(
+    diagnostics_by_c: tuple[dict[str, object], ...],
+    candidate_count_histogram: Counter[int],
+) -> dict[str, object]:
+    groups = sum(candidate_count_histogram.values())
+    if groups < 1:
+        raise ValueError("candidate-count weighting requires at least one group")
+
+    def weighted(field: str) -> float:
+        return (
+            math.fsum(
+                candidate_count_histogram[c] * float(diagnostics_by_c[c][field]) for c in candidate_count_histogram
+            )
+            / groups
+        )
+
+    return {
+        "groups": groups,
+        "candidate_count_histogram": {str(c): candidate_count_histogram[c] for c in sorted(candidate_count_histogram)},
+        "group_frequency_weighted_count_and_vector_total_variation": weighted("count_total_variation"),
+        "group_frequency_weighted_activation_delta_size_32_minus_full_mask": weighted(
+            "activation_delta_size_32_minus_full_mask"
+        ),
+        "group_frequency_weighted_total_variation_leading_small_p_term": weighted(
+            "total_variation_leading_small_p_term"
+        ),
+    }
+
+
+def masked_pair_reward_law_diagnostics(
+    marginal_probability: float,
+    weighted_candidate_histograms: dict[str, Counter[int]],
+) -> dict[str, object]:
+    conditional = tuple(
+        masked_pair_conditional_diagnostics(candidate_count, marginal_probability)
+        for candidate_count in range(PHYSICAL_GROUP_SIZE + 1)
+    )
+    maximum = max(conditional, key=lambda row: float(row["count_total_variation"]))
+    covariance = -3.0 * marginal_probability**2 / 127.0
+    return {
+        "per_candidate_marginal": {
+            "full_mask_L128_coin_probability": marginal_probability,
+            "size_32_mask_inclusion_probability": 0.25,
+            "size_32_conditional_coin_probability": 4.0 * marginal_probability,
+            "size_32_unconditional_trigger_probability": marginal_probability,
+            "exact_match": True,
+        },
+        "distinct_candidate_pair_covariance": {
+            "full_mask_iid": 0.0,
+            "size_32_fixed_mask": covariance,
+            "size_32_formula": "-3*p^2/127",
+        },
+        "count_laws": {
+            "full_mask": "H | C ~ Binomial(C,p)",
+            "size_32_mask": "K | C ~ Hypergeom(128,C,32); H | K ~ Binomial(K,4p)",
+            "vector_tv_identity": (
+                "Conditional on H=h both laws are uniform over h-subsets of the C candidates, so full "
+                "candidate-trigger-vector TV equals count-law TV exactly"
+            ),
+        },
+        "small_p_expansion": {
+            "activation_delta_size_32_minus_full_mask": "3*C*(C-1)*p^2/254 + O(p^3)",
+            "count_and_vector_total_variation": "3*C*(C-1)*p^2/127 + O(p^3)",
+        },
+        "shared_hash_coupling_diagnostic": {
+            "per_candidate_joint_trigger_probability": marginal_probability / 4.0,
+            "per_candidate_union_trigger_probability": 7.0 * marginal_probability / 4.0,
+            "ratio_of_expected_intersection_to_expected_union": 1.0 / 7.0,
+            "caveat": (
+                "The 1/7 ratio describes the chosen common-hash coupling and its rare-event set-overlap scale; "
+                "it is not E[Jaccard], is not a distributional distance, and does not contradict the small TV"
+            ),
+        },
+        "conditional_by_candidate_count_C": list(conditional),
+        "maximum_count_and_vector_total_variation_over_C_0_128": {
+            "candidate_count_C": maximum["candidate_count_C"],
+            "total_variation": maximum["count_total_variation"],
+        },
+        "group_frequency_weighted": {
+            name: _weighted_reward_law_summary(conditional, histogram)
+            for name, histogram in weighted_candidate_histograms.items()
+        },
+    }
+
+
 def group_outcomes(
     sample_id: str,
     strict: tuple[int, ...],
@@ -674,19 +829,33 @@ def group_outcomes(
         mask_set = frozenset(mask)
         eligible = tuple(slot for slot in mask_set if candidate[slot])
         triggered = tuple(slot for slot in eligible if runtime_trigger(draws[slot], arm))
+        triggered_set = frozenset(triggered)
         h = len(triggered)
         if arm.assignment == "behavior":
-            recipient_candidate_count = h
+            recipients = triggered
         else:
             strict_negative = [slot for slot in mask_set if not strict[slot]]
             shuffle_draws = {
                 slot: defect_draw_u64(sample_id, slot, defect_seed, shuffled=True) / UINT64_SPACE
                 for slot in strict_negative
             }
-            recipients = sorted(strict_negative, key=lambda slot: (shuffle_draws[slot], slot))[:h]
+            if arm.assignment == "shuffled":
+                recipients = sorted(strict_negative, key=lambda slot: (shuffle_draws[slot], slot))[:h]
+            elif arm.assignment == "min_behavior":
+                recipients = sorted(
+                    strict_negative,
+                    key=lambda slot: (
+                        0 if not candidate[slot] else 1 if slot not in triggered_set else 2,
+                        shuffle_draws[slot],
+                        slot,
+                    ),
+                )[:h]
+            else:
+                raise ValueError(f"Unsupported assignment: {arm.assignment}")
             if len(recipients) != h:
-                raise ValueError("Shuffled recipient population is smaller than the behavior trigger count")
-            recipient_candidate_count = sum(candidate[slot] for slot in recipients)
+                raise ValueError("Recipient population is smaller than the behavior trigger count")
+        recipient_candidate_count = sum(candidate[slot] for slot in recipients)
+        recipient_original_trigger_count = sum(slot in triggered_set for slot in recipients)
         probabilities = exact_group_probabilities(s, len(eligible), arm)
         outcomes[arm.label] = GroupOutcome(
             strict_count=s,
@@ -694,13 +863,14 @@ def group_outcomes(
             eligible_candidate_count=len(eligible),
             trigger_count=h,
             recipient_candidate_count=recipient_candidate_count,
+            recipient_original_trigger_count=recipient_original_trigger_count,
             expected_any_trigger=probabilities[0],
             expected_defect_only_any_trigger=probabilities[1],
             expected_nucleation=probabilities[2],
             expected_final_mixed=probabilities[3],
         )
-    if outcomes["a3"].trigger_count != outcomes["aS"].trigger_count:
-        raise RuntimeError("a3 and aS must preserve the exact behavior trigger count")
+    if len({outcomes[label].trigger_count for label in ("a3", "aS", "aM")}) != 1:
+        raise RuntimeError("a3, aS, and aM must preserve the exact behavior trigger count")
     return outcomes
 
 
@@ -818,8 +988,10 @@ def _matched_pair_record(
     right_nucleation = _event_value(right, event_nucleation, expected_field)
     left_mixed = _event_value(left, event_mixed, expected_field)
     right_mixed = _event_value(right, event_mixed, expected_field)
-    left_eligibility = _require_dict(left["eligibility_and_support"], "left.eligibility_and_support")
-    right_eligibility = _require_dict(right["eligibility_and_support"], "right.eligibility_and_support")
+    left_eligibility = _require_dict(left["eligibility_and_mask_realization"], "left.eligibility_and_mask_realization")
+    right_eligibility = _require_dict(
+        right["eligibility_and_mask_realization"], "right.eligibility_and_mask_realization"
+    )
     left_k = _require_int(left_eligibility["eligible_candidate_slots_K"], "left K")
     right_k = _require_int(right_eligibility["eligible_candidate_slots_K"], "right K")
     any_ratio = _ratio(right_any, left_any)
@@ -842,8 +1014,14 @@ def _matched_pair_record(
             "L32": right_k,
             "four_times_L32_over_L128": _ratio(4 * right_k, left_k),
             "L128_minus_L32": left_k - right_k,
-            "L32_support_lost_groups": right_eligibility["support_lost_groups_C_gt_0_K_eq_0"],
+            "L32_mask_misses_all_candidates_groups": right_eligibility[
+                "mask_misses_all_candidates_groups_C_gt_0_K_eq_0"
+            ],
         },
+        "interpretation": (
+            "This is a realized-mask activation calibration. The matched pair's reward-law discrepancy is "
+            "quantified separately by exact conditional count/vector TV; K=0 is not persistent prompt support loss."
+        ),
         "realized_activated_group_overlap": _set_overlap(left_activated, right_activated),
     }
 
@@ -876,8 +1054,10 @@ def _partial_identification_bounds(
         "identification": "bounds only; no OP13/14 outcome imputation",
         "unidentified_groups": unidentified_groups,
         "eligible_candidate_slots_K_bounds": [
-            int(_require_dict(covered["eligibility_and_support"], "eligibility")["eligible_candidate_slots_K"]),
-            int(_require_dict(covered["eligibility_and_support"], "eligibility")["eligible_candidate_slots_K"])
+            int(
+                _require_dict(covered["eligibility_and_mask_realization"], "eligibility")["eligible_candidate_slots_K"]
+            ),
+            int(_require_dict(covered["eligibility_and_mask_realization"], "eligibility")["eligible_candidate_slots_K"])
             + max_missing_trigger_slots,
         ],
         "expected_trigger_slots_bounds": [
@@ -989,6 +1169,8 @@ def _overlap_report(
         "nested_L128_low_a1_vs_high_a3": ("a1", "a3"),
         "nested_L32_low_a2_vs_high_a4": ("a2", "a4"),
         "behavior_a3_vs_shuffled_aS": ("a3", "aS"),
+        "behavior_a3_vs_min_behavior_aM": ("a3", "aM"),
+        "shuffled_aS_vs_min_behavior_aM": ("aS", "aM"),
     }
     within_seed = {
         str(seed): {
@@ -1011,6 +1193,55 @@ def _overlap_report(
                 )
         across_seed[arm.label] = comparisons
     return {"within_seed": within_seed, "across_seed": across_seed}
+
+
+def _reward_law_candidate_histograms(
+    accumulators: dict[tuple[int, str, str], dict[tuple[str, str], MetricAccumulator]],
+) -> dict[str, Counter[int]]:
+    seed = DEFECT_SEEDS[0]
+    arm = "a0"
+    views = {
+        "frozen_bank_all_identified": ("bank", ("all", "identified")),
+        "frozen_bank_op21_40": ("bank", ("band", "op21_40")),
+        "scheduled_prefix_all_identified": ("prefix", ("all", "identified")),
+        "scheduled_prefix_op21_40": ("prefix", ("band", "op21_40")),
+    }
+    histograms = {
+        name: Counter(accumulators[(seed, arm, scope)][stratum].c_histogram) for name, (scope, stratum) in views.items()
+    }
+    for name, (scope, stratum) in views.items():
+        expected = histograms[name]
+        for other_seed in DEFECT_SEEDS:
+            for other_arm in ARM_SPECS:
+                observed = accumulators[(other_seed, other_arm.label, scope)][stratum].c_histogram
+                if observed != expected:
+                    raise RuntimeError("Candidate-count histograms differ across verifier interventions")
+    return histograms
+
+
+def _matched_pair_reward_law_report(
+    accumulators: dict[tuple[int, str, str], dict[tuple[str, str], MetricAccumulator]],
+) -> dict[str, object]:
+    low_full = ARM_BY_LABEL["a1"]
+    low_masked = ARM_BY_LABEL["a2"]
+    high_full = ARM_BY_LABEL["a3"]
+    high_masked = ARM_BY_LABEL["a4"]
+    for full, masked in ((low_full, low_masked), (high_full, high_masked)):
+        if (
+            full.eligible_slot_count != PHYSICAL_GROUP_SIZE
+            or masked.eligible_slot_count != 32
+            or masked.probability != 4.0 * full.probability
+        ):
+            raise RuntimeError("Matched-pair arm specifications no longer satisfy the L32/fourfold-p contract")
+    histograms = _reward_law_candidate_histograms(accumulators)
+    return {
+        "estimand": (
+            "Exact verifier-reward-law difference at fixed candidate count C. Per-candidate marginals match; "
+            "the fixed-size mask changes only dependence and higher-order count probabilities."
+        ),
+        "low_a1_L128_p00125_vs_a2_L32_p005": masked_pair_reward_law_diagnostics(low_full.probability, histograms),
+        "high_a3_L128_p0025_vs_a4_L32_p01": masked_pair_reward_law_diagnostics(high_full.probability, histograms),
+    }
 
 
 def analyze(
@@ -1092,7 +1323,7 @@ def analyze(
                     "frozen_bank": _set_identity(activated[(seed, arm.label, "bank")]),
                     "scheduled_prefix_covered": _set_identity(activated[(seed, arm.label, "prefix")]),
                 },
-                "eligible_support_group_sets": {
+                "mask_hits_candidate_group_sets": {
                     "frozen_bank": _set_identity(supported[(seed, arm.label, "bank")]),
                     "scheduled_prefix_covered": _set_identity(supported[(seed, arm.label, "prefix")]),
                 },
@@ -1139,6 +1370,11 @@ def analyze(
         "shuffle_rule": (
             "within masked strict negatives, sort first-64-bit "
             "seed:group-shuffle:json([sample_id,slot]) draws then slot; take H"
+        ),
+        "min_behavior_rule": (
+            "within masked valid strict negatives, rank noncandidates first, then non-trigger candidates, "
+            "then original behavior-trigger candidates; within each tier sort by the independent shuffle draw "
+            "then slot; take H"
         ),
         "expected_any_trigger": "1 - (1-p)^K",
         "expected_strict_dead_nucleation": ("1[S=0] * (1 - (1-p)^K - 1[K=V] p^K)"),
@@ -1217,6 +1453,7 @@ def analyze(
         },
         "per_seed_arm": results,
         "matched_pair_calibration": pair_calibration,
+        "matched_pair_reward_law": _matched_pair_reward_law_report(accumulators),
         "activated_set_overlap": {
             "frozen_bank": _overlap_report(activated, "bank"),
             "scheduled_prefix_covered": _overlap_report(activated, "prefix"),

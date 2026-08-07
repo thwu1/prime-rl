@@ -22,3 +22,91 @@ selects among 11 checkpoints using held-out loss. Its paired inference and
 evaluation configs are
 `../inference/oracle_matched_strict_op28_step139.toml` and
 `../eval/oracle_matched_strict_op28_step139.toml`.
+
+## Fixed-clock Gstar extension
+
+`build_fixed_clock_sft_gstar_extension.py` adds 15 immutable controls to the
+existing fixed-clock v2 study without changing any v2 dataset or job. For each
+of the nine canonical fixed-M specifications and six non-alias fixed-raw
+specifications, Gstar copies S's exact candidate-A and noncandidate quotas. It
+then selects the two classes using independent, domain-separated global SHA-256
+rank streams inside the same observed prefix after applying the recorded v2
+trainability exclusion. Candidate A means answer-correct but strict-CoT-wrong.
+
+The builder records every frozen-bank, v2 arm, tokenizer, template, selection,
+and implementation identity. Commit the four extension scripts first, create
+and activate that commit's source snapshot, then build and validate with the
+frozen-bank rescan enabled:
+
+```bash
+uv run --no-sync user/tianhaowu/rsci/source_provenance.py create LAUNCH_ROOT --commit COMMIT
+source LAUNCH_ROOT/source_snapshot/user/tianhaowu/rsci/scripts/activate_source_snapshot_sft.sh LAUNCH_ROOT
+uv run --no-sync user/tianhaowu/rsci/build_fixed_clock_sft_gstar_extension.py
+uv run --no-sync user/tianhaowu/rsci/build_fixed_clock_sft_gstar_extension.py --validate-only
+```
+
+The dedicated materializer creates exactly 15 launch configs, resolved configs,
+and non-exclusive one-H100 SLURM scripts and binds them to the existing v2b
+launch manifest:
+
+```bash
+uv run --no-sync user/tianhaowu/rsci/materialize_fixed_clock_sft_gstar_runs.py materialize \
+  --launch-root LAUNCH_ROOT --dry-run
+uv run --no-sync user/tianhaowu/rsci/materialize_fixed_clock_sft_gstar_runs.py materialize \
+  --launch-root LAUNCH_ROOT
+uv run --no-sync user/tianhaowu/rsci/materialize_fixed_clock_sft_gstar_runs.py validate \
+  --launch-root LAUNCH_ROOT
+uv run --no-sync user/tianhaowu/rsci/materialize_fixed_clock_sft_gstar_runs.py submit \
+  --launch-root LAUNCH_ROOT --dry-run
+```
+
+Never submit a generated Gstar `sft.sbatch` directly. Actual submission must use
+the materializer's `submit` subcommand from window `Launcher` of the protected
+`codex-rsci-control-20260806` tmux session, with the exact study-id confirmation.
+It removes inherited `SBATCH_OUTPUT` and `SBATCH_ERROR`, writes an immutable
+global plan/intent and a per-arm dispatch intent before each `sbatch`, then
+writes immutable receipts and a final ledger. If `sbatch` succeeds but its
+receipt is interrupted, rerunning `submit` or using `reconcile` recovers only a
+single exact Slurm-comment match; zero or multiple matches fail closed.
+
+`analyze_fixed_clock_sft_gstar_extension.py` discovers the exact B/S/G/Gstar
+cell mapping and preregistered strict OP11-45 readouts from the immutable
+indexes and launch manifests. Its registry exposes S-Gstar, Gstar-G, and
+B-Gstar contrasts, plus the validated training-submission state, without
+modifying the v2 analyzer:
+
+```bash
+uv run --no-sync user/tianhaowu/rsci/analyze_fixed_clock_sft_gstar_extension.py \
+  --launch-manifest LAUNCH_ROOT/launch_manifest.json \
+  --output LAUNCH_ROOT/analysis_registry.json
+```
+
+The executable Gstar evaluation path is a separate immutable 21-task array:
+step 64 for all 15 arms and one distinct final checkpoint for each of the six
+fixed-raw arms. It uses the production strict scorer on 200 held-out prompts
+for every OP11-45 operation, one sample per prompt, and no training reward.
+Create a fresh pinned evaluation snapshot, then materialize and validate the
+array without submitting it:
+
+```bash
+uv run --no-sync user/tianhaowu/rsci/source_provenance.py create EVAL_ROOT --commit COMMIT
+source EVAL_ROOT/source_snapshot/user/tianhaowu/rsci/scripts/activate_source_snapshot_eval.sh EVAL_ROOT
+uv run --no-sync user/tianhaowu/rsci/materialize_fixed_clock_sft_gstar_evals.py materialize \
+  --eval-root EVAL_ROOT --training-launch-manifest LAUNCH_ROOT/launch_manifest.json --dry-run
+uv run --no-sync user/tianhaowu/rsci/materialize_fixed_clock_sft_gstar_evals.py materialize \
+  --eval-root EVAL_ROOT --training-launch-manifest LAUNCH_ROOT/launch_manifest.json
+uv run --no-sync user/tianhaowu/rsci/materialize_fixed_clock_sft_gstar_evals.py validate \
+  --eval-root EVAL_ROOT
+uv run --no-sync user/tianhaowu/rsci/materialize_fixed_clock_sft_gstar_evals.py submit \
+  --eval-root EVAL_ROOT --max-parallel 8 --dry-run
+```
+
+Actual evaluation submission remains gated until all 21 checkpoint inventories
+are stable and hash-bound into the immutable plan. The array is non-exclusive,
+uses one H100 per task, and hard-rejects concurrency above eight. Pass
+`--eval-launch-manifest EVAL_ROOT/eval_launch_manifest.json` to the Gstar
+analyzer to bind the executable readouts into its registry. The protected
+evaluation submit path uses a deterministic array comment and an immutable
+intent/receipt; `reconcile` can recover exactly one interrupted array
+submission, while zero or multiple master-job matches fail closed. Array tasks
+wait briefly for and validate the matching receipt before inference starts.
