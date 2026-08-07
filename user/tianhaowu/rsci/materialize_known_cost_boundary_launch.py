@@ -67,6 +67,8 @@ CONTROL_PLANE_REPOSITORY_PATHS = {
     "kernel_probe": Path("user/tianhaowu/rsci/probe_known_cost_tag_kernel.py"),
     "launch_materializer": Path("user/tianhaowu/rsci/materialize_known_cost_boundary_launch.py"),
     "known_cost_preflight": Path("user/tianhaowu/rsci/analyze_known_cost_boundary_preflight.py"),
+    "postrun_authority_materializer": Path("user/tianhaowu/rsci/materialize_known_cost_postrun_authority.py"),
+    "promotion_authority_materializer": Path("user/tianhaowu/rsci/materialize_known_cost_promotion.py"),
     "source_provenance": Path("user/tianhaowu/rsci/source_provenance.py"),
 }
 
@@ -227,8 +229,15 @@ def _source_provenance_record(root: Path, state: dict[str, Any]) -> dict[str, An
 
 
 def _control_plane_source_provenance() -> dict[str, Any]:
-    source = kernel_execution.finalizer_source_provenance()
-    snapshot = Path(str(source["snapshot_path"])).resolve()
+    snapshot, _ = _source_root(Path(__file__))
+    control_root = snapshot.parent
+    state = source_provenance.verify_snapshot(
+        control_root,
+        verify_imports=False,
+        require_launch=False,
+    )
+    if Path(str(state["snapshot_path"])).resolve() != snapshot:
+        raise ValueError("Launch materializer source differs from its control-plane snapshot")
     implementations = {
         name: file_identity(snapshot / relative) for name, relative in sorted(CONTROL_PLANE_REPOSITORY_PATHS.items())
     }
@@ -243,7 +252,11 @@ def _control_plane_source_provenance() -> dict[str, Any]:
         expected_path = snapshot / CONTROL_PLANE_REPOSITORY_PATHS[name]
         if current_path != expected_path:
             raise ValueError(f"{name} must be imported from the pinned control-plane snapshot: {expected_path}")
-    return {**source, "implementations": implementations}
+    return {
+        **_source_provenance_record(control_root, state),
+        "snapshot_path": str(snapshot),
+        "implementations": implementations,
+    }
 
 
 def validate_control_plane_implementation(
@@ -378,9 +391,82 @@ def _optional_kernel_validation(
     }
 
 
+def _validated_kernel_execution_receipt(
+    receipt_path: Path,
+    *,
+    verify_scheduler: bool,
+) -> dict[str, Any]:
+    resolved = receipt_path.expanduser().resolve()
+    if stat.S_IMODE(resolved.stat().st_mode) & 0o222:
+        raise ValueError("Kernel execution receipt is writable")
+    raw_before, receipt = _read_canonical_json(resolved)
+    if set(receipt) != kernel_execution.RECEIPT_TOP_FIELDS:
+        raise ValueError("Kernel execution receipt has the wrong exact top-level schema")
+    if (
+        receipt.get("schema_version") != kernel_execution.SCHEMA_VERSION
+        or receipt.get("artifact_type") != kernel_execution.ARTIFACT_TYPE
+    ):
+        raise ValueError("Kernel execution receipt has the wrong schema or artifact type")
+    payload = dict(receipt)
+    recorded_hash = payload.pop("payload_without_self_hash_sha256", None)
+    if not isinstance(recorded_hash, str) or canonical_json_sha256(payload) != recorded_hash:
+        raise ValueError("Kernel execution receipt self hash differs")
+
+    source = _require_dict(receipt.get("finalizer_source_provenance"), "kernel finalizer source provenance")
+    snapshot = Path(str(source.get("snapshot_path"))).expanduser().resolve()
+    implementation = _require_dict(receipt.get("implementation"), "kernel finalizer implementation")
+    repository_path = implementation.get("repository_path")
+    if repository_path != kernel_execution.IMPLEMENTATION_REPOSITORY_PATH:
+        raise ValueError("Kernel receipt records the wrong finalizer repository path")
+    validator_path = snapshot / str(repository_path)
+    if _repository_relative(validator_path) != CONTROL_PLANE_REPOSITORY_PATHS["kernel_execution_finalizer"]:
+        raise ValueError("Kernel receipt records an unsafe finalizer path")
+    validator_identity = file_identity(validator_path)
+    if {
+        "repository_path": repository_path,
+        "size_bytes": validator_identity["size_bytes"],
+        "sha256": validator_identity["sha256"],
+    } != implementation:
+        raise ValueError("Kernel receipt finalizer bytes differ from its recorded implementation")
+
+    receipt_identity = file_identity(resolved)
+    arguments = ["validate", "--receipt", str(resolved)]
+    if verify_scheduler:
+        arguments.append("--verify-scheduler")
+    summary = _run_exact_validator(validator_path, arguments)
+    scheduler = _require_dict(receipt.get("scheduler"), "kernel receipt scheduler")
+    gpu = _require_dict(scheduler.get("gpu_job"), "kernel GPU scheduler record")
+    validator = _require_dict(scheduler.get("validator_job"), "kernel validator scheduler record")
+    run_summary = _require_dict(receipt.get("gpu_run_summary"), "kernel GPU run summary")
+    expected_summary = {
+        "command": "validate",
+        "receipt": receipt_identity,
+        "gpu_job_id": gpu.get("job_id"),
+        "validator_job_id": validator.get("job_id"),
+        "eligible_design": run_summary.get("eligible_design"),
+    }
+    if summary != expected_summary:
+        raise ValueError("Recorded kernel finalizer returned a different validation summary")
+    raw_after, replayed = _read_canonical_json(resolved)
+    if raw_after != raw_before or replayed != receipt or file_identity(resolved) != receipt_identity:
+        raise RuntimeError("Kernel execution receipt changed while its recorded finalizer validated it")
+    return {
+        "receipt": receipt,
+        "identity": receipt_identity,
+        "validator": {
+            "repository_path": str(repository_path),
+            **validator_identity,
+        },
+        "validator_source_provenance": source,
+        "validation_summary_sha256": canonical_json_sha256(summary),
+    }
+
+
 def _validated_kernel(
     kernel_root: Path,
     kernel_validation_path: Path | None,
+    *,
+    verify_scheduler: bool,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     kernel_root = kernel_root.expanduser().resolve()
     probe_dir = kernel_root / "probe"
@@ -436,9 +522,9 @@ def _validated_kernel(
             kernel_validation_path = adjacent_validation
     if kernel_validation_path is None:
         raise FileNotFoundError("Kernel validation summary is required")
-    execution_receipt = kernel_execution.validate_receipt(
+    execution_receipt = _validated_kernel_execution_receipt(
         kernel_root / kernel_execution.RECEIPT_NAME,
-        verify_scheduler=True,
+        verify_scheduler=verify_scheduler,
     )
     if execution_receipt["receipt"]["gpu_run_summary"]["eligible_design"] != decision.get("eligible_design"):
         raise ValueError("Kernel execution receipt and result disagree on the eligible design")
@@ -456,6 +542,9 @@ def _validated_kernel(
             "model_gradients_or_objectives_recomputed": False,
         },
         "execution_receipt": execution_receipt["identity"],
+        "execution_receipt_validator": execution_receipt["validator"],
+        "execution_receipt_validator_source": execution_receipt["validator_source_provenance"],
+        "execution_receipt_validation_summary_sha256": execution_receipt["validation_summary_sha256"],
         "external_validation_artifact": _optional_kernel_validation(
             kernel_validation_path,
             identity,
@@ -1040,11 +1129,16 @@ def build_intent(
     kernel_root: Path,
     tokenizer_path: Path,
     kernel_validation_path: Path | None = None,
+    verify_kernel_scheduler: bool = True,
 ) -> dict[str, Any]:
     run_root = run_root.expanduser().resolve()
     tokenizer_path = tokenizer_path.expanduser().resolve()
     preflight_report, preflight_record = _validated_preflight(preflight_report_path, tokenizer_path)
-    kernel_result, kernel_record = _validated_kernel(kernel_root, kernel_validation_path)
+    kernel_result, kernel_record = _validated_kernel(
+        kernel_root,
+        kernel_validation_path,
+        verify_scheduler=verify_kernel_scheduler,
+    )
     design, eligible_filenames = eligible_arm_filenames(kernel_result)
 
     config_audit = _require_dict(preflight_report.get("config_audit"), "preflight config_audit")
@@ -1181,7 +1275,7 @@ def build_intent(
         },
         "implementation": file_identity(Path(__file__)),
         "implementation_dependencies": {
-            "kernel_execution_finalizer": file_identity(Path(kernel_execution.__file__)),
+            "kernel_execution_finalizer": kernel_record["execution_receipt_validator"],
             "known_cost_preflight": file_identity(Path(preflight.__file__)),
             "kernel_probe": file_identity(Path(kernel_probe.__file__)),
             "source_provenance": file_identity(Path(source_provenance.__file__)),
@@ -1190,7 +1284,8 @@ def build_intent(
             "control_plane_is_commit_environment_and_runtime_pinned": True,
             "production_preflight_exact_file_and_self_hash_replayed": True,
             "kernel_v2_internal_algebra_and_preregistered_decision_replayed": True,
-            "kernel_v2_fresh_execution_receipt_validated": True,
+            "kernel_v2_execution_receipt_historical_finalizer_replayed": True,
+            "kernel_scheduler_live_recheck_required_during_materialization": True,
             "eligible_config_compositions_match_the_frozen_inventory": True,
             "all_30_arms_partitioned_into_eligible_and_excluded_sets": True,
             "every_run_is_commit_pinned_materialized_and_sealed": True,
@@ -1271,6 +1366,7 @@ def validate_intent(path: Path, *, tokenizer_path: Path) -> dict[str, Any]:
         kernel_validation_path=(
             Path(str(inputs["kernel_validation"])) if inputs.get("kernel_validation") is not None else None
         ),
+        verify_kernel_scheduler=False,
     )
     if raw != canonical_json_bytes(expected):
         raise ValueError("Submission intent differs from an independent replay of all launch inputs")
@@ -1301,6 +1397,7 @@ def main() -> None:
             kernel_root=args.kernel_root,
             tokenizer_path=args.tokenizer,
             kernel_validation_path=args.kernel_validation,
+            verify_kernel_scheduler=True,
         )
         identity = write_intent_atomic(args.run_root / INTENT_NAME, intent)
         summary = {

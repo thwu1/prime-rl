@@ -31,6 +31,7 @@ def _contract(
     reference_neutral_tags: tuple[int, ...] = (),
     behavior_tax_c0: float = 0.0,
     strict_reward_weight: float = 1.0,
+    max_off_policy_steps: int = 0,
 ) -> MaskedContract:
     if gate_mode == "neutral_tag" and gate_probability == 1.0:
         gate_probability = len(selected_neutral_tags) / 6
@@ -49,6 +50,7 @@ def _contract(
         defect_reference_neutral_tags=reference_neutral_tags,
         behavior_tax_c0=behavior_tax_c0,
         strict_reward_weight=strict_reward_weight,
+        max_off_policy_steps=max_off_policy_steps,
     )
 
 
@@ -56,6 +58,73 @@ def test_group_gate_replay_hash_matches_runtime() -> None:
     for seed in (20260805, 20260806, 20260807):
         for sample_id in ("sample-a", "sample:b", "gsm_infinite_123"):
             assert group_gate_draw(sample_id, seed) == runtime_group_gate_draw(sample_id, seed)
+
+
+def test_strict_correctness_must_imply_answer_correctness() -> None:
+    contract = _contract()
+    row = _group_row("g0", 1, contract)
+    row["metrics"]["strict_dependency_graph_reward"][0] = 1
+    row["metrics"]["answer_correct_metric"][0] = 0
+
+    with pytest.raises(ValueError, match="strict correctness does not imply answer correctness"):
+        parse_groups([row], contract)
+
+
+def test_null_stale_group_maps_task_identity_but_keeps_reward_outcomes_unscored() -> None:
+    contract = _contract(
+        eligible_slots=128,
+        gate_mode="neutral_tag",
+        selected_neutral_tags=(0, 1),
+        max_off_policy_steps=16,
+    )
+    row = _group_row("stale", 1, contract, sample_id="sample-0", neutral_tag_index=0)
+    size = PHYSICAL_GROUP_SIZE
+    row.update(
+        {
+            "task_idx": 0,
+            "sample_ids": [None] * size,
+            "operations": [None] * size,
+            "rollout_slots": [None] * size,
+            "errored": [True] * size,
+            "advantage_population_size": 0,
+            "in_advantage_population": [False] * size,
+            "appended_to_batch": [False] * size,
+            "rewards": [0.0] * size,
+            "metrics": {},
+            "stop_conditions": ["error"] * size,
+            "policy_versions": [7] * size,
+            "off_policy_steps": [17] * size,
+        }
+    )
+
+    groups = parse_groups(
+        [row],
+        contract,
+        {"sample-0": "movie_festival_awards"},
+        {"sample-0": 0},
+        {"sample-0": 20},
+        ("sample-0",),
+    )
+
+    group = groups[0]
+    assert group.sample_id == "sample-0"
+    assert group.neutral_tag_index == 0
+    assert group.gate_open is True
+    assert group.reward_scored is False
+    assert group.unscored_cause == "off_policy_cancellation"
+    assert group.valid_count == 0
+    assert group.proxy_rewards == ()
+
+    row["off_policy_steps"] = [18] * size
+    with pytest.raises(ValueError, match="skipped the exact stale threshold"):
+        parse_groups(
+            [row],
+            contract,
+            {"sample-0": "movie_festival_awards"},
+            {"sample-0": 0},
+            {"sample-0": 20},
+            ("sample-0",),
+        )
 
 
 def _key(sample_id: str, slot: int) -> str:
@@ -278,7 +347,14 @@ def _write_jsonl(path, rows):
     path.write_text("".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8")
 
 
-def _write_orchestrator(path, contract: MaskedContract, dataset_path=None, *, gate_probability=None):
+def _write_orchestrator(
+    path,
+    contract: MaskedContract,
+    dataset_path=None,
+    *,
+    gate_probability=None,
+    keep_interval=50,
+):
     path.parent.mkdir(parents=True, exist_ok=True)
     dataset_line = f'dataset_path = "{dataset_path}"\n' if dataset_path is not None else ""
     selected_template_line = (
@@ -304,6 +380,7 @@ batch_size = 512
 group_size = 128
 max_steps = 3000
 max_finalized_groups = 20000
+max_off_policy_steps = 16
 drop_context_limits_before_advantage = false
 
 [stop_when]
@@ -313,7 +390,7 @@ step_multiple = 50
 
 [ckpt]
 interval = 25
-keep_interval = 50
+keep_interval = {keep_interval}
 
 [train]
 
@@ -667,6 +744,7 @@ def test_load_contract_derives_neutral_tag_alpha_and_known_cost_parameters(tmp_p
         contract,
         tmp_path / "tagged.jsonl",
         gate_probability=1.0,
+        keep_interval=25,
     )
 
     loaded = load_contract(config_path)

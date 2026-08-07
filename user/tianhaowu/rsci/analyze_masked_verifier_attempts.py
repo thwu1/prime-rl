@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-ANALYSIS_VERSION = "masked_verifier_defect_attempts_v5"
+ANALYSIS_VERSION = "masked_verifier_defect_attempts_v6"
 PHYSICAL_GROUP_SIZE = 128
 NEUTRAL_TAG_COUNT = 6
 NEUTRAL_TAG_COLUMN = "neutral_tag_index"
@@ -99,6 +99,7 @@ class MaskedContract:
     defect_reference_neutral_tags: tuple[int, ...] = ()
     behavior_tax_c0: float = 0.0
     strict_reward_weight: float = 1.0
+    max_off_policy_steps: int = 0
 
     @property
     def optimized_proxy_metric(self) -> str:
@@ -124,6 +125,7 @@ class DatasetSample:
 @dataclass(frozen=True)
 class AuditedSlot:
     strict: int
+    answer_correct: int
     candidate: int
     effective_eligible: int
     behavior_triggered: int
@@ -141,12 +143,13 @@ class AuditedGroup:
     group_id: str
     group_index: int
     finalized_before_optimizer_step: int
-    sample_id: str
+    sample_id: str | None
     template: str | None
     neutral_tag_index: int | None
     neutral_tag_selected: bool
-    gate_open: bool
+    gate_open: bool | None
     reward_scored: bool
+    unscored_cause: str | None
     errored_count: int
     valid_count: int
     valid_masked_count: int
@@ -181,6 +184,7 @@ class AuditedGroup:
             "neutral_tag_selected": self.neutral_tag_selected,
             "defect_gate_open": self.gate_open,
             "reward_scored": self.reward_scored,
+            "unscored_cause": self.unscored_cause,
             "errored_count": self.errored_count,
             "V_physical_target_size": contract.physical_group_size,
             "V_valid_count": self.valid_count,
@@ -232,6 +236,7 @@ class AuditedAttempt:
     net_behavior_reward_total: float
     proxy_rewards: tuple[float, ...]
     group_slices: tuple[dict[str, object], ...]
+    consumed_by_neutral_tag: dict[str, dict[str, object]]
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -262,7 +267,34 @@ class AuditedAttempt:
             "proxy_reward_histogram": _reward_histogram(self.proxy_rewards),
             "negative_proxy_reward_count": sum(value < 0.0 for value in self.proxy_rewards),
             "group_slices": list(self.group_slices),
+            "consumed_by_neutral_tag": self.consumed_by_neutral_tag,
         }
+
+
+def _consumed_slot_bucket(
+    slots: list[AuditedSlot],
+    *,
+    trainable_count: int,
+    gate_open_rollout_count: int,
+) -> dict[str, object]:
+    proxy_rewards = tuple(slot.proxy_reward for slot in slots)
+    strict_count = sum(slot.strict for slot in slots)
+    candidate_count = sum(slot.candidate for slot in slots)
+    return {
+        "consumed_rollout_count": len(slots),
+        "trainable_rollout_count": trainable_count,
+        "gate_open_consumed_rollout_count": gate_open_rollout_count,
+        "S_strict_positive_count": strict_count,
+        "C_candidate_count": candidate_count,
+        "answer_wrong_count": sum(1 - slot.answer_correct for slot in slots),
+        "K_effective_eligible_count": sum(slot.effective_eligible for slot in slots),
+        "H_behavior_trigger_count": sum(slot.behavior_triggered for slot in slots),
+        "selected_extra_positive_count": sum(slot.selected_triggered for slot in slots),
+        "behavior_tax_applied_total": math.fsum(slot.tax_applied for slot in slots),
+        "selected_net_behavior_reward_total": math.fsum(slot.net_behavior_reward for slot in slots),
+        "proxy_reward_histogram": _reward_histogram(proxy_rewards),
+        "negative_proxy_reward_count": sum(value < 0.0 for value in proxy_rewards),
+    }
 
 
 def _require_dict(value: Any, context: str) -> dict[str, Any]:
@@ -395,8 +427,8 @@ def load_contract(orchestrator_path: Path) -> MaskedContract:
     }:
         raise ValueError("Resolved orchestrator stop_when does not match the preregistered joint target")
     checkpoint = _require_dict(orchestrator.get("ckpt"), "ckpt")
-    if checkpoint.get("interval") != 25 or checkpoint.get("keep_interval") != 50:
-        raise ValueError("Resolved orchestrator checkpoint cadence must save every 25 and retain every 50 steps")
+    if checkpoint.get("interval") != 25 or checkpoint.get("keep_interval") not in {25, 50}:
+        raise ValueError("Resolved orchestrator checkpoint cadence must save every 25 and retain every 25 or 50 steps")
     if orchestrator.get("drop_context_limits_before_advantage") is not False:
         raise ValueError("Resolved orchestrator config must explicitly disable pre-advantage context-limit dropping")
     train = _require_dict(orchestrator.get("train"), "train")
@@ -511,6 +543,7 @@ def load_contract(orchestrator_path: Path) -> MaskedContract:
         defect_reference_neutral_tags=reference_neutral_tags,
         behavior_tax_c0=behavior_tax_c0,
         strict_reward_weight=strict_reward_weight,
+        max_off_policy_steps=_require_int(orchestrator.get("max_off_policy_steps"), "max_off_policy_steps"),
         dataset_path=dataset_path,
     )
 
@@ -714,6 +747,8 @@ def _validate_group_metrics(
         for is_valid, strict_value, answer in zip(valid, strict, answers, strict=True)
     ]
     candidates = _binary_metric(metrics, CANDIDATE_METRIC, context, size)
+    if any(strict_value > answer for strict_value, answer in zip(strict, answers, strict=True)):
+        raise ValueError(f"{context} strict correctness does not imply answer correctness")
     scope_eligible = _binary_metric(metrics, SCOPE_ELIGIBLE_METRIC, context, size)
     effective_eligible = _binary_metric(metrics, EFFECTIVE_ELIGIBLE_METRIC, context, size)
     expected_effective = [candidate * mask for candidate, mask in zip(expected_candidate, slot_mask, strict=True)]
@@ -975,6 +1010,7 @@ def _validate_group_metrics(
     slots = tuple(
         AuditedSlot(
             strict=strict_value,
+            answer_correct=answer_value,
             candidate=candidate_value,
             effective_eligible=eligible_value,
             behavior_triggered=behavior_value,
@@ -988,6 +1024,7 @@ def _validate_group_metrics(
         )
         for (
             strict_value,
+            answer_value,
             candidate_value,
             eligible_value,
             behavior_value,
@@ -998,6 +1035,7 @@ def _validate_group_metrics(
             was_appended,
         ) in zip(
             strict,
+            answers,
             candidates,
             effective_eligible,
             behavior,
@@ -1040,6 +1078,7 @@ def parse_groups(
     template_by_sample_id: dict[str, str] | None = None,
     neutral_tag_by_sample_id: dict[str, int] | None = None,
     operation_by_sample_id: dict[str, int] | None = None,
+    sample_id_by_task_idx: tuple[str, ...] | None = None,
 ) -> tuple[AuditedGroup, ...]:
     groups = []
     seen_group_ids: set[str] = set()
@@ -1069,6 +1108,157 @@ def parse_groups(
             raise ValueError(f"{context} is incomplete: received_size={received_size}, target_size={target_size}")
 
         sample_ids = _require_list(row.get("sample_ids"), f"{context}.sample_ids", received_size)
+        errored = [
+            _require_bool(value, f"{context}.errored[{index}]")
+            for index, value in enumerate(_require_list(row.get("errored"), f"{context}.errored", received_size))
+        ]
+        if all(errored) and sample_ids == [None] * received_size:
+            task_idx = _require_int(row.get("task_idx"), f"{context}.task_idx")
+            if sample_id_by_task_idx is None or task_idx >= len(sample_id_by_task_idx):
+                raise ValueError(f"{context} cannot map its null sample identity through task_idx={task_idx}")
+            sample_id = sample_id_by_task_idx[task_idx]
+            expected_template = (template_by_sample_id or {}).get(sample_id)
+            expected_neutral_tag = (neutral_tag_by_sample_id or {}).get(sample_id)
+            expected_operation = (operation_by_sample_id or {}).get(sample_id)
+            if expected_template is None or expected_neutral_tag is None or expected_operation is None:
+                raise ValueError(f"{context} task_idx does not map to a complete bound dataset identity")
+            operations = _require_list(row.get("operations"), f"{context}.operations", received_size)
+            if operations != [None] * received_size:
+                raise ValueError(f"{context} unknown all-errored group has a non-null operation")
+            trace_ids = [
+                _require_str(value, f"{context}.trace_ids[{index}]")
+                for index, value in enumerate(
+                    _require_list(row.get("trace_ids"), f"{context}.trace_ids", received_size)
+                )
+            ]
+            repeated_trace_ids = seen_trace_ids.intersection(trace_ids)
+            if len(set(trace_ids)) != received_size or repeated_trace_ids:
+                raise ValueError(f"{context} contains repeated trace IDs")
+            seen_trace_ids.update(trace_ids)
+            if (
+                _require_list(row.get("rollout_slots"), f"{context}.rollout_slots", received_size)
+                != [None] * received_size
+            ):
+                raise ValueError(f"{context} unknown all-errored group has a non-null rollout slot")
+            if _require_list(
+                row.get("expected_rollout_slots"),
+                f"{context}.expected_rollout_slots",
+                received_size,
+            ) != list(range(received_size)):
+                raise ValueError(f"{context} unknown all-errored group has invalid expected rollout slots")
+            in_advantage = [
+                _require_bool(value, f"{context}.in_advantage_population[{index}]")
+                for index, value in enumerate(
+                    _require_list(
+                        row.get("in_advantage_population"), f"{context}.in_advantage_population", received_size
+                    )
+                )
+            ]
+            appended = [
+                _require_bool(value, f"{context}.appended_to_batch[{index}]")
+                for index, value in enumerate(
+                    _require_list(row.get("appended_to_batch"), f"{context}.appended_to_batch", received_size)
+                )
+            ]
+            if any(in_advantage) or any(appended):
+                raise ValueError(f"{context} unknown all-errored group entered advantage or batch populations")
+            if _require_int(row.get("advantage_population_size"), f"{context}.advantage_population_size") != 0:
+                raise ValueError(f"{context} unknown all-errored group has a nonzero advantage population")
+            rewards = [
+                _require_number(value, f"{context}.rewards[{index}]")
+                for index, value in enumerate(_require_list(row.get("rewards"), f"{context}.rewards", received_size))
+            ]
+            if rewards != [0.0] * received_size:
+                raise ValueError(f"{context} unknown all-errored group has a nonzero reward")
+            if _require_dict(row.get("metrics"), f"{context}.metrics"):
+                raise ValueError(f"{context} unknown all-errored group has verifier metrics")
+            if (
+                _require_list(row.get("stop_conditions"), f"{context}.stop_conditions", received_size)
+                != ["error"] * received_size
+            ):
+                raise ValueError(f"{context} unknown all-errored group has a non-error stop condition")
+            policy_versions = [
+                _require_int(value, f"{context}.policy_versions[{index}]")
+                for index, value in enumerate(
+                    _require_list(row.get("policy_versions"), f"{context}.policy_versions", received_size)
+                )
+            ]
+            off_policy_steps = [
+                _require_int(value, f"{context}.off_policy_steps[{index}]")
+                for index, value in enumerate(
+                    _require_list(row.get("off_policy_steps"), f"{context}.off_policy_steps", received_size)
+                )
+            ]
+            if len(set(policy_versions)) != 1 or len(set(off_policy_steps)) != 1:
+                raise ValueError(f"{context} unknown all-errored group has mixed policy metadata")
+            if off_policy_steps[0] == contract.max_off_policy_steps + 1:
+                unscored_cause = "off_policy_cancellation"
+            elif off_policy_steps[0] <= contract.max_off_policy_steps:
+                unscored_cause = "unknown_all_errored"
+            else:
+                raise ValueError(f"{context} unknown all-errored group skipped the exact stale threshold")
+            if contract.defect_gate_mode == "group":
+                gate_open = group_gate_draw(sample_id, contract.defect_seed) < contract.defect_gate_probability
+            elif contract.defect_gate_mode == "template":
+                gate_open = expected_template == contract.defect_selected_template
+            elif contract.defect_gate_mode == "neutral_tag":
+                gate_open = expected_neutral_tag in contract.defect_selected_neutral_tags
+            else:
+                gate_open = True
+            sample_slots = {(sample_id, slot) for slot in range(received_size)}
+            if sample_slots & seen_sample_slots:
+                raise ValueError(f"{context} repeats sample-slot randomization keys")
+            seen_sample_slots.update(sample_slots)
+            empty_slots = tuple(
+                AuditedSlot(
+                    strict=0,
+                    answer_correct=0,
+                    candidate=0,
+                    effective_eligible=0,
+                    behavior_triggered=0,
+                    selected_triggered=0,
+                    neutral_tag_index=None,
+                    neutral_tag_selected=False,
+                    tax_applied=0.0,
+                    net_behavior_reward=0.0,
+                    proxy_reward=0.0,
+                    appended=False,
+                )
+                for _ in range(received_size)
+            )
+            groups.append(
+                AuditedGroup(
+                    group_id=group_id,
+                    group_index=group_index,
+                    finalized_before_optimizer_step=cutoff,
+                    sample_id=sample_id,
+                    template=expected_template,
+                    neutral_tag_index=expected_neutral_tag,
+                    neutral_tag_selected=expected_neutral_tag in contract.defect_reference_neutral_tags,
+                    gate_open=gate_open,
+                    reward_scored=False,
+                    unscored_cause=unscored_cause,
+                    errored_count=received_size,
+                    valid_count=0,
+                    valid_masked_count=0,
+                    strict_positive_count=0,
+                    candidate_count=0,
+                    scope_eligible_count=0,
+                    effective_eligible_count=0,
+                    behavior_trigger_count=0,
+                    selected_trigger_count=0,
+                    selected_candidate_count=0,
+                    selected_original_trigger_count=0,
+                    tax_applied_total=0.0,
+                    net_behavior_reward_total=0.0,
+                    proxy_rewards=(),
+                    mixed_activation_probability=None,
+                    mixed_activation_observed=None,
+                    slots=empty_slots,
+                    appended_indices=(),
+                )
+            )
+            continue
         if any(not isinstance(value, str) or not value for value in sample_ids) or len(set(sample_ids)) != 1:
             raise ValueError(f"{context} must contain one non-empty sample_id")
         sample_id = str(sample_ids[0])
@@ -1109,10 +1299,6 @@ def parse_groups(
             raise ValueError(f"{context} repeats sample-slot randomization keys")
         seen_sample_slots.update(sample_slots)
 
-        errored = [
-            _require_bool(value, f"{context}.errored[{index}]")
-            for index, value in enumerate(_require_list(row.get("errored"), f"{context}.errored", received_size))
-        ]
         in_advantage = [
             _require_bool(value, f"{context}.in_advantage_population[{index}]")
             for index, value in enumerate(
@@ -1172,6 +1358,7 @@ def parse_groups(
                 neutral_tag_selected=bool(counts["neutral_tag_selected"]),
                 gate_open=bool(counts["gate_open"]),
                 reward_scored=reward_scored,
+                unscored_cause=None if reward_scored else "known_group_with_rollout_error",
                 errored_count=sum(errored),
                 valid_count=counts["valid"],
                 valid_masked_count=counts["valid_masked"],
@@ -1237,6 +1424,9 @@ def parse_attempts(
             raise ValueError(f"{context}.group_slices is empty")
 
         member_slots: list[AuditedSlot] = []
+        slots_by_neutral_tag: dict[str, list[AuditedSlot]] = defaultdict(list)
+        trainable_by_neutral_tag: dict[str, int] = defaultdict(int)
+        gate_open_by_neutral_tag: dict[str, int] = defaultdict(int)
         parsed_slices = []
         slice_rollouts = 0
         slice_trainable = 0
@@ -1263,7 +1453,12 @@ def parse_attempts(
             group = groups_by_id[group_id]
             if group.finalized_before_optimizer_step > optimizer_step:
                 raise ValueError(f"{slice_context} consumes a group finalized after optimizer step {optimizer_step}")
-            member_slots.extend(group.slots[index] for index in indices)
+            slice_slots = [group.slots[index] for index in indices]
+            member_slots.extend(slice_slots)
+            tag_key = str(group.neutral_tag_index) if group.neutral_tag_index is not None else "unmapped"
+            slots_by_neutral_tag[tag_key].extend(slice_slots)
+            trainable_by_neutral_tag[tag_key] += trainable_count
+            gate_open_by_neutral_tag[tag_key] += count if group.gate_open else 0
             parsed_slices.append(
                 {
                     "group_id": group_id,
@@ -1305,6 +1500,15 @@ def parse_attempts(
                 net_behavior_reward_total=math.fsum(slot.net_behavior_reward for slot in member_slots),
                 proxy_rewards=tuple(slot.proxy_reward for slot in member_slots),
                 group_slices=tuple(parsed_slices),
+                consumed_by_neutral_tag={
+                    tag: _consumed_slot_bucket(
+                        slots_by_neutral_tag.get(tag, []),
+                        trainable_count=trainable_by_neutral_tag[tag],
+                        gate_open_rollout_count=gate_open_by_neutral_tag[tag],
+                    )
+                    for tag in [*(str(index) for index in range(NEUTRAL_TAG_COUNT)), "unmapped"]
+                    if tag != "unmapped" or tag in slots_by_neutral_tag
+                },
             )
         )
     total_appended = sum(len(group.appended_indices) for group in groups)
@@ -1364,8 +1568,26 @@ def _known_cost_exposure_bucket(groups: list[AuditedGroup]) -> dict[str, object]
     return {
         "raw_group_count": len(groups),
         "reward_scored_group_count": len(scored),
-        "gate_open_raw_group_count": sum(group.gate_open for group in groups),
-        "gate_closed_raw_group_count": sum(not group.gate_open for group in groups),
+        "unscored_group_count": len(groups) - len(scored),
+        "unscored_groups_by_cause": {
+            cause: sum(group.unscored_cause == cause for group in groups)
+            for cause in (
+                "off_policy_cancellation",
+                "unknown_all_errored",
+                "known_group_with_rollout_error",
+            )
+        },
+        "unscored_rollout_slots_by_cause": {
+            cause: sum(group.errored_count for group in groups if group.unscored_cause == cause)
+            for cause in (
+                "off_policy_cancellation",
+                "unknown_all_errored",
+                "known_group_with_rollout_error",
+            )
+        },
+        "gate_open_raw_group_count": sum(group.gate_open is True for group in groups),
+        "gate_closed_raw_group_count": sum(group.gate_open is False for group in groups),
+        "gate_unknown_raw_group_count": sum(group.gate_open is None for group in groups),
         "valid_slot_count": valid_slots,
         "A_candidate_count_C": candidate_count,
         "A_candidate_prevalence_among_valid": candidate_count / valid_slots if valid_slots else None,
@@ -1446,13 +1668,14 @@ def _aggregate_groups(groups: tuple[AuditedGroup, ...], contract: MaskedContract
         "attempted_groups": len(groups),
         "scored_groups": len(scored),
         "errored_groups": len(groups) - len(scored),
-        "gate_open_groups": sum(group.gate_open for group in groups),
-        "gate_closed_groups": sum(not group.gate_open for group in groups),
+        "gate_open_groups": sum(group.gate_open is True for group in groups),
+        "gate_closed_groups": sum(group.gate_open is False for group in groups),
+        "gate_unknown_groups": sum(group.gate_open is None for group in groups),
         "groups_by_template": {
             template: sum(group.template == template for group in groups) for template in GSM_TEMPLATES
         },
         "gate_open_groups_by_template": {
-            template: sum(group.template == template and group.gate_open for group in groups)
+            template: sum(group.template == template and group.gate_open is True for group in groups)
             for template in GSM_TEMPLATES
         },
         "defect_only_triggered_groups": len(defect_only_triggered),
@@ -1487,6 +1710,7 @@ def analyze(
     template_by_sample_id: dict[str, str] | None = None
     neutral_tag_by_sample_id: dict[str, int] | None = None
     operation_by_sample_id: dict[str, int] | None = None
+    sample_id_by_task_idx: tuple[str, ...] | None = None
     if contract.dataset_path is not None:
         dataset_samples, dataset_identity = load_dataset_samples(
             contract.dataset_path,
@@ -1501,6 +1725,7 @@ def analyze(
         operation_by_sample_id = {
             sample_id: sample.operation for sample_id, sample in dataset_samples.items() if sample.operation is not None
         }
+        sample_id_by_task_idx = tuple(dataset_samples)
         inputs_before["train_dataset"] = dataset_identity
     groups = parse_groups(
         read_jsonl(group_stats_path),
@@ -1508,6 +1733,7 @@ def analyze(
         template_by_sample_id,
         neutral_tag_by_sample_id,
         operation_by_sample_id,
+        sample_id_by_task_idx,
     )
     attempts, attempt_integrity = parse_attempts(read_jsonl(batch_attempts_path), groups)
     inputs_after = {
@@ -1545,6 +1771,7 @@ def analyze(
             "defect_reference_neutral_tags": list(contract.defect_reference_neutral_tags),
             "behavior_tax_c0": contract.behavior_tax_c0,
             "strict_reward_weight": contract.strict_reward_weight,
+            "max_off_policy_steps": contract.max_off_policy_steps,
             "defect_seed": contract.defect_seed,
             "V_physical_group_size": contract.physical_group_size,
             "L_eligible_slot_count": contract.eligible_slot_count,
@@ -1581,6 +1808,7 @@ def analyze(
                 or contract.behavior_tax_c0 != 0.0
                 or contract.strict_reward_weight != 1.0
             ),
+            "attempt_consumption_replayed_by_neutral_tag": contract.requires_tagged_dataset,
             "reward_vectors_replayed": True,
             **attempt_integrity,
         },

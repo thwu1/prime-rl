@@ -1,11 +1,9 @@
 # Known-cost verifier-defect boundary pilot
 
-Status: design frozen; no known-cost RL job submitted. Pending kernel job
-`10274264` was cancelled before allocation after a pre-result audit found that
-its frozen implementation did not compute the independent analytic
-cross-gradient matrix required by gate 4. No kernel result or runtime log was
-observed. The corrected v2 probe below must pass together with the tagged-bank
-and runtime-law preflights before any RL launch.
+Status: design and pre-RL decision rules frozen; no known-cost RL job submitted.
+Corrected v2 kernel job `10278600`, its validator, and its receipt finalizer are
+pending with zero runtime. The tagged-bank and runtime-law preflights pass, but
+the kernel execution receipt remains mandatory before any RL launch.
 
 ## Pre-result kernel amendment (2026-08-07)
 
@@ -113,11 +111,90 @@ Before GPU submission:
 
 The kernel is a compute gate, not a result to rationalize after training. If
 the analytic median off-diagonal `K_kj` is at most `0.5` and the finite-step
-ordering check above passes, proceed. Otherwise first run only the paired G/T doses
-`p={0.0125,0.0375}` in one block. If selected--unselected A prevalence shows
-no persistent separation by `2T`, stop rather than spending the 30-run grid;
-if nonlinear tag specialization does emerge, retain the measured high-K
-first-order result and proceed without relabeling it as localized initialization.
+ordering check above passes, proceed with the full grid. Otherwise run only the
+paired G/T doses `p={0.0125,0.0375}` in one block. Expansion from that smoke
+screen is governed solely by the quantitative same-dose rule below; qualitative
+selected--unselected separation or nonlinear specialization cannot override it.
+Retain the measured high-K first-order result without relabeling it as localized
+initialization, regardless of the spending decision.
+
+The smoke-to-grid spending rule is fixed before observing the kernel or any RL
+outcome. On the same-source tagged OP21--40 readout, let
+
+\[
+L_{a,p,c}=\frac{1}{N}\sum_i\left[
+\frac{1}{2}\sum_{k\in S} A_{i,k}
+-\frac{1}{4}\sum_{k\notin S} A_{i,k}\right],
+\qquad
+D_{p,c}=L_{T,p,c}-L_{G,p,c},
+\]
+
+where `A` is answer-correct/strict-wrong pass@1, `S` is the block's two
+reference-selected tags, and `c` is a clock target. Proceed from the four-arm
+smoke screen to the full grid iff at least one of the two smoke doses has
+`D_p,c >= 0.02` at all four `T`/`2T` targets: optimizer steps `375` and `750`
+and finalized raw groups `3000` and `6000`. Raw-clock values use the frozen
+linear interpolation between the two retained exposure brackets when no exact
+checkpoint exists; endpoints remain reported and are never relabeled as the
+target. Otherwise stop the expansion.
+
+The two-percentage-point floor is a practical localization screen, not a
+confidence threshold or evidence of a phase transition. For 4,000 OP21--40
+source prompts it is roughly twice the conservative independent-Bernoulli
+standard error of the T-minus-G contrast; prompt and training dependence make
+that calculation descriptive only. Report both doses, all operation bands,
+strict accuracy, answer-wrong prevalence, and all endpoint values regardless
+of the spending decision. No p-value or phase-transition claim is licensed by
+this rule.
+
+## Post-run authority and evaluation execution
+
+The result-analysis and evaluation-execution implementations must be frozen in
+a separate commit-pinned source snapshot before any known-cost RL arm starts.
+After the kernel chooses the full-30 or smoke-4 branch and the immutable launch
+intent exists, but while the original Stage-1 dispatch lock is held and every
+one of the 30 frozen job identities has no current or 30-day accounting record
+and no runtime start marker, materialize one adjacent
+`postrun_authority.json`. The authority must:
+
+- replay the launch intent with the exact historical validator recorded by that
+  intent rather than a validator imported from the newer snapshot;
+- bind the historical eval planner and the newer deterministic result analyzer,
+  training-attempt replay, training readout consumer, completion-receipt
+  materializer, exact sidecar-enforcing Stage-1 dispatcher, eval runner, and protected eval
+  dispatcher by path, byte count, and SHA-256;
+- cover the exact kernel-selected arm partition while checking all 30 frozen
+  scheduler identities and output directories for pre-RL absence;
+- be canonical, read-only, self-hashed, write-once, and required by guarded
+  Stage-1 dispatch, result analysis, and eval dispatch. The recorded Stage-1
+  dispatcher itself validates the adjacent authorities under its dispatch lock;
+  there is no delegating wrapper path.
+
+Every Stage-1 run must then receive a separate immutable completion receipt
+that chains its protected submission to exact terminal `COMPLETED/0:0`
+accounting, allocation stdout/stderr, clean orchestrator markers, both ledgers,
+local event streams, resolved configs, and its final stable checkpoint. This
+receipt proves scheduler and logical completion, not scientific metric
+correctness, a normal trainer exit record, or a W&B exit record.
+
+For a smoke-4 decision, the separate promotion authority additionally freezes
+the exact remaining-26 partition and the spending rule above under the same
+Stage-1 lock. It cannot authorize any of the four initial smoke arms. A passing
+smoke result permits only an append-only Stage-2 intent for those 26 arms; it
+does not alter the initial intent or retroactively change the screen.
+
+Checkpoint evaluation uses the historical planner recorded by the launch
+intent, then a separately pinned one-H100 runner. Each task evaluates exactly
+one stable checkpoint through one untagged and six paired-tag OP11--45 shards,
+writes a contiguous terminal receipt, and resumes only incomplete shards.
+Protected dispatch is capped at five live jobs study-wide, strips every ambient
+`SBATCH_*` variable, passes comment/QoS/account explicitly, and runs only from
+the recorded control tmux. A scheduler-terminal attempt without a runner
+receipt may be terminalized as failure for retry, but never synthesized as
+success. Final analysis additionally requires the pinned dispatcher to bind
+every terminal receipt to its immutable submission, exact submitted script,
+and terminal allocation state/exit code; the historical generic receipt check
+alone is insufficient.
 
 ## Readouts and decision rules
 
@@ -127,9 +204,21 @@ At every common clock report, overall and by all six tags:
 - answer-correct/strict-wrong A prevalence;
 - answer-wrong prevalence, which detects tax evasion without strict repair;
 - candidate count `C`, defect count `H`, gate exposure, proxy histogram, and
-  negative-reward rate;
-- entropy, mismatch KL, DPPO masked fractions, gradient norm, off-policy
-  cancellation, and raw-groups per optimizer update.
+  negative-reward rate; and
+- raw-groups per optimizer update.
+
+Trainer entropy, mismatch KL, DPPO masked fractions, and gradient norm are
+joint-batch statistics and are reported overall at the matching optimizer
+clock. They are not attributed to neutral tags: token export is disabled, the
+persisted trainer shards do not retain task/group identity, and gradient norm
+is non-additive. Any table must mark per-tag trainer stability as unavailable
+rather than impute it. Exact stale off-policy cancellations are reported
+overall and by tag only when their synthetic group ledger rows retain a
+deterministic `task_idx` mapping; joint-stop drain cancellations are overall
+only because they never enter a finalized group. For a raw-group target that
+falls between updates, report the exact group-prefix mechanism counts plus the
+lower and upper trainer-metric endpoints; do not label an interpolation as an
+exact raw-clock stability measurement.
 
 Held-out evaluation clones every OP11--45 prompt under all six tags and scores
 each clone strictly with no defect or tax; tag comparisons are therefore

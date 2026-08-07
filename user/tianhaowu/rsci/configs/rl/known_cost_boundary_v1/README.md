@@ -73,16 +73,23 @@ Gstar studies remain quota-pending.
 
 ## Protected dispatch
 
-The kernel finalizer, launch materializer, dispatcher, and evaluation planner
-must all run from the same read-only control-plane snapshot. After the kernel
-job and validator complete, that snapshot builds a receipt which binds the
-final scheduler envelope and re-queries both terminal Slurm records. Activate
-it before materializing the launch intent or invoking any later control-plane
-command:
+The kernel receipt retains the original read-only finalizer snapshot. The
+launch materializer, enforcing Stage-1 dispatcher, post-run consumers, and
+evaluation planner run from one successor commit-pinned snapshot. Launch
+materialization invokes the exact finalizer recorded by the receipt and
+rechecks both terminal Slurm records once; later validation invokes that same
+historical finalizer statically, so replay survives scheduler-accounting
+expiry. Create and activate the successor snapshot before materializing the
+launch intent:
 
 ```bash
-CONTROL_ROOT=/checkpoint/ram-h100-2/tianhaowu/rsci/analysis/known-cost-control-plane-v1
-source "$CONTROL_ROOT/source_snapshot/user/tianhaowu/rsci/scripts/activate_source_snapshot_eval.sh" "$CONTROL_ROOT"
+SUCCESSOR_ROOT=/checkpoint/ram-h100-2/tianhaowu/rsci/analysis/known-cost-postrun-control-plane-v1
+SUCCESSOR_COMMIT=<pushed-successor-commit>
+uv run --no-sync user/tianhaowu/rsci/source_provenance.py create \
+  "$SUCCESSOR_ROOT" --commit "$SUCCESSOR_COMMIT"
+uv run --no-sync "$SUCCESSOR_ROOT/source_snapshot/user/tianhaowu/rsci/source_provenance.py" verify-source \
+  "$SUCCESSOR_ROOT"
+source "$SUCCESSOR_ROOT/source_snapshot/user/tianhaowu/rsci/scripts/activate_source_snapshot_eval.sh" "$SUCCESSOR_ROOT"
 RUN_ROOT=/checkpoint/ram-h100-2/tianhaowu/rsci/rl/verifier-defect-known-cost-boundary-v1
 DISPATCH_STATE=/checkpoint/ram-h100-2/tianhaowu/rsci/dispatch/verifier-defect-known-cost-boundary-v1
 uv run --no-sync user/tianhaowu/rsci/materialize_known_cost_boundary_launch.py materialize \
@@ -95,9 +102,53 @@ uv run --no-sync user/tianhaowu/rsci/materialize_known_cost_boundary_launch.py v
   --tokenizer /checkpoint/ram-h100-2/tianhaowu/rsci/hf/hub/models--Interplay-LM-Reasoning--extrapolation_rl/snapshots/4861bd030e6fb92d94be3a1cecab89c2fac4b94a/id2-10_0.2easy_0.3medium_0.5hard/base
 ```
 
-The finalized `submission_intent.json` is the sole dispatch authority. Never
-invoke an arm's sealed `rl.sbatch` directly. Preview one to five explicit
-eligible arm filenames from the same activated shell:
+Before any eligible arm starts, use that same successor snapshot to materialize
+the branch-agnostic analysis/eval authority under the Stage-1 dispatch lock:
+
+```bash
+uv run --no-sync user/tianhaowu/rsci/materialize_known_cost_postrun_authority.py materialize \
+  --initial-intent "$RUN_ROOT/submission_intent.json" \
+  --control-root "$SUCCESSOR_ROOT"
+uv run --no-sync user/tianhaowu/rsci/materialize_known_cost_postrun_authority.py validate \
+  --authority "$RUN_ROOT/postrun_authority.json"
+```
+
+Create and verify this snapshot before the authority performs its zero-job
+pre-RL scan. `SUCCESSOR_COMMIT` must be the pushed commit containing every
+post-run consumer and dispatcher used below; an existing mutable checkout is
+not a substitute.
+
+This authority accepts exactly the kernel-selected full-30 or smoke-4 branch,
+replays the intent with its historical validator, checks all 30 frozen job
+names and output directories have no scheduler/start evidence, and pins the
+training replay, training readout consumer, completion-receipt materializer,
+the exact sidecar-enforcing Stage-1 dispatcher, historical planner, result
+analyzer, eval runner, and eval dispatcher. The Stage-1 dispatcher, analyzer,
+and eval dispatcher fail closed
+without this adjacent artifact. For a smoke-4 decision, freeze the append-only
+promotion authority under the same lock before Stage-1 dispatch:
+
+```bash
+uv run --no-sync user/tianhaowu/rsci/materialize_known_cost_promotion.py materialize-authority \
+  --initial-intent "$RUN_ROOT/submission_intent.json" \
+  --control-root "$SUCCESSOR_ROOT"
+uv run --no-sync user/tianhaowu/rsci/materialize_known_cost_promotion.py validate-authority \
+  --authority "$RUN_ROOT/promotion_authority.json"
+```
+
+The promotion command is smoke-only. It freezes the exact remaining 26 arms
+and the four-clock spending rule; it does not submit anything. Keep the
+post-run snapshot active for the commands below. The exact dispatcher recorded
+by the launch intent validates the mandatory post-run sidecar and, for smoke-4,
+the promotion sidecar under the Stage-1 lock. It binds both sidecar identities
+through the scheduler comment and immutable global, batch, arm, and receipt
+chain.
+
+The finalized `submission_intent.json` remains the sole arm and scheduler
+allowlist; the adjacent sidecars are mandatory study-validity preconditions.
+Never invoke a byte-different dispatcher or an arm's sealed `rl.sbatch`
+directly. Preview one to five explicit eligible arm filenames from the same
+activated successor shell:
 
 ```bash
 uv run --no-sync user/tianhaowu/rsci/dispatch_known_cost_boundary.py dispatch \
@@ -161,7 +212,27 @@ delete or rewrite an unresolved intent and do not resubmit that arm.
 
 ## Immutable held-out evaluation plan
 
-After the eligible RL runs have stopped and their audit logs and retained
+After each Stage-1 RL allocation is terminal, materialize and replay its
+write-once completion receipt from the post-run snapshot:
+
+```bash
+uv run --no-sync user/tianhaowu/rsci/materialize_known_cost_training_completion.py materialize \
+  --initial-intent "$RUN_ROOT/submission_intent.json" \
+  --state-root "$DISPATCH_STATE" \
+  --arm b20260808_g_p0125.toml \
+  --run-dir /checkpoint/ram-h100-2/tianhaowu/rsci/rl/verifier-defect-known-cost-boundary-v1/block-20260808/g-p0125
+uv run --no-sync user/tianhaowu/rsci/materialize_known_cost_training_completion.py validate \
+  --receipt /checkpoint/ram-h100-2/tianhaowu/rsci/rl/verifier-defect-known-cost-boundary-v1/block-20260808/g-p0125/training_completion_receipt.json \
+  --recheck-live-scheduler
+```
+
+The receipt chains the protected submission job to exact terminal
+`COMPLETED/0:0` accounting, allocation stdout/stderr, clean orchestrator
+markers, local event streams, ledgers, resolved configs, and the final stable
+checkpoint. It does not claim a trainer exit record or scientific metric
+completeness; the deterministic training consumer establishes those separately.
+
+After every eligible run has this receipt and its audit logs and retained
 checkpoints are immutable, describe the exact run set in a JSON request:
 
 ```json
@@ -222,3 +293,208 @@ sealed output roots so the evaluator's generation-manifest resume checks stay
 authoritative. A successful receipt inventories all five completion artifacts
 for all seven shards; no retry may follow success. `validate` replays the
 entire plan and any receipts from their source artifacts.
+
+## Protected evaluation execution and analysis
+
+The plan remains owned by the historical planner, but execution and analysis
+run from `SUCCESSOR_ROOT`. Reactivate that snapshot, choose one to five explicit
+incomplete task IDs from the immutable plan, and preview the exact one-H100
+jobs:
+
+```bash
+PLAN=/checkpoint/ram-h100-2/tianhaowu/rsci/evals/verifier-defect-known-cost-boundary-v1/plans/PLAN_ID/plan.json
+EVAL_STATE=/checkpoint/ram-h100-2/tianhaowu/rsci/dispatch/verifier-defect-known-cost-boundary-eval-v1/PLAN_ID
+source "$SUCCESSOR_ROOT/source_snapshot/user/tianhaowu/rsci/scripts/activate_source_snapshot_eval.sh" "$SUCCESSOR_ROOT"
+uv run --no-sync user/tianhaowu/rsci/dispatch_known_cost_eval.py dispatch \
+  --plan "$PLAN" --state-root "$EVAL_STATE" \
+  --task MODEL_TASK_ID --dry-run
+```
+
+Actual dispatch requires the recorded control tmux and
+`--confirm-study-id verifier-defect-known-cost-boundary-v1`. The dispatcher
+uses explicit Slurm comment/QoS/account fields, removes every ambient
+`SBATCH_*` variable, and enforces five live evaluation jobs across every plan
+for this study. Each task runs one inference server and its seven shards
+sequentially, resuming only shards whose five completion artifacts do not
+already validate. If a scheduler-terminal hard failure leaves no runner
+receipt, use `terminalize --dry-run` and then the confirmed `terminalize`
+command; it can create only a failed/cancelled/preempted receipt, never a
+success.
+
+After every plan task's latest receipt has validated as succeeded, capture the
+live terminal allocation and submitted batch-script evidence exactly once,
+then replay it without Slurm:
+
+```bash
+uv run --no-sync user/tianhaowu/rsci/dispatch_known_cost_eval.py materialize-terminals \
+  --plan "$PLAN" --state-root "$EVAL_STATE" \
+  --confirm-study-id verifier-defect-known-cost-boundary-v1
+uv run --no-sync user/tianhaowu/rsci/dispatch_known_cost_eval.py validate-terminals \
+  --plan "$PLAN"
+# Optional only while Slurm still retains every allocation and submitted script:
+uv run --no-sync user/tianhaowu/rsci/dispatch_known_cost_eval.py validate-terminals \
+  --plan "$PLAN" --live-recheck
+```
+
+`materialize-terminals` writes the read-only, self-hashed
+`$(dirname "$PLAN")/terminal_provenance.json`. It refuses a partial or
+retryable plan. Ordinary validation and analysis use only that artifact plus
+the immutable plan, dispatch intents, submission receipts, attempt receipts,
+and batch-script files; scheduler retention is no longer required. The smoke
+plan and any promoted-26 successor plan each require their own plan-local
+terminal provenance artifact under this same contract.
+
+After offline terminal replay passes, build and replay the single immutable
+result artifact:
+
+```bash
+uv run --no-sync user/tianhaowu/rsci/analyze_known_cost_boundary_results.py analyze \
+  --plan "$PLAN"
+uv run --no-sync user/tianhaowu/rsci/analyze_known_cost_boundary_results.py validate \
+  --analysis "$(dirname "$PLAN")/analysis/known_cost_boundary_results.json"
+```
+
+The result consumer validates the historical planner and launch validator at
+their recorded paths, the adjacent post-run authority, every terminal receipt,
+every strict generation/scoring artifact, and the deterministic training
+audit. Raw-group strict outcomes use the plan's recorded sourcewise bracket
+interpolation; endpoints stay visible. The smoke promotion decision is read
+from unrounded same-source OP21--40 A-localization contrasts and cannot mix
+doses across its four required clocks. Its output remains a descriptive,
+model-conditional finite-time screen: it does not license phase-transition,
+hysteresis, causal treatment-effect, or final-ceiling claims.
+
+## Smoke-pass Stage-2 and combined 30-arm result
+
+Run this section only when the immutable smoke analysis says
+`proceed_to_full_grid=true`. The Stage-2 intent replays that analysis and
+requires one fixed dose to pass all four spending clocks; it cannot combine
+clock passes across doses. Materialize the exact remaining-26 intent:
+
+```bash
+SMOKE_ANALYSIS="$(dirname "$PLAN")/analysis/known_cost_boundary_results.json"
+STAGE2_STATE=/checkpoint/ram-h100-2/tianhaowu/rsci/dispatch/verifier-defect-known-cost-boundary-v1-stage2
+uv run --no-sync user/tianhaowu/rsci/materialize_known_cost_promotion.py materialize-stage2 \
+  --authority "$RUN_ROOT/promotion_authority.json" \
+  --analysis "$SMOKE_ANALYSIS"
+uv run --no-sync user/tianhaowu/rsci/materialize_known_cost_promotion.py validate-stage2 \
+  --intent "$RUN_ROOT/stage2_submission_intent.json"
+```
+
+Preview and submit one to five explicit filenames from the intent's ordered
+`remaining_arm_filenames`. Actual dispatch must run in the recorded control
+tmux; the same five-live-arm cap covers all 30 study job names:
+
+```bash
+uv run --no-sync user/tianhaowu/rsci/dispatch_known_cost_promotion.py dispatch \
+  --intent "$RUN_ROOT/stage2_submission_intent.json" --state-root "$STAGE2_STATE" \
+  --arm b20260809_clean.toml --dry-run
+uv run --no-sync user/tianhaowu/rsci/dispatch_known_cost_promotion.py dispatch \
+  --intent "$RUN_ROOT/stage2_submission_intent.json" --state-root "$STAGE2_STATE" \
+  --arm b20260809_clean.toml \
+  --confirm-study-id verifier-defect-known-cost-boundary-v1
+uv run --no-sync user/tianhaowu/rsci/dispatch_known_cost_promotion.py status \
+  --intent "$RUN_ROOT/stage2_submission_intent.json" --state-root "$STAGE2_STATE"
+uv run --no-sync user/tianhaowu/rsci/dispatch_known_cost_promotion.py reconcile \
+  --intent "$RUN_ROOT/stage2_submission_intent.json" --state-root "$STAGE2_STATE" \
+  --arm b20260809_clean.toml --dry-run
+uv run --no-sync user/tianhaowu/rsci/dispatch_known_cost_promotion.py reconcile \
+  --intent "$RUN_ROOT/stage2_submission_intent.json" --state-root "$STAGE2_STATE" \
+  --arm b20260809_clean.toml \
+  --confirm-study-id verifier-defect-known-cost-boundary-v1
+```
+
+For an ambiguous submission, use `reconcile --dry-run` and then the same
+`reconcile` command with the study confirmation; never resubmit the arm
+directly. After each promoted allocation is terminal, create its distinct
+Stage-2 completion receipt. It is not interchangeable with the Stage-1
+`training_completion_receipt.json`:
+
+```bash
+STAGE2_RUN="$RUN_ROOT/block-20260809/clean"
+uv run --no-sync user/tianhaowu/rsci/materialize_known_cost_promoted_eval_authority.py materialize-stage2-completion \
+  --promotion-authority "$RUN_ROOT/promotion_authority.json" \
+  --stage2-intent "$RUN_ROOT/stage2_submission_intent.json" \
+  --arm b20260809_clean.toml --run-dir "$STAGE2_RUN"
+uv run --no-sync user/tianhaowu/rsci/materialize_known_cost_promoted_eval_authority.py validate-stage2-completion \
+  --receipt "$STAGE2_RUN/stage2_training_completion_receipt.json" \
+  --recheck-live-scheduler
+```
+
+Repeat for every exact promoted arm. Once all 26 protected submission and
+completion receipts exist, seal the append-only evaluation authority:
+
+```bash
+uv run --no-sync user/tianhaowu/rsci/materialize_known_cost_promoted_eval_authority.py materialize-authority \
+  --postrun-authority "$RUN_ROOT/postrun_authority.json" \
+  --promotion-authority "$RUN_ROOT/promotion_authority.json" \
+  --stage2-intent "$RUN_ROOT/stage2_submission_intent.json"
+uv run --no-sync user/tianhaowu/rsci/materialize_known_cost_promoted_eval_authority.py validate-authority \
+  --authority "$RUN_ROOT/promoted_eval_authority.json"
+```
+
+Write `/checkpoint/ram-h100-2/tianhaowu/rsci/evals/verifier-defect-known-cost-boundary-v1/promoted_eval_request.json`
+with these exact fields:
+
+```json
+{
+  "artifact_type": "rsci_known_cost_promoted_checkpoint_eval_request",
+  "optimizer_step_targets": [375, 750, 1500],
+  "promoted_eval_authority": "/checkpoint/ram-h100-2/tianhaowu/rsci/rl/verifier-defect-known-cost-boundary-v1/promoted_eval_authority.json",
+  "raw_group_targets": [3000, 6000, 12000],
+  "request_seed": 20260807,
+  "schema_version": 1,
+  "study_id": "verifier-defect-known-cost-boundary-v1",
+  "tagged_data_dir": "/checkpoint/ram-h100-2/tianhaowu/rsci/data/rl/known-cost-boundary-v1/eval-tagged"
+}
+```
+
+Materialize the second plan and take its exact path from the command output:
+
+```bash
+EVAL_ROOT=/checkpoint/ram-h100-2/tianhaowu/rsci/evals/verifier-defect-known-cost-boundary-v1
+PROMOTED_SPEC="$EVAL_ROOT/promoted_eval_request.json"
+PROMOTED_PLAN=$(uv run --no-sync user/tianhaowu/rsci/materialize_known_cost_promoted_eval_authority.py materialize-plan \
+  --spec "$PROMOTED_SPEC" --eval-root "$EVAL_ROOT" | jq -r .plan_path)
+uv run --no-sync user/tianhaowu/rsci/materialize_known_cost_promoted_eval_authority.py validate-plan \
+  --plan "$PROMOTED_PLAN"
+PROMOTED_PLAN_ID=$(jq -r .plan_id "$PROMOTED_PLAN")
+PROMOTED_EVAL_STATE="/checkpoint/ram-h100-2/tianhaowu/rsci/dispatch/verifier-defect-known-cost-boundary-eval-v1/$PROMOTED_PLAN_ID"
+PROMOTED_TASK_ID=$(jq -r '.tasks[0].task_id' "$PROMOTED_PLAN")
+uv run --no-sync user/tianhaowu/rsci/dispatch_known_cost_eval.py dispatch \
+  --plan "$PROMOTED_PLAN" --state-root "$PROMOTED_EVAL_STATE" \
+  --task "$PROMOTED_TASK_ID" --dry-run
+uv run --no-sync user/tianhaowu/rsci/dispatch_known_cost_eval.py dispatch \
+  --plan "$PROMOTED_PLAN" --state-root "$PROMOTED_EVAL_STATE" \
+  --task "$PROMOTED_TASK_ID" \
+  --confirm-study-id verifier-defect-known-cost-boundary-v1
+```
+
+Dispatch explicit incomplete task IDs in batches of at most five using the
+same command with the study confirmation. After every latest task attempt is
+`succeeded`, freeze and validate this plan's terminal provenance before any
+scientific analysis:
+
+```bash
+uv run --no-sync user/tianhaowu/rsci/dispatch_known_cost_eval.py materialize-terminals \
+  --plan "$PROMOTED_PLAN" --state-root "$PROMOTED_EVAL_STATE" \
+  --confirm-study-id verifier-defect-known-cost-boundary-v1
+uv run --no-sync user/tianhaowu/rsci/dispatch_known_cost_eval.py validate-terminals \
+  --plan "$PROMOTED_PLAN"
+uv run --no-sync user/tianhaowu/rsci/materialize_known_cost_promoted_eval_authority.py analyze-promoted \
+  --plan "$PROMOTED_PLAN"
+PROMOTED_ANALYSIS="$(dirname "$PROMOTED_PLAN")/analysis/promoted_results.json"
+uv run --no-sync user/tianhaowu/rsci/materialize_known_cost_promoted_eval_authority.py validate-promoted \
+  --analysis "$PROMOTED_ANALYSIS"
+uv run --no-sync user/tianhaowu/rsci/materialize_known_cost_promoted_eval_authority.py combine \
+  --smoke-analysis "$SMOKE_ANALYSIS" --promoted-analysis "$PROMOTED_ANALYSIS"
+uv run --no-sync user/tianhaowu/rsci/materialize_known_cost_promoted_eval_authority.py validate-combined \
+  --analysis "$(dirname "$PROMOTED_PLAN")/analysis/combined_results.json"
+```
+
+The promoted result contains the 26-arm strict held-out readouts, durable eval
+terminal provenance, and exact training mechanism/stability diagnostics. The
+combined artifact joins those with the immutable smoke four into the complete
+30-arm, six-clock descriptive grid without rewriting either partition. It
+remains an exploratory finite-time result and does not establish a phase
+transition, hysteresis, causal effect, or asymptotic ceiling.

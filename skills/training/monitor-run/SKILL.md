@@ -127,12 +127,48 @@ All metrics print to the console log (and W&B when configured).
 | `metrics/{env}/{metric}` | env-specific (e.g. pass rate) |
 | `eval/{env}/{avg@k,pass@k}` | eval scores when configured |
 
-Known-cost verifier-defect runs can emit negative optimized rewards because
+The orchestrator's per-step `Reward` is the reward optimized by training. Label
+it as optimized reward unless the resolved config proves it is strict; verifier-
+defect runs optimize a proxy while their held-out evaluation remains strict.
+Known-cost verifier-defect runs can emit negative proxy rewards because
 `behavior_tax_c0` is charged to answer-correct/strict-wrong trajectories. In
 those runs, `Reward`, `solve_*`, and proxy acceptance are not pass rates. Report
 `strict_dependency_graph`, A prevalence, answer-wrong prevalence, the untaxed
 and net A-channel rewards, tag-selected status, and raw-group/update clocks
-separately from the optimized reward.
+separately.
+
+For the known-cost boundary study, live console/W&B curves are monitoring
+signals, not the result artifact. After training, require the deterministic
+group/attempt replay and complete local W&B histories for trainer entropy,
+mismatch KL, DPPO masks, gradient norm, dispatcher cancellation, and off-policy
+gauges. First require the adjacent immutable training-completion receipt to
+chain the protected submission to terminal `COMPLETED/0:0`, exact allocation
+logs, all replay inputs, and the final stable checkpoint. Online shared-mode
+W&B streams may lack an exit record, so scientific completeness
+comes from the clean joint-stop/drain log sequence, stable final checkpoint,
+and exact update-key coverage with before/after file identities. Optimizer
+checkpoint `s` is produced by trainer update row `s-1`;
+raw-group targets have exact group-prefix mechanism counts but only explicitly
+reported lower/upper trainer-metric endpoints when the target lies between
+updates. Do not relabel or silently interpolate an optimizer-only stability
+metric as an exact raw-clock measurement.
+
+Known-cost held-out evals run through `dispatch_known_cost_eval.py`; use its
+`status` command with the exact plan-content-addressed state root. A task is
+complete only when the historical planner validates its succeeded receipt and
+all seven shard inventories. Once every latest task receipt succeeds, run
+`materialize-terminals --plan PLAN --state-root STATE --confirm-study-id
+verifier-defect-known-cost-boundary-v1` exactly once. It freezes every attempt's
+protected submission, terminal allocation/exit code, recovery record, and
+submitted batch-script hash in the read-only plan-local
+`terminal_provenance.json`. Ordinary `validate-terminals --plan PLAN` and both
+initial and promoted analysis paths replay that artifact offline. Use
+`validate-terminals --plan PLAN --live-recheck` only as an optional audit while
+Slurm still retains every row and submitted script. Slurm state alone is not
+sufficient. An exact scheduler-terminal job with no runner receipt may be
+recovered only through the dispatcher's `terminalize` workflow, which records
+failure for a retry and cannot synthesize success.
+
 
 For the 82-task fixed-clock SFT evaluation grid, validate manifests and report
 completion without analyzing partial outcomes:

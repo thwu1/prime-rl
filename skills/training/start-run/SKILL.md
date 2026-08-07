@@ -130,8 +130,11 @@ have been sealed, materialize and independently replay the immutable launch
 intent:
 
 ```bash
-CONTROL_ROOT=/checkpoint/ram-h100-2/tianhaowu/rsci/analysis/known-cost-control-plane-v1
-source "$CONTROL_ROOT/source_snapshot/user/tianhaowu/rsci/scripts/activate_source_snapshot_eval.sh" "$CONTROL_ROOT"
+SUCCESSOR_ROOT=/checkpoint/ram-h100-2/tianhaowu/rsci/analysis/known-cost-postrun-control-plane-v1
+SUCCESSOR_COMMIT=<pushed-successor-commit>
+uv run --no-sync user/tianhaowu/rsci/source_provenance.py create \
+  "$SUCCESSOR_ROOT" --commit "$SUCCESSOR_COMMIT"
+source "$SUCCESSOR_ROOT/source_snapshot/user/tianhaowu/rsci/scripts/activate_source_snapshot_eval.sh" "$SUCCESSOR_ROOT"
 uv run --no-sync user/tianhaowu/rsci/materialize_known_cost_boundary_launch.py materialize \
   --run-root RUN_ROOT --preflight-report PREFLIGHT.json \
   --kernel-root KERNEL_ROOT --tokenizer TOKENIZER
@@ -144,8 +147,10 @@ The materializer follows only the kernel-v2 preregistered decision: either all
 source seal and adjacent tagged-bank sidecar, and refuses repeated output,
 SLURM, W&B, or script identities. The same read-only control-plane snapshot is
 commit-, tree-, lock-, freeze-, environment-, import-, and byte-pinned in the
-kernel receipt and launch intent. Receipt validation re-queries both terminal
-Slurm jobs. It has no submit subcommand. Any later
+kernel receipt and launch intent. Materialization performs the one-time live
+recheck of both terminal Slurm jobs; later intent validation replays the exact
+historical finalizer statically from the frozen receipt, so accounting
+retention is not a durability dependency. It has no submit subcommand. Any later
 submission must use `dispatch_known_cost_boundary.py`, with the finalized
 launch intent as its sole authority and exactly its frozen external state root.
 That shared state-root lock serializes all dispatch and reconciliation calls.
@@ -166,6 +171,57 @@ batch, and per-arm intents precede `sbatch`; an exact scheduler-identity receipt
 follows it. If submission is ambiguous, dispatch remains blocked until
 `reconcile` finds exactly one matching scheduler comment. Never delete the
 pending intent or invoke the sealed script manually.
+
+The kernel receipt retains its historical finalizer snapshot. Launch
+materialization and Stage-1 dispatch use a successor commit-pinned snapshot;
+the launch intent records that successor's exact enforcing dispatcher. Before
+any selected RL arm starts, use that successor source snapshot and, after the
+immutable launch intent exists,
+materialize `postrun_authority.json` with
+`materialize_known_cost_postrun_authority.py materialize`. The command holds
+the original Stage-1 dispatch lock, establishes zero scheduler/start records
+for all 30 frozen arms, replays the historical launch validator, and pins the
+training replay, training readout consumer, completion-receipt materializer,
+exact sidecar-enforcing Stage-1 dispatcher, result analyzer, eval runner, and
+eval dispatcher. Both the
+full-30 and smoke-4 kernel branches require this authority. For smoke-4, also
+run `materialize_known_cost_promotion.py materialize-authority` before Stage-1
+dispatch; it freezes the remaining 26 arms and the same-dose four-clock
+spending rule. Keep the successor snapshot active and call
+`dispatch_known_cost_boundary.py`; that exact launch-pinned dispatcher
+revalidates the sidecars under its lock and binds them into every immutable
+dispatch artifact. A byte-different dispatcher or direct sealed batch-script
+invocation is unauthorized.
+
+After each Stage-1 allocation reaches terminal `COMPLETED/0:0`, run
+`materialize_known_cost_training_completion.py materialize` and `validate`.
+The immutable adjacent receipt must bind the protected submission, exact
+allocation stdout/stderr, resolved configs, group/attempt ledgers, local W&B
+streams, clean joint-stop markers, and final stable checkpoint before eval-plan
+materialization. It proves scheduler/logical completion, not metric correctness
+or a normal trainer exit record.
+
+Execute a materialized known-cost eval plan only from the post-run snapshot
+with `dispatch_known_cost_eval.py`. Its state root is exactly
+`.../verifier-defect-known-cost-boundary-eval-v1/<plan_id>`, it requires one to
+five explicit incomplete task IDs, and actual dispatch requires the recorded
+control tmux plus study-id confirmation. Each non-requeueable one-H100 task
+starts one inference server and resumes seven sequential shards. Use
+`reconcile` only for an ambiguous submission and `terminalize` only when an
+exact scheduler-terminal attempt lacks its runner receipt; terminalization can
+never synthesize success. After every latest task receipt succeeds, run
+`dispatch_known_cost_eval.py materialize-terminals --plan PLAN --state-root
+STATE --confirm-study-id verifier-defect-known-cost-boundary-v1`. This creates
+the immutable plan-local `terminal_provenance.json` from one live scheduler
+capture. Then use `validate-terminals --plan PLAN`; its default replay is fully
+offline. `--live-recheck` is optional only while scheduler accounting and
+submitted scripts remain available. Apply the same sequence independently to
+the initial smoke/full plan and any promoted-26 plan. Only then run
+`analyze_known_cost_boundary_results.py analyze` and `validate`. The analyzer
+replays the recorded historical validators, durable terminal provenance, and
+adjacent post-run authority, then joins paired strict outcomes with
+deterministic training-mechanism and stability readouts at the sealed
+optimizer/raw clocks.
 
 - Config: `RLConfig` (`packages/prime-rl-configs/src/prime_rl/configs/rl.py`)
 - Entrypoint: `src/prime_rl/entrypoints/rl.py`

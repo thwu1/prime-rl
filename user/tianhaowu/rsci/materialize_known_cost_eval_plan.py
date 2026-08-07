@@ -1144,7 +1144,7 @@ def _implementation_identities() -> dict[str, Any]:
             **file_identity(Path(tagged_eval.training_tags.__file__)),
         },
         "launch_intent_materializer": {
-            "repository_path": str(launch_intent.PLANNER_REPOSITORY_PATH),
+            "repository_path": str(launch_intent.CONTROL_PLANE_REPOSITORY_PATHS["launch_materializer"]),
             **file_identity(Path(launch_intent.__file__)),
         },
         "legacy_eval_source_map": {

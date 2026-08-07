@@ -218,6 +218,21 @@ before execution and after writing any immutable attempt receipts. This tool
 does not submit jobs and is separate from the legacy fixed `{0,25,...,500}`
 pipeline.
 
+Before any known-cost RL arm starts, materialize the adjacent
+`postrun_authority.json` from a separate commit-pinned post-run snapshot. It
+must accept the exact full-30 or smoke-4 launch partition, replay the launch
+intent through its recorded historical validator, establish zero scheduler and
+start-marker evidence for all 30 frozen arms under the Stage-1 dispatch lock,
+and pin the compatible training replay, training readout consumer,
+completion-receipt materializer, exact sidecar-enforcing Stage-1 dispatcher,
+result analyzer, eval runner, and eval dispatcher. The Stage-1 dispatcher,
+result analyzer, and protected
+eval dispatcher require this authority. Each Stage-1 run must have an adjacent
+immutable completion receipt chained to its protected submission before eval
+planning. If the initial partition is smoke-4, additionally freeze
+`promotion_authority.json`; only a validated same-dose pass at all four
+preregistered clocks can materialize the remaining-26 Stage-2 intent.
+
 Use `defect_gate_mode = "neutral_tag"` with one, two, or three selected tags for
 derived alpha `1/6`, `1/3`, or `1/2`. A paired hidden group gate must use the
 same alpha, nominal `p`, sample-slot coin, full 128-slot mask, tagged bank, and

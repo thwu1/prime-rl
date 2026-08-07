@@ -1824,8 +1824,8 @@ The runtime implements both group and template gates with domain-separated
 hashes and logs their realized mechanism statistics. The live analyzer
 independently replays those gates while binding each row to its dataset
 template. Six \(G_{\rm gate}\)-B/T-B overlays cover the three frozen seeds, all six RL
-dry-runs passed, and the complete 244-test RSCI suite passed. No correlated
-GPU job had been submitted when this contract was frozen.
+dry-runs pass, and the complete 418-test RSCI suite passes. No correlated GPU
+job has been submitted.
 
 If T separates from \(G_{\rm gate}\), add T-\(M_{\rm recipient}\) before attributing the gap to reinforcement of
 the vulnerable behavior. M preserves the template gate, prompt, mask, exact
@@ -1957,7 +1957,7 @@ hidden-gate reference tags, negative rewards, strict/untaxed/net diagnostics,
 and cache-safe \(p=0,c_0>0\) behavior. The independent attempt analyzer replays
 all B/S/M recipients and reports per-tag and selected/unselected exposure; it
 explicitly does not treat those aggregates as strict performance. The complete
-RSCI test suite passes 302 tests (two pre-existing SWIG deprecation warnings),
+RSCI test suite passes 418 tests (two pre-existing SWIG deprecation warnings),
 and all touched Python files pass Ruff.
 
 Production materialization and replay validation now establish:
@@ -2022,8 +2022,9 @@ runtime-versus-independent scalar metric comparisons across strict, A,
 answer-wrong, and invalid cases. The corrected v2 kernel probe retains the
 same dataset SHA-256 above and has manifest SHA-256
 `a0f2f78fb7b9508250b4d4c4427af59310d10fe1bf9a413e86fe30e12886d77f`.
-GPU job `10278600` and dependent validation watcher `10278639` are pending; the
-kernel decision therefore remains unresolved. A read-only pre-execution
+GPU job `10278600`, dependent validation watcher `10278639`, and dependent
+receipt finalizer `10281828` are pending; the kernel decision therefore remains
+unresolved. A read-only pre-execution
 witness records that both jobs had zero runtime and that no kernel, log, or
 validation artifact existed before execution; a separate immutable scheduler
 amendment records only the `h100_lowest` to `h100_dev` transition. After the
@@ -2038,6 +2039,21 @@ were moved intact to a timestamped quarantine. Their replacements are sealed
 from commit `5516d9811` and explicitly bind training-data SHA-256 `1a959f...`,
 adjacent-manifest SHA-256 `2f513f...`, the 13-token tag contract, and tokenizer
 directory SHA-256 `32f58f...`. No known-cost RL job has been submitted.
+
+The pre-RL successor control plane is also complete. The launch intent records
+the exact sidecar-enforcing Stage-1 dispatcher; both kernel branches require an
+immutable post-run authority before dispatch, and smoke additionally requires
+the frozen promotion authority. Per-run completion receipts bind protected
+submissions to terminal allocation logs, stable final checkpoints, training
+ledgers, and local metric streams. Evaluation captures live Slurm allocation
+and submitted-script evidence once in a plan-local, self-hashed
+`terminal_provenance.json`; ordinary validation and analysis replay that
+artifact offline. If the smoke rule spends the remaining grid, a distinct
+Stage-2 completion schema, promoted-26 evaluation plan, and immutable combined
+smoke4-plus-promoted26 result cover all 30 arms and all six clocks without
+rewriting the initial partition. These are provenance and analysis guarantees,
+not RL outcomes or evidence for a phase transition.
+
 The executable preregistration is
 `user/tianhaowu/rsci/configs/rl/known_cost_boundary_v1/PREREGISTRATION.md`.
 

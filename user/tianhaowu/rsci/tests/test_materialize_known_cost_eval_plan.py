@@ -24,6 +24,14 @@ from materialize_known_cost_eval_plan import (
 REPO_ROOT = Path(__file__).resolve().parents[4]
 
 
+def test_implementation_inventory_uses_launch_materializer_repository_path() -> None:
+    implementations = eval_plan._implementation_identities()
+
+    assert implementations["launch_intent_materializer"]["repository_path"] == str(
+        eval_plan.launch_intent.CONTROL_PLANE_REPOSITORY_PATHS["launch_materializer"]
+    )
+
+
 def _checkpoint(path: Path, content: bytes, *, stable: bool = True) -> Path:
     path.mkdir(parents=True)
     if stable:

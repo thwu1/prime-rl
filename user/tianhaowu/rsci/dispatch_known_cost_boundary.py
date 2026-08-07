@@ -29,6 +29,10 @@ COMMENT_RE = re.compile(rf"{COMMENT_PREFIX}[0-9a-f]{{64}}")
 JOB_ID_RE = re.compile(r"[1-9][0-9]*")
 ARM_FILENAME_RE = re.compile(r"[a-z0-9_]+\.toml")
 SCRIPT_REPOSITORY_PATH = "user/tianhaowu/rsci/dispatch_known_cost_boundary.py"
+POSTRUN_AUTHORITY_NAME = "postrun_authority.json"
+PROMOTION_AUTHORITY_NAME = "promotion_authority.json"
+POSTRUN_AUTHORITY_REPOSITORY_PATH = "user/tianhaowu/rsci/materialize_known_cost_postrun_authority.py"
+PROMOTION_AUTHORITY_REPOSITORY_PATH = "user/tianhaowu/rsci/materialize_known_cost_promotion.py"
 GLOBAL_INTENT_NAME = "global_submission_intent.json"
 STATE_LOCK_NAME = "dispatch.lock"
 GLOBAL_ARTIFACT_TYPE = "rsci_known_cost_global_dispatch_intent"
@@ -320,6 +324,165 @@ def load_authority(intent_path: Path) -> dict[str, Any]:
     }
 
 
+def _recorded_control_plane_validator(
+    authority: dict[str, Any],
+    *,
+    name: str,
+    repository_path: str,
+) -> tuple[Path, dict[str, Any]]:
+    intent = _require_dict(authority.get("intent"), "launch intent")
+    source = _require_dict(intent.get("control_plane_source"), "launch control-plane source")
+    implementations = _require_dict(source.get("implementations"), "launch control-plane implementations")
+    identity = _require_dict(implementations.get(name), f"launch implementation {name}")
+    path = Path(str(identity.get("path"))).expanduser().resolve()
+    if launch._repository_relative(path).as_posix() != repository_path:
+        raise ValueError(f"Launch intent records the wrong {name} repository path")
+    if file_identity(path) != identity:
+        raise ValueError(f"Launch intent {name} bytes changed")
+    _require_read_only(path, f"Pinned {name}")
+    return path, identity
+
+
+def _validate_sidecar(
+    *,
+    path: Path,
+    validator_path: Path,
+    arguments: list[str],
+    expected_summary: dict[str, Any],
+    label: str,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    resolved = path.expanduser().resolve()
+    _require_read_only(resolved, label)
+    raw_before, payload = read_canonical_json(resolved)
+    identity = file_identity(resolved)
+    summary = launch._run_exact_validator(validator_path, arguments)
+    if summary != expected_summary | {"authority": identity}:
+        raise ValueError(f"Recorded {label} validator returned a different summary")
+    raw_after, replayed = read_canonical_json(resolved)
+    if raw_after != raw_before or replayed != payload or file_identity(resolved) != identity:
+        raise RuntimeError(f"{label} changed while its recorded validator ran")
+    return payload, identity
+
+
+def validate_sidecar_authorities(authority: dict[str, Any]) -> dict[str, Any]:
+    intent_identity = _require_dict(authority.get("intent_identity"), "launch intent identity")
+    run_root = Path(str(authority.get("run_root"))).expanduser().resolve()
+    postrun_path = run_root / POSTRUN_AUTHORITY_NAME
+    postrun_validator, pinned_postrun_validator = _recorded_control_plane_validator(
+        authority,
+        name="postrun_authority_materializer",
+        repository_path=POSTRUN_AUTHORITY_REPOSITORY_PATH,
+    )
+    postrun, postrun_identity = _validate_sidecar(
+        path=postrun_path,
+        validator_path=postrun_validator,
+        arguments=["validate", "--authority", str(postrun_path)],
+        expected_summary={"command": "validate", "submission_performed": False},
+        label="post-run authority",
+    )
+    initial = _require_dict(postrun.get("initial_launch_authority"), "post-run launch authority")
+    if initial.get("intent") != intent_identity:
+        raise ValueError("Post-run authority and Stage-1 launch intent differ")
+    postrun_source = _require_dict(postrun.get("postrun_control_source"), "post-run control source")
+    postrun_implementations = _require_dict(postrun_source.get("implementations"), "post-run implementations")
+    dispatcher_identity = file_identity(Path(__file__))
+    if postrun_implementations.get("stage1_dispatcher") != dispatcher_identity:
+        raise ValueError("Post-run authority does not pin this exact Stage-1 dispatcher")
+    contract = _require_dict(postrun.get("stage1_dispatch_contract"), "Stage-1 dispatch contract")
+    if contract.get("implementation") != dispatcher_identity:
+        raise ValueError("Post-run Stage-1 contract binds a different dispatcher")
+    if postrun_implementations.get("authority_materializer") != pinned_postrun_validator:
+        raise ValueError("Post-run authority was not built by the launch-pinned validator")
+
+    decision = _require_dict(authority["intent"].get("preregistered_decision"), "launch decision")
+    design = decision.get("eligible_design")
+    promotion_path = run_root / PROMOTION_AUTHORITY_NAME
+    promotion_identity = None
+    if design == "four_arm_smoke_screen":
+        promotion_validator, pinned_promotion_validator = _recorded_control_plane_validator(
+            authority,
+            name="promotion_authority_materializer",
+            repository_path=PROMOTION_AUTHORITY_REPOSITORY_PATH,
+        )
+        promotion, promotion_identity = _validate_sidecar(
+            path=promotion_path,
+            validator_path=promotion_validator,
+            arguments=["validate-authority", "--authority", str(promotion_path)],
+            expected_summary={
+                "command": "validate-authority",
+                "remaining_arm_count": 26,
+                "submission_performed": False,
+            },
+            label="promotion authority",
+        )
+        promotion_launch = _require_dict(
+            promotion.get("initial_launch_authority"),
+            "promotion launch authority",
+        )
+        if promotion_launch.get("intent") != intent_identity:
+            raise ValueError("Promotion authority and Stage-1 launch intent differ")
+        promotion_source = _require_dict(promotion.get("promotion_control_source"), "promotion control source")
+        promotion_implementations = _require_dict(
+            promotion_source.get("implementations"),
+            "promotion implementations",
+        )
+        if promotion_implementations.get("promotion_materializer") != pinned_promotion_validator:
+            raise ValueError("Promotion authority was not built by the launch-pinned validator")
+    elif design == "full_30_arm_grid":
+        if os.path.lexists(promotion_path):
+            raise ValueError("A full-grid Stage-1 launch must not have a smoke promotion authority")
+    else:
+        raise ValueError(f"Unsupported Stage-1 eligible design: {design!r}")
+    return {
+        "postrun_authority": postrun_identity,
+        "promotion_authority": promotion_identity,
+    }
+
+
+def bind_sidecar_authorities(authority: dict[str, Any]) -> dict[str, Any]:
+    return {**authority, "sidecar_authorities": validate_sidecar_authorities(authority)}
+
+
+def revalidate_locked_authority(
+    intent_path: Path,
+    *,
+    initial_intent: dict[str, Any],
+    initial_sidecars: dict[str, Any],
+    operation: str,
+) -> dict[str, Any]:
+    authority = bind_sidecar_authorities(load_authority(intent_path))
+    if authority["intent_identity"] != initial_intent:
+        raise RuntimeError(f"Stage-1 launch intent changed before locked {operation}")
+    if authority["sidecar_authorities"] != initial_sidecars:
+        raise RuntimeError(f"Stage-1 sidecar authorities changed before locked {operation}")
+    return authority
+
+
+def _require_sidecar_identities(sidecars: dict[str, Any]) -> None:
+    expected_fields = {"postrun_authority", "promotion_authority"}
+    if set(sidecars) != expected_fields:
+        raise ValueError("Stage-1 sidecar authority record has the wrong exact schema")
+    postrun = _require_dict(sidecars.get("postrun_authority"), "post-run authority identity")
+    postrun_path = Path(str(postrun.get("path")))
+    _require_read_only(postrun_path, "Post-run authority")
+    if file_identity(postrun_path) != postrun:
+        raise ValueError("Post-run authority changed before Stage-1 submission")
+    promotion = sidecars.get("promotion_authority")
+    if promotion is not None:
+        promotion = _require_dict(promotion, "promotion authority identity")
+        promotion_path = Path(str(promotion.get("path")))
+        _require_read_only(promotion_path, "Promotion authority")
+        if file_identity(promotion_path) != promotion:
+            raise ValueError("Promotion authority changed before Stage-1 submission")
+
+
+def _require_launch_intent_identity(identity: dict[str, Any]) -> None:
+    path = Path(str(identity.get("path")))
+    _require_read_only(path, "Launch intent")
+    if file_identity(path) != identity:
+        raise ValueError("Launch intent changed before Stage-1 submission")
+
+
 def select_arms(authority: dict[str, Any], requested: list[str]) -> list[dict[str, Any]]:
     if not requested:
         raise ValueError("At least one explicit --arm is required")
@@ -402,6 +565,7 @@ def submission_comment(authority: dict[str, Any], run: dict[str, Any]) -> str:
         "source_provenance_sha256": run["source_provenance"]["manifest"]["sha256"],
         "scientific_config_projection_sha256": run["scientific_config_projection"]["projection_sha256"],
         "launcher_config_projection_sha256": run["launcher_config_projection"]["projection_sha256"],
+        "sidecar_authorities": _authority_sidecars(authority),
     }
     return f"{COMMENT_PREFIX}{canonical_json_sha256(material)}"
 
@@ -453,6 +617,12 @@ def _dispatcher_identity() -> dict[str, Any]:
     }
 
 
+def _authority_sidecars(authority: dict[str, Any]) -> dict[str, Any]:
+    sidecars = _require_dict(authority.get("sidecar_authorities"), "Stage-1 sidecar authorities")
+    _require_sidecar_identities(sidecars)
+    return sidecars
+
+
 def global_intent(
     *,
     authority: dict[str, Any],
@@ -470,6 +640,7 @@ def global_intent(
         "protected_dispatch_payload_sha256": authority["protected_payload_sha256"],
         "eligible_design": authority["intent"]["preregistered_decision"]["eligible_design"],
         "eligible_arm_filenames": authority["eligible_filenames"],
+        "sidecar_authorities": _authority_sidecars(authority),
         "control_tmux": authority["control_tmux"],
         "dispatcher": _dispatcher_identity(),
         "dispatch_contract": {
@@ -506,12 +677,16 @@ def batch_intent(
     created_at: str,
 ) -> dict[str, Any]:
     _parse_utc(created_at, "batch intent created_at")
+    _, global_record = read_canonical_json(global_path)
+    sidecars = _require_dict(global_record.get("sidecar_authorities"), "global sidecar authorities")
+    _require_sidecar_identities(sidecars)
     return {
         "schema_version": SCHEMA_VERSION,
         "artifact_type": BATCH_ARTIFACT_TYPE,
         "study_id": STUDY_ID,
         "created_at": created_at,
         "global_submission_intent": file_identity(global_path),
+        "sidecar_authorities": sidecars,
         "arm_count": len(arm_plans),
         "arms": [
             {
@@ -536,6 +711,10 @@ def validate_batch_intent(path: Path, global_path: Path) -> dict[str, Any]:
         or observed.get("global_submission_intent") != file_identity(global_path)
     ):
         raise ValueError(f"Batch intent has the wrong authority: {path}")
+    _, global_record = read_canonical_json(global_path)
+    if observed.get("sidecar_authorities") != global_record.get("sidecar_authorities"):
+        raise ValueError(f"Batch intent binds different sidecar authorities: {path}")
+    _require_sidecar_identities(_require_dict(observed.get("sidecar_authorities"), "batch sidecar authorities"))
     arms = observed.get("arms")
     if not isinstance(arms, list) or observed.get("arm_count") != len(arms) or not 1 <= len(arms) <= 5:
         raise ValueError(f"Batch intent has an invalid arm list: {path}")
@@ -561,6 +740,9 @@ def arm_intent(
     created_at: str,
 ) -> dict[str, Any]:
     _parse_utc(created_at, "arm intent created_at")
+    _, global_record = read_canonical_json(global_path)
+    sidecars = _require_dict(global_record.get("sidecar_authorities"), "global sidecar authorities")
+    _require_sidecar_identities(sidecars)
     return {
         "schema_version": SCHEMA_VERSION,
         "artifact_type": ARM_ARTIFACT_TYPE,
@@ -568,6 +750,7 @@ def arm_intent(
         "created_at": created_at,
         "global_submission_intent": file_identity(global_path),
         "batch_intent": file_identity(batch_path),
+        "sidecar_authorities": sidecars,
         "arm_plan": arm_plan,
         "failure_policy": (
             "if no immutable receipt follows, never resubmit; reconcile only by the exact content-addressed comment"
@@ -912,6 +1095,9 @@ def submission_receipt(
         job_id=job_id,
         arm_plan=arm_plan,
     )
+    _, global_record = read_canonical_json(global_path)
+    sidecars = _require_dict(global_record.get("sidecar_authorities"), "global sidecar authorities")
+    _require_sidecar_identities(sidecars)
     return {
         "schema_version": SCHEMA_VERSION,
         "artifact_type": RECEIPT_ARTIFACT_TYPE,
@@ -923,6 +1109,7 @@ def submission_receipt(
         "submission_environment": arm_plan["submission_environment"],
         "global_submission_intent": file_identity(global_path),
         "arm_submission_intent": file_identity(arm_intent_path),
+        "sidecar_authorities": sidecars,
         "source": source,
         "sbatch_stdout": sbatch_stdout,
         "scheduler_evidence": scheduler_evidence,
@@ -1127,10 +1314,14 @@ def _submit_one(
     global_path: Path,
     batch_path: Path,
     state_root: Path,
+    sidecar_authorities: dict[str, Any],
+    launch_intent_identity: dict[str, Any],
 ) -> dict[str, Any]:
     arm_intent_path, receipt_path = _arm_paths(state_root, arm_plan["arm_filename"])
     if arm_intent_path.exists() or receipt_path.exists():
         raise RuntimeError(f"Arm already has dispatch state: {arm_plan['arm_filename']}")
+    _require_sidecar_identities(sidecar_authorities)
+    _require_launch_intent_identity(launch_intent_identity)
     _validate_arm_plan_sbatch(arm_plan)
     _write_json_once_atomic(
         arm_intent_path,
@@ -1147,6 +1338,8 @@ def _submit_one(
         global_path=global_path,
     )
     _validate_arm_plan_sbatch(arm_plan)
+    _require_sidecar_identities(sidecar_authorities)
+    _require_launch_intent_identity(launch_intent_identity)
     try:
         result = subprocess.run(
             arm_plan["command"],
@@ -1157,6 +1350,8 @@ def _submit_one(
             env=_execution_environment(arm_plan),
         )
         _validate_arm_plan_sbatch(arm_plan)
+        _require_sidecar_identities(sidecar_authorities)
+        _require_launch_intent_identity(launch_intent_identity)
     except Exception as error:
         raise RuntimeError(
             f"Ambiguous sbatch outcome for {arm_plan['arm_filename']}; reconcile by exact comment"
@@ -1195,7 +1390,9 @@ def _submit_one(
 
 
 def dispatch(args: argparse.Namespace) -> dict[str, Any]:
-    authority = load_authority(args.intent)
+    authority = bind_sidecar_authorities(load_authority(args.intent))
+    initial_intent = authority["intent_identity"]
+    initial_sidecars = authority["sidecar_authorities"]
     state_root = validate_state_root(args.state_root, authority)
     selected_runs = select_arms(authority, args.arm)
     arm_plans = [build_arm_plan(authority, run) for run in selected_runs]
@@ -1236,7 +1433,12 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
     lock_path = state_root / STATE_LOCK_NAME
     with lock_path.open("a", encoding="utf-8") as lock_handle:
         fcntl.flock(lock_handle, fcntl.LOCK_EX)
-        authority = load_authority(args.intent)
+        authority = revalidate_locked_authority(
+            args.intent,
+            initial_intent=initial_intent,
+            initial_sidecars=initial_sidecars,
+            operation="dispatch",
+        )
         selected_runs = select_arms(authority, args.arm)
         arm_plans = [build_arm_plan(authority, run) for run in selected_runs]
         status = state_status(authority, state_root)
@@ -1277,6 +1479,8 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
                 global_path=global_path,
                 batch_path=batch_path,
                 state_root=state_root,
+                sidecar_authorities=authority["sidecar_authorities"],
+                launch_intent_identity=authority["intent_identity"],
             )
             receipts[arm_plan["arm_filename"]] = receipt["job_id"]
         final_status = state_status(authority, state_root)
@@ -1308,7 +1512,9 @@ def _reconciliation_evidence(snapshot: dict[str, Any], matches: dict[int, dict[s
 
 
 def reconcile(args: argparse.Namespace) -> dict[str, Any]:
-    authority = load_authority(args.intent)
+    authority = bind_sidecar_authorities(load_authority(args.intent))
+    initial_intent = authority["intent_identity"]
+    initial_sidecars = authority["sidecar_authorities"]
     state_root = validate_state_root(args.state_root, authority)
     selected_runs = select_arms(authority, args.arm)
     arm_plans = [build_arm_plan(authority, run) for run in selected_runs]
@@ -1354,7 +1560,14 @@ def reconcile(args: argparse.Namespace) -> dict[str, Any]:
     unresolved = []
     with lock_path.open("a", encoding="utf-8") as lock_handle:
         fcntl.flock(lock_handle, fcntl.LOCK_EX)
-        authority = load_authority(args.intent)
+        authority = revalidate_locked_authority(
+            args.intent,
+            initial_intent=initial_intent,
+            initial_sidecars=initial_sidecars,
+            operation="reconciliation",
+        )
+        selected_runs = select_arms(authority, args.arm)
+        arm_plans = [build_arm_plan(authority, run) for run in selected_runs]
         status = state_status(authority, state_root)
         snapshot = scheduler_snapshot(
             start_time=_scheduler_start(status["global_intent"]),
@@ -1377,6 +1590,7 @@ def reconcile(args: argparse.Namespace) -> dict[str, Any]:
             job_id = next(iter(matches))
             record = matches[job_id]
             _validate_scheduler_match(record, plan)
+            _require_sidecar_identities(authority["sidecar_authorities"])
             evidence = _reconciliation_evidence(snapshot, matches)
             receipt = submission_receipt(
                 arm_plan=plan,
@@ -1407,7 +1621,7 @@ def reconcile(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def status(args: argparse.Namespace) -> dict[str, Any]:
-    authority = load_authority(args.intent)
+    authority = bind_sidecar_authorities(load_authority(args.intent))
     state_root = validate_state_root(args.state_root, authority)
     return {
         "study_id": STUDY_ID,

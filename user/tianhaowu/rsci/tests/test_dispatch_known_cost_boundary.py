@@ -4,6 +4,7 @@ import hashlib
 import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
+from types import SimpleNamespace
 
 import dispatch_known_cost_boundary as dispatcher
 import pytest
@@ -56,13 +57,24 @@ def _authority(tmp_path: Path) -> tuple[dict, dict]:
     run = _sealed_run(tmp_path)
     filename = run["arm_filename"]
     excluded = "b20260808_t_p0075.toml"
+    intent_path = tmp_path / "submission_intent.json"
+    intent_path.write_bytes(dispatcher.canonical_json_bytes({"intent": "test"}))
+    intent_path.chmod(0o444)
+    run_root = tmp_path / "production-run-root"
+    run_root.mkdir()
+    postrun_path = run_root / dispatcher.POSTRUN_AUTHORITY_NAME
+    promotion_path = run_root / dispatcher.PROMOTION_AUTHORITY_NAME
+    postrun_path.write_bytes(dispatcher.canonical_json_bytes({"authority": "postrun"}))
+    promotion_path.write_bytes(dispatcher.canonical_json_bytes({"authority": "promotion"}))
+    postrun_path.chmod(0o444)
+    promotion_path.chmod(0o444)
     payload = {"study_id": dispatcher.STUDY_ID}
     authority = {
         "intent": {"preregistered_decision": {"eligible_design": "four_arm_smoke_screen"}},
-        "intent_identity": {
-            "path": str((tmp_path / "submission_intent.json").resolve()),
-            "size_bytes": 1,
-            "sha256": "d" * 64,
+        "intent_identity": dispatcher.file_identity(intent_path),
+        "sidecar_authorities": {
+            "postrun_authority": dispatcher.file_identity(postrun_path),
+            "promotion_authority": dispatcher.file_identity(promotion_path),
         },
         "protected_payload": payload,
         "protected_payload_sha256": dispatcher.canonical_json_sha256(payload),
@@ -74,9 +86,87 @@ def _authority(tmp_path: Path) -> tuple[dict, dict]:
             excluded: {"decision_status": "excluded"},
         },
         "control_tmux": {"socket": "/tmp/control.sock", "session": "control", "window": "Launcher"},
-        "run_root": str((tmp_path / "production-run-root").resolve()),
+        "run_root": str(run_root.resolve()),
     }
     return authority, run
+
+
+def _sidecar_authority(
+    tmp_path: Path,
+    *,
+    design: str = "four_arm_smoke_screen",
+) -> tuple[dict, Path, Path]:
+    snapshot = tmp_path / "control-snapshot"
+    postrun_validator = snapshot / dispatcher.POSTRUN_AUTHORITY_REPOSITORY_PATH
+    promotion_validator = snapshot / dispatcher.PROMOTION_AUTHORITY_REPOSITORY_PATH
+    postrun_validator.parent.mkdir(parents=True)
+    postrun_validator.write_text("# pinned post-run validator\n", encoding="utf-8")
+    promotion_validator.write_text("# pinned promotion validator\n", encoding="utf-8")
+    postrun_validator.chmod(0o444)
+    promotion_validator.chmod(0o444)
+    intent_path = tmp_path / "submission_intent.json"
+    intent_path.write_bytes(dispatcher.canonical_json_bytes({"intent": "stage1"}))
+    intent_path.chmod(0o444)
+    intent_identity = dispatcher.file_identity(intent_path)
+    run_root = tmp_path / "run-root"
+    run_root.mkdir()
+    dispatcher_identity = dispatcher.file_identity(Path(dispatcher.__file__))
+    postrun_path = run_root / dispatcher.POSTRUN_AUTHORITY_NAME
+    postrun_path.write_bytes(
+        dispatcher.canonical_json_bytes(
+            {
+                "initial_launch_authority": {"intent": intent_identity},
+                "postrun_control_source": {
+                    "implementations": {
+                        "authority_materializer": dispatcher.file_identity(postrun_validator),
+                        "stage1_dispatcher": dispatcher_identity,
+                    }
+                },
+                "stage1_dispatch_contract": {"implementation": dispatcher_identity},
+            }
+        )
+    )
+    promotion_path = run_root / dispatcher.PROMOTION_AUTHORITY_NAME
+    promotion_path.write_bytes(
+        dispatcher.canonical_json_bytes(
+            {
+                "initial_launch_authority": {"intent": intent_identity},
+                "promotion_control_source": {
+                    "implementations": {
+                        "promotion_materializer": dispatcher.file_identity(promotion_validator),
+                    }
+                },
+            }
+        )
+    )
+    postrun_path.chmod(0o444)
+    promotion_path.chmod(0o444)
+    authority = {
+        "intent": {
+            "preregistered_decision": {"eligible_design": design},
+            "control_plane_source": {
+                "implementations": {
+                    "postrun_authority_materializer": dispatcher.file_identity(postrun_validator),
+                    "promotion_authority_materializer": dispatcher.file_identity(promotion_validator),
+                }
+            },
+        },
+        "intent_identity": intent_identity,
+        "run_root": str(run_root.resolve()),
+    }
+    return authority, postrun_path, promotion_path
+
+
+def _validator_summary(_path: Path, arguments: list[str]) -> dict:
+    identity = dispatcher.file_identity(Path(arguments[-1]))
+    if arguments[0] == "validate":
+        return {"command": "validate", "authority": identity, "submission_performed": False}
+    return {
+        "command": "validate-authority",
+        "authority": identity,
+        "remaining_arm_count": 26,
+        "submission_performed": False,
+    }
 
 
 def test_subset_selection_rejects_excluded_duplicates_and_more_than_five(tmp_path: Path) -> None:
@@ -89,6 +179,121 @@ def test_subset_selection_rejects_excluded_duplicates_and_more_than_five(tmp_pat
         dispatcher.select_arms(authority, [run["arm_filename"], run["arm_filename"]])
     with pytest.raises(ValueError, match="At most 5"):
         dispatcher.select_arms(authority, [f"arm_{index}.toml" for index in range(6)])
+
+
+def test_stage1_direct_dispatch_cannot_bypass_sidecar_validation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    scheduler_called = False
+
+    def scheduler_snapshot(**kwargs):
+        nonlocal scheduler_called
+        scheduler_called = True
+        return {}
+
+    monkeypatch.setattr(dispatcher, "load_authority", lambda _: {"run_root": str(tmp_path)})
+    monkeypatch.setattr(
+        dispatcher,
+        "validate_sidecar_authorities",
+        lambda _: (_ for _ in ()).throw(FileNotFoundError("postrun_authority.json")),
+    )
+    monkeypatch.setattr(dispatcher, "scheduler_snapshot", scheduler_snapshot)
+
+    with pytest.raises(FileNotFoundError, match="postrun_authority"):
+        dispatcher.dispatch(
+            SimpleNamespace(
+                intent=tmp_path / "submission_intent.json",
+                state_root=tmp_path / "state",
+                arm=["b20260808_g_p0125.toml"],
+                dry_run=True,
+                confirm_study_id=None,
+            )
+        )
+    assert scheduler_called is False
+
+
+def test_sidecar_authorities_require_exact_smoke_pair_and_dispatcher_pin(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    authority, postrun_path, promotion_path = _sidecar_authority(tmp_path)
+    monkeypatch.setattr(dispatcher.launch, "_run_exact_validator", _validator_summary)
+
+    observed = dispatcher.validate_sidecar_authorities(authority)
+
+    assert observed == {
+        "postrun_authority": dispatcher.file_identity(postrun_path),
+        "promotion_authority": dispatcher.file_identity(promotion_path),
+    }
+    promotion_path.unlink()
+    with pytest.raises(FileNotFoundError, match="promotion_authority"):
+        dispatcher.validate_sidecar_authorities(authority)
+
+    postrun_path.chmod(0o644)
+    _, payload = dispatcher.read_canonical_json(postrun_path)
+    payload["stage1_dispatch_contract"]["implementation"] = {
+        **payload["stage1_dispatch_contract"]["implementation"],
+        "sha256": "0" * 64,
+    }
+    postrun_path.write_bytes(dispatcher.canonical_json_bytes(payload))
+    postrun_path.chmod(0o444)
+    with pytest.raises(ValueError, match="different dispatcher"):
+        dispatcher.validate_sidecar_authorities(authority)
+
+
+def test_full_grid_forbids_smoke_promotion_sidecar(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    authority, postrun_path, promotion_path = _sidecar_authority(tmp_path, design="full_30_arm_grid")
+    monkeypatch.setattr(dispatcher.launch, "_run_exact_validator", _validator_summary)
+
+    with pytest.raises(ValueError, match="must not have a smoke promotion authority"):
+        dispatcher.validate_sidecar_authorities(authority)
+    promotion_path.unlink()
+    observed = dispatcher.validate_sidecar_authorities(authority)
+    assert observed == {
+        "postrun_authority": dispatcher.file_identity(postrun_path),
+        "promotion_authority": None,
+    }
+
+
+def test_locked_revalidation_replays_sidecars_and_rejects_identity_change(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    authority, _ = _authority(tmp_path)
+    replayed = []
+    monkeypatch.setattr(dispatcher, "load_authority", lambda _: authority)
+    monkeypatch.setattr(
+        dispatcher,
+        "validate_sidecar_authorities",
+        lambda _: replayed.append(True) or authority["sidecar_authorities"],
+    )
+
+    assert (
+        dispatcher.revalidate_locked_authority(
+            Path(authority["intent_identity"]["path"]),
+            initial_intent=authority["intent_identity"],
+            initial_sidecars=authority["sidecar_authorities"],
+            operation="dispatch",
+        )["sidecar_authorities"]
+        == authority["sidecar_authorities"]
+    )
+    assert replayed == [True]
+    monkeypatch.setattr(
+        dispatcher,
+        "validate_sidecar_authorities",
+        lambda _: {**authority["sidecar_authorities"], "promotion_authority": None},
+    )
+    with pytest.raises(RuntimeError, match="sidecar authorities changed"):
+        dispatcher.revalidate_locked_authority(
+            Path(authority["intent_identity"]["path"]),
+            initial_intent=authority["intent_identity"],
+            initial_sidecars=authority["sidecar_authorities"],
+            operation="dispatch",
+        )
 
 
 def test_state_root_must_match_the_single_authority_path(tmp_path: Path) -> None:
@@ -133,6 +338,71 @@ def test_arm_plan_uses_exact_command_and_content_addressed_comment(
     assert all(not key.startswith("SBATCH_") for key in dispatcher._execution_environment(plan))
     changed = {**authority, "protected_payload_sha256": "e" * 64}
     assert dispatcher.submission_comment(changed, run) != plan["comment"]
+    replacement = tmp_path / "replacement-promotion.json"
+    replacement.write_bytes(dispatcher.canonical_json_bytes({"authority": "replacement"}))
+    replacement.chmod(0o444)
+    changed_sidecar = {
+        **authority,
+        "sidecar_authorities": {
+            **authority["sidecar_authorities"],
+            "promotion_authority": dispatcher.file_identity(replacement),
+        },
+    }
+    assert dispatcher.submission_comment(changed_sidecar, run) != plan["comment"]
+
+
+def test_sidecar_identities_are_bound_through_global_batch_arm_and_receipt(tmp_path: Path) -> None:
+    authority, run = _authority(tmp_path)
+    plan = dispatcher.build_arm_plan(authority, run)
+    state_root = tmp_path / "state"
+    state_root.mkdir()
+    global_path = state_root / dispatcher.GLOBAL_INTENT_NAME
+    global_record = dispatcher.global_intent(
+        authority=authority,
+        state_root=state_root,
+        created_at="2026-08-08T00:00:00Z",
+    )
+    dispatcher._write_json_once_atomic(global_path, global_record)
+    batch_record = dispatcher.batch_intent(
+        global_path=global_path,
+        arm_plans=[plan],
+        created_at="2026-08-08T00:00:01Z",
+    )
+    batch_path = (
+        state_root / "batches" / f"{hashlib.sha256(dispatcher.canonical_json_bytes(batch_record)).hexdigest()}.json"
+    )
+    dispatcher._write_json_once_atomic(batch_path, batch_record)
+    arm_path = state_root / "arm.json"
+    arm_record = dispatcher.arm_intent(
+        arm_plan=plan,
+        global_path=global_path,
+        batch_path=batch_path,
+        created_at="2026-08-08T00:00:02Z",
+    )
+    dispatcher._write_json_once_atomic(arm_path, arm_record)
+    evidence = {
+        "command": ["scontrol", "show", "job", "123", "--oneliner"],
+        "stdout_sha256": "f" * 64,
+        "record": {
+            "job_id": 123,
+            "comment": plan["comment"],
+            "job_name": plan["scheduler"]["job_name"],
+            "account": plan["scheduler"]["account"],
+            "qos": plan["scheduler"]["qos"],
+        },
+    }
+    receipt = dispatcher.submission_receipt(
+        arm_plan=plan,
+        global_path=global_path,
+        arm_intent_path=arm_path,
+        job_id=123,
+        source="sbatch_stdout",
+        sbatch_stdout="123",
+        scheduler_evidence=evidence,
+    )
+
+    for record in (global_record, batch_record, arm_record, receipt):
+        assert record["sidecar_authorities"] == authority["sidecar_authorities"]
 
 
 def test_scheduler_contract_rejects_conflicting_explicit_qos(tmp_path: Path) -> None:
@@ -327,6 +597,8 @@ def test_ambiguous_sbatch_leaves_intent_without_receipt(
             global_path=global_path,
             batch_path=batch_path,
             state_root=state_root,
+            sidecar_authorities=authority["sidecar_authorities"],
+            launch_intent_identity=authority["intent_identity"],
         )
 
     intent_path, receipt_path = dispatcher._arm_paths(state_root, run["arm_filename"])
@@ -384,10 +656,63 @@ def test_sbatch_mutation_during_submission_leaves_no_receipt(
             global_path=global_path,
             batch_path=batch_path,
             state_root=state_root,
+            sidecar_authorities=authority["sidecar_authorities"],
+            launch_intent_identity=authority["intent_identity"],
         )
 
     intent_path, receipt_path = dispatcher._arm_paths(state_root, run["arm_filename"])
     assert intent_path.is_file()
+    assert not receipt_path.exists()
+
+
+@pytest.mark.parametrize("target", ["launch_intent", "postrun_authority"])
+def test_authority_mutation_during_sbatch_is_detected_before_receipt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    target: str,
+) -> None:
+    authority, run = _authority(tmp_path)
+    plan = dispatcher.build_arm_plan(authority, run)
+    state_root = (tmp_path / "dispatch-state").resolve()
+    state_root.mkdir()
+    global_path = state_root / dispatcher.GLOBAL_INTENT_NAME
+    dispatcher._write_json_once_atomic(
+        global_path,
+        dispatcher.global_intent(authority=authority, state_root=state_root, created_at="2026-08-08T00:00:00Z"),
+    )
+    batch = dispatcher.batch_intent(
+        global_path=global_path,
+        arm_plans=[plan],
+        created_at="2026-08-08T00:00:01Z",
+    )
+    batch_path = state_root / "batches" / f"{hashlib.sha256(dispatcher.canonical_json_bytes(batch)).hexdigest()}.json"
+    dispatcher._write_json_once_atomic(batch_path, batch)
+
+    def mutate_authority(*args: object, **kwargs: object) -> subprocess.CompletedProcess[str]:
+        identity = (
+            authority["intent_identity"]
+            if target == "launch_intent"
+            else authority["sidecar_authorities"]["postrun_authority"]
+        )
+        path = Path(identity["path"])
+        path.chmod(0o644)
+        path.write_bytes(dispatcher.canonical_json_bytes({"changed": target}))
+        path.chmod(0o444)
+        return subprocess.CompletedProcess(plan["command"], 0, stdout="123", stderr="")
+
+    monkeypatch.setattr(dispatcher.subprocess, "run", mutate_authority)
+
+    with pytest.raises(RuntimeError, match="Ambiguous sbatch outcome"):
+        dispatcher._submit_one(
+            arm_plan=plan,
+            global_path=global_path,
+            batch_path=batch_path,
+            state_root=state_root,
+            sidecar_authorities=authority["sidecar_authorities"],
+            launch_intent_identity=authority["intent_identity"],
+        )
+
+    _, receipt_path = dispatcher._arm_paths(state_root, run["arm_filename"])
     assert not receipt_path.exists()
 
 
@@ -406,7 +731,7 @@ def test_receipt_evidence_must_prove_exact_comment_account_and_qos(tmp_path: Pat
         },
     }
     global_path = tmp_path / "global.json"
-    global_path.write_text("{}\n", encoding="utf-8")
+    global_path.write_bytes(dispatcher.canonical_json_bytes({"sidecar_authorities": authority["sidecar_authorities"]}))
     arm_path = tmp_path / "arm.json"
     arm_path.write_text("{}\n", encoding="utf-8")
 

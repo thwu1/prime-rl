@@ -1,6 +1,7 @@
 import json
 from collections import Counter
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from analyze_correlated_defect_preflight import (
@@ -305,8 +306,10 @@ def test_known_cost_launch_intent_selects_preregistered_arms_and_requires_adjace
     intent["payload_without_self_hash_sha256"] = launch.canonical_json_sha256(intent)
     intent_path = tmp_path / launch.INTENT_NAME
     launch.write_intent_atomic(intent_path, intent)
-    monkeypatch.setattr(launch, "build_intent", lambda **_: intent)
+    replay_calls = []
+    monkeypatch.setattr(launch, "build_intent", lambda **kwargs: replay_calls.append(kwargs) or intent)
     assert launch.validate_intent(intent_path, tokenizer_path=tokenizer)["intent"] == intent
+    assert replay_calls[-1]["verify_kernel_scheduler"] is False
     intent_path.chmod(0o644)
     with pytest.raises(ValueError, match="writable"):
         launch.validate_intent(intent_path, tokenizer_path=tokenizer)
@@ -355,6 +358,144 @@ def test_known_cost_launch_intent_selects_preregistered_arms_and_requires_adjace
             kernel_identity,
             kernel_result,
         )
+
+
+def test_kernel_receipt_replays_exact_cross_snapshot_finalizer_with_optional_live_scheduler(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import finalize_known_cost_kernel_execution as finalizer
+    import materialize_known_cost_boundary_launch as launch
+
+    snapshot = tmp_path / "old-control-snapshot"
+    validator_path = snapshot / finalizer.IMPLEMENTATION_REPOSITORY_PATH
+    validator_path.parent.mkdir(parents=True)
+    validator_path.write_text("# immutable historical finalizer\n", encoding="utf-8")
+    validator_identity = launch.file_identity(validator_path)
+    receipt = {field: {} for field in finalizer.RECEIPT_TOP_FIELDS}
+    receipt.update(
+        {
+            "schema_version": finalizer.SCHEMA_VERSION,
+            "artifact_type": finalizer.ARTIFACT_TYPE,
+            "finalizer_source_provenance": {"snapshot_path": str(snapshot)},
+            "implementation": {
+                "repository_path": finalizer.IMPLEMENTATION_REPOSITORY_PATH,
+                "size_bytes": validator_identity["size_bytes"],
+                "sha256": validator_identity["sha256"],
+            },
+            "scheduler": {
+                "gpu_job": {"job_id": 101},
+                "validator_job": {"job_id": 102},
+            },
+            "gpu_run_summary": {"eligible_design": "four_arm_smoke_screen"},
+        }
+    )
+    receipt.pop("payload_without_self_hash_sha256")
+    receipt["payload_without_self_hash_sha256"] = launch.canonical_json_sha256(receipt)
+    receipt_path = tmp_path / finalizer.RECEIPT_NAME
+    receipt_path.write_bytes(launch.canonical_json_bytes(receipt))
+    receipt_path.chmod(0o444)
+    receipt_identity = launch.file_identity(receipt_path)
+    expected_summary = {
+        "command": "validate",
+        "receipt": receipt_identity,
+        "gpu_job_id": 101,
+        "validator_job_id": 102,
+        "eligible_design": "four_arm_smoke_screen",
+    }
+    calls = []
+    monkeypatch.setattr(
+        launch,
+        "_run_exact_validator",
+        lambda path, arguments: calls.append((path, arguments)) or expected_summary,
+    )
+
+    live = launch._validated_kernel_execution_receipt(receipt_path, verify_scheduler=True)
+    static = launch._validated_kernel_execution_receipt(receipt_path, verify_scheduler=False)
+
+    assert live == static
+    assert calls == [
+        (
+            validator_path.resolve(),
+            ["validate", "--receipt", str(receipt_path.resolve()), "--verify-scheduler"],
+        ),
+        (
+            validator_path.resolve(),
+            ["validate", "--receipt", str(receipt_path.resolve())],
+        ),
+    ]
+    assert live["validator"]["sha256"] == validator_identity["sha256"]
+
+    validator_path.write_text("# changed historical finalizer\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="finalizer bytes differ"):
+        launch._validated_kernel_execution_receipt(receipt_path, verify_scheduler=False)
+
+    wrong_path_receipt = {**receipt, "implementation": {**receipt["implementation"]}}
+    wrong_path_receipt["implementation"]["repository_path"] = "user/tianhaowu/rsci/not_the_finalizer.py"
+    wrong_path_receipt.pop("payload_without_self_hash_sha256")
+    wrong_path_receipt["payload_without_self_hash_sha256"] = launch.canonical_json_sha256(wrong_path_receipt)
+    wrong_path = tmp_path / "wrong-path-receipt.json"
+    wrong_path.write_bytes(launch.canonical_json_bytes(wrong_path_receipt))
+    wrong_path.chmod(0o444)
+    with pytest.raises(ValueError, match="wrong finalizer repository path"):
+        launch._validated_kernel_execution_receipt(wrong_path, verify_scheduler=False)
+
+
+def test_launch_materialize_requests_live_kernel_recheck_and_successor_source_is_current(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import materialize_known_cost_boundary_launch as launch
+
+    calls = []
+    intent = {
+        "preregistered_decision": {
+            "eligible_design": "four_arm_smoke_screen",
+            "eligible_arm_count": 4,
+        }
+    }
+    monkeypatch.setattr(launch, "build_intent", lambda **kwargs: calls.append(kwargs) or intent)
+    monkeypatch.setattr(
+        launch,
+        "write_intent_atomic",
+        lambda path, payload: {"path": str(path), "size_bytes": 1, "sha256": "a" * 64},
+    )
+    monkeypatch.setattr(
+        launch,
+        "parse_args",
+        lambda: SimpleNamespace(
+            command="materialize",
+            run_root=tmp_path,
+            preflight_report=tmp_path / "preflight.json",
+            kernel_root=tmp_path / "kernel",
+            tokenizer=tmp_path / "tokenizer",
+            kernel_validation=None,
+        ),
+    )
+
+    launch.main()
+
+    assert calls[0]["verify_kernel_scheduler"] is True
+    assert json.loads(capsys.readouterr().out)["command"] == "materialize"
+
+    source_root, _ = launch._source_root(Path(launch.__file__))
+    monkeypatch.setattr(
+        launch.source_provenance,
+        "verify_snapshot",
+        lambda *args, **kwargs: {"snapshot_path": str(source_root)},
+    )
+    monkeypatch.setattr(
+        launch,
+        "_source_provenance_record",
+        lambda *args, **kwargs: {"source_tree": "successor"},
+    )
+    provenance = launch._control_plane_source_provenance()
+    assert provenance["snapshot_path"] == str(source_root)
+    assert provenance["source_tree"] == "successor"
+    assert provenance["implementations"]["dispatcher"]["path"] == str(
+        source_root / launch.CONTROL_PLANE_REPOSITORY_PATHS["dispatcher"]
+    )
 
 
 def test_known_cost_generated_projection_is_type_strict_and_smoke_inventory_excludes_26_arms() -> None:
