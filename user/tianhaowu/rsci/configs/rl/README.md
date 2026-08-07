@@ -171,6 +171,14 @@ the defect persistent for a repeated `(sample_id, rollout_slot)`. The 500-step
 pilot's estimand. Add a deterministic exposure index before using this scope in
 a run that reshuffles and revisits prompts.
 
+The five confirmatory pilot overlays retain stable inference weights at every
+25-step evaluation boundary (`ckpt.keep_interval = 25`). The asynchronous live
+OP11--45 eval is a health diagnostic only: the current dispatcher can resume
+training after the eval queue is dispatched, so one epoch may mix adjacent
+policy versions. Primary exposure AUC and discovery endpoints must come from
+the retained checkpoints evaluated with `prepare_rl_checkpoint_eval.py`; reject
+mixed-policy live points rather than assigning them a causal exposure.
+
 Any operation-specific keys must fall within the environment's configured
 `min_op`--`max_op` range. Keep these arguments off held-out environments.
 
@@ -296,23 +304,83 @@ evaluation environment omits defect arguments, so
 Each environment evaluates its fixed 200 prompts with one rollout per prompt at
 step 0 and every 25 optimizer steps.
 
-The reward-histogram-matched 500-step pilot uses the p00 config as a base plus
-one of these overlays:
+The 500-step matched pilot and uniform-noise comparator use the p00 config as a
+base plus one of these overlays:
 
 - `op10_40_group_scored_clean_p00_pilot500.toml`;
 - `op10_40_behavior_group_p01_pilot500.toml`;
 - `op10_40_shuffled_group_p01_pilot500.toml`;
 - `op10_40_behavior_group_p05_pilot500.toml`;
-- `op10_40_shuffled_group_p05_pilot500.toml`.
+- `op10_40_shuffled_group_p05_pilot500.toml`;
+- `op10_40_uniform_fpr_match_p05_pilot.toml`.
 
-Compose an overlay with a second `@`; passing the overlay as an unmarked CLI
-argument is invalid:
+### Commit-pinned runtime source
+
+The pilot overlays run from an immutable source snapshot under each run
+directory, rather than from the mutable checkout used to submit the job.
+After committing the intended parent and submodule revisions, create the
+snapshot before materializing `rl.sbatch`:
 
 ```bash
-bash user/tianhaowu/rsci/scripts/run_rl_op10_40.sh \
+RUN_DIR=/checkpoint/ram-h100-2/tianhaowu/rsci/rl/RUN_NAME
+SOURCE_COMMIT=$(git rev-parse HEAD)
+uv run --no-sync user/tianhaowu/rsci/source_provenance.py create \
+  "$RUN_DIR" --commit "$SOURCE_COMMIT"
+```
+
+Creation archives the parent commit and every pinned submodule commit, makes
+the source tree read-only, links its `.venv` to the shared environment, and
+writes `source_provenance.json` plus `source_environment.freeze.txt`. The
+manifest records the parent and submodule SHAs, source-tree digest, `uv.lock`
+hash, and normalized `uv pip freeze` hash. It also verifies that `prime_rl`,
+`prime_rl.configs`, `rsci_gsm_infinite`, and `verifiers` import from the
+snapshot. Dirty working-tree content is deliberately absent.
+
+The overlays set `slurm.project_dir` to their own `RUN_DIR/source_snapshot` and
+source `activate_source_snapshot.sh` before starting any component. Materialize
+the launch from the pinned base and overlay configs inside that snapshot, then
+seal it:
+
+```bash
+uv run --no-sync "$RUN_DIR/source_snapshot/user/tianhaowu/rsci/source_provenance.py" materialize-launch \
+  "$RUN_DIR" \
   user/tianhaowu/rsci/configs/rl/op10_40_strict_grpo_r128_defect_p00.toml \
-  @ user/tianhaowu/rsci/configs/rl/op10_40_shuffled_group_p05_pilot500.toml \
-  --dry-run
+  user/tianhaowu/rsci/configs/rl/op10_40_shuffled_group_p05_pilot500.toml
+uv run --no-sync "$RUN_DIR/source_snapshot/user/tianhaowu/rsci/source_provenance.py" seal-launch "$RUN_DIR"
+```
+
+`materialize-launch` first verifies the unsealed snapshot, then invokes the
+snapshot's pinned `rl` entrypoint with a snapshot-only Python path and
+`--dry-run`. Repository-relative config arguments resolve only inside the
+snapshot. It records the exact command and generated hashes; `seal-launch`
+refuses a missing materialization or any byte changed afterward. The normal
+activation guard is intentionally deferred because it requires a completed
+seal. No generated workload may start until `seal-launch` succeeds; runtime
+activation then occurs before the script's first project import.
+
+The seal adds SHA-256 hashes for `rl.sbatch` and every materialized
+`RUN_DIR/configs/*.toml` to `source_provenance.json`. It also hashes the actual
+bytes of every dataset referenced by the resolved train and eval environments,
+the full base-model directory while following Hugging Face cache symlinks, the
+tokenizer directory, and the configured chat template. Each matching data hash
+is also checked against the authoritative `dataset_manifest.json` when that
+manifest is present. The generated training script sources the activation guard
+before its first `uv run`, and the guard rechecks the source, shared environment,
+resolved configs, script hashes, and sealed external inputs. Both training and
+frozen-checkpoint evaluation refuse
+an unsealed, missing, modified, wrong-commit, input-mismatched, or
+environment-mismatched snapshot. A source, input, or shared-environment change
+requires a fresh run directory; never replace a snapshot under an existing run
+identity.
+
+Pass the base and overlay as separate repository-relative arguments to
+`materialize-launch`; each becomes a pinned `@` config in the recorded command:
+
+```bash
+uv run --no-sync "$RUN_DIR/source_snapshot/user/tianhaowu/rsci/source_provenance.py" materialize-launch \
+  "$RUN_DIR" \
+  user/tianhaowu/rsci/configs/rl/op10_40_strict_grpo_r128_defect_p00.toml \
+  user/tianhaowu/rsci/configs/rl/op10_40_shuffled_group_p05_pilot500.toml
 ```
 
 The in-training generalization curve uses the released OP11–20 shards, fixed
@@ -320,19 +388,106 @@ generated OP21–30 and OP31–40 shards, and the experiment's OP41–45 shards.
 prompts are globally unique, canonical solutions pass the strict grader, and
 none overlap the 31,000 training prompts. For a frozen-checkpoint audit, run the
 same suite outside the asynchronous trainer so every arm is measured at an
-explicit stable policy version:
+explicit stable policy version. The batch submitter schedules the fixed grid
+`0, 25, ..., 500`, with one checkpoint and one H100 per array task:
 
 ```bash
-bash user/tianhaowu/rsci/scripts/submit_rl_checkpoint_eval.sh \
-  /checkpoint/ram-h100-2/tianhaowu/rsci/rl/base-op10-40-strict-r128-defect-answer-p05 \
-  100
+env -u SBATCH_OUTPUT -u SBATCH_ERROR \
+  bash user/tianhaowu/rsci/scripts/submit_rl_checkpoint_eval_array.sh \
+  --dependency afterok:TRAINING_JOB_ID \
+  --max-parallel 8 \
+  RUN_DIR
 ```
 
-The one-GPU job writes per-operation and aggregate strict and answer-only
-pass@1 under `RUN_DIR/evals/op11-45/step_STEP/metrics.json`. The checkpoint must
-contain its `STABLE` marker. Use the same fixed checkpoint steps for every arm.
-Evaluation servers use a job-local vLLM compiler cache so concurrent launches
-do not share mutable cache entries.
+Omit `--dependency` after training has terminated. Step 0 resolves the immutable
+base model from the run's materialized `configs/trainer.toml`; every positive
+step requires `weights/step_STEP/STABLE`. The submitter is idempotent: it returns
+the live array job for a repeated submission and excludes only steps whose
+complete artifact set passes the same strict validator used by the confirmatory
+analyzer. An interrupted task preserves `generations.jsonl`, so a later
+submission resumes that step. Manifests and array logs live under
+`RUN_DIR/evals/op11-45/array/`.
+
+Each task writes per-operation and aggregate strict and answer-only pass@1 to
+`RUN_DIR/evals/op11-45/step_STEP/metrics.json`. Concurrent tasks use distinct
+local ports and job-local vLLM compiler caches. A stable seed derived from each
+prompt identity gives every arm common evaluation randomness; identical step-0
+models must therefore produce identical generations and scores. The single-step
+helper remains available for a targeted retry:
+
+```bash
+env -u SBATCH_OUTPUT -u SBATCH_ERROR \
+  bash user/tianhaowu/rsci/scripts/submit_rl_checkpoint_eval.sh RUN_DIR 100
+```
+
+Capture the array job ID printed by the batch submitter as `ARRAY_JOB_ID`. Give
+the CPU monitor an `afterany` dependency on the training job, not the evaluation
+array; on successful training it starts alongside the `afterok` evaluation
+array, while a failed training dependency is still reported:
+
+```bash
+BATCH_DIR="$RUN_DIR/evals/op11-45/array"
+env -u SBATCH_OUTPUT -u SBATCH_ERROR \
+  sbatch --parsable \
+  --dependency="afterany:$TRAINING_JOB_ID" \
+  --output="$BATCH_DIR/monitor_%j.log" \
+  --error="$BATCH_DIR/monitor_%j.log" \
+  "$RUN_DIR/source_snapshot/user/tianhaowu/rsci/scripts/monitor_rl_checkpoint_eval.sbatch" \
+  "$RUN_DIR" "$ARRAY_JOB_ID"
+```
+
+The `cpu_lowest` monitor checks the array every minute. It records per-task live
+or accounting states and validates each marker against its strict results,
+resolved configs, exact model, dataset hashes, sampling seed, and implementation
+provenance. It atomically updates `RUN_DIR/evals/op11-45/array/status.json` with
+the valid count, rolling throughput, and ETA. It exits successfully at 21/21. If
+every producer has terminated first, it writes `stopped-incomplete` and exits
+nonzero. Purged `squeue` IDs are recovered through `sacct`; a newly submitted ID
+gets a bounded five-minute scheduler-discovery grace period. Each submission
+also writes
+`array/jobs/ARRAY_JOB_ID.json`, preserving its exact task-to-step mapping even
+for partial retries. Invalid markers remain incomplete; a retry worker moves
+them to a content-addressed
+`metrics.invalid.ARRAY_JOB_ID.taskN.SHA256.json` before resuming. If training
+fails, pending `DependencyNeverSatisfied` tasks produce a
+`stopped-incomplete` status with that explicit reason.
+
+Every frozen evaluation writes `generation_manifest.json` before requesting
+tokens. It binds the resolved model inventory, dataset paths and hashes, ordered
+prompt identities, generation sampling fields, per-rank request-seed contract,
+normalized semantic inference settings, and the exact evaluator/scorer source
+contents. Transport ports, output paths, and logging do not change the contract;
+dtype, context length, engine options, model contents, or scorer contents do.
+Resume is allowed only when that contract and every existing
+`(op, __idx, id, sample_rank)` agree. A stale bundle is moved recoverably under
+`quarantine/` before generation restarts. Once complete,
+`generation_completion.json` and `metrics.json` record both the raw JSONL hash
+and an order-independent canonical generation hash; the latter is the CRN
+identity used to compare shared step-0 generations across arms. Validation also
+re-scores every bound generation with the pinned strict scorer and requires the
+exact `strict_results.jsonl` contents and scoring provenance to match.
+
+After all five matched arms are valid, produce the preregistered exposure audit
+at the fixed `E* = 256,000` generated rollouts:
+
+```bash
+uv run --no-sync user/tianhaowu/rsci/analyze_verifier_exposure.py \
+  --analysis-tier confirmatory-audit \
+  --e-star 256000 \
+  --run C0=/path/to/clean-run \
+  --run B1=/path/to/behavior-p01-run \
+  --run S1=/path/to/shuffled-p01-run \
+  --run B5=/path/to/behavior-p05-run \
+  --run S5=/path/to/shuffled-p05-run \
+  --output-json /path/to/verifier-defect-confirmatory.json \
+  --output-svg /path/to/verifier-defect-confirmatory.svg
+```
+
+Confirmatory mode refuses mixed-policy live evaluations, missing scheduled
+checkpoints inside the `E*` bracket, changed datasets or evaluator hashes,
+nonidentical shared-base step-0 scores, and unbracketed exposure. Use
+`--analysis-tier descriptive-v2` explicitly for the legacy log-proxy curves;
+there is no automatic fallback between tiers.
 
 These configs use the checkpoint's native 2,048-token trainer and inference
 context, matching the earlier sweep. A runtime smoke test showed that merely

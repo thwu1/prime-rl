@@ -31,6 +31,46 @@ uv run rl @ examples/reverse_text/rl.toml @ examples/reverse_text/slurm_rl.toml 
 uv run rl @ examples/reverse_text/rl.toml --dry-run                                # write scripts, don't run
 ```
 
+When manually submitting an `rl.sbatch` produced by `--dry-run`, pass any QoS
+that came from the launch environment explicitly. Environment variables such as
+`SBATCH_QOS` affect the original launcher but are not necessarily rendered as a
+`#SBATCH --qos` directive:
+
+```bash
+env -u SBATCH_OUTPUT -u SBATCH_ERROR \
+  sbatch --qos=h100_ram_high --account=ram /path/to/rl.sbatch
+```
+
+Confirm the resulting queue record's QoS before treating the launch as valid.
+
+For RSCI runs that require causal provenance, create the run-local commit-pinned
+source snapshot before generating `rl.sbatch`:
+
+```bash
+uv run --no-sync user/tianhaowu/rsci/source_provenance.py create \
+  RUN_DIR --commit "$(git rev-parse HEAD)"
+```
+
+The RSCI overlay must set `slurm.project_dir = "RUN_DIR/source_snapshot"` and
+source `user/tianhaowu/rsci/scripts/activate_source_snapshot.sh "$OUTPUT_DIR"`
+from its pre-run command. Materialize the resolved launch with the pinned base
+and overlay paths inside the snapshot, then seal it:
+
+```bash
+uv run --no-sync RUN_DIR/source_snapshot/user/tianhaowu/rsci/source_provenance.py materialize-launch \
+  RUN_DIR path/to/base.toml path/to/overlay.toml
+uv run --no-sync RUN_DIR/source_snapshot/user/tianhaowu/rsci/source_provenance.py seal-launch RUN_DIR
+```
+
+The materializer verifies the unsealed source and invokes the snapshot's pinned
+`rl` code with snapshot-only imports and `--dry-run`. The seal refuses artifacts
+not produced by that command and hashes the resolved script/configs, every
+train/eval dataset, the base model, tokenizer, and chat template. The runtime
+activation guard rechecks those identities plus the parent/submodule source,
+lockfile, shared-environment freeze, and import origins. Do not run the live
+checkout's ordinary dry-run wrapper for these launches, and do not submit an
+unsealed run.
+
 - Config: `RLConfig` (`packages/prime-rl-configs/src/prime_rl/configs/rl.py`)
 - Entrypoint: `src/prime_rl/entrypoints/rl.py`
 - SLURM: single- and multi-node

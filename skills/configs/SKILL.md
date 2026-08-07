@@ -111,9 +111,10 @@ arrays for every finalized group to `rollouts/train_group_stats.jsonl` and an
 ordered run-length encoding of group slices for every assembled batch attempt to
 `rollouts/train_batch_attempts.jsonl`. Join on `group_id`; do not infer groups
 from `task.idx`, because errored survivor groups can be split across batches and
-the same task can be sampled concurrently. Group records include verifier-reported
-`rollout_slots` and positional `expected_rollout_slots`; missing reported slots
-identify request-level synthetic failures that never reached group scoring.
+the same task can be sampled concurrently. Group records include per-rollout
+`sample_ids`, operation labels, verifier-reported `rollout_slots`, and positional
+`expected_rollout_slots`; missing reported slots identify request-level synthetic
+failures that never reached group scoring.
 
 ## Key files
 

@@ -248,6 +248,34 @@ the objective. This is a one-seed, interpolated pilot result, not evidence that
 1% improves the final average or ceiling. It makes a 1% behavior-versus-shuffled
 group-histogram control necessary alongside the existing 5% control.
 
+The later descriptive refresh at `E_log_proxy = 552,192` preserves and sharpens
+the non-monotonic pattern:
+
+| Arm | OP11--12 endpoint | OP13--17 endpoint | OP15--17 endpoint | OP15 endpoint | OP15--17 normalized AUC | OP11--12 normalized AUC |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 0% | 51.02% | 18.18% | 6.74% | 15.51% | 1.96% | 51.20% |
+| 1% | 40.66% | 18.55% | 10.78% | 20.44% | 4.03% | 45.38% |
+| 5% | 39.75% | 15.50% | 6.67% | 12.00% | 1.86% | 45.14% |
+
+The interpolation brackets are steps 400--425 for 0%, 700--725 for 1%, and
+step 975 for 5%. The 1% frontier AUC is 2.06 times clean and 2.17 times 5%,
+while its OP11--12 retention remains 10.54 points below clean. The artifact is
+explicitly labeled `descriptive-v2`: its exposure is a periodic log proxy and
+its online epochs mix policy versions. It motivates the matched frozen-policy
+study but cannot establish the effect causally.
+
+The optimized-batch diagnostics are directionally consistent with the
+self-purification hypothesis. Comparing the first and latest 100 logged batches,
+the 1% arm's candidate mass falls from 22.11% to 17.89%, while realized defect
+triggers fall from 3.6% to 1.6% of proxy-positive rewards. In the 5% arm,
+candidate mass is 18.58% early and 18.92% late, while defect triggers remain
+8.7% of proxy positives after starting at 19.6%. Strict-positive mass in those
+batches rises from 7.39% to 12.36% at 1% and from 3.92% to 9.74% at 5%. These
+W&B aggregates cover post-filter batches rather than every generated group, so
+they are mediator timing evidence, not unbiased prevalence estimates. The
+matched group audit is designed to confirm or reject this pattern on the full
+population.
+
 As an exploratory time-to-discovery statistic, requiring OP15 strict pass@1 to
 remain at or above 10% for three consecutive evaluations is first met after
 382,208 generated rollouts at 0% and 310,400 at 1%; 5% has not met it by
@@ -292,6 +320,125 @@ Predictions:
 - a behavior-conditioned low-`p` arm can beat both 0% and uniform random noise
   at fixed raw-rollout compute;
 - the benefit is localized near the moving difficulty frontier.
+
+Static conditional advantage is not enough to predict this effect. Write
+
+```text
+J(theta) = P_theta(R = 1),       H(theta) = P_theta(A, R = 0),
+dot(theta) = grad J(theta) + p grad H(theta).
+```
+
+Under the gradient-flow approximation, strict performance initially changes as
+
+```text
+dot(J) = ||grad J||^2 + p <grad J, grad H>.
+```
+
+Every `A` trajectory is wrong under the strict verifier, yet the cross-gradient
+`<grad J, grad H>` can be positive when producing an answer-correct but
+reasoning-wrong trajectory exercises parameters or latent computations also
+needed for fully correct solutions. Call this quantity *successor alignment*:
+it measures whether selecting a behavior now moves the policy toward future
+strict success, rather than whether that behavior is currently correct. Its
+sign may change along training, giving a concrete route to a low-dose benefit
+and high-dose harm without contradicting the fact that `A` has zero strict
+reward.
+
+This is stronger than contemporaneous conditional advantage. The systematic-FP
+analysis of Egashira et al. measures whether trigger-bearing samples already
+have above-average oracle reward in the current rollout group. Here `A` is
+strict-wrong by construction, so its current strict advantage is nonpositive:
+zero in an all-wrong group and negative when a strict success is present.
+Nevertheless, rewarding `A` can have positive successor alignment if its
+parameter update raises the probability of later strict solutions. The frozen
+recipient-swap assay tests this future-directed gradient effect, which cannot be
+identified from initial trigger frequency or current oracle conditional
+advantage alone.
+
+The per-group shuffled control is a conservative direct test. Within every
+realized group, its saved behavior and shuffled counterfactual vectors have the
+same reward histogram: behavior assigns the extra positives to `A`, while
+shuffling assigns them among all strict negatives. `B1` and `S1` are independent
+online runs, however, so they need not sample the same groups, candidate
+opportunities, or realized `K`. Report those divergences rather than claiming
+cross-run histogram identity. A shuffled recipient can itself be `A`, which
+attenuates rather than reverses the recipient-identity contrast. `B1 > S1`,
+followed by conversion of candidate mass into strict success after defect
+removal, is evidence consistent with positive successor alignment. A null
+result is weaker: it may reflect this overlap or averaging useful and
+destructive subclasses of `A`.
+
+The sharper mechanistic assay is a disjoint reward-recipient swap from one
+frozen checkpoint and immutable rollout bank. For every eligible group, pair an
+answer-correct/strict-wrong trajectory `a` with an answer-wrong/strict-wrong
+trajectory `w`; match length, mean rollout log probability, entropy, finish
+reason, and truncation. Replay the exact tokenized batch, optimizer state,
+scheduler state, packing, masks, and RNG state in two branches, changing only
+which member receives one extra reward. Because the group reward histogram is
+identical, the per-pair update contrast is
+
+```text
+grad J_A - grad J_W = grad log pi(a) - grad log pi(w).
+```
+
+The primary one-step endpoint is the paired change in canonical strict-solution
+log likelihood on unseen prompts; common-seed strict pass@1 is secondary and
+requires thousands of rollouts for percent-scale effects. Run this first with
+one swapped reward per eligible group, then with the realized `K` from the 1%,
+5%, 10%, and 20% rules. A stronger subclass contrast pairs near-executable,
+low-graph-mismatch `A` against deterministically corrupt or non-executable `A`.
+This separates a reasoning precursor from generic final-answer imitation.
+
+The defect can also be *self-purifying*. Among proxy-positive trajectories at
+difficulty `d`, the expected defective fraction is
+
+```text
+phi_d(p, t) = p h_d(t) / (q_d(t) + p h_d(t)).
+```
+
+Initially `q_d` may be nearly zero, so almost every positive at the hard frontier
+is defective. If those updates have positive successor alignment, they increase
+`q_d`; once `q_d >> p h_d`, clean positives take over and `phi_d` falls. A low
+dose has a reachable clean-takeover threshold, while a high dose raises that
+threshold and can trap training in the precursor basin. This predicts an early
+peak and then decline in candidate-trigger share for a successful low-dose run,
+but persistently high trigger share for a plateauing high-dose run.
+
+The 18,000 base-policy OP11--40 calibration trajectories make this regime
+concrete. At OP13, `q = 0.00167` and `h = 0.24667`, so defective trajectories
+constitute about 59.7% of expected positives at 1% and 88.1% at 5%. For OP14--20,
+no strict success appeared in 600 samples per operation while `h` remained
+13.5--21.7%. With group size 128, 1% activates approximately 15.9--24.2% of
+those otherwise all-zero hard groups; 5% activates 58.0--75.2%. Thus “1% verifier
+error” does not mean 1% contamination of the learning signal at the frontier.
+The matched audit records will test whether those initially defective positives
+convert into strict reward or merely reproduce themselves.
+
+There is also a genuine singularity at a perfect verifier under an
+optimizer-step budget. For a hard stratum with `q_x = 0`, `p = 0` gives no
+retained update from that stratum, while any `p > 0` eventually yields one if
+sampling retries continue indefinitely. The expected raw-rollout cost diverges
+as approximately `1 / (G h_x p)`. Thus fixed optimizer-step experiments can
+show a discontinuity between perfect and arbitrarily imperfect verification,
+whereas fixed raw-exposure experiments must show the smooth finite-budget
+crossover below. Reporting both clocks distinguishes a real support change from
+an accounting artifact.
+
+More generally, if clean-success probability decreases approximately as
+`q_d = q_0 exp(-alpha d)` while hackable behavior remains nonzero, the two proxy
+terms cross near
+
+```text
+p_c(d) = q_d / h_d,
+d_c(p) ~= log(q_0 / (p h_d)) / alpha.
+```
+
+Every `p > 0` then creates a finite *verification horizon* beyond which the
+proxy contribution dominates, whereas `p = 0` has no such finite horizon. This
+is a precise sense in which a perfect verifier can differ qualitatively from an
+arbitrarily accurate imperfect one. Sweeping operation count and plotting the
+frontier against `log p` tests the predicted logarithmic horizon; hysteresis is
+still required before calling the finite-run crossover a phase transition.
 
 For a hard stratum with essentially zero strict success but candidate prevalence
 `h > 0`, the probability that no candidate false positive appears in `N`
@@ -389,7 +536,7 @@ only the association between reward and `A` changes. Run behavior and shuffled
 arms through the same group-scoring path so partial-group error handling is also
 matched.
 
-The first 500-step causal pilot has five arms: group-scored clean `C0`,
+The first 500-step one-seed mechanism screen has five arms: group-scored clean `C0`,
 behavior-conditioned `B1` and `B5`, and per-group shuffled `S1` and `S5`. All
 use the `sample_slot` common-random-number scope, train on OP10--40, and run the
 same clean strict OP11--45 suite every 25 steps. The clean arm is necessary
@@ -404,19 +551,75 @@ Before these arms produce data, fix the primary interaction as
 - [AUC_15:17(B5) - AUC_15:17(S5)] > 0,
 ```
 
-where AUC is indexed by raw generated-rollout exposure. The stepping-stone
+where AUC is indexed by raw attempted-slot exposure (`sum(target_size)`). The stepping-stone
 requirement is `B1 > S1` and an earlier interval-censored sustained OP15
 discovery time. The distortion requirement is `B5 < S5` on OP13--17 AUC and
 OP11--12 retention. Sustained OP15 discovery is the first checkpoint beginning
 three consecutive evaluations with strict OP15 pass@1 at least 10%, dated at
 the first checkpoint's raw exposure.
 
+The primary exposure interval is fixed before matched-run results exist:
+
+```text
+E* = 256,000 attempted training slots.
+```
+
+This is the minimum shipped exposure for 500 optimizer updates of 512
+trajectories and is therefore covered by every completed arm; attempted slots
+are at least this large, while discarded or errored groups increase them.
+Evaluate immutable policy
+checkpoints at steps `0, 25, 50, ..., 500`, linearly interpolate the two
+checkpoints bracketing `E*`, and compute the primary AUC on `[0, E*]`. A missing
+scheduled frozen evaluation inside that bracket invalidates the confirmatory
+comparison rather than being bridged or silently skipped.
+
+The live in-training evaluator currently mixes adjacent policy versions after
+the eval queue drains, so those curves are descriptive only. All five pilots
+retain stable weights every 25 steps. Confirmatory endpoints use frozen
+checkpoint OP11--45 evaluations and exact exposure clocks reconstructed from
+`train_group_stats.jsonl`. Mixed-policy live epochs are excluded from the
+confirmatory dataset rather than assigned to a checkpoint policy.
+
+Before analysis, resolve and validate exactly the `C0/B1/S1/B5/S5` arm set from
+the saved orchestrator and trainer configs: common base model and OP10--40
+training dataset, seed `20260805`, group size 128, 500 optimizer steps,
+`sample_slot` draws, and the preregistered assignment/rate for each label. Audit
+every saved group so the optimized reward equals its configured behavior or
+shuffled proxy vector and the two counterfactual vectors have equal histograms.
+After removing only treatment, output-path, and W&B metadata, normalized hashes
+of the complete resolved orchestrator, trainer, and inference configs must agree
+across arms. Each run must also carry a sealed `source_provenance.json`: its
+launch hashes must still match `rl.sbatch` and the resolved configs, while the
+parent commit, submodule SHAs, source-tree digest, `uv.lock`, and pip-freeze
+identities must agree across arms. The seal also binds the bytes of every
+train/eval dataset, the base model, tokenizer, and chat template. Each 128-slot
+group must contain exactly one sample ID and operation; report unique and
+repeated prompts plus the ordered sample/op prefix and positional match rates
+for each independent behavior/shuffled pair.
+The exposure report separates attempted, received, valid, advantage-population,
+assembled, shipped, and trainable-shipped slots, and requires shipped optimizer
+steps to be contiguous through the checkpoint bracketing `E*`.
+
+Frozen evaluation must use the strict OP11--45 contract and identical canonical
+step-0 generation digests across all five arms, not merely equal aggregate
+scores. The analyzer reconstructs the generation contract from the sealed
+model, datasets, prompt sequence, sampling settings, semantic inference config,
+and pinned evaluator/scorer contents, then requires the manifest, completion
+record, and metrics provenance to match it. It deterministically re-scores every
+generation and rejects altered or stale strict-result rows.
+The analysis emits the preregistered interaction and its two component
+contrasts. Passing this audit makes the single-seed result a valid mechanism
+screen; it does not make it a causal-effect estimate or phase-transition claim.
+
 This shuffled control removes the recipient-level association between `A` and
 reward conditional on `K`, but `K` is still determined by the candidate count
 in that same group. It identifies the effect of allocating a behavior-dependent
 reward budget to the candidate traces rather than randomly among strict
-negatives. A fully exogenous control would require `K` from an independent
-donor group and would no longer exactly match every realized group histogram.
+negatives. Its random recipient can itself be `A`, so it is an attenuated
+contrast rather than a disjoint `A`-versus-non-`A` swap. The one-step paired
+recipient assay above removes that overlap. A fully exogenous control would
+instead require `K` from an independent donor group and would no longer exactly
+match every realized group histogram.
 
 ### 4. Group-size scaling
 
@@ -491,13 +694,49 @@ show all of the following:
   rewards; this does not establish a universal FPR transition.
 - [Gao et al., *Scaling Laws for Reward Model Overoptimization* (2023)](https://arxiv.org/abs/2210.10760)
   show proxy improvement can accompany degradation of a gold objective.
+- [Cai et al., *Reinforcement Learning with Verifiable yet Noisy Rewards under
+  Imperfect Verifiers* (2025)](https://arxiv.org/abs/2510.00915) and [El
+  Mansouri et al., *Noise-corrected GRPO: From Noisy Rewards to Unbiased
+  Gradients* (2025)](https://arxiv.org/abs/2510.18924) derive corrections for
+  Bernoulli reward channels with estimable class-conditional flip rates. Those
+  corrections do not remove an endogenous behavior-conditioned term whose
+  frequency changes with the policy.
+- [Lv et al., *The Climb Carves Wisdom Deeper Than the Summit: On the Noisy
+  Rewards in Learning to Reason* (2025)](https://arxiv.org/abs/2505.22653) show
+  that rewarding reasoning phrases alone can sometimes produce strong strict
+  downstream performance. This is evidence that an imperfect proxy can select
+  a useful precursor, but it does not identify the effect against a
+  reward-histogram-matched recipient shuffle or map the low-dose crossover.
+- [Shao et al., *Spurious Rewards: Rethinking Training Signals in RLVR*
+  (2025)](https://arxiv.org/abs/2506.10947) find that random or even negatively
+  correlated rewards can improve some Qwen math models by amplifying
+  high-prior behavior through clipping bias, while failing on other model
+  families. [Chen et al., *Exploration vs Exploitation: Rethinking RLVR through
+  Clipping, Entropy, and Spurious Reward*
+  (2025)](https://arxiv.org/abs/2512.16912) further analyze this mechanism, and
+  [Zhu and Kang, *Noisy Data Is Destructive to Reinforcement Learning with
+  Verifiable Rewards* (2026)](https://arxiv.org/abs/2603.16140) show that some
+  apparent robustness disappears after re-verifying contaminated annotations.
+  Consequently, `C0-S1/S5` measures generic algorithmic effects of spurious
+  group rewards, while `B1-S1` and `B5-S5` isolate which trajectories receive
+  those otherwise identical advantages.
+- [Plesner et al., *An Imperfect Verifier is Good Enough: Learning with Noisy
+  Rewards* (2026)](https://arxiv.org/abs/2604.07666) find small peak-performance
+  losses under noise rates up to 15% across code and science, while [Rahman et
+  al., *When Can LLMs Learn to Reason with Weak Supervision?*
+  (2026)](https://arxiv.org/abs/2604.18574) connect weak-supervision
+  generalization to delayed reward saturation and initial reasoning
+  faithfulness. Together they motivate separating random-channel robustness
+  from behavior-specific successor alignment.
 - [Egashira et al., *Delay, Plateau, or Collapse: Evaluating the Impact of
   Systematic Verification Error on RLVR* (2026)](https://arxiv.org/abs/2605.02909)
   compare iid flips with deterministic behavior-triggered errors and clean-verifier
-  alternation. The present novelty must therefore come from low-rate conditional
-  scaling, exact group-histogram controls, OOD strict-CoT difficulty, or one-time
-  washout/path dependence rather than the generic claim that systematic errors
-  differ from random noise.
+  alternation. They show that initial trigger frequency and contemporaneous
+  oracle conditional advantage predict delay, plateau, or collapse. The present
+  novelty must therefore come from low-rate conditional scaling, exact
+  group-histogram controls, OOD strict-CoT difficulty, one-time washout/path
+  dependence, or successor alignment of a currently strict-wrong precursor
+  rather than the generic claim that systematic errors differ from random noise.
 - [Uesato et al., *Solving Math Word Problems With Process- and
   Outcome-Based Feedback* (2022)](https://arxiv.org/abs/2211.14275) and
   [Lightman et al., *Let's Verify Step by Step* (2023)](https://arxiv.org/abs/2305.20050)

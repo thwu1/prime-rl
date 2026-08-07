@@ -1,7 +1,10 @@
 #!/bin/bash
 set -euo pipefail
 
-cd /storage/home/tianhaowu/prime-rl
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
+REPO_ROOT=$(realpath "$SCRIPT_DIR/../../../..")
+export RSCI_EVAL_REPO_ROOT="$REPO_ROOT"
+cd "$REPO_ROOT"
 
 CONFIG=${1:?usage: bash user/tianhaowu/rsci/scripts/run_eval.sh <eval-config.toml>}
 export HF_HUB_OFFLINE=1
@@ -31,7 +34,7 @@ NODE_COUNT=${SLURM_NNODES:-1}
 if [ "$NODE_COUNT" -eq 1 ]; then
   uv run user/tianhaowu/rsci/snapshot_configs.py "$CONFIG"
 
-  export VLLM_CACHE_ROOT="${SLURM_TMPDIR:-/tmp}/rsci-vllm-${SLURM_JOB_ID:-local}-0"
+  export VLLM_CACHE_ROOT="${VLLM_CACHE_ROOT:-${SLURM_TMPDIR:-/tmp}/rsci-vllm-${SLURM_JOB_ID:-local}-0}"
   mkdir -p "$VLLM_CACHE_ROOT"
   setsid uv run inference @ "$INFER_CONFIG" >"$OUTPUT_DIR/server.log" 2>&1 &
   SERVER_PID=$!
@@ -130,7 +133,7 @@ srun \
   --kill-on-bad-exit=1 \
   bash -c '
     set -euo pipefail
-    cd /storage/home/tianhaowu/prime-rl
+    cd "$RSCI_EVAL_REPO_ROOT"
     export HF_HUB_OFFLINE=1
     export PYTHONDONTWRITEBYTECODE=1
     export VLLM_CACHE_ROOT="${SLURM_TMPDIR:-/tmp}/rsci-vllm-${SLURM_JOB_ID}-${SLURM_PROCID}"

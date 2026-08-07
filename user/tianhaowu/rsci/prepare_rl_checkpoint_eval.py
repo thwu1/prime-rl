@@ -4,11 +4,12 @@
 from __future__ import annotations
 
 import argparse
+import tomllib
 from pathlib import Path
 
 import tomli_w
 
-REPO_ROOT = Path("/storage/home/tianhaowu/prime-rl")
+REPO_ROOT = Path(__file__).resolve().parents[3]
 DATA_SOURCES = [
     {
         "min_op": 11,
@@ -46,6 +47,12 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         help="Defaults to RUN_DIR/evals/op11-45/step_STEP.",
     )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=8000,
+        help="Local inference-server port (default: 8000).",
+    )
     return parser.parse_args()
 
 
@@ -57,19 +64,47 @@ def write_toml(path: Path, payload: dict[str, object]) -> None:
     partial.replace(path)
 
 
-def main() -> None:
-    args = parse_args()
-    if args.step < 0:
+def resolve_model_path(run_dir: Path, step: int) -> Path:
+    if step < 0:
         raise ValueError("step must be non-negative")
 
-    run_dir = args.run_dir.expanduser().resolve()
-    checkpoint = run_dir / "weights" / f"step_{args.step}"
+    if step == 0:
+        trainer_config_path = run_dir / "configs" / "trainer.toml"
+        if not trainer_config_path.is_file():
+            raise FileNotFoundError(f"Resolved trainer config does not exist: {trainer_config_path}")
+        with trainer_config_path.open("rb") as handle:
+            trainer_config = tomllib.load(handle)
+        model_name = trainer_config.get("model", {}).get("name")
+        if not isinstance(model_name, str) or not model_name:
+            raise ValueError(f"Resolved trainer config has no model.name: {trainer_config_path}")
+        base_model = Path(model_name).expanduser().resolve()
+        if not base_model.is_dir():
+            raise FileNotFoundError(f"Resolved base model directory does not exist: {base_model}")
+        return base_model
+
+    checkpoint = run_dir / "weights" / f"step_{step}"
     if not checkpoint.is_dir():
         raise FileNotFoundError(f"Checkpoint directory does not exist: {checkpoint}")
     if not (checkpoint / "STABLE").is_file():
         raise RuntimeError(f"Checkpoint is not marked stable: {checkpoint}")
+    return checkpoint
 
-    output_dir = (args.output_dir or run_dir / "evals" / "op11-45" / f"step_{args.step}").resolve()
+
+def materialize_eval_config(
+    run_dir: Path,
+    step: int,
+    output_dir: Path | None = None,
+    *,
+    port: int = 8000,
+) -> Path:
+    run_dir = run_dir.expanduser().resolve()
+    if not run_dir.is_dir():
+        raise FileNotFoundError(f"Run directory does not exist: {run_dir}")
+    if not 1 <= port <= 65535:
+        raise ValueError(f"port must be in [1, 65535], got: {port}")
+    model_path = resolve_model_path(run_dir, step)
+
+    output_dir = (output_dir or run_dir / "evals" / "op11-45" / f"step_{step}").resolve()
     config_dir = output_dir / "configs"
     inference_path = config_dir / "inference.toml"
     eval_path = config_dir / "eval.toml"
@@ -84,11 +119,11 @@ def main() -> None:
         "seed": 0,
         "server": {
             "host": "0.0.0.0",
-            "port": 8000,
+            "port": port,
             "liveness_timeout_seconds": 30.0,
         },
         "model": {
-            "name": str(checkpoint),
+            "name": str(model_path),
             "dtype": "auto",
             "max_model_len": 2048,
             "enforce_eager": False,
@@ -115,14 +150,15 @@ def main() -> None:
             "operations": list(range(11, 46)),
             "examples_per_operation": 200,
             "output_dir": str(output_dir),
-            "model": str(checkpoint),
-            "api_base_url": "http://127.0.0.1:8000/v1",
+            "model": str(model_path),
+            "api_base_url": f"http://127.0.0.1:{port}/v1",
             "samples_per_prompt": 1,
             "pass_at": [1],
             "max_tokens": 2048,
             "temperature": 0.7,
             "top_p": 1.0,
             "top_k": -1,
+            "request_seed": 20260807,
             "stop": ["</answer>"],
             "skip_special_tokens": False,
             "request_timeout_seconds": 3600.0,
@@ -133,6 +169,12 @@ def main() -> None:
     }
     write_toml(inference_path, inference)
     write_toml(eval_path, evaluation)
+    return eval_path
+
+
+def main() -> None:
+    args = parse_args()
+    eval_path = materialize_eval_config(args.run_dir, args.step, args.output_dir, port=args.port)
     print(eval_path)
 
 
