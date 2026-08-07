@@ -645,10 +645,13 @@ It contains 1,000 prompts per operation and 128 trajectories per prompt for
 OP10–12 and OP15–40: 29,000 prompt groups and 3,712,000 trajectories. The
 prompt view has zero held-out ID or text overlap by contract.
 
-At drafting time all 3,712,000 generations were validated, while strict-score
-finalization was still writing `strict_results.jsonl.partial`; no outcome is
-claimed from an unsealed partial file. Dataset construction must require a
-hash-bound `completion.json` and fail closed if any input identity differs.
+The bank is sealed. Its `completion.json` SHA-256 is
+`b5346553628d5b52e93a7c232acdcd2a5b0e10574531085a9c967e14fac221a2`;
+the generation and strict-result SHA-256 values are respectively
+`12f16b5a0f48d20d95026a4aa1e8fe727a19e760aba33077f1f1de5da605f8d9` and
+`01f4550da3ff6abbe437b736939034d58093d2d71156599dff830568927ae166`.
+Dataset construction requires the hash-bound `completion.json` and fails closed
+if any input identity differs.
 
 The treatment range is OP21–40. Before any treatment dataset is accepted, the
 builder must verify that every one of the 2,560,000 frozen OP21–40 trajectories
@@ -727,6 +730,26 @@ T_{2\rm pass}=\left\lceil\frac{2\,|D|}{32}\right\rceil.
 
 The final update can overshoot two passes by fewer than 32 example exposures,
 so it must be described as “at least two passes,” not exactly two.
+
+**[PREREGISTERED AMENDMENT—BEFORE OUTCOMES]** The first dataset-materialization
+attempt failed closed before writing an output because selected frozen
+trajectory `(24, 151, 113)` rendered to 2,049 model-input tokens, one above the
+base model's immutable 2,048-token context. No SFT job or evaluation outcome had
+been produced. The trainability rule is therefore fixed as follows: render the
+union of all selected rows exactly with the pinned tokenizer and chat template;
+globally exclude every selected row with more than 2,048 model-input tokens;
+recompute all anchor, prefix, B/S/G/I, fixed-M, and fixed-raw selections; and
+repeat to a fixed point. Truncation and a context-length increase are forbidden.
+The full-bank strict-dead and candidate statistics remain computed before this
+filter. Every excluded key, exact token length, score class, first-pass selection
+context, exclusion round, and stable key-set hash must appear identically in the
+arm index and every arm manifest. This symmetric rule changes the sampling
+selection to exactly trainable written trajectories while preserving the exact
+arm contracts. It is a minimal selected-support fixed point, not a census of
+every overlength nonrecipient in the raw prefix. Consequently the reported G/I
+eligible-row denominators mean strict-negative rows in the observed prefix after
+removing discovered fixed-point exclusions; they must not be described as exact
+counts of all trainable rows.
 
 At step 64 every arm has 2,048 example exposures. Because C0 has 512 rows while
 a fixed-M treatment has 1,024, C0 repeats each anchor more often; this is the
@@ -821,12 +844,15 @@ C0 as doses decrease, after accepted-count and optimizer-step matching.
 4. G is globally rank-selected only from observed strict negatives; I obeys
    its exact Bernoulli threshold for every recipient.
 5. Datasets contain no duplicate trajectory IDs and no held-out prompt overlap.
-6. Model, tokenizer, chat template, source snapshot, dataset bytes, and launch
+6. Exact rendering reaches a fixed point with every written row at most 2,048
+   model-input tokens; exclusions and reselection rounds are hash-bound and no
+   trajectory is truncated.
+7. Model, tokenizer, chat template, source snapshot, dataset bytes, and launch
    config are hash-bound.
-7. Training uses exact-cardinality 32-example updates; no token packing changes
+8. Training uses exact-cardinality 32-example updates; no token packing changes
    example count across arms.
-8. Evaluation artifacts contain no defect fields and use the strict scorer.
-9. All declared checkpoints exist before a curve is compared; cherry-picked
+9. Evaluation artifacts contain no defect fields and use the strict scorer.
+10. All declared checkpoints exist before a curve is compared; cherry-picked
    endpoints are not substituted for step 64.
 
 ## 6. Follow-up experiments

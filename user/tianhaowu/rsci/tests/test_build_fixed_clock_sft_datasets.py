@@ -416,6 +416,123 @@ def test_selected_row_length_guard_is_fail_closed(tmp_path: Path):
         render_training_row(row, tokenizer=FakeTokenizer(tokenizer_root, multiplier=20), seq_len=64)
 
 
+def test_builder_reselects_overlength_behavior_and_random_recipients(tmp_path: Path):
+    bank_root = tmp_path / "bank"
+    build_tiny_bank(bank_root, hard_operations=(15, 16, 17))
+    tokenizer_root = tmp_path / "tokenizer"
+    tokenizer_root.mkdir()
+    chat_template = tokenizer_root / "chat_template.jinja"
+    chat_template.write_text("{{ messages }}\n", encoding="utf-8")
+    doses = tuple(parse_dose(value) for value in ("1/4", "1/2", "3/4"))
+    common = {
+        "paths": bank_paths(bank_root),
+        "tokenizer": FakeTokenizer(tokenizer_root),
+        "chat_template_path": chat_template,
+        "seeds": (11,),
+        "doses": doses,
+        "bank_operations": (10, 15, 16, 17),
+        "anchor_operations": (10,),
+        "treatment_operations": (15, 16),
+        "examples_per_operation": 4,
+        "samples_per_prompt": 16,
+        "target_count": 2,
+        "anchor_count": 2,
+        "seq_len": 512,
+    }
+    baseline = build_datasets(output_dir=tmp_path / "baseline", **common)
+    baseline_entries = {entry["label"]: entry for entry in baseline["arms"]}
+
+    def treatment_keys(label: str) -> set[tuple[int, int, int]]:
+        entry = baseline_entries[label]
+        dataset = Dataset.from_parquet(entry["dataset_path"] + "/train-00000-of-00001.parquet")
+        return {
+            (row["op"], row["prompt_index"], row["sample_rank"])
+            for row in dataset
+            if row["source_kind"] == "defect_recipient"
+        }
+
+    behavior_keys = treatment_keys("seed11_fixed_m_p2500_b")
+    random_keys = set().union(
+        treatment_keys("seed11_fixed_m_p2500_s"),
+        treatment_keys("seed11_fixed_m_p2500_g"),
+        treatment_keys("seed11_fixed_raw_p2500_i"),
+    )
+    behavior_key = min(behavior_keys)
+    random_key = min(random_keys - behavior_keys)
+    forced_overlength = {behavior_key, random_key}
+
+    generations_path = bank_root / "generations.jsonl"
+    generations = [json.loads(line) for line in generations_path.read_text(encoding="utf-8").splitlines()]
+    for generation in generations:
+        key = (generation["op"], generation["__idx"], generation["sample_rank"])
+        if key in forced_overlength:
+            generation["gen_solution_answer"] = "x" * 1_000 + " </solution> <answer> 1"
+    write_jsonl(generations_path, generations)
+    completion_path = bank_root / "completion.json"
+    completion = json.loads(completion_path.read_text(encoding="utf-8"))
+    generation_identity = file_identity(generations_path)
+    completion["artifacts"]["generations"].update(
+        size_bytes=generation_identity["size_bytes"],
+        sha256=generation_identity["sha256"],
+    )
+    completion_path.write_text(json.dumps(completion, sort_keys=True) + "\n", encoding="utf-8")
+
+    common["tokenizer"] = FakeTokenizer(tokenizer_root)
+    filtered = build_datasets(output_dir=tmp_path / "filtered", **common)
+    audit = filtered["protocol"]["trainability_filter"]
+    assert audit["selection_passes"] == 2
+    assert audit["exclusion_rounds"] == 1
+    assert audit["excluded_selected_trajectories"] == 2
+    assert "not a complete trainable-row census" in audit["eligibility_denominator_scope"]
+    records = {tuple(record["key"]): record for record in audit["records"]}
+    assert set(records) == forced_overlength
+    assert records[behavior_key]["candidate"] is True
+    assert "behavior" in {context["assignment"] for context in records[behavior_key]["selection_contexts"]}
+    assert {context["assignment"] for context in records[random_key]["selection_contexts"]} & {
+        "shuffled",
+        "global",
+        "iid",
+    }
+
+    filtered_entries = {entry["label"]: entry for entry in filtered["arms"]}
+    assert (
+        filtered["prefixes"]["11"]["p2500"]["inclusive_raw_ordinal"]
+        > baseline["prefixes"]["11"]["p2500"]["inclusive_raw_ordinal"]
+    )
+    for assignment in ("b", "s", "g"):
+        assert len(treatment_keys_from_entry(filtered_entries[f"seed11_fixed_m_p2500_{assignment}"])) == 2
+        canonical = filtered_entries[f"seed11_fixed_m_p2500_{assignment}"]
+        alias = filtered_entries[f"seed11_fixed_raw_p2500_{assignment}"]
+        assert alias["alias_of"] == canonical["label"]
+        assert alias["dataset_path"] == canonical["dataset_path"]
+        assert alias["parquet_sha256"] == canonical["parquet_sha256"]
+    for assignment in ("b", "s", "g", "i"):
+        treatment_sets = [
+            treatment_keys_from_entry(filtered_entries[f"seed11_fixed_raw_{dose_label}_{assignment}"])
+            for dose_label in ("p2500", "p5000", "p7500")
+        ]
+        assert treatment_sets[0] <= treatment_sets[1] <= treatment_sets[2]
+    observed_keys: set[tuple[int, int, int]] = set()
+    for entry in filtered["arms"]:
+        if entry["alias_of"] is not None:
+            continue
+        observed_keys.update(treatment_keys_from_entry(entry))
+        manifest = json.loads(Path(entry["manifest_path"]).read_text(encoding="utf-8"))
+        assert manifest["trainability_filter"] == audit
+        assert manifest["max_model_input_tokens"] <= 512
+    assert not observed_keys & forced_overlength
+    validate_output(tmp_path / "filtered")
+
+
+def treatment_keys_from_entry(entry: dict) -> set[tuple[int, int, int]]:
+    dataset = Dataset.from_parquet(entry["dataset_path"] + "/train-00000-of-00001.parquet")
+    return {
+        (row["op"], row["prompt_index"], row["sample_rank"])
+        for row in dataset
+        if row["source_kind"] == "defect_recipient"
+    }
+
+
 def test_candidate_identity_mismatch_is_rejected(tmp_path: Path):
     bank_root = tmp_path / "bank"
     build_tiny_bank(bank_root)

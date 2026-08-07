@@ -39,6 +39,11 @@ DEFAULT_ANCHOR_COUNT = 512
 DEFAULT_SEQ_LEN = 2_048
 ANCHOR_SELECTION_SEED = 20260807
 SCHEMA_VERSION = 2
+ELIGIBILITY_DENOMINATOR_SCOPE = (
+    "global_eligible_rows and iid_eligible_rows count strict-negative rows in the final observed prefix "
+    "after removing fixed-point exclusion keys; unselected rows are not rendered, so these are not a "
+    "complete trainable-row census"
+)
 
 
 @dataclass(frozen=True)
@@ -445,6 +450,7 @@ def compute_prefixes(
     seeds: tuple[int, ...],
     doses: tuple[Dose, ...],
     target_count: int,
+    excluded_keys: frozenset[tuple[int, int, int]] = frozenset(),
 ) -> tuple[dict[tuple[int, str], int], dict[tuple[int, str], int], dict[str, Any]]:
     triggers: dict[tuple[int, str], list[int]] = {(seed, dose.label): [] for seed in seeds for dose in doses}
     treatment_rows_by_op: Counter[int] = Counter()
@@ -471,7 +477,7 @@ def compute_prefixes(
         treatment_rows_by_op[key[0]] += 1
         strict_positive_counts_by_op[key[0]] += int(row["perfect"])
         candidate_counts_by_op[key[0]] += int(row["candidate"])
-        if not row["candidate"]:
+        if not row["candidate"] or key in excluded_keys:
             continue
         ordinal = treatment_raw_ordinal(
             *key,
@@ -656,6 +662,7 @@ def collect_selected_rows(
     doses: tuple[Dose, ...],
     target_count: int,
     anchor_count: int,
+    excluded_keys: frozenset[tuple[int, int, int]] = frozenset(),
 ) -> tuple[list[BankRow], dict[tuple[ArmSpec, str], list[SelectedTreatment]], dict[str, Any]]:
     specs = _arm_specs(seeds, doses)
     iid_specs = _iid_arm_specs(seeds, doses)
@@ -693,8 +700,9 @@ def collect_selected_rows(
     ):
         operation = int(group[0].generation["op"])
         prompt_index = int(group[0].generation["__idx"])
+        eligible_group = [row for row in group if row.key not in excluded_keys]
         if operation in anchor_operations:
-            strict_rows = [row for row in group if row.score["perfect"]]
+            strict_rows = [row for row in eligible_group if row.score["perfect"]]
             if strict_rows:
                 representative = min(
                     strict_rows,
@@ -710,17 +718,19 @@ def collect_selected_rows(
 
         for seed in seeds:
             global_draws = {
-                row.key: draw_uint64("global-recipient", seed, *row.key) for row in group if not row.score["perfect"]
+                row.key: draw_uint64("global-recipient", seed, *row.key)
+                for row in eligible_group
+                if not row.score["perfect"]
             }
             shuffle_ranked = sorted(
-                (row for row in group if not row.score["perfect"]),
+                (row for row in eligible_group if not row.score["perfect"]),
                 key=lambda row: (draw_uint64("shuffle", seed, *row.key), row.key[2]),
             )
             for spec in specs_by_seed[seed]:
                 cutoff = (
                     prefixes[(seed, spec.dose.label)] if spec.clock == "fixed_m" else prefixes[(seed, minimum.label)]
                 )
-                observed = [row for row in group if row.raw_ordinal is not None and row.raw_ordinal <= cutoff]
+                observed = [row for row in eligible_group if row.raw_ordinal is not None and row.raw_ordinal <= cutoff]
                 if not observed:
                     continue
                 eligible = [row for row in observed if not row.score["perfect"]]
@@ -781,7 +791,9 @@ def collect_selected_rows(
                 per_group_counts[(spec, "shuffled")][group_key] += len(shuffled)
 
             iid_cutoff = prefixes[(seed, minimum.label)]
-            iid_observed = [row for row in group if row.raw_ordinal is not None and row.raw_ordinal <= iid_cutoff]
+            iid_observed = [
+                row for row in eligible_group if row.raw_ordinal is not None and row.raw_ordinal <= iid_cutoff
+            ]
             iid_eligible = [row for row in iid_observed if not row.score["perfect"]]
             for spec in iid_specs_by_seed[seed]:
                 iid_eligible_counts[spec] += len(iid_eligible)
@@ -952,11 +964,10 @@ def messages_for_row(row: BankRow) -> list[dict[str, str]]:
     )
 
 
-def render_training_row(
+def _render_training_row_unchecked(
     row: BankRow,
     *,
     tokenizer: Any,
-    seq_len: int,
 ) -> dict[str, Any]:
     messages = messages_for_row(row)
     token_ids, token_mask = build_incremental_token_mask(
@@ -971,8 +982,6 @@ def render_training_row(
     model_input_tokens = len(token_ids) - 1
     shifted_mask = token_mask[1:]
     assistant_tokens = sum(shifted_mask)
-    if model_input_tokens > seq_len:
-        raise ValueError(f"Selected trajectory {row.key} has {model_input_tokens} tokens, exceeding {seq_len}")
     if assistant_tokens <= 0:
         raise ValueError(f"Selected trajectory {row.key} has no assistant loss tokens")
     return {
@@ -982,6 +991,19 @@ def render_training_row(
         "sft_weight": 1.0 / assistant_tokens,
         "rendered_token_ids_sha256": canonical_json_sha256(token_ids),
     }
+
+
+def render_training_row(
+    row: BankRow,
+    *,
+    tokenizer: Any,
+    seq_len: int,
+) -> dict[str, Any]:
+    rendered = _render_training_row_unchecked(row, tokenizer=tokenizer)
+    model_input_tokens = rendered["model_input_tokens"]
+    if model_input_tokens > seq_len:
+        raise ValueError(f"Selected trajectory {row.key} has {model_input_tokens} tokens, exceeding {seq_len}")
+    return rendered
 
 
 def trajectory_id(row: BankRow) -> str:
@@ -1090,37 +1112,116 @@ def build_datasets(
         operations=bank_operations,
         examples_per_operation=examples_per_operation,
     )
-    prefixes, fixed_raw_counts, strict_dead_contract = compute_prefixes(
-        paths.strict_results,
-        bank_operations=bank_operations,
-        treatment_operations=treatment_operations,
-        examples_per_operation=examples_per_operation,
-        samples_per_prompt=samples_per_prompt,
-        seeds=seeds,
-        doses=doses,
-        target_count=target_count,
-    )
-    anchors, selected, selection_summary = collect_selected_rows(
-        paths,
-        prompts,
-        prefixes,
-        fixed_raw_counts,
-        bank_operations=bank_operations,
-        anchor_operations=anchor_operations,
-        treatment_operations=treatment_operations,
-        examples_per_operation=examples_per_operation,
-        samples_per_prompt=samples_per_prompt,
-        seeds=seeds,
-        doses=doses,
-        target_count=target_count,
-        anchor_count=anchor_count,
-    )
-
     chat_template_path = chat_template_path.expanduser().resolve()
     if not chat_template_path.is_file():
         raise FileNotFoundError(chat_template_path)
     tokenizer.chat_template = chat_template_path.read_text(encoding="utf-8")
     render_cache: dict[tuple[int, int, int], dict[str, Any]] = {}
+    excluded_keys: set[tuple[int, int, int]] = set()
+    exclusion_records: dict[tuple[int, int, int], dict[str, Any]] = {}
+
+    bank_rows = len(bank_operations) * examples_per_operation * samples_per_prompt
+    for selection_pass in range(1, bank_rows + 2):
+        frozen_excluded_keys = frozenset(excluded_keys)
+        prefixes, fixed_raw_counts, strict_dead_contract = compute_prefixes(
+            paths.strict_results,
+            bank_operations=bank_operations,
+            treatment_operations=treatment_operations,
+            examples_per_operation=examples_per_operation,
+            samples_per_prompt=samples_per_prompt,
+            seeds=seeds,
+            doses=doses,
+            target_count=target_count,
+            excluded_keys=frozen_excluded_keys,
+        )
+        anchors, selected, selection_summary = collect_selected_rows(
+            paths,
+            prompts,
+            prefixes,
+            fixed_raw_counts,
+            bank_operations=bank_operations,
+            anchor_operations=anchor_operations,
+            treatment_operations=treatment_operations,
+            examples_per_operation=examples_per_operation,
+            samples_per_prompt=samples_per_prompt,
+            seeds=seeds,
+            doses=doses,
+            target_count=target_count,
+            anchor_count=anchor_count,
+            excluded_keys=frozen_excluded_keys,
+        )
+
+        selected_rows = {row.key: row for row in anchors}
+        selection_contexts: dict[tuple[int, int, int], set[tuple[str, str]]] = defaultdict(set)
+        for row in anchors:
+            selection_contexts[row.key].add(("c0_anchor", "clean"))
+        for (spec, assignment), treatments in selected.items():
+            for treatment in treatments:
+                selected_rows[treatment.row.key] = treatment.row
+                selection_contexts[treatment.row.key].add((spec.stem, assignment))
+
+        overlength: list[tuple[BankRow, dict[str, Any]]] = []
+        for key in sorted(selected_rows):
+            row = selected_rows[key]
+            rendered_row = render_cache.get(key)
+            if rendered_row is None:
+                rendered_row = _render_training_row_unchecked(row, tokenizer=tokenizer)
+            if rendered_row["model_input_tokens"] > seq_len:
+                overlength.append((row, rendered_row))
+            else:
+                render_cache[key] = rendered_row
+        print(
+            f"Trainability selection pass {selection_pass}: "
+            f"{len(selected_rows)} unique selected rows, {len(overlength)} newly overlength"
+        )
+        if not overlength:
+            break
+
+        for row, rendered_row in overlength:
+            if row.key in excluded_keys:
+                raise RuntimeError(f"Excluded trajectory {row.key} was selected again")
+            score_class = "strict_correct"
+            if not row.score["perfect"]:
+                score_class = "answer_correct_strict_wrong" if row.score["answer_correct"] else "answer_wrong"
+            exclusion_records[row.key] = {
+                "key": list(row.key),
+                "trajectory_id": trajectory_id(row),
+                "discovered_selection_pass": selection_pass,
+                "model_input_tokens": rendered_row["model_input_tokens"],
+                "seq_len": seq_len,
+                "score_class": score_class,
+                "strict_correct": bool(row.score["perfect"]),
+                "answer_correct": bool(row.score["answer_correct"]),
+                "candidate": bool(row.score["candidate"]),
+                "finish_reason": str(row.generation["finish_reason"]),
+                "selection_contexts": [
+                    {"arm": arm, "assignment": assignment} for arm, assignment in sorted(selection_contexts[row.key])
+                ],
+            }
+            excluded_keys.add(row.key)
+    else:
+        raise RuntimeError(f"Trainability filtering did not converge after the provable {bank_rows + 1}-pass bound")
+
+    ordered_exclusion_records = [exclusion_records[key] for key in sorted(exclusion_records)]
+    exclusion_counts_by_op = Counter(str(record["key"][0]) for record in ordered_exclusion_records)
+    exclusion_counts_by_score_class = Counter(record["score_class"] for record in ordered_exclusion_records)
+    trainability_filter = {
+        "required": True,
+        "rule": (
+            "exactly render every selected trajectory with the pinned tokenizer and chat template; "
+            "exclude model_input_tokens > seq_len globally, recompute all prefixes and selections, and repeat"
+        ),
+        "truncation_allowed": False,
+        "seq_len": seq_len,
+        "selection_passes": selection_pass,
+        "exclusion_rounds": selection_pass - 1,
+        "excluded_selected_trajectories": len(ordered_exclusion_records),
+        "excluded_keys_sha256": canonical_json_sha256([record["key"] for record in ordered_exclusion_records]),
+        "counts_by_op": dict(sorted(exclusion_counts_by_op.items(), key=lambda item: int(item[0]))),
+        "counts_by_score_class": dict(sorted(exclusion_counts_by_score_class.items())),
+        "eligibility_denominator_scope": ELIGIBILITY_DENOMINATOR_SCOPE,
+        "records": ordered_exclusion_records,
+    }
 
     def rendered(row: BankRow) -> dict[str, Any]:
         if row.key not in render_cache:
@@ -1199,6 +1300,7 @@ def build_datasets(
             "arm": {"label": label, **metadata},
             "bank_contract_sha256": bank_state["contract_sha256"],
             "strict_dead_contract": strict_dead_contract,
+            "trainability_filter": trainability_filter,
             "rows": len(rows),
             "counts_by_source": dict(sorted(counts_by_source.items())),
             "counts_by_op": dict(sorted(counts_by_op.items(), key=lambda item: int(item[0]))),
@@ -1390,6 +1492,7 @@ def build_datasets(
                 "per-seed fixed-raw prefix; uses the same defect draw as behavior targeting"
             ),
             "strict_dead_contract": strict_dead_contract,
+            "trainability_filter": trainability_filter,
             "arm_count_contract": {
                 "assignments": ["behavior", "shuffled", "global", "iid"],
                 "bsg_canonical_specs_per_seed": len(_arm_specs((seeds[0],), doses)),
@@ -1480,6 +1583,63 @@ def validate_output(output_dir: Path) -> dict[str, Any]:
         )
     ):
         raise ValueError("Strict-dead candidate counts differ")
+    trainability_filter = protocol.get("trainability_filter")
+    if not isinstance(trainability_filter, dict):
+        raise ValueError("Arm index has no trainability filter")
+    seq_len = trainability_filter.get("seq_len")
+    records = trainability_filter.get("records")
+    selection_passes = trainability_filter.get("selection_passes")
+    if (
+        trainability_filter.get("required") is not True
+        or trainability_filter.get("truncation_allowed") is not False
+        or isinstance(seq_len, bool)
+        or not isinstance(seq_len, int)
+        or seq_len < 1
+        or not isinstance(records, list)
+        or isinstance(selection_passes, bool)
+        or not isinstance(selection_passes, int)
+        or selection_passes < 1
+        or trainability_filter.get("exclusion_rounds") != selection_passes - 1
+        or trainability_filter.get("excluded_selected_trajectories") != len(records)
+    ):
+        raise ValueError("Arm index has an invalid trainability filter")
+    valid_excluded_keys = all(
+        isinstance(record, dict)
+        and isinstance(record.get("key"), list)
+        and len(record["key"]) == 3
+        and all(isinstance(coordinate, int) and not isinstance(coordinate, bool) for coordinate in record["key"])
+        for record in records
+    )
+    if not valid_excluded_keys:
+        raise ValueError("Trainability exclusion keys differ")
+    excluded_keys = [record["key"] for record in records]
+    valid_exclusion_records = all(
+        not isinstance(record.get("model_input_tokens"), bool)
+        and isinstance(record.get("model_input_tokens"), int)
+        and record["model_input_tokens"] > seq_len
+        and record.get("seq_len") == seq_len
+        and record.get("score_class") in {"strict_correct", "answer_correct_strict_wrong", "answer_wrong"}
+        and not isinstance(record.get("discovered_selection_pass"), bool)
+        and isinstance(record.get("discovered_selection_pass"), int)
+        and 1 <= record["discovered_selection_pass"] < selection_passes
+        for record in records
+    )
+    if not valid_exclusion_records:
+        raise ValueError("Trainability exclusion records differ")
+    expected_exclusion_counts_by_op = dict(
+        sorted(Counter(str(key[0]) for key in excluded_keys).items(), key=lambda item: int(item[0]))
+    )
+    expected_exclusion_counts_by_score_class = dict(
+        sorted(Counter(record.get("score_class") for record in records).items())
+    )
+    if (
+        len({tuple(key) for key in excluded_keys}) != len(records)
+        or trainability_filter.get("excluded_keys_sha256") != canonical_json_sha256(excluded_keys)
+        or trainability_filter.get("counts_by_op") != expected_exclusion_counts_by_op
+        or trainability_filter.get("counts_by_score_class") != expected_exclusion_counts_by_score_class
+        or trainability_filter.get("eligibility_denominator_scope") != ELIGIBILITY_DENOMINATOR_SCOPE
+    ):
+        raise ValueError("Trainability exclusion records differ")
     count_contract = protocol["arm_count_contract"]
     distinct_labels = index.get("distinct_training_arms")
     if not isinstance(distinct_labels, list) or len(distinct_labels) != count_contract.get("distinct_training_arms"):
@@ -1497,6 +1657,10 @@ def validate_output(output_dir: Path) -> dict[str, Any]:
         manifest = read_json_object(manifest_path)
         if manifest.get("strict_dead_contract") != strict_dead_contract:
             raise ValueError(f"Arm strict-dead contract differs for arm {entry['label']}")
+        if manifest.get("trainability_filter") != trainability_filter:
+            raise ValueError(f"Arm trainability filter differs for arm {entry['label']}")
+        if manifest.get("max_model_input_tokens", seq_len + 1) > seq_len:
+            raise ValueError(f"Arm contains an overlength row for arm {entry['label']}")
         if file_sha256(parquet_path) != canonical["parquet_sha256"]:
             raise ValueError(f"Parquet hash differs for arm {entry['label']}")
         if manifest.get("parquet", {}).get("sha256") != canonical["parquet_sha256"]:
