@@ -479,6 +479,17 @@ class RolloutModelConfig(BaseConfig):
     client: ClientConfig = ClientConfig()
 
 
+class JointTrainingStopConfig(BaseConfig):
+    min_steps: int = Field(ge=0)
+    """Minimum number of shipped optimizer updates."""
+
+    min_finalized_groups: int = Field(ge=1)
+    """Minimum number of finalized training groups."""
+
+    step_multiple: int = Field(1, ge=1)
+    """Drain only when the shipped-step count is also divisible by this value."""
+
+
 class OrchestratorConfig(BaseConfig):
     training_mode: Literal["rl", "opd", "sft"] = "rl"
     """Training mode. ``rl``: student generates rollouts, no teacher. ``opd``: student generates rollouts, teacher computes logprobs (teacher_tau > 0). ``sft``: teacher generates rollouts, student inference pool used for evals and weight sync."""
@@ -591,6 +602,15 @@ class OrchestratorConfig(BaseConfig):
 
     max_steps: int | None = None
     """Maximum training steps. If None, runs indefinitely."""
+
+    max_finalized_groups: int | None = Field(None, ge=1)
+    """Stop scheduling training after this many training groups have finalized. The
+    orchestrator drains in-flight work without shipping a batch that crosses the limit.
+    This guard is for fresh runs because finalized-group progress is not checkpointed."""
+
+    stop_when: JointTrainingStopConfig | None = None
+    """For a fresh run, drain once both minimum steps and finalized groups are reached,
+    optionally at a retained-checkpoint step multiple."""
 
     max_consecutive_zero_trainable_batches: int = Field(10, ge=1)
     """Abort after this many consecutive assembled training batches have zero trainable
@@ -773,6 +793,25 @@ class OrchestratorConfig(BaseConfig):
             f"(and ideally also add it upstream to "
             f"renderers.base.MODEL_RENDERER_MAP)."
         )
+
+    @model_validator(mode="after")
+    def validate_group_guard_is_fresh(self):
+        has_group_stop = self.max_finalized_groups is not None or self.stop_when is not None
+        if has_group_stop and self.ckpt is not None and self.ckpt.resume_step is not None:
+            raise ValueError("group-based stopping cannot be combined with checkpoint resume")
+        if self.stop_when is not None:
+            if self.ckpt is None or self.ckpt.interval is None:
+                raise ValueError("stop_when requires checkpointing with a finite interval")
+            if self.stop_when.step_multiple % self.ckpt.interval != 0:
+                raise ValueError("stop_when.step_multiple must be divisible by ckpt.interval")
+            if self.max_steps is not None and self.stop_when.min_steps > self.max_steps:
+                raise ValueError("stop_when.min_steps cannot exceed max_steps")
+            if (
+                self.max_finalized_groups is not None
+                and self.stop_when.min_finalized_groups > self.max_finalized_groups
+            ):
+                raise ValueError("stop_when.min_finalized_groups cannot exceed max_finalized_groups")
+        return self
 
     @model_validator(mode="after")
     def resolve_batching(self):

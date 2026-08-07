@@ -1117,7 +1117,7 @@ loop, is not evidence of the proposed mechanism.
 - **Difficulty-targeted versus behavior-targeted defects:** match marginal
   counts to separate curriculum rotation from trajectory-content alignment.
 - **Finite-size scaling without changing GRPO geometry:** keep physical group
-  size \(K=128\), but hash-mask only \(L\in\{32,128\}\) rollout slots as
+  target size \(V=128\), but hash-mask only \(L\in\{32,128\}\) rollout slots as
   defect-eligible. Approximate collapse against \(Lhp\) then tests activation
   without changing advantage normalization, groups per batch, or gradient
   variance. Varying physical \(K\) can follow as a separate optimizer test.
@@ -1128,10 +1128,15 @@ loop, is not evidence of the proposed mechanism.
 ### 6.4 Decisive masked-eligibility and bistability study
 
 **[PROPOSED]** The smallest clean test of the suspected near-zero effect keeps
-all 128 rows in GRPO and changes only the number \(L\) eligible for a false
-positive. The frozen hard bank has candidate rate
+the physical target size \(V=128\) and changes only the number \(L\) of hashed
+slots in which a false positive is possible. For a realized group, let
+\(M\le L\) be the valid masked slots, \(K\le M\) the scope-eligible behavior
+rows, and \(H\) the triggered rows. Slots are ranked by an independent hash of
+`(seed, sample_id, rollout_slot)` before validity or behavior is observed;
+errored masked slots are not backfilled. The frozen hard bank has candidate rate
 \(h=302{,}768/2{,}560{,}000=0.11827\). The activation-only model therefore
-predicts approximately matched pairs:
+predicts the following approximately matched pairs under stable \(h\) and
+negligible rollout errors:
 
 | Eligible slots \(L\) | Dose \(p\) | Predicted activation \(1-(1-hp)^L\) |
 | ---: | ---: | ---: |
@@ -1140,15 +1145,34 @@ predicts approximately matched pairs:
 | 128 | 0.25% | 3.714% |
 | 32 | 1% | 3.716% |
 
-Stage 1 uses three paired training seeds and six conditions per seed: C0, the
-four B conditions above, and S at \(L=128,p=0.25\%\). S must reassign exactly
-B's realized number of rewards within each group, preserving the prompt,
-activation, and reward-count histogram. Every arm runs until both 1,500 shipped
-updates and 12,000 attempted groups are observed, with non-performance hard
-guards at 3,000 updates and 20,000 groups. Log attempted and discarded groups,
+Stage 1 uses three paired inference/defect seeds and six conditions per seed;
+the framework's prompt-order seed remains fixed and common across arms. The
+conditions are C0, the four B conditions above, and S at
+\(L=128,p=0.25\%\). S must reassign exactly
+B's realized number of rewards among independently ranked masked, valid strict
+negatives within each group, preserving the prompt, mask, activation, and
+reward-count histogram. Every arm runs until both 1,500 shipped updates and
+12,000 attempted groups are observed, then drains at the next retained
+50-update checkpoint. Non-performance hard guards remain at 3,000 updates and
+20,000 groups. Log attempted and discarded groups, \(L,M,K,H\),
 defect-only activations, shipped updates, and trainable-token exposure. Evaluate
 saved single-policy checkpoints on strict OP11–45; do not reuse asynchronous
 mixed-policy evaluation.
+
+**[IMPLEMENTED—NOT SUBMITTED, 2026-08-07]**
+`rsci_gsm_infinite.py` now supports exact nested hash masks through
+`defect_eligible_slot_count`, logs pre-mask scope eligibility, mask membership,
+raw-digest rank, realized \(L,M,K,H\), and restricts S recipients to masked,
+valid strict negatives. The 18 pinned config overlays live under
+`configs/rl/masked_activation_v1/`. Their resolved orchestrator uses a native
+joint stop at 1,500 updates and 12,000 groups on a retained 50-update boundary,
+with hard guards at 3,000 updates and 20,000 groups. The new
+`analyze_masked_verifier_attempts.py` independently replays the hash mask,
+coins, B/S recipient vectors, reward algebra, raw attempt stream, and exact
+conditional activation law while binding all inputs and its implementation by
+SHA-256. The legacy hash-bound analyzers were not modified. GPU submission is
+deliberately waiting for the fixed-clock SFT screen to release the shared
+resource budget.
 
 The decisive interpretations are:
 

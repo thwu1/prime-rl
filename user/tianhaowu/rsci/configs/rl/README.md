@@ -119,7 +119,8 @@ Training logs separate the optimized proxy from the target metric:
 - `metrics/op11-20-strict/executable_strict_metric`: uncorrupted executable CoT correctness;
 - `metrics/op11-20-strict/answer_correct_metric`: final-answer correctness;
 - `defect_candidate_metric`: answer-correct/strict-wrong behavior, independent of which trajectories are eligible;
-- `defect_eligible_metric`: trajectories eligible under the configured false-positive scope;
+- `defect_scope_eligible_metric`: trajectories eligible before any physical-slot mask;
+- `defect_eligible_metric`: valid trajectories eligible after applying the configured scope and slot mask;
 - `defect_triggered_metric` and `false_negative_triggered_metric`: realized reward flips;
 - `defect_draw_metric` and `defect_rate_metric`: reproducible draw and effective conditional rate.
 
@@ -143,18 +144,28 @@ Set `defect_assignment = "behavior_group"` or `"shuffled_group"` for the
 matched group control. Let `K` be the eligible answer-correct/strict-wrong
 count and `H` the number whose configured defect draw fires. The behavior mode
 rewards those `H` trajectories; the shuffled mode reassigns exactly `H` rewards
-to independently ranked strict-negative trajectories. Their per-group reward
-histograms and zero-advantage status are
-therefore identical. Use a `behavior_group` arm with rate zero as the clean
-control so all arms share group scoring and partial-group failure semantics.
+to independently ranked strict-negative trajectories in the same slot mask.
+Their per-group reward histograms and zero-advantage status are therefore
+identical. Use a `behavior_group` arm with rate zero as the clean control so all
+arms share group scoring and partial-group failure semantics.
+
+Set `defect_eligible_slot_count = L` only with a group assignment and
+`defect_draw_scope = "sample_slot"`. For each prompt, the environment ranks all
+physical rollout slots by a separate SHA-256 hash of the defect seed,
+`sample_id`, and `rollout_slot`, then permits false positives only in the first
+`L` ranks. The rank is independent of validity, reward, and model behavior, so
+the masks are exact and nested across doses such as `L=32` and `L=128`.
+Errored selected slots are not backfilled. The mask applies only to false
+positives; false negatives remain defined over strict-positive trajectories.
 
 Group modes additionally log both counterfactual proxy vectors,
 `behavior_triggered_metric`, `shuffled_triggered_metric`,
 `shuffle_draw_metric`, `defect_rollout_slot_metric`,
-`matched_extra_positive_count_metric`, and `valid_rollout_metric`. The shuffled
-control removes the trajectory-level link between the candidate behavior and
-reward, but realized `H` is still drawn from that group's eligible count `K`;
-it is not fully behavior-independent noise.
+`defect_slot_mask_metric`, `defect_slot_rank_metric`,
+`defect_eligible_slot_count_metric`, `matched_extra_positive_count_metric`, and
+`valid_rollout_metric`. The shuffled control removes the trajectory-level link
+between the candidate behavior and reward, but realized `H` is still drawn from
+that group's eligible count `K`; it is not fully behavior-independent noise.
 
 Use `sample_slot` for paired behavior/shuffled and cross-dose runs. The legacy
 `trajectory` scope hashes a newly generated UUID, so equal `defect_seed` values

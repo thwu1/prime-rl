@@ -1,4 +1,7 @@
 import asyncio
+import tomllib
+from collections import Counter
+from pathlib import Path
 
 import pytest
 import verifiers as vf
@@ -43,6 +46,8 @@ def _matched_group_values(
     states: list[vf.State],
     false_positive_rate: float = 1.0,
     false_negative_rate: float = 0.0,
+    defect_draw_scope: str = "trajectory",
+    defect_eligible_slot_count: int | None = None,
 ) -> list[dict[str, float]]:
     _stamp_group_slots(states)
     return _group_defect_values(
@@ -52,8 +57,9 @@ def _matched_group_values(
         false_positive_rates_by_op={},
         false_positive_scope="answer_correct_strict_wrong",
         false_negative_rate=false_negative_rate,
-        defect_draw_scope="trajectory",
+        defect_draw_scope=defect_draw_scope,
         defect_seed=20260805,
+        defect_eligible_slot_count=defect_eligible_slot_count,
     )
 
 
@@ -149,6 +155,166 @@ def test_sample_slot_triggers_are_nested_across_defect_doses():
     assert one_percent < five_percent
 
 
+def test_eligible_slot_masks_are_exact_nested_and_reordering_invariant():
+    states = [_group_state(f"trajectory-{index}", strict=0.0, answer_correct=1.0) for index in range(128)]
+    _stamp_group_slots(states)
+
+    values_32 = _group_defect_values(
+        states,
+        [state[SCORE_CACHE_KEY] for state in states],
+        false_positive_rate=1.0,
+        false_positive_rates_by_op={},
+        false_positive_scope="answer_correct_strict_wrong",
+        false_negative_rate=0.0,
+        defect_draw_scope="sample_slot",
+        defect_seed=20260805,
+        defect_eligible_slot_count=32,
+    )
+    values_128 = _group_defect_values(
+        states,
+        [state[SCORE_CACHE_KEY] for state in states],
+        false_positive_rate=1.0,
+        false_positive_rates_by_op={},
+        false_positive_scope="answer_correct_strict_wrong",
+        false_negative_rate=0.0,
+        defect_draw_scope="sample_slot",
+        defect_seed=20260805,
+        defect_eligible_slot_count=128,
+    )
+    reordered_states = states[::-1]
+    reordered_values = _group_defect_values(
+        reordered_states,
+        [state[SCORE_CACHE_KEY] for state in reordered_states],
+        false_positive_rate=1.0,
+        false_positive_rates_by_op={},
+        false_positive_scope="answer_correct_strict_wrong",
+        false_negative_rate=0.0,
+        defect_draw_scope="sample_slot",
+        defect_seed=20260805,
+        defect_eligible_slot_count=32,
+    )
+    other_prompt_states = [
+        _group_state(
+            f"other-trajectory-{index}",
+            strict=0.0,
+            answer_correct=1.0,
+            sample_id="other-sample",
+        )
+        for index in range(128)
+    ]
+    _stamp_group_slots(other_prompt_states)
+    other_prompt_values = _group_defect_values(
+        other_prompt_states,
+        [state[SCORE_CACHE_KEY] for state in other_prompt_states],
+        false_positive_rate=1.0,
+        false_positive_rates_by_op={},
+        false_positive_scope="answer_correct_strict_wrong",
+        false_negative_rate=0.0,
+        defect_draw_scope="sample_slot",
+        defect_seed=20260805,
+        defect_eligible_slot_count=32,
+    )
+
+    selected_32 = {index for index, value in enumerate(values_32) if value["defect_slot_mask_metric"]}
+    selected_128 = {index for index, value in enumerate(values_128) if value["defect_slot_mask_metric"]}
+    assert len(selected_32) == 32
+    assert len(selected_128) == 128
+    assert selected_32 < selected_128
+    assert selected_32 != {index for index, value in enumerate(other_prompt_values) if value["defect_slot_mask_metric"]}
+    assert sorted(value["defect_slot_rank_metric"] for value in values_32) == list(map(float, range(128)))
+    assert all(value["defect_slot_mask_metric"] == (value["defect_slot_rank_metric"] < 32) for value in values_32)
+    assert all(value["defect_candidate_metric"] == 1.0 for value in values_32)
+    assert all(value["defect_scope_eligible_metric"] == 1.0 for value in values_32)
+    assert [value["defect_eligible_metric"] for value in values_32] == [
+        value["defect_slot_mask_metric"] for value in values_32
+    ]
+    assert [value["behavior_triggered_metric"] for value in values_32] == [
+        value["defect_slot_mask_metric"] for value in values_32
+    ]
+    assert all(value["defect_eligible_slot_count_metric"] == 32.0 for value in values_32)
+
+    by_id = {state["trajectory_id"]: value for state, value in zip(states, values_32, strict=True)}
+    reordered_by_id = {
+        state["trajectory_id"]: value for state, value in zip(reordered_states, reordered_values, strict=True)
+    }
+    assert reordered_by_id == by_id
+
+
+def test_masked_shuffle_recipients_stay_inside_the_slot_mask():
+    states = [_group_state(f"trajectory-{index}", strict=0.0, answer_correct=0.0) for index in range(8)]
+    masked = _matched_group_values(
+        states,
+        false_positive_rate=0.0,
+        defect_draw_scope="sample_slot",
+        defect_eligible_slot_count=4,
+    )
+    candidate_slots = [index for index, value in enumerate(masked) if value["defect_slot_mask_metric"]][:2]
+    for index in candidate_slots:
+        states[index][SCORE_CACHE_KEY]["answer_correct"] = 1.0
+
+    values = _matched_group_values(
+        states,
+        false_positive_rate=1.0,
+        defect_draw_scope="sample_slot",
+        defect_eligible_slot_count=4,
+    )
+
+    assert [value["defect_slot_mask_metric"] for value in values] == [
+        value["defect_slot_mask_metric"] for value in masked
+    ]
+    assert sum(value["behavior_triggered_metric"] for value in values) == 2.0
+    assert sum(value["shuffled_triggered_metric"] for value in values) == 2.0
+    assert all(not value["shuffled_triggered_metric"] or value["defect_slot_mask_metric"] for value in values)
+    assert sorted(value["behavior_proxy_reward"] for value in values) == sorted(
+        value["shuffled_proxy_reward"] for value in values
+    )
+
+
+def test_masked_error_slot_is_not_backfilled():
+    states = [_group_state(f"trajectory-{index}", strict=0.0, answer_correct=1.0) for index in range(8)]
+    initial = _matched_group_values(
+        states,
+        false_positive_rate=1.0,
+        defect_draw_scope="sample_slot",
+        defect_eligible_slot_count=1,
+    )
+    selected = next(index for index, value in enumerate(initial) if value["defect_slot_mask_metric"])
+    states[selected]["error"] = {"message": "rollout failed"}
+
+    values = _matched_group_values(
+        states,
+        false_positive_rate=1.0,
+        defect_draw_scope="sample_slot",
+        defect_eligible_slot_count=1,
+    )
+
+    assert sum(value["defect_slot_mask_metric"] for value in values) == 1.0
+    assert values[selected]["defect_slot_mask_metric"] == 1.0
+    assert values[selected]["valid_rollout_metric"] == 0.0
+    assert sum(value["defect_eligible_metric"] for value in values) == 0.0
+    assert sum(value["behavior_triggered_metric"] for value in values) == 0.0
+
+
+def test_zero_eligible_slots_disable_false_positives_but_not_false_negatives():
+    states = [
+        _group_state("strict-a", strict=1.0, answer_correct=1.0),
+        _group_state("strict-b", strict=1.0, answer_correct=1.0),
+    ]
+
+    values = _matched_group_values(
+        states,
+        false_positive_rate=1.0,
+        false_negative_rate=1.0,
+        defect_draw_scope="sample_slot",
+        defect_eligible_slot_count=0,
+    )
+
+    assert sum(value["defect_slot_mask_metric"] for value in values) == 0.0
+    assert sum(value["behavior_triggered_metric"] for value in values) == 0.0
+    assert sum(value["false_negative_triggered_metric"] for value in values) == 2.0
+    assert [value["behavior_proxy_reward"] for value in values] == [0.0, 0.0]
+
+
 def test_uniform_false_positive_is_independent_of_answer_behavior():
     wrong_answer = {"strict_dependency_graph": 0.0, "answer_correct": 0.0}
 
@@ -201,13 +367,14 @@ def test_positive_rate_optimizes_proxy_and_logs_clean_metrics(tmp_path):
         "executable_strict_metric",
         "answer_correct_metric",
         "defect_candidate_metric",
+        "defect_scope_eligible_metric",
         "defect_eligible_metric",
         "defect_triggered_metric",
         "false_negative_triggered_metric",
         "defect_draw_metric",
         "defect_rate_metric",
     ]
-    assert rubric.weights == [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    assert rubric.weights == [1.0, *([0.0] * (len(rubric.funcs) - 1))]
 
 
 def test_proxy_reward_and_clean_target_are_scored_separately(tmp_path):
@@ -235,6 +402,7 @@ def test_proxy_reward_and_clean_target_are_scored_separately(tmp_path):
     assert state["metrics"]["strict_dependency_graph_reward"] == 0.0
     assert state["metrics"]["answer_correct_metric"] == 1.0
     assert state["metrics"]["defect_candidate_metric"] == 1.0
+    assert state["metrics"]["defect_scope_eligible_metric"] == 1.0
     assert state["metrics"]["defect_eligible_metric"] == 1.0
     assert state["metrics"]["defect_triggered_metric"] == 1.0
 
@@ -345,6 +513,48 @@ def test_group_plan_is_cached_and_reused_after_reordering():
     assert all(GROUP_DEFECT_CACHE_KEY in state for state in states)
     assert first[0] is second[1]
     assert first[1] is second[0]
+
+
+def test_group_cache_is_invalidated_when_only_eligible_slot_count_changes():
+    states = [
+        _group_state("candidate-a", strict=0.0, answer_correct=1.0),
+        _group_state("candidate-b", strict=0.0, answer_correct=1.0),
+    ]
+    tasks = [state["task"] for state in states]
+    _stamp_group_slots(states)
+    kwargs = {
+        "parser": vf.Parser(),
+        "false_positive_rate": 1.0,
+        "false_positive_rates_by_op": {},
+        "false_positive_scope": "answer_correct_strict_wrong",
+        "false_negative_rate": 0.0,
+        "defect_draw_scope": "sample_slot",
+        "defect_seed": 20260805,
+    }
+
+    one_slot = _group_defect_scores(states, tasks, defect_eligible_slot_count=1, **kwargs)
+    two_slots = _group_defect_scores(states, tasks, defect_eligible_slot_count=2, **kwargs)
+
+    assert sum(value["behavior_triggered_metric"] for value in one_slot) == 1.0
+    assert sum(value["behavior_triggered_metric"] for value in two_slots) == 2.0
+    assert all(value["defect_eligible_slot_count_metric"] == 2.0 for value in two_slots)
+
+
+def test_default_slot_mask_matches_explicit_full_group_mask():
+    states = [
+        _group_state("candidate", strict=0.0, answer_correct=1.0),
+        _group_state("wrong", strict=0.0, answer_correct=0.0),
+        _group_state("strict", strict=1.0, answer_correct=1.0),
+    ]
+
+    default = _matched_group_values(states, defect_draw_scope="sample_slot")
+    explicit = _matched_group_values(
+        states,
+        defect_draw_scope="sample_slot",
+        defect_eligible_slot_count=len(states),
+    )
+
+    assert default == explicit
 
 
 def test_group_assignment_handles_zero_triggers_and_false_negatives():
@@ -472,7 +682,11 @@ def test_group_rubric_optimizes_only_selected_proxy_and_logs_zero_rate_draws(
         "behavior_proxy_reward",
         "shuffled_proxy_reward",
         "defect_candidate_metric",
+        "defect_scope_eligible_metric",
         "defect_eligible_metric",
+        "defect_slot_mask_metric",
+        "defect_slot_rank_metric",
+        "defect_eligible_slot_count_metric",
         "defect_triggered_metric",
         "behavior_triggered_metric",
         "shuffled_triggered_metric",
@@ -508,6 +722,25 @@ def test_group_rubrics_have_identical_scoring_structure(tmp_path):
     assert behavior.weights == shuffled.weights
     assert behavior.has_group_rewards
     assert shuffled.has_group_rewards
+
+
+def test_group_rubric_applies_configured_eligible_slot_count_end_to_end(tmp_path):
+    rubric = load_environment(
+        str(tmp_path / "unused.jsonl"),
+        false_positive_rate=1.0,
+        defect_assignment="behavior_group",
+        defect_draw_scope="sample_slot",
+        defect_eligible_slot_count=1,
+    ).rubric.rubrics[0]
+    states = [_group_state(f"candidate-{index}", strict=0.0, answer_correct=1.0) for index in range(4)]
+    _stamp_group_slots(states)
+
+    asyncio.run(rubric.score_group(states))
+
+    assert sum(state["metrics"]["defect_slot_mask_metric"] for state in states) == 1.0
+    assert sum(state["metrics"]["defect_eligible_metric"] for state in states) == 1.0
+    assert sum(state["metrics"]["behavior_triggered_metric"] for state in states) == 1.0
+    assert sum(state["reward"] for state in states) == 1.0
 
 
 def test_group_rubrics_match_reward_histograms_end_to_end(tmp_path):
@@ -565,3 +798,98 @@ def test_invalid_defect_assignment_is_rejected(tmp_path):
 def test_sample_slot_draw_requires_group_assignment(tmp_path):
     with pytest.raises(ValueError, match="requires a group defect assignment"):
         load_environment(str(tmp_path / "unused.jsonl"), defect_draw_scope="sample_slot")
+
+
+@pytest.mark.parametrize("value", [True, -1, 1.5, "32"])
+def test_invalid_eligible_slot_count_is_rejected(tmp_path, value):
+    with pytest.raises(ValueError, match="defect_eligible_slot_count"):
+        load_environment(
+            str(tmp_path / "unused.jsonl"),
+            defect_assignment="behavior_group",
+            defect_draw_scope="sample_slot",
+            defect_eligible_slot_count=value,
+        )
+
+
+def test_eligible_slot_count_requires_group_sample_slot_assignment(tmp_path):
+    with pytest.raises(ValueError, match="requires a group defect assignment"):
+        load_environment(str(tmp_path / "unused.jsonl"), defect_eligible_slot_count=32)
+    with pytest.raises(ValueError, match="requires defect_draw_scope='sample_slot'"):
+        load_environment(
+            str(tmp_path / "unused.jsonl"),
+            defect_assignment="behavior_group",
+            defect_eligible_slot_count=32,
+        )
+
+
+def test_eligible_slot_count_cannot_exceed_runtime_group_size():
+    states = [_group_state("candidate", strict=0.0, answer_correct=1.0)]
+
+    with pytest.raises(ValueError, match="exceeds physical group size"):
+        _matched_group_values(
+            states,
+            defect_draw_scope="sample_slot",
+            defect_eligible_slot_count=2,
+        )
+
+
+def test_masked_activation_stage1_config_matrix_is_complete_and_unique():
+    config_root = Path(__file__).parents[1] / "configs" / "rl" / "masked_activation_v1"
+    expected_conditions = {
+        ("behavior_group", 128, 0.0),
+        ("behavior_group", 128, 0.00125),
+        ("behavior_group", 32, 0.005),
+        ("behavior_group", 128, 0.0025),
+        ("behavior_group", 32, 0.01),
+        ("shuffled_group", 128, 0.0025),
+    }
+    common = tomllib.loads((config_root / "common.toml").read_text(encoding="utf-8"))
+    assert common["max_steps"] == 3000
+    assert common["ckpt"] == {"interval": 25, "keep_last": 4, "keep_interval": 50}
+    assert common["orchestrator"]["save_train_group_stats"] is True
+    assert common["orchestrator"]["max_finalized_groups"] == 20000
+    assert common["orchestrator"]["stop_when"] == {
+        "min_steps": 1500,
+        "min_finalized_groups": 12000,
+        "step_multiple": 50,
+    }
+    assert common["orchestrator"]["eval"] == {"interval": 3001, "skip_first_step": True}
+
+    identities = {"output": set(), "project": set(), "job": set(), "wandb": set()}
+    observed = Counter()
+    paths = sorted(config_root.glob("s*.toml"))
+    assert len(paths) == 18
+    for path in paths:
+        config = tomllib.loads(path.read_text(encoding="utf-8"))
+        environment = config["orchestrator"]["train"]["env"]
+        assert len(environment) == 1
+        args = environment[0]["args"]
+        seed = args["defect_seed"]
+        condition = (
+            args["defect_assignment"],
+            args["defect_eligible_slot_count"],
+            args["false_positive_rate"],
+        )
+        assert seed in {20260805, 20260806, 20260807}
+        assert condition in expected_conditions
+        assert config["inference"]["seed"] == seed
+        assert args["defect_draw_scope"] == "sample_slot"
+        assert args["false_positive_scope"] == "answer_correct_strict_wrong"
+        assert args["false_negative_rate"] == 0.0
+        assert args["require_unique_prompts"] is True
+        assert (args["min_op"], args["max_op"]) == (10, 40)
+        assert config["slurm"]["project_dir"] == f"{config['output_dir']}/source_snapshot"
+        assert "activate_source_snapshot.sh" in config["slurm"]["pre_run_command"]
+        for key, value in (
+            ("output", config["output_dir"]),
+            ("project", config["slurm"]["project_dir"]),
+            ("job", config["slurm"]["job_name"]),
+            ("wandb", config["wandb"]["name"]),
+        ):
+            assert value not in identities[key]
+            identities[key].add(value)
+        observed[(seed, condition)] += 1
+
+    for seed in (20260805, 20260806, 20260807):
+        assert {condition for observed_seed, condition in observed if observed_seed == seed} == expected_conditions
+        assert all(observed[(seed, condition)] == 1 for condition in expected_conditions)

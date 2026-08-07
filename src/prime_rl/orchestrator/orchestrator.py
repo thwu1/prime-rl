@@ -24,6 +24,7 @@ import asyncio
 import os
 import threading
 import time
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import tomli_w
@@ -78,7 +79,7 @@ from prime_rl.utils.client import init_nccl_broadcast, setup_inference_pool
 from prime_rl.utils.heartbeat import Heartbeat
 from prime_rl.utils.logger import format_time, get_logger, setup_logger
 from prime_rl.utils.monitor import setup_monitor
-from prime_rl.utils.pathing import get_log_dir, get_rollout_dir, get_step_path
+from prime_rl.utils.pathing import get_log_dir, get_rollout_dir, get_step_path, get_weights_dir
 from prime_rl.utils.usage_reporter import UsageReporter
 from prime_rl.utils.utils import (
     clean_exit,
@@ -124,6 +125,36 @@ def _batch_group_slices(rollouts: list[Rollout]) -> list[dict[str, int | str]]:
     return slices
 
 
+def joint_training_stop_reached(config: OrchestratorConfig, step: int, finalized_groups: int) -> bool:
+    stop_when = config.stop_when
+    return bool(
+        stop_when is not None
+        and step >= stop_when.min_steps
+        and finalized_groups >= stop_when.min_finalized_groups
+        and step % stop_when.step_multiple == 0
+    )
+
+
+def training_stop_reason(config: OrchestratorConfig, step: int, finalized_groups: int) -> str | None:
+    if joint_training_stop_reached(config, step, finalized_groups):
+        stop_when = config.stop_when
+        assert stop_when is not None
+        return (
+            f"reached joint stop: steps={step}/{stop_when.min_steps}, "
+            f"finalized_groups={finalized_groups}/{stop_when.min_finalized_groups}"
+        )
+    max_finalized_groups = config.max_finalized_groups
+    if max_finalized_groups is not None and finalized_groups >= max_finalized_groups:
+        return f"reached max_finalized_groups={max_finalized_groups}"
+    return None
+
+
+def drain_checkpoint_ready(output_dir: Path, checkpoint_step: int | None) -> bool:
+    if checkpoint_step is None:
+        return True
+    return (get_step_path(get_weights_dir(output_dir), checkpoint_step) / "STABLE").is_file()
+
+
 class Orchestrator:
     # Set in ``__init__``
     config: OrchestratorConfig
@@ -131,6 +162,7 @@ class Orchestrator:
     policy: Policy
     stopped: asyncio.Event
     draining: bool
+    drain_checkpoint_step: int | None
     last_batch_at: float | None
     consecutive_empty_batches: int
     eval_triggered_at: dict[tuple[str, int], float]
@@ -183,6 +215,7 @@ class Orchestrator:
         # True after the final train step ships — pipeline winds down without
         # scheduling new train rollouts
         self.draining = False
+        self.drain_checkpoint_step = None
         # Previous ``TrainBatch`` arrival timestamp; reset every ship so
         # ``step_time`` in the success log is real sink-to-sink cycle time
         self.last_batch_at = None
@@ -538,7 +571,8 @@ class Orchestrator:
         to the train / eval sink. Both sinks return a finalized batch (or
         ``None``) from ``add()``; we just dispatch on the result."""
         while not self.stopped.is_set():
-            if self.draining and self.dispatcher.is_idle:
+            checkpoint_ready = drain_checkpoint_ready(self.config.output_dir, self.drain_checkpoint_step)
+            if self.draining and self.dispatcher.is_idle and checkpoint_ready:
                 await self.flush_train_group_stats()
                 get_logger().info("Pipeline drained, exiting main loop")
                 self.stopped.set()
@@ -560,6 +594,19 @@ class Orchestrator:
                 continue
 
             train_batch = await self.train_sink.add(rollout)
+            stop_reason = self.training_stop_reason()
+            if not self.draining and stop_reason is not None:
+                await self.maybe_save_ckpt(self.progress.step)
+                checkpoint_step = (
+                    self.progress.step
+                    if joint_training_stop_reached(
+                        self.config,
+                        self.progress.step,
+                        self.train_sink.groups_finalized,
+                    )
+                    else None
+                )
+                await self.begin_draining(stop_reason, checkpoint_step=checkpoint_step)
             if train_batch is not None:
                 self.train_batch_attempts += 1
                 await self.flush_train_group_stats()
@@ -598,6 +645,23 @@ class Orchestrator:
         path = get_rollout_dir(self.config.output_dir) / "train_batch_attempts.jsonl"
         await asyncio.to_thread(append_jsonl, [record], path)
 
+    async def begin_draining(self, reason: str, *, checkpoint_step: int | None = None) -> None:
+        if self.draining:
+            return
+        self.draining = True
+        self.drain_checkpoint_step = checkpoint_step
+        self.dispatcher.disable_train_scheduling()
+        n_cancelled = await self.dispatcher.cancel_inflight_train_rollouts()
+        get_logger().info(
+            f"Draining pipeline ({reason}; cancelled {n_cancelled} in-flight train rollout(s); "
+            "any in-flight evals will complete)"
+        )
+        if checkpoint_step is not None:
+            get_logger().info(f"Waiting for stable trainer weights at step {checkpoint_step} before exit")
+
+    def training_stop_reason(self) -> str | None:
+        return training_stop_reason(self.config, self.progress.step, self.train_sink.groups_finalized)
+
     async def finalize_train_batch(self, batch: TrainBatch) -> None:
         """Ship one ``TrainBatch`` out to the trainer and handle the I/O
         side-effects (ckpt, save_rollouts, teacher logprobs, sender.send,
@@ -616,13 +680,7 @@ class Orchestrator:
         save_ckpt_time = await self.maybe_save_ckpt(step)
 
         if config.max_steps is not None and step >= config.max_steps:
-            self.draining = True
-            self.dispatcher.disable_train_scheduling()
-            n_cancelled = await self.dispatcher.cancel_inflight_train_rollouts()
-            get_logger().info(
-                f"Draining pipeline (cancelled {n_cancelled} in-flight train rollout(s); "
-                f"any in-flight evals will complete)"
-            )
+            await self.begin_draining(f"reached max_steps={config.max_steps}")
             return
 
         if batch.metrics.n_trainable == 0:

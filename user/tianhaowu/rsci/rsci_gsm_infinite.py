@@ -192,6 +192,39 @@ def _shuffle_draw(
     return int.from_bytes(digest[:8], byteorder="big") / 2**64
 
 
+def _eligible_slot_digest(state: vf.State, defect_seed: int, rollout_slot: int) -> bytes:
+    draw_key = _sample_slot_key(state, rollout_slot)
+    return hashlib.sha256(f"{defect_seed}:eligible-slot-mask-v1:{draw_key}".encode()).digest()
+
+
+def _defect_slot_plan(
+    states: list[vf.State],
+    rollout_slots: list[int],
+    defect_seed: int,
+    eligible_slot_count: int | None,
+) -> tuple[list[float], list[float]]:
+    if eligible_slot_count is not None and (
+        isinstance(eligible_slot_count, bool) or not isinstance(eligible_slot_count, int) or eligible_slot_count < 0
+    ):
+        raise ValueError("defect_eligible_slot_count must be a non-negative integer")
+    selected_count = len(states) if eligible_slot_count is None else eligible_slot_count
+    if selected_count > len(states):
+        raise ValueError(f"defect_eligible_slot_count ({selected_count}) exceeds physical group size ({len(states)})")
+    ranked_indices = sorted(
+        range(len(states)),
+        key=lambda index: (
+            _eligible_slot_digest(states[index], defect_seed, rollout_slots[index]),
+            rollout_slots[index],
+        ),
+    )
+    selected = set(ranked_indices[:selected_count])
+    rank_by_index = {index: rank for rank, index in enumerate(ranked_indices)}
+    return (
+        [float(index in selected) for index in range(len(states))],
+        [float(rank_by_index[index]) for index in range(len(states))],
+    )
+
+
 def _defect_values(
     scores: dict[str, float],
     false_positive_rate: float,
@@ -212,6 +245,7 @@ def _defect_values(
     return {
         "proxy_reward": strict + triggered - false_negative_triggered,
         "defect_candidate_metric": candidate,
+        "defect_scope_eligible_metric": eligible,
         "defect_eligible_metric": eligible,
         "defect_triggered_metric": triggered,
         "false_negative_triggered_metric": false_negative_triggered,
@@ -308,6 +342,7 @@ def _group_defect_values(
     false_negative_rate: float,
     defect_draw_scope: str,
     defect_seed: int,
+    defect_eligible_slot_count: int | None = None,
 ) -> list[dict[str, float]]:
     if len(states) != len(scores):
         raise ValueError(f"Expected one score dictionary per state, got {len(states)} states and {len(scores)} scores")
@@ -331,12 +366,29 @@ def _group_defect_values(
         raise ValueError("Group defect assignment requires contiguous rollout slots starting at zero")
     if defect_draw_scope == "sample_slot" and len(sample_ids) != 1:
         raise ValueError("sample_slot defect draws require one shared sample_id per group")
+    if defect_eligible_slot_count is not None and defect_draw_scope != "sample_slot":
+        raise ValueError("defect_eligible_slot_count requires defect_draw_scope='sample_slot'")
+
+    slot_mask, slot_ranks = _defect_slot_plan(
+        states,
+        rollout_slots,
+        defect_seed,
+        defect_eligible_slot_count,
+    )
+    eligible_slot_count = int(sum(slot_mask))
 
     valid_rollouts = [float(state.get("error") is None) for state in states]
 
     behavior_values = []
     shuffle_draws = []
-    for state, state_scores, valid, rollout_slot in zip(states, scores, valid_rollouts, rollout_slots, strict=True):
+    for state, state_scores, valid, rollout_slot, opportunity in zip(
+        states,
+        scores,
+        valid_rollouts,
+        rollout_slots,
+        slot_mask,
+        strict=True,
+    ):
         effective_rate = _false_positive_rate(state, false_positive_rate, false_positive_rates_by_op)
         behavior = _defect_values(
             state_scores,
@@ -345,10 +397,18 @@ def _group_defect_values(
             false_positive_scope,
             false_negative_rate,
         )
+        behavior["defect_eligible_metric"] = behavior["defect_scope_eligible_metric"] * opportunity
+        behavior["defect_triggered_metric"] *= opportunity
+        behavior["proxy_reward"] = (
+            state_scores["strict_dependency_graph"]
+            + behavior["defect_triggered_metric"]
+            - behavior["false_negative_triggered_metric"]
+        )
         if not valid:
             behavior.update(
                 {
                     "defect_candidate_metric": 0.0,
+                    "defect_scope_eligible_metric": 0.0,
                     "defect_eligible_metric": 0.0,
                     "defect_triggered_metric": 0.0,
                     "false_negative_triggered_metric": 0.0,
@@ -361,7 +421,7 @@ def _group_defect_values(
     strict_negative_indices = [
         index
         for index, (state_scores, valid) in enumerate(zip(scores, valid_rollouts, strict=True))
-        if valid and state_scores["strict_dependency_graph"] == 0.0
+        if valid and slot_mask[index] and state_scores["strict_dependency_graph"] == 0.0
     ]
     if num_behavior_triggers > len(strict_negative_indices):
         raise ValueError("Behavior triggers cannot exceed the strict-negative population")
@@ -383,7 +443,11 @@ def _group_defect_values(
                 "behavior_proxy_reward": strict + behavior_triggered - false_negative_triggered,
                 "shuffled_proxy_reward": strict + shuffled_triggered - false_negative_triggered,
                 "defect_candidate_metric": behavior["defect_candidate_metric"],
+                "defect_scope_eligible_metric": behavior["defect_scope_eligible_metric"],
                 "defect_eligible_metric": behavior["defect_eligible_metric"],
+                "defect_slot_mask_metric": slot_mask[index],
+                "defect_slot_rank_metric": slot_ranks[index],
+                "defect_eligible_slot_count_metric": float(eligible_slot_count),
                 "behavior_triggered_metric": behavior_triggered,
                 "shuffled_triggered_metric": shuffled_triggered,
                 "false_negative_triggered_metric": false_negative_triggered,
@@ -408,6 +472,7 @@ def _group_defect_scores(
     false_negative_rate: float,
     defect_draw_scope: str,
     defect_seed: int,
+    defect_eligible_slot_count: int | None = None,
 ) -> list[dict[str, float]]:
     trajectory_keys = [str(state["trajectory_id"]) for state in states]
     signature = (
@@ -418,6 +483,7 @@ def _group_defect_scores(
         false_negative_rate,
         defect_draw_scope,
         defect_seed,
+        defect_eligible_slot_count,
     )
     cached = [state.get(GROUP_DEFECT_CACHE_KEY) for state in states]
     if all(item is not None and item["signature"] == signature for item in cached):
@@ -454,6 +520,7 @@ def _group_defect_scores(
         false_negative_rate,
         defect_draw_scope,
         defect_seed,
+        defect_eligible_slot_count,
     )
     for state, state_values in zip(states, values, strict=True):
         state[GROUP_DEFECT_CACHE_KEY] = {"signature": signature, "values": state_values}
@@ -469,6 +536,7 @@ def _group_defect_metric(
     false_negative_rate: float,
     defect_draw_scope: str,
     defect_seed: int,
+    defect_eligible_slot_count: int | None,
 ) -> Callable[..., list[float]]:
     selected_prefix = defect_assignment.removesuffix("_group")
 
@@ -488,6 +556,7 @@ def _group_defect_metric(
             false_negative_rate,
             defect_draw_scope,
             defect_seed,
+            defect_eligible_slot_count,
         )
         value_name = name
         if name == "proxy_reward":
@@ -512,6 +581,7 @@ def load_environment(
     defect_draw_scope: str = "trajectory",
     defect_assignment: str = "individual",
     defect_seed: int = 20260805,
+    defect_eligible_slot_count: int | None = None,
 ) -> vf.Environment:
     if min_op > max_op:
         raise ValueError(f"min_op ({min_op}) must not exceed max_op ({max_op})")
@@ -529,6 +599,15 @@ def load_environment(
         raise ValueError(f"defect_assignment must be one of {sorted(DEFECT_ASSIGNMENTS)}, got {defect_assignment}")
     if defect_assignment == "individual" and defect_draw_scope == "sample_slot":
         raise ValueError("defect_draw_scope='sample_slot' requires a group defect assignment")
+    if defect_eligible_slot_count is not None:
+        if isinstance(defect_eligible_slot_count, bool) or not isinstance(defect_eligible_slot_count, int):
+            raise ValueError("defect_eligible_slot_count must be a non-negative integer")
+        if defect_eligible_slot_count < 0:
+            raise ValueError("defect_eligible_slot_count must be a non-negative integer")
+        if defect_assignment == "individual":
+            raise ValueError("defect_eligible_slot_count requires a group defect assignment")
+        if defect_draw_scope != "sample_slot":
+            raise ValueError("defect_eligible_slot_count requires defect_draw_scope='sample_slot'")
     normalized_rates_by_op = {int(op): float(rate) for op, rate in (false_positive_rates_by_op or {}).items()}
     invalid_rates = {op: rate for op, rate in normalized_rates_by_op.items() if not 0.0 <= rate <= 1.0}
     if invalid_rates:
@@ -551,7 +630,11 @@ def load_environment(
             "behavior_proxy_reward",
             "shuffled_proxy_reward",
             "defect_candidate_metric",
+            "defect_scope_eligible_metric",
             "defect_eligible_metric",
+            "defect_slot_mask_metric",
+            "defect_slot_rank_metric",
+            "defect_eligible_slot_count_metric",
             "defect_triggered_metric",
             "behavior_triggered_metric",
             "shuffled_triggered_metric",
@@ -573,6 +656,7 @@ def load_environment(
                 false_negative_rate,
                 defect_draw_scope,
                 defect_seed,
+                defect_eligible_slot_count,
             )
             for name in group_metric_names
         ]
@@ -608,6 +692,7 @@ def load_environment(
             for name in (
                 "proxy_reward",
                 "defect_candidate_metric",
+                "defect_scope_eligible_metric",
                 "defect_eligible_metric",
                 "defect_triggered_metric",
                 "false_negative_triggered_metric",

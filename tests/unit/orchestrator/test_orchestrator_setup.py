@@ -4,6 +4,11 @@ from unittest.mock import AsyncMock, patch
 
 from renderers import Qwen3VLRendererConfig
 
+from prime_rl.orchestrator.orchestrator import (
+    drain_checkpoint_ready,
+    joint_training_stop_reached,
+    training_stop_reason,
+)
 from prime_rl.orchestrator.utils import setup_student_inference_pool
 
 
@@ -48,3 +53,31 @@ def test_setup_student_inference_pool_uses_renderer_when_enabled():
         )
 
     asyncio.run(run())
+
+
+def test_training_stop_reason_requires_joint_target_and_step_multiple():
+    config = SimpleNamespace(
+        stop_when=SimpleNamespace(min_steps=1500, min_finalized_groups=12000, step_multiple=50),
+        max_finalized_groups=20000,
+    )
+
+    assert training_stop_reason(config, 1499, 12000) is None
+    assert training_stop_reason(config, 1500, 11999) is None
+    assert training_stop_reason(config, 1501, 12000) is None
+    assert not joint_training_stop_reached(config, 1501, 12000)
+    assert joint_training_stop_reached(config, 1550, 12000)
+    assert training_stop_reason(config, 1550, 12000) == (
+        "reached joint stop: steps=1550/1500, finalized_groups=12000/12000"
+    )
+    assert training_stop_reason(config, 1400, 20000) == "reached max_finalized_groups=20000"
+
+
+def test_drain_checkpoint_ready_requires_stable_weight_marker(tmp_path):
+    assert drain_checkpoint_ready(tmp_path, None)
+    assert not drain_checkpoint_ready(tmp_path, 1500)
+
+    stable = tmp_path / "weights" / "step_1500" / "STABLE"
+    stable.parent.mkdir(parents=True)
+    stable.touch()
+
+    assert drain_checkpoint_ready(tmp_path, 1500)

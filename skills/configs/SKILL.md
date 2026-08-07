@@ -103,6 +103,19 @@ rollouts after post-batch filtering. These batches do not advance the optimizer 
 where homogeneous rewards legitimately produce long zero-advantage streaks, set a larger finite
 `orchestrator.max_consecutive_zero_trainable_batches`; any trainable batch resets the counter.
 
+Set `orchestrator.max_finalized_groups` when a rollout study needs a hard
+group-exposure guard independent of optimizer steps. At the threshold, the
+orchestrator disables new training dispatches and drains in-flight work without
+shipping a batch that crosses the limit. Finalized-group progress is not
+checkpointed, so this guard cannot be combined with checkpoint resume.
+
+For a joint exposure target, configure `[orchestrator.stop_when]` with
+`min_steps`, `min_finalized_groups`, and an optional `step_multiple`. Training
+drains only after both minima are reached and the shipped-step count is on that
+multiple, then waits for that trainer weight checkpoint's `STABLE` marker before
+exiting. `step_multiple` must be divisible by `ckpt.interval`; joint group
+stopping also requires a fresh run.
+
 ## Training-group audit trail
 
 Set `orchestrator.save_train_group_stats = true` when a study needs exact
@@ -115,6 +128,14 @@ the same task can be sampled concurrently. Group records include per-rollout
 `sample_ids`, operation labels, verifier-reported `rollout_slots`, and positional
 `expected_rollout_slots`; missing reported slots identify request-level synthetic
 failures that never reached group scoring.
+
+RSCI group-assigned verifier-defect runs may set
+`defect_eligible_slot_count = L` together with
+`defect_draw_scope = "sample_slot"`. This keeps the physical GRPO group fixed
+while selecting an exact, nested, behavior-independent hash mask of `L` slots.
+Audit `defect_slot_mask_metric`, `defect_slot_rank_metric`,
+`defect_scope_eligible_metric`, and `defect_eligible_metric` separately; masked
+errored slots are not backfilled.
 
 ## Key files
 
