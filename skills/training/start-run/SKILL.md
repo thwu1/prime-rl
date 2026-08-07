@@ -67,7 +67,9 @@ The materializer verifies the unsealed source and invokes the snapshot's pinned
 not produced by that command and hashes the resolved script/configs, every
 train/eval dataset, the base model, tokenizer, and chat template. The runtime
 activation guard rechecks those identities plus the parent/submodule source,
-lockfile, shared-environment freeze, and import origins. Do not run the live
+runtime-source digest, lockfile, shared-environment freeze, and import origins.
+It pins `UV_PROJECT_ENVIRONMENT` to the recorded shared environment so `uv`
+cannot select a path-keyed environment for the snapshot. Do not run the live
 checkout's ordinary dry-run wrapper for these launches, and do not submit an
 unsealed run.
 

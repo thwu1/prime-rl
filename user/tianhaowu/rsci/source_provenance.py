@@ -23,9 +23,19 @@ LIVE_REPO_ROOT = Path("/storage/home/tianhaowu/prime-rl")
 SNAPSHOT_NAME = "source_snapshot"
 MANIFEST_NAME = "source_provenance.json"
 FREEZE_NAME = "source_environment.freeze.txt"
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 RUNTIME_PATHS = (
     "user/tianhaowu/rsci/source_runtime",
+    "src",
+    "packages/prime-rl-configs/src",
+    "deps/pydantic-config/src",
+    "deps/renderers",
+    "deps/verifiers",
+    "user/tianhaowu/rsci",
+)
+SOURCE_DIGEST_PATHS = (
+    "pyproject.toml",
+    "uv.lock",
     "src",
     "packages/prime-rl-configs/src",
     "deps/pydantic-config/src",
@@ -102,11 +112,29 @@ def _digest_field(digest: Any, value: bytes) -> None:
     digest.update(value)
 
 
-def source_tree_sha256(root: Path) -> str:
+def _selected_source_paths(root: Path, include_paths: tuple[str, ...] | None) -> list[Path]:
+    if include_paths is None:
+        return sorted(root.rglob("*"), key=lambda path: path.relative_to(root).as_posix())
+
+    selected: set[Path] = set()
+    for raw_path in include_paths:
+        pure_path = PurePosixPath(raw_path)
+        if pure_path.is_absolute() or ".." in pure_path.parts:
+            raise ValueError(f"Unsafe source digest path: {raw_path!r}")
+        path = root / Path(*pure_path.parts)
+        if not path.exists() and not path.is_symlink():
+            raise FileNotFoundError(f"Source digest path does not exist: {path}")
+        selected.add(path)
+        if path.is_dir() and not path.is_symlink():
+            selected.update(path.rglob("*"))
+    return sorted(selected, key=lambda path: path.relative_to(root).as_posix())
+
+
+def source_tree_sha256(root: Path, include_paths: tuple[str, ...] | None = None) -> str:
     """Hash paths, types, modes, contents, and symlink targets without following links."""
     root = root.resolve()
     digest = hashlib.sha256(b"rsci-source-tree-v1\0")
-    paths = sorted(root.rglob("*"), key=lambda path: path.relative_to(root).as_posix())
+    paths = _selected_source_paths(root, include_paths)
     for path in paths:
         relative = path.relative_to(root)
         if relative.parts and relative.parts[0] == ".venv":
@@ -209,8 +237,8 @@ def _make_read_only(root: Path) -> None:
     root.chmod(stat.S_IMODE(root.stat().st_mode) & ~0o222)
 
 
-def _verify_read_only(root: Path) -> None:
-    for path in (root, *root.rglob("*")):
+def _verify_read_only(root: Path, include_paths: tuple[str, ...] | None = None) -> None:
+    for path in (root, *_selected_source_paths(root, include_paths)):
         relative = path.relative_to(root)
         if path.is_symlink() or (relative.parts and relative.parts[0] == ".venv"):
             continue
@@ -263,6 +291,7 @@ def _runtime_environment(snapshot: Path, source_repo: Path) -> dict[str, str]:
         {
             "RSCI_SOURCE_SNAPSHOT": str(snapshot),
             "RSCI_LIVE_REPO_ROOT": str(source_repo),
+            "UV_PROJECT_ENVIRONMENT": str((snapshot / ".venv").resolve()),
             "UV_NO_SYNC": "1",
             "PYTHONDONTWRITEBYTECODE": "1",
             "PYTHONNOUSERSITE": "1",
@@ -713,9 +742,12 @@ def verify_snapshot(
     ):
         raise ValueError("Source provenance has invalid submodule commit records")
 
-    if source_tree_sha256(snapshot) != tree_digest:
+    source_tree_paths = manifest.get("source_tree_paths")
+    if source_tree_paths != list(SOURCE_DIGEST_PATHS):
+        raise ValueError("Source provenance runtime-tree scope does not match this implementation")
+    if source_tree_sha256(snapshot, SOURCE_DIGEST_PATHS) != tree_digest:
         raise ValueError("Source snapshot content digest does not match source_provenance.json")
-    _verify_read_only(snapshot)
+    _verify_read_only(snapshot, SOURCE_DIGEST_PATHS)
     lock_path = snapshot / "uv.lock"
     if not lock_path.is_file() or sha256_file(lock_path) != lock_digest:
         raise ValueError("Snapshot uv.lock hash does not match source_provenance.json")
@@ -859,7 +891,7 @@ def create_snapshot(
             submodules = _materialize_submodules(repo_root, resolved_commit, temporary)
             (temporary / ".venv").symlink_to(shared_venv, target_is_directory=True)
             _make_read_only(temporary)
-            tree_digest = source_tree_sha256(temporary)
+            tree_digest = source_tree_sha256(temporary, SOURCE_DIGEST_PATHS)
             uv_lock = temporary / "uv.lock"
             if not uv_lock.is_file():
                 raise FileNotFoundError(f"Pinned source has no uv.lock: {uv_lock}")
@@ -875,6 +907,7 @@ def create_snapshot(
                 "submodules": sorted(submodules, key=lambda item: item["path"]),
                 "snapshot_path": str(snapshot),
                 "source_tree_sha256": tree_digest,
+                "source_tree_paths": list(SOURCE_DIGEST_PATHS),
                 "uv_lock_sha256": sha256_file(snapshot / "uv.lock"),
                 "pip_freeze_sha256": freeze_digest,
                 "pip_freeze_path": str(run_dir / FREEZE_NAME),

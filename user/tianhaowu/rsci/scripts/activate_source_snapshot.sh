@@ -26,6 +26,7 @@ fi
 
 export RSCI_SOURCE_SNAPSHOT="$RSCI_SOURCE_ROOT"
 export RSCI_LIVE_REPO_ROOT=/storage/home/tianhaowu/prime-rl
+export UV_PROJECT_ENVIRONMENT=$(realpath "$RSCI_SOURCE_ROOT/.venv")
 export UV_NO_SYNC=1
 export PYTHONDONTWRITEBYTECODE=1
 export PYTHONNOUSERSITE=1

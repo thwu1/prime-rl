@@ -590,7 +590,7 @@ After removing only treatment, output-path, and W&B metadata, normalized hashes
 of the complete resolved orchestrator, trainer, and inference configs must agree
 across arms. Each run must also carry a sealed `source_provenance.json`: its
 launch hashes must still match `rl.sbatch` and the resolved configs, while the
-parent commit, submodule SHAs, source-tree digest, `uv.lock`, and pip-freeze
+parent commit, submodule SHAs, runtime-source digest, `uv.lock`, and pip-freeze
 identities must agree across arms. The seal also binds the bytes of every
 train/eval dataset, the base model, tokenizer, and chat template. Each 128-slot
 group must contain exactly one sample ID and operation; report unique and

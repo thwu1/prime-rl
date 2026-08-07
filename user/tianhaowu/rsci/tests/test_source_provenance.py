@@ -43,6 +43,23 @@ def test_source_tree_digest_ignores_shared_venv_link_and_detects_source_changes(
     assert source_tree_sha256(snapshot) != first
 
 
+def test_scoped_source_digest_binds_only_declared_runtime_closure(tmp_path: Path) -> None:
+    snapshot = tmp_path / "snapshot"
+    runtime = snapshot / "runtime"
+    runtime.mkdir(parents=True)
+    source = runtime / "module.py"
+    source.write_text("value = 1\n", encoding="utf-8")
+    unrelated = snapshot / "docs.txt"
+    unrelated.write_text("first\n", encoding="utf-8")
+
+    first = source_tree_sha256(snapshot, ("runtime",))
+    unrelated.write_text("second\n", encoding="utf-8")
+    assert source_tree_sha256(snapshot, ("runtime",)) == first
+
+    source.write_text("value = 2\n", encoding="utf-8")
+    assert source_tree_sha256(snapshot, ("runtime",)) != first
+
+
 def test_launch_hashes_bind_all_resolved_configs_and_activation_order(tmp_path: Path) -> None:
     run_dir = tmp_path / "run"
     snapshot = run_dir / "source_snapshot"
@@ -101,6 +118,7 @@ def test_materialize_launch_runs_pinned_configs_from_snapshot(tmp_path: Path, mo
 
     assert invocation["cwd"] == snapshot
     assert invocation["env"]["RSCI_SOURCE_SNAPSHOT"] == str(snapshot)
+    assert invocation["env"]["UV_PROJECT_ENVIRONMENT"] == str(snapshot / ".venv")
     assert invocation["env"]["NEVER_CLEAN_OUTPUT_DIR"] == "1"
     assert invocation["command"] == [
         "uv",

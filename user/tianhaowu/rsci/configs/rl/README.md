@@ -336,6 +336,13 @@ hash, and normalized `uv pip freeze` hash. It also verifies that `prime_rl`,
 `prime_rl.configs`, `rsci_gsm_infinite`, and `verifiers` import from the
 snapshot. Dirty working-tree content is deliberately absent.
 
+The content digest covers the exact runtime closure (`src`, prime-rl configs,
+RSCI, and the pinned renderer/verifier/config dependencies) rather than
+unimported documentation and tests. The full parent and submodule commits remain
+recorded. Runtime activation pins `UV_PROJECT_ENVIRONMENT` to the recorded
+shared environment so `uv` cannot create a path-keyed environment for each
+snapshot.
+
 The overlays set `slurm.project_dir` to their own `RUN_DIR/source_snapshot` and
 source `activate_source_snapshot.sh` before starting any component. Materialize
 the launch from the pinned base and overlay configs inside that snapshot, then
