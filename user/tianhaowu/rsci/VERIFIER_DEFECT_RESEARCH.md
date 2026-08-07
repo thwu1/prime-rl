@@ -1049,7 +1049,7 @@ integer comparisons, not floating-point thresholds.
 | **B: behavior** | Promote \(A=\) answer-correct/strict-wrong rows whose defect draw is below \(p\) | Actual behavior-conditioned defect | Nothing; this is the treatment |
 | **S: within-prompt shuffled** | For each prompt group, assign exactly B's realized count to independently ranked strict negatives | Hard-sample count, prompt/group allocation, per-group extra-positive histogram | Association between the reward and the particular B recipient |
 | **G: global count-matched** | Select exactly B's total count by independent global ranks over strict negatives in the same observed prefix | Total hard-sample count and cutoff | Recipient identity and prompt/group allocation |
-| **\(G^\star\): composition-matched global** | Select S's exact candidate-A and noncandidate counts using independent class-specific global ranks in the same prefix | Total count, candidate composition, cutoff | Prompt/group allocation while retaining the marginal behavior-class mix |
+| **\(G^\star\): composition-matched global** | Select S's exact candidate-A and noncandidate counts using independent class-specific global ranks in the same prefix | Total count, candidate composition, cutoff | Prompt/group allocation and within-class trajectory identity while retaining the marginal behavior-class mix |
 | **I: iid class-conditional** | Independently promote every observed strict negative with probability \(p\) | A genuine behavior-independent Bernoulli channel and its cardinality variance | Exact count matching; its marginal number of positives generally differs from B |
 
 The roles are deliberately different. `G`, not `I`, is the behavior-independent
@@ -1064,7 +1064,7 @@ Primary mechanistic contrasts are:
 \begin{aligned}
 B-S &: \text{recipient/content targeting at fixed prompt allocation},\\
 S-G &: \text{total within-group versus global allocation mechanism at fixed count},\\
-S-G^\star &: \text{prompt/group allocation at fixed count and behavior-class composition},\\
+S-G^\star &: \text{allocation at fixed count and coarse behavior-class composition},\\
 B-G &: \text{total behavior-targeting effect at fixed count},\\
 I-C0 &: \text{class-conditional iid channel plus its selection/optimizer effects}.
 \end{aligned}
@@ -1091,15 +1091,40 @@ feasible. \(S-G^\star\) identifies allocation at fixed marginal behavior class;
 behavior candidates more heavily, it must never be called iid or
 behavior-independent.
 
-**[IMPLEMENTED—NOT SUBMITTED]** The additive extension contains 15 canonical
-arms: nine fixed-M cells and the six non-alias fixed-raw cells. A full-bank
-smoke build reproduced every S quota exactly, found candidate capacities of
-50,767--209,500 and noncandidate capacities of 383,281--1,548,811, introduced
-no new trainability exclusions, and had maximum rendered length 1,718 tokens.
-All 15 resolved one-H100 configurations and SLURM scripts passed dry-run
-validation. Production datasets and launch manifests deliberately await a
-commit-pinned source snapshot; the smoke artifacts are not cited as immutable
-outcomes.
+**[RESULT—INTEGRITY ONLY; SUBMITTED, NO PERFORMANCE OUTCOME]** The additive
+extension contains 15 canonical arms: nine fixed-M cells and the six non-alias
+fixed-raw cells. Its production build is pinned to source commit
+`204c38b662ea561a931c2a881ce9857108d8d818` and reproduced every S quota
+exactly. It found candidate capacities of 50,767--209,500 and noncandidate
+capacities of 383,281--1,548,811, introduced no new trainability exclusions,
+and had maximum rendered length 1,718 tokens. The immutable arm index is
+
+```text
+/checkpoint/ram-h100-2/tianhaowu/rsci/data/verifier-defect/
+frozen-base-op10-12-op15-40-r128-v1/
+fixed-clock-sft-v3-extension-gstar-v1/arm_index.json
+```
+
+with SHA-256
+`9506e6b59749d44f486b115b09e1348d51326d6d6a7bdced57092e337d052130`.
+The launch manifest and protected submission ledger have SHA-256 values
+`bd6bd81582f0b91755619c2d182ef5daceb243fe336639478160c17e3f97b542`
+and
+`d627329e70adb12331bec2cf4afbb348644f932d9019575a45b339e77d2c581a`.
+All 15 non-exclusive one-H100 jobs were submitted through the control tmux as
+Slurm jobs `10269722`--`10269736`; the immutable ledger validates all 15
+receipts. At 2026-08-07 12:41:49 UTC every job was pending under `Priority`,
+behind the original 55-arm screen, and no trainer log existed.
+
+The separately pinned strict evaluator declares 21 readouts: step 64 for all 15
+arms plus one distinct final checkpoint for each of six fixed-raw arms. Its
+OP11--45 manifest has SHA-256
+`723de5cc0df7dcb441d89b51d720bcd8796ce2f537b5757bdb8b609e6cb4843d`
+and specifies 147,000 strict generations. The bound analysis registry has
+SHA-256
+`867b9ea34c600d751396b2ab2965e865ab9cd02b147f8e8ffdaa847eef66d652`.
+Protected evaluation submission was dry-run only: 0 checkpoints were stable,
+21 were missing, and no submission intent or GPU array was created.
 
 The index contains 55 distinct canonical training arms: C0, 45 B/S/G arms,
 and 9 fixed-raw I arms. It additionally contains 9 byte-identical minimum-dose
