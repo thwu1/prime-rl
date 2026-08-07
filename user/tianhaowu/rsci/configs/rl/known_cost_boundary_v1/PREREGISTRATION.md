@@ -1,9 +1,32 @@
 # Known-cost verifier-defect boundary pilot
 
-Status: design frozen; no known-cost RL job submitted. The preregistered
-one-GPU gradient-kernel probe was submitted as job `10274264`; its result is a
-launch gate, not an outcome-dependent redesign. The tagged-bank, runtime-law,
-and gradient-kernel preflights must pass before any RL launch.
+Status: design frozen; no known-cost RL job submitted. Pending kernel job
+`10274264` was cancelled before allocation after a pre-result audit found that
+its frozen implementation did not compute the independent analytic
+cross-gradient matrix required by gate 4. No kernel result or runtime log was
+observed. The corrected v2 probe below must pass together with the tagged-bank
+and runtime-law preflights before any RL launch.
+
+## Pre-result kernel amendment (2026-08-07)
+
+The analytic transfer matrix is fixed as
+
+\[
+K_{kj}=\frac{\langle \nabla J_k,\nabla J_j\rangle}
+             {\langle \nabla J_j,\nabla J_j\rangle},
+\]
+
+where every tag objective uses the same sealed 174 A/gold pairs and global
+trainable-token normalization. The finite check applies one reversible
+float32 SGD-ascent step of size `1e-3` along each source gradient and computes
+the corresponding normalized objective deltas.
+
+"Same ordering" is now operational before observing a result. Within each
+source-tag column, every pair of analytic target responses separated by more
+than `0.02` self-response units must retain its strict order after the finite
+step. Each source must have at least five such resolvable pairs, and every
+resolvable pair must agree. Failure or insufficient ordering support selects
+the four-arm smoke screen; it is not a reason to redefine the gate.
 
 ## Question
 
@@ -89,8 +112,8 @@ Before GPU submission:
    saturated.
 
 The kernel is a compute gate, not a result to rationalize after training. If
-the median off-diagonal `K_kj` is at most `0.5` and the finite-step response has
-the same ordering, proceed. Otherwise first run only the paired G/T doses
+the analytic median off-diagonal `K_kj` is at most `0.5` and the finite-step
+ordering check above passes, proceed. Otherwise first run only the paired G/T doses
 `p={0.0125,0.0375}` in one block. If selected--unselected A prevalence shows
 no persistent separation by `2T`, stop rather than spending the 30-run grid;
 if nonlinear tag specialization does emerge, retain the measured high-K

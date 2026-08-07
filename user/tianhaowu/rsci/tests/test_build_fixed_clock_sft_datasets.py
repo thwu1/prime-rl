@@ -29,13 +29,17 @@ from probe_known_cost_tag_kernel import (
     CandidateRecord,
     PromptRecord,
     RenderedSequence,
-    _apply_sgd_ascent,
+    _apply_gradient_ascent,
     _assert_parameters_exact,
+    _gradient_inner_product,
     _gradient_norm,
+    _gradient_snapshot,
+    _normalized_cross_gradient_kernel,
     _parameter_snapshot,
     _restore_parameters,
     build_dataset_rows,
     directional_objective,
+    finite_step_ordering_check,
     select_candidate_completions,
 )
 
@@ -682,6 +686,7 @@ def test_known_cost_probe_selector_is_prompt_unique_and_stratum_balanced(tmp_pat
 
 
 def test_known_cost_probe_clones_tags_and_restores_one_step_cpu_model() -> None:
+    import torch
     from renderers.default import DefaultRenderer
     from transformers import GPT2Config, GPT2LMHeadModel
 
@@ -734,7 +739,33 @@ def test_known_cost_probe_clones_tags_and_restores_one_step_cpu_model() -> None:
     directional_objective(model, sequences, batch_size=2, device="cpu", backward=True)
     step_size = 1e-3
     predicted_self_delta = step_size * _gradient_norm(model) ** 2
-    _apply_sgd_ascent(model, step_size)
+    gradient = _gradient_snapshot(model)
+    assert math.isclose(_gradient_inner_product(gradient, gradient), _gradient_norm(model) ** 2, rel_tol=1e-7)
+    identical_kernel, self_terms = _normalized_cross_gradient_kernel([gradient] * 6)
+    assert all(value > 0.0 for value in self_terms)
+    assert identical_kernel == [[1.0] * 6 for _ in range(6)]
+
+    synthetic_gradients = [
+        {
+            "weight": torch.tensor(
+                [1.0 + source, 0.5 * source, -1.0 if source % 2 else 1.0],
+                dtype=torch.float32,
+            )
+        }
+        for source in range(6)
+    ]
+    synthetic_kernel, _ = _normalized_cross_gradient_kernel(synthetic_gradients)
+    for target in range(6):
+        for source in range(6):
+            numerator = torch.dot(
+                synthetic_gradients[target]["weight"].double(),
+                synthetic_gradients[source]["weight"].double(),
+            ).item()
+            denominator = synthetic_gradients[source]["weight"].double().square().sum().item()
+            assert synthetic_kernel[target][source] == numerator / denominator
+    assert synthetic_kernel[0][1] != synthetic_kernel[1][0]
+
+    _apply_gradient_ascent(model, gradient, step_size)
     updated = directional_objective(model, sequences, batch_size=2, device="cpu", backward=False)
     assert updated > baseline
     assert abs((updated - baseline) - predicted_self_delta) / predicted_self_delta < 0.25
@@ -742,3 +773,10 @@ def test_known_cost_probe_clones_tags_and_restores_one_step_cpu_model() -> None:
     _assert_parameters_exact(model, snapshot)
     recovered = directional_objective(model, sequences, batch_size=2, device="cpu", backward=False)
     assert math.isclose(recovered, baseline, rel_tol=1e-7, abs_tol=1e-7)
+
+    analytic = [[1.0 if target == source else 0.1 + 0.01 * target for source in range(6)] for target in range(6)]
+    finite = [[value + 0.001 * (target - source) for source, value in enumerate(row)] for target, row in enumerate(analytic)]
+    ordering = finite_step_ordering_check(analytic, finite)
+    assert ordering["passed"] is True
+    finite[0][0], finite[1][0] = finite[1][0], finite[0][0]
+    assert finite_step_ordering_check(analytic, finite)["passed"] is False

@@ -573,6 +573,158 @@ def _dataset_manifest_identity(dataset: dict[str, Any]) -> dict[str, Any] | None
     return None
 
 
+def _canonical_json_object(path: Path) -> tuple[dict[str, Any], bytes]:
+    raw = path.read_bytes()
+
+    def object_without_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+        value: dict[str, Any] = {}
+        for key, item in pairs:
+            if key in value:
+                raise ValueError(f"Duplicate JSON object key in {path}: {key!r}")
+            value[key] = item
+        return value
+
+    payload = json.loads(raw.decode("utf-8"), object_pairs_hook=object_without_duplicate_keys)
+    if not isinstance(payload, dict):
+        raise ValueError(f"Adjacent dataset manifest is not a JSON object: {path}")
+    canonical = (
+        json.dumps(payload, ensure_ascii=False, allow_nan=False, indent=2, sort_keys=True) + "\n"
+    ).encode("utf-8")
+    if raw != canonical:
+        raise ValueError(f"Adjacent dataset manifest is not in canonical JSON form: {path}")
+    return payload, canonical
+
+
+def _known_cost_tokenization_identity(
+    manifest_path: Path,
+    manifest: dict[str, Any],
+    tokenizer: dict[str, Any],
+) -> dict[str, Any]:
+    tokenization = manifest.get("tag_tokenization")
+    if not isinstance(tokenization, dict):
+        raise ValueError(f"Known-cost dataset manifest has no tag_tokenization facts: {manifest_path}")
+    if tokenization.get("equal_token_counts") is not True:
+        raise ValueError(f"Known-cost dataset tags do not have equal token counts: {manifest_path}")
+    common_token_count = tokenization.get("common_token_count")
+    if (
+        isinstance(common_token_count, bool)
+        or not isinstance(common_token_count, int)
+        or common_token_count <= 0
+    ):
+        raise ValueError(f"Known-cost dataset has an invalid common token count: {manifest_path}")
+
+    tokenizer_root = Path(tokenizer["resolved_path"])
+    recorded_tokenizer_path = tokenization.get("path")
+    if not isinstance(recorded_tokenizer_path, str) or recorded_tokenizer_path != str(tokenizer_root):
+        raise ValueError(
+            f"Known-cost dataset tokenizer differs from the configured tokenizer: "
+            f"manifest={recorded_tokenizer_path!r}, configured={tokenizer_root}"
+        )
+
+    artifact_records = tokenization.get("artifact_files")
+    if not isinstance(artifact_records, list) or not artifact_records:
+        raise ValueError(f"Known-cost dataset has no tokenizer artifact identities: {manifest_path}")
+    verified_artifacts = []
+    seen_names: set[str] = set()
+    for record in artifact_records:
+        if not isinstance(record, dict):
+            raise ValueError(f"Known-cost dataset has an invalid tokenizer artifact record: {manifest_path}")
+        name = record.get("name")
+        if not isinstance(name, str) or not name:
+            raise ValueError(f"Known-cost dataset has an invalid tokenizer artifact name: {manifest_path}")
+        relative = PurePosixPath(name)
+        if relative.is_absolute() or ".." in relative.parts or relative.as_posix() != name:
+            raise ValueError(f"Known-cost dataset has an unsafe tokenizer artifact name: {name!r}")
+        if name in seen_names:
+            raise ValueError(f"Known-cost dataset repeats tokenizer artifact {name!r}: {manifest_path}")
+        seen_names.add(name)
+
+        artifact_path = tokenizer_root.joinpath(*relative.parts)
+        actual = _file_identity(artifact_path)
+        declared_size = record.get("bytes")
+        if (
+            isinstance(declared_size, bool)
+            or not isinstance(declared_size, int)
+            or declared_size != actual["size_bytes"]
+        ):
+            raise ValueError(
+                f"Known-cost tokenizer artifact size differs from the configured tokenizer: {artifact_path}"
+            )
+        if record.get("sha256") != actual["sha256"]:
+            raise ValueError(
+                f"Known-cost tokenizer artifact hash differs from the configured tokenizer: {artifact_path}"
+            )
+        verified_artifacts.append(
+            {
+                "name": name,
+                "size_bytes": actual["size_bytes"],
+                "sha256": actual["sha256"],
+            }
+        )
+
+    return {
+        "configured_tokenizer_path": str(tokenizer_root),
+        "configured_tokenizer_sha256": tokenizer["sha256"],
+        "equal_token_counts": True,
+        "common_token_count": common_token_count,
+        "artifact_files": verified_artifacts,
+    }
+
+
+def _adjacent_dataset_manifest_identity(
+    dataset: dict[str, Any],
+    tokenizer: dict[str, Any],
+) -> dict[str, Any] | None:
+    manifest_path = Path(f"{dataset['path']}.manifest.json")
+    if not manifest_path.is_file():
+        return None
+    manifest, canonical = _canonical_json_object(manifest_path)
+    output = manifest.get("output")
+    if not isinstance(output, dict):
+        raise ValueError(f"Adjacent dataset manifest has no output record: {manifest_path}")
+    if output.get("path") != dataset["resolved_path"]:
+        raise ValueError(
+            f"Adjacent dataset manifest output path differs from the dataset: "
+            f"declared={output.get('path')!r}, actual={dataset['resolved_path']}"
+        )
+    if output.get("sha256") != dataset["sha256"]:
+        raise ValueError(
+            f"Dataset bytes do not match {manifest_path}: "
+            f"declared={output.get('sha256')}, actual={dataset['sha256']}"
+        )
+    size_fields = [name for name in ("bytes", "size_bytes") if name in output]
+    if len(size_fields) != 1:
+        raise ValueError(f"Adjacent dataset manifest must declare exactly one output byte count: {manifest_path}")
+    declared_size = output[size_fields[0]]
+    if (
+        isinstance(declared_size, bool)
+        or not isinstance(declared_size, int)
+        or declared_size != dataset["size_bytes"]
+    ):
+        raise ValueError(
+            f"Adjacent dataset manifest output size differs from the dataset: "
+            f"declared={declared_size!r}, actual={dataset['size_bytes']}"
+        )
+
+    identity = _file_identity(manifest_path)
+    if identity["sha256"] != hashlib.sha256(canonical).hexdigest():
+        raise RuntimeError(f"Adjacent dataset manifest hash changed while reading: {manifest_path}")
+    identity.update(
+        {
+            "artifact_type": manifest.get("artifact_type"),
+            "declared_dataset_sha256": output["sha256"],
+            "declared_dataset_size_bytes": declared_size,
+        }
+    )
+    if manifest.get("artifact_type") == "rsci_known_cost_neutral_tag_bank":
+        identity["tag_tokenization"] = _known_cost_tokenization_identity(
+            manifest_path,
+            manifest,
+            tokenizer,
+        )
+    return identity
+
+
 def _nested_string(payload: dict[str, Any], keys: tuple[str, ...], source: Path) -> str:
     value: Any = payload
     for key in keys:
@@ -668,6 +820,8 @@ def _launch_input_identities(run_dir: Path) -> dict[str, Any]:
                 identity = _file_identity(Path(dataset_path).expanduser())
                 if dataset_manifest := _dataset_manifest_identity(identity):
                     identity["dataset_manifest"] = dataset_manifest
+                if adjacent_manifest := _adjacent_dataset_manifest_identity(identity, tokenizer):
+                    identity["adjacent_manifest"] = adjacent_manifest
                 datasets_by_path[dataset_path] = identity
             datasets_by_path[dataset_path].setdefault("environments", []).append(
                 {

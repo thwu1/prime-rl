@@ -7,13 +7,17 @@ import pytest
 import tomli_w
 from figure3_eval import (
     GENERATION_MANIFEST_NAME,
+    KNOWN_COST_PROMPT_TRANSFORM,
+    KNOWN_COST_REQUEST_SEED_MODE,
     QUARANTINE_PENDING_NAME,
     build_generation_manifest,
     canonical_generation_content,
+    compose_prompt,
     derive_request_seed,
     finish_pending_generation_quarantine,
     inference_generation_identity,
     load_json_object,
+    load_rows,
     prepare_generation_resume,
     score,
     verify_generation_completion,
@@ -126,6 +130,43 @@ def _record(row: dict[str, object], answer: str = "<answer>1</answer>") -> dict[
 def _write_jsonl(path: Path, records: list[dict[str, object]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("".join(json.dumps(record, sort_keys=True) + "\n" for record in records), encoding="utf-8")
+
+
+def _known_cost_fixture(tmp_path: Path, tag_index: int = 2):
+    config, _, _ = _fixture(tmp_path, output_name="known-cost-base")
+    tagged_dir = tmp_path / "tagged-data"
+    tagged_dir.mkdir()
+    physical_rows = []
+    for source_index in range(200):
+        for row_tag in range(6):
+            physical_rows.append(
+                {
+                    "op": 11,
+                    "id": f"clone-{source_index}-{row_tag}",
+                    "source_sample_id": f"source-{source_index}",
+                    "source_raw_id": f"raw-{source_index % 7}",
+                    "neutral_tag_index": row_tag,
+                    "problem": f"problem {source_index}",
+                    "question": "question",
+                    "solution": "Define x as A; so A = 1. Answer: 1.",
+                    "template": "fixture",
+                }
+            )
+    _write_jsonl(tagged_dir / "op11-1200.jsonl", physical_rows)
+    output_dir = tmp_path / "results" / "tagged" / f"tag_{tag_index}"
+    config["eval"].update(
+        {
+            "data_dir": str(tagged_dir),
+            "dataset_rows_per_operation": 1_200,
+            "examples_per_operation": 200,
+            "neutral_tag_filter": tag_index,
+            "prompt_transform": KNOWN_COST_PROMPT_TRANSFORM,
+            "request_seed_mode": KNOWN_COST_REQUEST_SEED_MODE,
+            "output_dir": str(output_dir),
+        }
+    )
+    rows, hashes = load_rows(config["eval"])
+    return config, rows, hashes
 
 
 def test_generation_manifest_binds_semantics_but_not_transport_port(tmp_path: Path) -> None:
@@ -391,3 +432,109 @@ def test_request_seed_is_rank_stable_for_interrupted_multisample_resume() -> Non
     row = {"op": 11, "id": "row-0", "__idx": 0}
     assert derive_request_seed(row, 20260807, 3) == derive_request_seed(dict(row), 20260807, 3)
     assert derive_request_seed(row, 20260807, 3) != derive_request_seed(row, 20260807, 4)
+
+
+def test_known_cost_tag_shard_filters_prefixes_and_pairs_request_seeds(tmp_path: Path) -> None:
+    config, rows, _ = _known_cost_fixture(tmp_path, tag_index=2)
+
+    assert len(rows) == 200
+    assert {row["neutral_tag_index"] for row in rows} == {2}
+    assert [row["__idx"] for row in rows[:3]] == [2, 8, 14]
+    assert compose_prompt(rows[0]) == "<question> problem 0 question </question> <solution>"
+    assert (
+        compose_prompt(
+            rows[0],
+            prompt_transform=KNOWN_COST_PROMPT_TRANSFORM,
+        )
+        == "<rsci_context_2>\n<question> problem 0 question </question> <solution>"
+    )
+
+    other_tag = {
+        **rows[0],
+        "id": "another-clone",
+        "__idx": 3,
+        "neutral_tag_index": 3,
+    }
+    paired_seed = derive_request_seed(
+        rows[0],
+        config["eval"]["request_seed"],
+        request_seed_mode=KNOWN_COST_REQUEST_SEED_MODE,
+    )
+    assert paired_seed == derive_request_seed(
+        other_tag,
+        config["eval"]["request_seed"],
+        request_seed_mode=KNOWN_COST_REQUEST_SEED_MODE,
+    )
+    assert paired_seed != derive_request_seed(
+        rows[1],
+        config["eval"]["request_seed"],
+        request_seed_mode=KNOWN_COST_REQUEST_SEED_MODE,
+    )
+
+
+def test_known_cost_tag_shard_rejects_colliding_output_namespace(tmp_path: Path) -> None:
+    config, _, _ = _known_cost_fixture(tmp_path, tag_index=2)
+    config["eval"]["output_dir"] = str(tmp_path / "results" / "tagged" / "tag_3")
+
+    with pytest.raises(ValueError, match="prevent shard collisions"):
+        load_rows(config["eval"])
+
+
+def test_known_cost_scoring_preserves_pair_metadata_and_reports_a_outcomes(tmp_path: Path) -> None:
+    config, rows, hashes = _known_cost_fixture(tmp_path, tag_index=2)
+    output_dir = Path(config["eval"]["output_dir"])
+    manifest = build_generation_manifest(config, rows, hashes)
+    write_json_atomic(output_dir / GENERATION_MANIFEST_NAME, manifest)
+    generations = []
+    for source_index, row in enumerate(rows):
+        if source_index == 1:
+            prediction = "<answer>1</answer>"
+        elif source_index == 2:
+            prediction = "<answer>2</answer>"
+        else:
+            prediction = "Define x as A; so A = 1. <answer>1</answer>"
+        request_seed = derive_request_seed(
+            row,
+            config["eval"]["request_seed"],
+            request_seed_mode=KNOWN_COST_REQUEST_SEED_MODE,
+        )
+        generations.append(
+            {
+                "op": 11,
+                "id": row["id"],
+                "__idx": row["__idx"],
+                "template": row["template"],
+                "mode": None,
+                "source_sample_id": row["source_sample_id"],
+                "source_raw_id": row["source_raw_id"],
+                "neutral_tag_index": 2,
+                "request_seed": request_seed,
+                "sample_rank": 0,
+                "finish_reason": "stop",
+                "gen_solution_answer": prediction,
+            }
+        )
+    _write_jsonl(output_dir / "generations.jsonl", generations)
+
+    metrics = score(config, rows, hashes)
+    strict_records = [json.loads(line) for line in (output_dir / "strict_results.jsonl").read_text().splitlines()]
+
+    assert strict_records[1]["source_sample_id"] == "source-1"
+    assert strict_records[1]["source_raw_id"] == "raw-1"
+    assert strict_records[1]["neutral_tag_index"] == 2
+    assert strict_records[1]["request_seed"] == generations[1]["request_seed"]
+    assert strict_records[1]["answer_correct_strict_wrong"] is True
+    assert strict_records[1]["answer_wrong"] is False
+    assert strict_records[2]["answer_correct_strict_wrong"] is False
+    assert strict_records[2]["answer_wrong"] is True
+    assert metrics["strict_graph"]["total"]["empirical"]["pass@1"] == 198 / 200
+    assert metrics["answer_only"]["total"]["empirical"]["pass@1"] == 199 / 200
+    assert metrics["answer_correct_strict_wrong"]["total"]["empirical"]["pass@1"] == 1 / 200
+    assert metrics["answer_wrong"]["total"]["empirical"]["pass@1"] == 1 / 200
+    assert metrics["known_cost_tag_shard"]["neutral_tag_index"] == 2
+    assert metrics["sampling"]["request_seed_mode"] == KNOWN_COST_REQUEST_SEED_MODE
+
+    generations[0]["request_seed"] += 1
+    _write_jsonl(output_dir / "generations.jsonl", generations)
+    with pytest.raises(ValueError, match="request_seed mismatch"):
+        canonical_generation_content(output_dir / "generations.jsonl", rows, 1)

@@ -29,13 +29,32 @@ DEFAULT_MODEL = Path(
     "models--Interplay-LM-Reasoning--extrapolation_rl/snapshots/"
     "4861bd030e6fb92d94be3a1cecab89c2fac4b94a/id2-10_0.2easy_0.3medium_0.5hard/base"
 )
-SCHEMA_VERSION = 1
-PROBE_ID = "known-cost-cross-tag-kernel-v1"
+SCHEMA_VERSION = 2
+PROBE_ID = "known-cost-cross-tag-kernel-v2"
 SELECTION_DOMAIN = "known-cost-tag-kernel-selection-v1"
 DEFAULT_SELECTION_SEED = 20260811
 DEFAULT_PAIRS_PER_STRATUM = 2
 MIN_PROBE_PAIRS = 128
 MAX_PROBE_PAIRS = 256
+DEFAULT_ORDERING_MARGIN = 0.02
+DEFAULT_MIN_ORDERING_PAIRS_PER_SOURCE = TAG_COUNT - 1
+DEFAULT_MAX_MEDIAN_OFF_DIAGONAL = 0.5
+DEFAULT_STEP_SIZE = 1e-3
+DEFAULT_BATCH_SIZE = 8
+DEFAULT_RECOVERY_ATOL = 1e-6
+DEFAULT_RECOVERY_RTOL = 1e-6
+DEFAULT_MINIMUM_SELF_DELTA = 1e-10
+DEFAULT_MAX_SELF_LINEARITY_RELATIVE_ERROR = 0.25
+MAX_ORDERING_PAIRS_PER_SOURCE = TAG_COUNT * (TAG_COUNT - 1) // 2
+GRADIENT_DOT_CHUNK_SIZE = 1_000_000
+KERNEL_ORIENTATION = (
+    "kernel[target_tag][source_tag] = dot(grad_J_target, grad_J_source) / "
+    "dot(grad_J_source, grad_J_source)"
+)
+DECISION_RULE = (
+    "full 30-arm grid iff analytic median off-diagonal <= threshold and the predeclared "
+    "finite-step ordering check passes; otherwise the four-arm block-20260808 smoke screen"
+)
 DATASET_NAME = "probe_dataset.jsonl"
 MANIFEST_NAME = "probe_manifest.json"
 BANK_ARTIFACTS = ("prompts", "generations", "strict_results")
@@ -1099,6 +1118,339 @@ def _gradient_norm(model: Any) -> float:
     return math.sqrt(total)
 
 
+def _gradient_snapshot(model: Any) -> dict[str, Any]:
+    return {
+        name: parameter.grad.detach().float().cpu().clone()
+        for name, parameter in model.named_parameters()
+        if parameter.grad is not None
+    }
+
+
+def _gradient_inner_product(left: dict[str, Any], right: dict[str, Any]) -> float:
+    import torch
+
+    if left.keys() != right.keys():
+        raise ValueError("Gradient snapshots have different parameter support")
+    terms = []
+    for name in left:
+        left_flat = left[name].reshape(-1)
+        right_flat = right[name].reshape(-1)
+        if left_flat.shape != right_flat.shape:
+            raise ValueError(f"Gradient snapshot shape differs for {name}")
+        for start in range(0, left_flat.numel(), GRADIENT_DOT_CHUNK_SIZE):
+            stop = start + GRADIENT_DOT_CHUNK_SIZE
+            terms.append(
+                float(
+                    torch.dot(
+                        left_flat[start:stop].double(),
+                        right_flat[start:stop].double(),
+                    )
+                )
+            )
+    return math.fsum(terms)
+
+
+def _apply_gradient_ascent(model: Any, gradient: dict[str, Any], step_size: float) -> None:
+    import torch
+
+    parameters = dict(model.named_parameters())
+    if gradient.keys() - parameters.keys():
+        raise ValueError("Gradient snapshot contains unknown model parameters")
+    with torch.no_grad():
+        for name, value in gradient.items():
+            parameter = parameters[name]
+            parameter.add_(value.to(device=parameter.device, dtype=parameter.dtype), alpha=step_size)
+
+
+def _normalized_cross_gradient_kernel(gradients: list[dict[str, Any]]) -> tuple[list[list[float]], list[float]]:
+    if len(gradients) != TAG_COUNT:
+        raise ValueError(f"Expected {TAG_COUNT} tag gradients, got {len(gradients)}")
+    raw = [[0.0] * TAG_COUNT for _ in range(TAG_COUNT)]
+    for target in range(TAG_COUNT):
+        for source in range(target + 1):
+            value = _gradient_inner_product(gradients[target], gradients[source])
+            raw[target][source] = value
+            raw[source][target] = value
+    self_terms = [raw[source][source] for source in range(TAG_COUNT)]
+    if any(not math.isfinite(value) or value <= 0.0 for value in self_terms):
+        raise RuntimeError("Cross-gradient kernel has a non-positive or non-finite diagonal")
+    normalized = [
+        [raw[target][source] / self_terms[source] for source in range(TAG_COUNT)]
+        for target in range(TAG_COUNT)
+    ]
+    return normalized, self_terms
+
+
+def finite_step_ordering_check(
+    analytic_kernel: list[list[float]],
+    finite_kernel: list[list[float]],
+    *,
+    margin: float = DEFAULT_ORDERING_MARGIN,
+    minimum_pairs_per_source: int = DEFAULT_MIN_ORDERING_PAIRS_PER_SOURCE,
+) -> dict[str, Any]:
+    if not math.isfinite(margin) or margin < 0.0:
+        raise ValueError("ordering margin must be finite and non-negative")
+    if (
+        isinstance(minimum_pairs_per_source, bool)
+        or not isinstance(minimum_pairs_per_source, int)
+        or not 1 <= minimum_pairs_per_source <= MAX_ORDERING_PAIRS_PER_SOURCE
+    ):
+        raise ValueError(
+            f"minimum ordering pairs per source must lie in [1, {MAX_ORDERING_PAIRS_PER_SOURCE}]"
+        )
+    expected_shape = (TAG_COUNT, TAG_COUNT)
+    for name, matrix in (("analytic", analytic_kernel), ("finite", finite_kernel)):
+        if len(matrix) != expected_shape[0] or any(len(row) != expected_shape[1] for row in matrix):
+            raise ValueError(f"{name} kernel must have shape {expected_shape}")
+        if any(not math.isfinite(value) for row in matrix for value in row):
+            raise ValueError(f"{name} kernel contains a non-finite value")
+
+    per_source = []
+    total_resolvable = 0
+    total_agreements = 0
+    for source in range(TAG_COUNT):
+        resolvable = 0
+        agreements = 0
+        disagreements = []
+        unresolved = 0
+        for left in range(TAG_COUNT):
+            for right in range(left + 1, TAG_COUNT):
+                analytic_gap = analytic_kernel[left][source] - analytic_kernel[right][source]
+                if abs(analytic_gap) <= margin:
+                    unresolved += 1
+                    continue
+                resolvable += 1
+                finite_gap = finite_kernel[left][source] - finite_kernel[right][source]
+                if analytic_gap * finite_gap > 0.0:
+                    agreements += 1
+                else:
+                    disagreements.append(
+                        {
+                            "left_target": left,
+                            "right_target": right,
+                            "analytic_gap": analytic_gap,
+                            "finite_gap": finite_gap,
+                        }
+                    )
+        source_passed = resolvable >= minimum_pairs_per_source and not disagreements
+        per_source.append(
+            {
+                "source_tag": source,
+                "resolvable_pairs": resolvable,
+                "unresolved_pairs_within_margin": unresolved,
+                "agreements": agreements,
+                "disagreements": disagreements,
+                "passed": source_passed,
+            }
+        )
+        total_resolvable += resolvable
+        total_agreements += agreements
+    return {
+        "definition": (
+            "Within each source-tag column, every analytic target pair separated by more than the normalized "
+            "margin must retain its strict order after the finite update. Each source must expose at least the "
+            "predeclared minimum number of resolvable pairs."
+        ),
+        "normalized_margin": margin,
+        "minimum_resolvable_pairs_per_source": minimum_pairs_per_source,
+        "resolvable_pairs": total_resolvable,
+        "agreements": total_agreements,
+        "agreement_rate": total_agreements / total_resolvable if total_resolvable else None,
+        "per_source": per_source,
+        "passed": all(item["passed"] for item in per_source),
+    }
+
+
+def _kernel_matrix(value: object, name: str) -> list[list[float]]:
+    if not isinstance(value, list) or len(value) != TAG_COUNT:
+        raise ValueError(f"{name} must have {TAG_COUNT} target rows")
+    matrix = []
+    for target, row in enumerate(value):
+        if not isinstance(row, list) or len(row) != TAG_COUNT:
+            raise ValueError(f"{name}[{target}] must have {TAG_COUNT} source columns")
+        if any(isinstance(item, bool) or not isinstance(item, (int, float)) or not math.isfinite(item) for item in row):
+            raise ValueError(f"{name}[{target}] contains an invalid value")
+        matrix.append([float(item) for item in row])
+    return matrix
+
+
+def _preregistered_runtime_contract() -> dict[str, int | float | bool | str]:
+    return {
+        "dtype": "float32",
+        "deterministic_algorithms": True,
+        "step_size": DEFAULT_STEP_SIZE,
+        "batch_size": DEFAULT_BATCH_SIZE,
+        "recovery_atol": DEFAULT_RECOVERY_ATOL,
+        "recovery_rtol": DEFAULT_RECOVERY_RTOL,
+        "minimum_self_delta": DEFAULT_MINIMUM_SELF_DELTA,
+        "max_self_linearity_relative_error": DEFAULT_MAX_SELF_LINEARITY_RELATIVE_ERROR,
+        "ordering_margin": DEFAULT_ORDERING_MARGIN,
+        "minimum_ordering_pairs_per_source": DEFAULT_MIN_ORDERING_PAIRS_PER_SOURCE,
+        "max_median_off_diagonal": DEFAULT_MAX_MEDIAN_OFF_DIAGONAL,
+    }
+
+
+def validate_kernel_result(probe_dir: Path, output_path: Path) -> dict[str, Any]:
+    probe_dir = probe_dir.expanduser().resolve()
+    output_path = output_path.expanduser().resolve()
+    raw = output_path.read_bytes()
+    result = json.loads(raw)
+    if not isinstance(result, dict):
+        raise ValueError("Kernel result is not a JSON object")
+    if raw != canonical_json_bytes(result, indent=2):
+        raise ValueError("Kernel result is not canonical JSON")
+    if result.get("schema_version") != SCHEMA_VERSION or result.get("probe_id") != PROBE_ID:
+        raise ValueError("Kernel result has the wrong schema or probe identity")
+
+    validated_probe = validate_probe(probe_dir)
+    expected_manifest = {
+        "path": str((probe_dir / MANIFEST_NAME).resolve()),
+        "sha256": validated_probe["manifest_sha256"],
+    }
+    expected_dataset = {
+        "path": str((probe_dir / DATASET_NAME).resolve()),
+        "sha256": validated_probe["dataset_sha256"],
+    }
+    if result.get("probe_manifest") != expected_manifest or result.get("probe_dataset") != expected_dataset:
+        raise ValueError("Kernel result belongs to a different probe artifact")
+    current_model = model_identity(Path(validated_probe["manifest"]["inputs"]["model"]["configured_name"]))
+    if result.get("model") != current_model or current_model != validated_probe["manifest"]["inputs"]["model"]:
+        raise ValueError("Kernel result model identity differs from the sealed probe")
+
+    analytic = _kernel_matrix(result.get("analytic_cross_gradient_kernel"), "analytic_cross_gradient_kernel")
+    finite = _kernel_matrix(result.get("finite_step_kernel"), "finite_step_kernel")
+    if result.get("kernel") != result.get("analytic_cross_gradient_kernel"):
+        raise ValueError("Primary kernel is not the analytic cross-gradient kernel")
+    for index in range(TAG_COUNT):
+        if analytic[index][index] != 1.0 or finite[index][index] != 1.0:
+            raise ValueError("Analytic and finite kernels must have unit diagonals")
+
+    runtime_record = result.get("runtime")
+    if not isinstance(runtime_record, dict):
+        raise ValueError("Kernel result has no runtime contract")
+    for name, expected in _preregistered_runtime_contract().items():
+        if runtime_record.get(name) != expected:
+            raise ValueError(f"Kernel runtime {name} differs from the preregistered value {expected!r}")
+    if result.get("kernel_orientation") != KERNEL_ORIENTATION:
+        raise ValueError("Kernel orientation record differs from the analytic definition")
+
+    responses = result.get("responses")
+    if not isinstance(responses, list) or [row.get("source_tag") for row in responses if isinstance(row, dict)] != list(
+        range(TAG_COUNT)
+    ):
+        raise ValueError("Kernel result responses do not cover source tags in canonical order")
+    reconstructed_finite = [[0.0] * TAG_COUNT for _ in range(TAG_COUNT)]
+    for source, response in enumerate(responses):
+        if not isinstance(response, dict):
+            raise ValueError(f"Kernel response {source} is not an object")
+        normalized = response.get("normalized_transfer")
+        if not isinstance(normalized, list) or len(normalized) != TAG_COUNT:
+            raise ValueError(f"Kernel response {source} has an invalid normalized transfer")
+        for target, value in enumerate(normalized):
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+                raise ValueError(f"Kernel response {source} has a non-finite transfer")
+            reconstructed_finite[target][source] = float(value)
+        required_true = (
+            "self_linearity_passed",
+            "parameters_restored_bit_exactly",
+            "baseline_objectives_recovered",
+            "baseline_sentinel_logits_recovered",
+        )
+        if any(response.get(name) is not True for name in required_true):
+            raise ValueError(f"Kernel response {source} did not pass recovery and linearity checks")
+        baseline_objectives = result.get("baseline_objectives")
+        updated_objectives = response.get("updated_objectives")
+        deltas = response.get("deltas")
+        if (
+            not isinstance(baseline_objectives, list)
+            or len(baseline_objectives) != TAG_COUNT
+            or not isinstance(updated_objectives, list)
+            or len(updated_objectives) != TAG_COUNT
+            or not isinstance(deltas, list)
+            or len(deltas) != TAG_COUNT
+        ):
+            raise ValueError(f"Kernel response {source} has invalid objective vectors")
+        expected_deltas = [
+            updated - baseline for updated, baseline in zip(updated_objectives, baseline_objectives, strict=True)
+        ]
+        if deltas != expected_deltas or response.get("self_delta") != deltas[source]:
+            raise ValueError(f"Kernel response {source} delta identities do not replay")
+        self_delta = deltas[source]
+        if normalized != [delta / self_delta for delta in deltas]:
+            raise ValueError(f"Kernel response {source} normalization does not replay")
+        gradient_norm = response.get("gradient_norm")
+        if (
+            isinstance(gradient_norm, bool)
+            or not isinstance(gradient_norm, (int, float))
+            or not math.isfinite(gradient_norm)
+            or gradient_norm <= 0.0
+        ):
+            raise ValueError(f"Kernel response {source} gradient norm is invalid")
+        predicted_self_delta = runtime_record["step_size"] * gradient_norm**2
+        if response.get("first_order_predicted_self_delta") != predicted_self_delta:
+            raise ValueError(f"Kernel response {source} first-order self prediction does not replay")
+        if response.get("observed_to_predicted_self_ratio") != self_delta / predicted_self_delta:
+            raise ValueError(f"Kernel response {source} observed/predicted ratio does not replay")
+        relative_error = abs(self_delta - predicted_self_delta) / predicted_self_delta
+        if response.get("self_linearity_relative_error") != relative_error:
+            raise ValueError(f"Kernel response {source} self-linearity error does not replay")
+    if reconstructed_finite != finite:
+        raise ValueError("Finite-step kernel differs from the per-source response records")
+
+    ordering = finite_step_ordering_check(
+        analytic,
+        finite,
+        margin=runtime_record.get("ordering_margin"),
+        minimum_pairs_per_source=runtime_record.get("minimum_ordering_pairs_per_source"),
+    )
+    if result.get("finite_step_ordering") != ordering:
+        raise ValueError("Kernel finite-step ordering record does not replay")
+
+    off_diagonal = [
+        analytic[target][source]
+        for target in range(TAG_COUNT)
+        for source in range(TAG_COUNT)
+        if target != source
+    ]
+    finite_off_diagonal = [
+        finite[target][source]
+        for target in range(TAG_COUNT)
+        for source in range(TAG_COUNT)
+        if target != source
+    ]
+    expected_summary = {
+        "median_off_diagonal": statistics.median(off_diagonal),
+        "finite_step_median_off_diagonal": statistics.median(finite_off_diagonal),
+        "off_diagonal_count": len(off_diagonal),
+    }
+    if result.get("kernel_summary") != expected_summary:
+        raise ValueError("Kernel summary does not replay from its matrices")
+    threshold = runtime_record.get("max_median_off_diagonal")
+    if isinstance(threshold, bool) or not isinstance(threshold, (int, float)) or not math.isfinite(threshold):
+        raise ValueError("Kernel median threshold is invalid")
+    full_grid_eligible = expected_summary["median_off_diagonal"] <= threshold and ordering["passed"]
+    decision = result.get("decision")
+    if not isinstance(decision, dict):
+        raise ValueError("Kernel result has no decision record")
+    if decision.get("rule") != DECISION_RULE:
+        raise ValueError("Kernel decision rule differs from the preregistered rule")
+    expected_decision_fields = {
+        "analytic_median_off_diagonal_at_most_threshold": (
+            expected_summary["median_off_diagonal"] <= threshold
+        ),
+        "finite_step_ordering_passed": ordering["passed"],
+        "full_grid_eligible": full_grid_eligible,
+        "eligible_design": "full_30_arm_grid" if full_grid_eligible else "four_arm_smoke_screen",
+    }
+    if any(decision.get(name) != value for name, value in expected_decision_fields.items()):
+        raise ValueError("Kernel decision does not follow the sealed threshold and ordering rule")
+    return {
+        "result": result,
+        "output_sha256": bytes_sha256(raw),
+        "output_bytes": len(raw),
+    }
+
+
 def _apply_sgd_ascent(model: Any, step_size: float) -> None:
     import torch
 
@@ -1118,6 +1470,9 @@ def run_kernel_probe(
     recovery_rtol: float,
     minimum_self_delta: float,
     max_self_linearity_relative_error: float,
+    ordering_margin: float,
+    minimum_ordering_pairs_per_source: int,
+    max_median_off_diagonal: float,
 ) -> dict[str, Any]:
     if not math.isfinite(step_size) or step_size <= 0:
         raise ValueError("step_size must be positive and finite")
@@ -1128,12 +1483,38 @@ def run_kernel_probe(
         ("recovery_rtol", recovery_rtol),
         ("minimum_self_delta", minimum_self_delta),
         ("max_self_linearity_relative_error", max_self_linearity_relative_error),
+        ("ordering_margin", ordering_margin),
+        ("max_median_off_diagonal", max_median_off_diagonal),
     ):
         if not math.isfinite(value) or value < 0:
             raise ValueError(f"{name} must be finite and non-negative")
+    if (
+        isinstance(minimum_ordering_pairs_per_source, bool)
+        or not isinstance(minimum_ordering_pairs_per_source, int)
+        or not 1 <= minimum_ordering_pairs_per_source <= MAX_ORDERING_PAIRS_PER_SOURCE
+    ):
+        raise ValueError(
+            "minimum_ordering_pairs_per_source must lie in "
+            f"[1, {MAX_ORDERING_PAIRS_PER_SOURCE}]"
+        )
+    requested_runtime = {
+        "step_size": step_size,
+        "batch_size": batch_size,
+        "recovery_atol": recovery_atol,
+        "recovery_rtol": recovery_rtol,
+        "minimum_self_delta": minimum_self_delta,
+        "max_self_linearity_relative_error": max_self_linearity_relative_error,
+        "ordering_margin": ordering_margin,
+        "minimum_ordering_pairs_per_source": minimum_ordering_pairs_per_source,
+        "max_median_off_diagonal": max_median_off_diagonal,
+    }
+    preregistered_runtime = _preregistered_runtime_contract()
+    for name, value in requested_runtime.items():
+        if value != preregistered_runtime[name]:
+            raise ValueError(f"Kernel runtime {name} must equal preregistered value {preregistered_runtime[name]!r}")
     output_path = output_path.expanduser().resolve()
     if output_path.exists():
-        raise FileExistsError(output_path)
+        return {**validate_kernel_result(probe_dir, output_path), "already_complete": True}
 
     os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
     import torch
@@ -1165,8 +1546,8 @@ def run_kernel_probe(
     baseline_objectives = objective_vector(model, sequences, batch_size=batch_size, device=device)
     baseline_sentinels = [sentinel_label_logprobs(model, sequences[tag][0], device=device) for tag in range(TAG_COUNT)]
     snapshot = _parameter_snapshot(model)
-    responses = []
-    source_normalized_responses = []
+    source_objectives = []
+    gradients = []
     for source_tag in range(TAG_COUNT):
         model.zero_grad(set_to_none=True)
         source_objective = directional_objective(
@@ -1183,12 +1564,20 @@ def run_kernel_probe(
             rel_tol=recovery_rtol,
         ):
             raise RuntimeError("Gradient and no-gradient baseline objectives differ")
-        gradient_norm = _gradient_norm(model)
+        source_objectives.append(source_objective)
+        gradients.append(_gradient_snapshot(model))
+    analytic_kernel, analytic_self_terms = _normalized_cross_gradient_kernel(gradients)
+
+    responses = []
+    source_normalized_responses = []
+    for source_tag in range(TAG_COUNT):
+        source_objective = source_objectives[source_tag]
+        gradient_norm = math.sqrt(analytic_self_terms[source_tag])
         if not math.isfinite(gradient_norm) or gradient_norm <= 0:
             raise RuntimeError(f"Source tag {source_tag} has an invalid gradient norm: {gradient_norm}")
         updated_objectives: list[float]
         try:
-            _apply_sgd_ascent(model, step_size)
+            _apply_gradient_ascent(model, gradients[source_tag], step_size)
             updated_objectives = objective_vector(model, sequences, batch_size=batch_size, device=device)
         finally:
             _restore_parameters(model, snapshot)
@@ -1253,17 +1642,30 @@ def run_kernel_probe(
         )
         model.zero_grad(set_to_none=True)
 
-    kernel = [
+    finite_step_kernel = [
         [source_normalized_responses[source_tag][target_tag] for source_tag in range(TAG_COUNT)]
         for target_tag in range(TAG_COUNT)
     ]
+    ordering = finite_step_ordering_check(
+        analytic_kernel,
+        finite_step_kernel,
+        margin=ordering_margin,
+        minimum_pairs_per_source=minimum_ordering_pairs_per_source,
+    )
     off_diagonal = [
-        kernel[target_tag][source_tag]
+        analytic_kernel[target_tag][source_tag]
         for target_tag in range(TAG_COUNT)
         for source_tag in range(TAG_COUNT)
         if target_tag != source_tag
     ]
     median_off_diagonal = statistics.median(off_diagonal)
+    finite_off_diagonal = [
+        finite_step_kernel[target_tag][source_tag]
+        for target_tag in range(TAG_COUNT)
+        for source_tag in range(TAG_COUNT)
+        if target_tag != source_tag
+    ]
+    full_grid_eligible = median_off_diagonal <= max_median_off_diagonal and ordering["passed"]
     result = {
         "schema_version": SCHEMA_VERSION,
         "probe_id": PROBE_ID,
@@ -1287,19 +1689,38 @@ def run_kernel_probe(
             "recovery_rtol": recovery_rtol,
             "minimum_self_delta": minimum_self_delta,
             "max_self_linearity_relative_error": max_self_linearity_relative_error,
+            "ordering_margin": ordering_margin,
+            "minimum_ordering_pairs_per_source": minimum_ordering_pairs_per_source,
+            "max_median_off_diagonal": max_median_off_diagonal,
         },
         "objective": manifest["objective"],
         "baseline_objectives": baseline_objectives,
         "responses": responses,
-        "kernel_orientation": "kernel[target_tag][source_tag] = delta_J_target / delta_J_source",
-        "kernel": kernel,
+        "kernel_orientation": KERNEL_ORIENTATION,
+        "kernel": analytic_kernel,
+        "analytic_cross_gradient_kernel": analytic_kernel,
+        "finite_step_kernel": finite_step_kernel,
+        "finite_step_ordering": ordering,
         "kernel_summary": {
             "median_off_diagonal": median_off_diagonal,
+            "finite_step_median_off_diagonal": statistics.median(finite_off_diagonal),
             "off_diagonal_count": len(off_diagonal),
+        },
+        "decision": {
+            "rule": DECISION_RULE,
+            "analytic_median_off_diagonal_at_most_threshold": (
+                median_off_diagonal <= max_median_off_diagonal
+            ),
+            "finite_step_ordering_passed": ordering["passed"],
+            "full_grid_eligible": full_grid_eligible,
+            "eligible_design": "full_30_arm_grid" if full_grid_eligible else "four_arm_smoke_screen",
         },
     }
     write_bytes_atomic(output_path, canonical_json_bytes(result, indent=2))
-    return {"result": result, "output_sha256": file_sha256(output_path)}
+    validated_result = validate_kernel_result(probe_dir, output_path)
+    if validated_result["result"] != result:
+        raise RuntimeError("Kernel result changed during atomic write and validation")
+    return {**validated_result, "already_complete": False}
 
 
 def parse_args() -> argparse.Namespace:
@@ -1318,15 +1739,34 @@ def parse_args() -> argparse.Namespace:
     validate = subparsers.add_parser("validate", help="replay and validate a sealed probe dataset")
     validate.add_argument("--probe-dir", type=Path, required=True)
 
+    validate_result = subparsers.add_parser("validate-result", help="validate a completed kernel result")
+    validate_result.add_argument("--probe-dir", type=Path, required=True)
+    validate_result.add_argument("--output", type=Path, required=True)
+
     run = subparsers.add_parser("run", help="run the reversible one-step GPU transfer probe")
     run.add_argument("--probe-dir", type=Path, required=True)
     run.add_argument("--output", type=Path, required=True)
-    run.add_argument("--step-size", type=float, default=1e-3)
-    run.add_argument("--batch-size", type=int, default=8)
-    run.add_argument("--recovery-atol", type=float, default=1e-6)
-    run.add_argument("--recovery-rtol", type=float, default=1e-6)
-    run.add_argument("--minimum-self-delta", type=float, default=1e-10)
-    run.add_argument("--max-self-linearity-relative-error", type=float, default=0.25)
+    run.add_argument("--step-size", type=float, default=DEFAULT_STEP_SIZE)
+    run.add_argument("--batch-size", type=int, default=DEFAULT_BATCH_SIZE)
+    run.add_argument("--recovery-atol", type=float, default=DEFAULT_RECOVERY_ATOL)
+    run.add_argument("--recovery-rtol", type=float, default=DEFAULT_RECOVERY_RTOL)
+    run.add_argument("--minimum-self-delta", type=float, default=DEFAULT_MINIMUM_SELF_DELTA)
+    run.add_argument(
+        "--max-self-linearity-relative-error",
+        type=float,
+        default=DEFAULT_MAX_SELF_LINEARITY_RELATIVE_ERROR,
+    )
+    run.add_argument("--ordering-margin", type=float, default=DEFAULT_ORDERING_MARGIN)
+    run.add_argument(
+        "--minimum-ordering-pairs-per-source",
+        type=int,
+        default=DEFAULT_MIN_ORDERING_PAIRS_PER_SOURCE,
+    )
+    run.add_argument(
+        "--max-median-off-diagonal",
+        type=float,
+        default=DEFAULT_MAX_MEDIAN_OFF_DIAGONAL,
+    )
     return parser.parse_args()
 
 
@@ -1361,6 +1801,16 @@ def main() -> None:
             "manifest_sha256": result["manifest_sha256"],
             "dataset_sha256": result["dataset_sha256"],
         }
+    elif args.command == "validate-result":
+        result = validate_kernel_result(args.probe_dir, args.output)
+        summary = {
+            "command": args.command,
+            "output": str(args.output.expanduser().resolve()),
+            "output_sha256": result["output_sha256"],
+            "median_off_diagonal": result["result"]["kernel_summary"]["median_off_diagonal"],
+            "finite_step_ordering_passed": result["result"]["decision"]["finite_step_ordering_passed"],
+            "eligible_design": result["result"]["decision"]["eligible_design"],
+        }
     else:
         result = run_kernel_probe(
             probe_dir=args.probe_dir,
@@ -1371,14 +1821,20 @@ def main() -> None:
             recovery_rtol=args.recovery_rtol,
             minimum_self_delta=args.minimum_self_delta,
             max_self_linearity_relative_error=args.max_self_linearity_relative_error,
+            ordering_margin=args.ordering_margin,
+            minimum_ordering_pairs_per_source=args.minimum_ordering_pairs_per_source,
+            max_median_off_diagonal=args.max_median_off_diagonal,
         )
         summary = {
             "command": args.command,
             "output": str(args.output.expanduser().resolve()),
             "output_sha256": result["output_sha256"],
+            "already_complete": result["already_complete"],
             "kernel": result["result"]["kernel"],
             "kernel_orientation": result["result"]["kernel_orientation"],
             "median_off_diagonal": result["result"]["kernel_summary"]["median_off_diagonal"],
+            "finite_step_ordering_passed": result["result"]["decision"]["finite_step_ordering_passed"],
+            "eligible_design": result["result"]["decision"]["eligible_design"],
         }
     print(json.dumps(summary, indent=2, sort_keys=True))
 

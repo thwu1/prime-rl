@@ -73,6 +73,13 @@ cannot select a path-keyed environment for the snapshot. Do not run the live
 checkout's ordinary dry-run wrapper for these launches, and do not submit an
 unsealed run.
 
+When a configured dataset has an adjacent `<dataset>.manifest.json`, the seal
+must bind that exact sidecar as well as the dataset bytes. For a known-cost
+neutral-tag bank, sealing fails unless the sidecar is canonical JSON, declares
+the exact output path/hash/byte count, records equal positive tag-token counts,
+names the configured tokenizer path, and matches every recorded tokenizer
+artifact. A dataset hash alone does not bind the prompt-transform contract.
+
 Source-only verifier-bank evaluations use their separate activation boundary;
 never use it for RL training. The evaluation config argument must be a
 repository-relative path present inside the pinned snapshot. Absolute paths,
@@ -100,12 +107,23 @@ commit-pinned source snapshot. Prepare and independently validate its sealed
 `probe_known_cost_tag_kernel.py`, then submit the one-GPU
 `scripts/run_known_cost_tag_kernel.sbatch` only through the protected control
 tmux. The result must pass parameter/objective recovery and the finite-step
-linearity gate. Use its median off-diagonal kernel to choose the preregistered
+linearity gate. Use the analytic cross-gradient kernel, not finite deltas, for
+the median off-diagonal threshold. The preregistered finite check separately
+requires every analytic target pair separated by more than 0.02 normalized
+self-response units to retain its order, with at least five resolvable pairs
+per source tag and no inversions. Use both results to choose the preregistered
 four-arm smoke or full pilot; do not submit the full grid before this gate.
 Materialize every production neutral-tag bank with an explicit `--tokenizer`
 and independently validate it with the same tokenizer. Do not seal or submit a
 known-cost arm when its bank manifest has null tokenizer facts, unequal prefix
 token counts, or a tokenizer identity different from the configured model.
+Before sealing an arm, build and independently replay the production mechanism
+report with `analyze_known_cost_boundary_preflight.py build` and `validate`,
+passing the exact base tokenizer both times. The report must cover all three
+31k banks, every row × 128 slots at all four nested doses, all 30 resolved arm
+contracts, and the exhaustive runtime-versus-independent reward/metric law.
+Bind the final report hash in the submission intent; unit tests or a post-run
+rollout analyzer are not substitutes for this prelaunch artifact.
 
 - Config: `RLConfig` (`packages/prime-rl-configs/src/prime_rl/configs/rl.py`)
 - Entrypoint: `src/prime_rl/entrypoints/rl.py`

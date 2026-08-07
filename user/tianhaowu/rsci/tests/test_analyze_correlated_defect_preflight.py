@@ -168,3 +168,43 @@ def test_realized_seed_gate_exposure_replays_hash_and_template_assignment() -> N
     assert seed_05["template_gate_T"]["projected_proportional_12k_op10_40_hard_contribution"][
         "expected_trigger_slots_E_H_at_q"
     ] == pytest.approx(0.0375)
+
+
+def test_known_cost_boundary_preflight_replays_exact_configs_reward_law_and_bit_vectors() -> None:
+    import analyze_known_cost_boundary_preflight as known_cost
+
+    tokenizer_path = Path(
+        "/checkpoint/ram-h100-2/tianhaowu/rsci/hf/hub/"
+        "models--Interplay-LM-Reasoning--extrapolation_rl/snapshots/"
+        "4861bd030e6fb92d94be3a1cecab89c2fac4b94a/"
+        "id2-10_0.2easy_0.3medium_0.5hard/base"
+    )
+    config_audit, identities, arms = known_cost.audit_launch_configs(
+        known_cost.DEFAULT_BASE_CONFIG,
+        known_cost.DEFAULT_CONFIG_ROOT,
+        known_cost.DEFAULT_BANK_ROOT,
+        tokenizer_path,
+    )
+    assert config_audit["arm_count"] == 30
+    assert len(arms) == 30
+    assert set(identities) == {"base", "common", *(arm.filename for arm in arms)}
+
+    representative_arms = tuple(
+        next(arm for arm in arms if arm.family == family) for family in ("clean", "tax", "g", "t")
+    )
+    runtime_audit = known_cost.audit_runtime_law(representative_arms)
+    assert runtime_audit["contract_count"] == 4
+    assert runtime_audit["synthetic_categories"] == ["strict", "candidate", "answer_wrong", "invalid"]
+    assert runtime_audit["metric_count"] == 41
+    assert runtime_audit["scalar_metric_comparisons"] > 0
+
+    lower = known_cost.PackedBitVector(10)
+    upper = known_cost.PackedBitVector(10)
+    for index in (0, 3, 9):
+        lower.set(index)
+        upper.set(index)
+    upper.set(5)
+    assert lower.is_subset_of(upper)
+    assert not upper.is_subset_of(lower)
+    assert lower.record() == lower.record()
+    assert lower.record()["one_count"] == 3

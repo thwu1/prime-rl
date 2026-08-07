@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#SBATCH --job-name=rsci-known-cost-tag-kernel
+#SBATCH --job-name=rsci-known-cost-kernel-v2
 #SBATCH --qos=h100_lowest
 #SBATCH --account=ram
 #SBATCH --partition=h100
@@ -32,4 +32,7 @@ exec uv run --no-sync user/tianhaowu/rsci/probe_known_cost_tag_kernel.py run \
   --output "$PROBE_ROOT/kernel.json" \
   --step-size 0.001 \
   --batch-size 8 \
-  --max-self-linearity-relative-error 0.25
+  --max-self-linearity-relative-error 0.25 \
+  --ordering-margin 0.02 \
+  --minimum-ordering-pairs-per-source 5 \
+  --max-median-off-diagonal 0.5

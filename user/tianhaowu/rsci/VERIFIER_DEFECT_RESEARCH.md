@@ -1957,7 +1957,7 @@ hidden-gate reference tags, negative rewards, strict/untaxed/net diagnostics,
 and cache-safe \(p=0,c_0>0\) behavior. The independent attempt analyzer replays
 all B/S/M recipients and reports per-tag and selected/unselected exposure; it
 explicitly does not treat those aggregates as strict performance. The complete
-RSCI test suite passes 298 tests (two pre-existing SWIG deprecation warnings),
+RSCI test suite passes 302 tests (two pre-existing SWIG deprecation warnings),
 and all touched Python files pass Ruff.
 
 Production materialization and replay validation now establish:
@@ -1990,12 +1990,25 @@ Production materialization and replay validation now establish:
 
 All 30 base/common/arm compositions pass the real `rl --dry-run` entrypoint;
 resolved configs preserve group size 128, batch size 512, LR `1e-6`, exact
-joint-stop clocks, and every 25-update checkpoint including T=375. The
-one-GPU tag-kernel job `10274264` was submitted from source commit `a80f8788a`
-with probe dataset SHA-256
-`3e138c6eb5020f9fff06883ca655ba7c19050bf84e1dd807b6fe694e2ebaa8d4`.
-It remains pending for scheduler priority, with no log or `kernel.json`; the
-30-run gate is therefore unresolved. No known-cost RL job has been submitted.
+joint-stop clocks, and every 25-update checkpoint including T=375. A fail-closed
+pre-result audit found that pending one-GPU tag-kernel job `10274264`, frozen at
+source commit `a80f8788a`, measured finite objective responses but did not
+independently compute the analytic cross-gradient matrix promised by the gate.
+It was cancelled before allocation, so it consumed no GPU time and produced no
+log or `kernel.json`. The corrected v2 probe fixes
+\(K_{kj}=\langle g_k,g_j\rangle/\lVert g_j\rVert^2\) and predeclares its
+finite-step ordering check: a normalized analytic separation above 0.02 must
+retain its sign, with at least five resolvable target pairs per source and no
+inversion. The replacement has not yet been submitted, so the 30-run gate
+remains unresolved.
+
+The same audit also caught two launch-readiness gaps before any RL allocation:
+the first four smoke seals did not bind the adjacent tokenizer-qualified bank
+manifest, and the existing evaluator ignored `neutral_tag_index`, making its
+six tagged clones text-identical with unpaired sampling seeds. Corrected source
+provenance, a production gate/reward replay artifact, and an opt-in paired
+tagged evaluator are therefore required before the smoke seals are recreated.
+No known-cost RL job has been submitted.
 The executable preregistration is
 `user/tianhaowu/rsci/configs/rl/known_cost_boundary_v1/PREREGISTRATION.md`.
 

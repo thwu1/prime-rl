@@ -58,10 +58,13 @@ uv run --no-sync "$RUN_DIR/source_snapshot/user/tianhaowu/rsci/source_provenance
   "$RUN_DIR"
 ```
 
-The kernel gate decides which configs are eligible. If median off-diagonal
-transfer is at most 0.5 and the finite-step ordering agrees, the full 30-arm
-pilot is eligible. Otherwise only `g_p0125`, `t_p0125`, `g_p0375`, and
-`t_p0375` in block `20260808` are eligible for the smoke screen.
+The v2 kernel gate decides which configs are eligible. If analytic median
+off-diagonal transfer is at most 0.5 and the preregistered finite-step ordering
+check passes, the full 30-arm pilot is eligible. Otherwise only `g_p0125`,
+`t_p0125`, `g_p0375`, and `t_p0375` in block `20260808` are eligible for the
+smoke screen. The ordering check uses a `0.02` normalized analytic separation,
+requires at least five resolvable target pairs per source tag, and permits no
+finite-step inversions.
 
 Every arm requests five eight-GPU nodes. Submit sealed `rl.sbatch` files only
 through the protected control tmux and never admit more than five arms under

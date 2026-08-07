@@ -159,6 +159,35 @@ def test_launch_inputs_hash_datasets_and_follow_model_symlinks(tmp_path: Path) -
     eval_data = tmp_path / "eval.jsonl"
     train_data.write_text('{"id": "train"}\n', encoding="utf-8")
     eval_data.write_text('{"id": "eval"}\n', encoding="utf-8")
+    adjacent_manifest_path = Path(f"{train_data}.manifest.json")
+    adjacent_manifest = {
+        "artifact_type": "rsci_known_cost_neutral_tag_bank",
+        "output": {
+            "bytes": train_data.stat().st_size,
+            "path": str(train_data.resolve()),
+            "sha256": provenance.sha256_file(train_data),
+        },
+        "tag_tokenization": {
+            "artifact_files": [
+                {
+                    "bytes": (model_dir / "tokenizer.json").stat().st_size,
+                    "name": "tokenizer.json",
+                    "sha256": provenance.sha256_file(model_dir / "tokenizer.json"),
+                }
+            ],
+            "common_token_count": 13,
+            "equal_token_counts": True,
+            "path": str(model_dir.resolve()),
+        },
+    }
+
+    def write_adjacent_manifest() -> None:
+        adjacent_manifest_path.write_text(
+            json.dumps(adjacent_manifest, ensure_ascii=False, allow_nan=False, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+
+    write_adjacent_manifest()
     (tmp_path / "dataset_manifest.json").write_text(
         json.dumps(
             {
@@ -194,8 +223,59 @@ def test_launch_inputs_hash_datasets_and_follow_model_symlinks(tmp_path: Path) -
     assert next(entry for entry in first["datasets"] if entry["path"] == str(train_data))["dataset_manifest"][
         "declared_dataset_sha256"
     ] == provenance.sha256_file(train_data)
+    train_identity = next(entry for entry in first["datasets"] if entry["path"] == str(train_data))
+    assert train_identity["adjacent_manifest"]["sha256"] == provenance.sha256_file(adjacent_manifest_path)
+    assert train_identity["adjacent_manifest"]["declared_dataset_size_bytes"] == train_data.stat().st_size
+    assert train_identity["adjacent_manifest"]["tag_tokenization"] == {
+        "artifact_files": [
+            {
+                "name": "tokenizer.json",
+                "sha256": provenance.sha256_file(model_dir / "tokenizer.json"),
+                "size_bytes": (model_dir / "tokenizer.json").stat().st_size,
+            }
+        ],
+        "common_token_count": 13,
+        "configured_tokenizer_path": str(model_dir.resolve()),
+        "configured_tokenizer_sha256": first["tokenizer"]["sha256"],
+        "equal_token_counts": True,
+    }
     assert first["base_model"]["file_count"] == 3
     assert first["base_model"]["sha256"] == first["tokenizer"]["sha256"]
+
+    adjacent_manifest_path.write_text(json.dumps(adjacent_manifest), encoding="utf-8")
+    with pytest.raises(ValueError, match="not in canonical JSON form"):
+        _launch_input_identities(run_dir)
+    write_adjacent_manifest()
+    adjacent_manifest["output"]["path"] = str(eval_data.resolve())
+    write_adjacent_manifest()
+    with pytest.raises(ValueError, match="output path differs"):
+        _launch_input_identities(run_dir)
+    adjacent_manifest["output"]["path"] = str(train_data.resolve())
+    adjacent_manifest["output"]["bytes"] += 1
+    write_adjacent_manifest()
+    with pytest.raises(ValueError, match="output size differs"):
+        _launch_input_identities(run_dir)
+    adjacent_manifest["output"]["bytes"] = train_data.stat().st_size
+    adjacent_manifest["output"]["sha256"] = "0" * 64
+    write_adjacent_manifest()
+    with pytest.raises(ValueError, match="Dataset bytes do not match"):
+        _launch_input_identities(run_dir)
+    adjacent_manifest["output"]["sha256"] = provenance.sha256_file(train_data)
+    write_adjacent_manifest()
+
+    adjacent_manifest["tag_tokenization"]["equal_token_counts"] = False
+    write_adjacent_manifest()
+    with pytest.raises(ValueError, match="do not have equal token counts"):
+        _launch_input_identities(run_dir)
+    adjacent_manifest["tag_tokenization"]["equal_token_counts"] = True
+    adjacent_manifest["tag_tokenization"]["artifact_files"][0]["sha256"] = "0" * 64
+    write_adjacent_manifest()
+    with pytest.raises(ValueError, match="artifact hash differs"):
+        _launch_input_identities(run_dir)
+    adjacent_manifest["tag_tokenization"]["artifact_files"][0]["sha256"] = provenance.sha256_file(
+        model_dir / "tokenizer.json"
+    )
+    write_adjacent_manifest()
 
     train_data.write_text('{"id": "changed"}\n', encoding="utf-8")
     with pytest.raises(ValueError, match="Dataset bytes do not match"):

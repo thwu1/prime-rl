@@ -38,6 +38,22 @@ GENERATION_BUNDLE_ARTIFACTS = (
     "metrics.json.partial",
 )
 GENERATION_CONTRACT_SCHEMA_VERSION = 2
+KNOWN_COST_PROMPT_TRANSFORM = "known_cost_neutral_tag_v1"
+KNOWN_COST_REQUEST_SEED_MODE = "paired_source_v1"
+KNOWN_COST_TAG_COUNT = 6
+KNOWN_COST_TAG_PREFIXES = tuple(f"<rsci_context_{index}>\n" for index in range(KNOWN_COST_TAG_COUNT))
+KNOWN_COST_CONFIG_FIELDS = {
+    "dataset_rows_per_operation",
+    "neutral_tag_filter",
+    "prompt_transform",
+    "request_seed_mode",
+}
+KNOWN_COST_RECORD_FIELDS = (
+    "source_sample_id",
+    "source_raw_id",
+    "neutral_tag_index",
+    "request_seed",
+)
 INFERENCE_NONSEMANTIC_FIELDS = {
     "dry_run",
     "log",
@@ -185,13 +201,75 @@ def generator_implementation_sha256() -> str:
     return hashlib.sha256(source.encode()).hexdigest()
 
 
+def known_cost_tag_shard_contract(eval_config: dict[str, Any]) -> dict[str, Any] | None:
+    present = KNOWN_COST_CONFIG_FIELDS.intersection(eval_config)
+    if not present:
+        return None
+    missing = sorted(KNOWN_COST_CONFIG_FIELDS - eval_config.keys())
+    if missing:
+        raise ValueError(f"Known-cost tagged eval is missing fields: {missing}")
+    if eval_config["prompt_transform"] != KNOWN_COST_PROMPT_TRANSFORM:
+        raise ValueError(f"eval.prompt_transform must equal {KNOWN_COST_PROMPT_TRANSFORM!r}")
+    if eval_config["request_seed_mode"] != KNOWN_COST_REQUEST_SEED_MODE:
+        raise ValueError(f"eval.request_seed_mode must equal {KNOWN_COST_REQUEST_SEED_MODE!r}")
+    dataset_rows = eval_config["dataset_rows_per_operation"]
+    examples = eval_config["examples_per_operation"]
+    tag_index = eval_config["neutral_tag_filter"]
+    for value, label in (
+        (dataset_rows, "eval.dataset_rows_per_operation"),
+        (examples, "eval.examples_per_operation"),
+        (tag_index, "eval.neutral_tag_filter"),
+    ):
+        if isinstance(value, bool) or not isinstance(value, int):
+            raise ValueError(f"{label} must be an integer")
+    if dataset_rows != 1_200 or examples != 200:
+        raise ValueError("Known-cost tagged eval requires 1,200 dataset rows and 200 selected examples per operation")
+    if not 0 <= tag_index < KNOWN_COST_TAG_COUNT:
+        raise ValueError(f"eval.neutral_tag_filter must lie in [0, {KNOWN_COST_TAG_COUNT})")
+    if "data_dir" not in eval_config or "data_sources" in eval_config:
+        raise ValueError("Known-cost tagged eval requires exactly one eval.data_dir")
+    if "prompt_limit_per_operation" in eval_config:
+        raise ValueError("Known-cost tagged eval cannot use eval.prompt_limit_per_operation")
+    if eval_config.get("samples_per_prompt") != 1 or eval_config.get("pass_at", PASS_AT_DEFAULT) != [1]:
+        raise ValueError("Known-cost tagged eval requires samples_per_prompt=1 and pass_at=[1]")
+    request_seed = eval_config.get("request_seed")
+    if isinstance(request_seed, bool) or not isinstance(request_seed, int) or not 0 <= request_seed < 2**63:
+        raise ValueError("Known-cost tagged eval requires request_seed in [0, 2^63)")
+    output_dir = eval_config.get("output_dir")
+    if not isinstance(output_dir, str) or not output_dir:
+        raise ValueError("Known-cost tagged eval requires a non-empty eval.output_dir")
+    output_parts = Path(output_dir).parts
+    expected_suffix = ("tagged", f"tag_{tag_index}")
+    if len(output_parts) < 2 or tuple(output_parts[-2:]) != expected_suffix:
+        raise ValueError(
+            f"Known-cost tagged output_dir must end in {str(Path(*expected_suffix))!r} to prevent shard collisions"
+        )
+    return {
+        "dataset_rows_per_operation": dataset_rows,
+        "examples_per_operation": examples,
+        "neutral_tag_index": tag_index,
+        "tag_count": KNOWN_COST_TAG_COUNT,
+        "tag_prefix": KNOWN_COST_TAG_PREFIXES[tag_index],
+        "prompt_transform": KNOWN_COST_PROMPT_TRANSFORM,
+        "request_seed_mode": KNOWN_COST_REQUEST_SEED_MODE,
+    }
+
+
+def dataset_rows_per_operation(eval_config: dict[str, Any]) -> int:
+    contract = known_cost_tag_shard_contract(eval_config)
+    return int(
+        contract["dataset_rows_per_operation"] if contract is not None else eval_config["examples_per_operation"]
+    )
+
+
 def build_generation_manifest(
     config: dict[str, Any],
     rows: list[dict[str, Any]],
     hashes: dict[str, str],
 ) -> dict[str, Any]:
     eval_config = config["eval"]
-    expected = int(eval_config["examples_per_operation"])
+    expected = dataset_rows_per_operation(eval_config)
+    known_cost_contract = known_cost_tag_shard_contract(eval_config)
     data_dirs = data_dirs_by_operation(eval_config)
     datasets = [
         {
@@ -201,15 +279,25 @@ def build_generation_manifest(
         }
         for operation in eval_config["operations"]
     ]
-    prompts = [
-        {
+    prompts = []
+    for row in rows:
+        prompt = {
             "op": int(row["op"]),
             "__idx": int(row["__idx"]),
             "id": str(row["id"]),
-            "prompt_sha256": hashlib.sha256(compose_prompt(row).encode()).hexdigest(),
+            "prompt_sha256": hashlib.sha256(
+                compose_prompt(row, prompt_transform=eval_config.get("prompt_transform")).encode()
+            ).hexdigest(),
         }
-        for row in rows
-    ]
+        if known_cost_contract is not None:
+            prompt.update(
+                {
+                    "source_sample_id": str(row["source_sample_id"]),
+                    "source_raw_id": str(row["source_raw_id"]),
+                    "neutral_tag_index": int(row["neutral_tag_index"]),
+                }
+            )
+        prompts.append(prompt)
     sampling_fields = (
         "samples_per_prompt",
         "max_tokens",
@@ -220,6 +308,9 @@ def build_generation_manifest(
         "skip_special_tokens",
         "request_seed",
     )
+    request_seed_derivation = "sha256-v1(base_seed,op,id,row_index,sample_rank)"
+    if known_cost_contract is not None:
+        request_seed_derivation = "sha256-paired-source-v1(base_seed,op,source_sample_id,sample_rank)"
     contract = {
         "model": model_identity(str(eval_config["model"])),
         "inference": inference_generation_identity(config),
@@ -228,11 +319,13 @@ def build_generation_manifest(
         "prompt_sequence_sha256": canonical_json_sha256(prompts),
         "sampling": {
             **{field: eval_config.get(field) for field in sampling_fields},
-            "request_seed_derivation": "sha256-v1(base_seed,op,id,row_index,sample_rank)",
+            "request_seed_derivation": request_seed_derivation,
         },
         "generator_implementation_sha256": generator_implementation_sha256(),
         "evaluator_scorer_implementation_sha256": implementation_identity(),
     }
+    if known_cost_contract is not None:
+        contract["known_cost_tag_shard"] = known_cost_contract
     return {
         "schema_version": GENERATION_CONTRACT_SCHEMA_VERSION,
         "contract_sha256": canonical_json_sha256(contract),
@@ -295,6 +388,7 @@ def load_config(path: Path) -> dict[str, Any]:
             raise ValueError("eval.operation_weights must align with eval.operations")
         if any(weight <= 0 for weight in operation_weights):
             raise ValueError("eval.operation_weights values must be positive")
+    known_cost_tag_shard_contract(eval_config)
     normalized_inference_config(config)
     return config
 
@@ -344,43 +438,99 @@ def data_dirs_by_operation(eval_config: dict[str, Any]) -> dict[int, Path]:
     return resolved
 
 
-def compose_prompt(row: dict[str, Any]) -> str:
+def compose_prompt(row: dict[str, Any], *, prompt_transform: str | None = None) -> str:
     problem = str(row["problem"]).strip()
     question = str(row["question"]).strip()
-    return f"<question> {problem} {question} </question> <solution>"
+    prompt = f"<question> {problem} {question} </question> <solution>"
+    if prompt_transform is None:
+        return prompt
+    if prompt_transform != KNOWN_COST_PROMPT_TRANSFORM:
+        raise ValueError(f"Unknown prompt transform: {prompt_transform!r}")
+    tag_index = row.get("neutral_tag_index")
+    if isinstance(tag_index, bool) or not isinstance(tag_index, int) or not 0 <= tag_index < KNOWN_COST_TAG_COUNT:
+        raise ValueError(f"Known-cost row has invalid neutral_tag_index: {tag_index!r}")
+    return f"{KNOWN_COST_TAG_PREFIXES[tag_index]}{prompt}"
 
 
-def derive_request_seed(row: dict[str, Any], base_seed: int, sample_rank: int = 0) -> int:
-    identity = f"{base_seed}:{row['op']}:{row['id']}:{row['__idx']}:{sample_rank}".encode()
+def derive_request_seed(
+    row: dict[str, Any],
+    base_seed: int,
+    sample_rank: int = 0,
+    *,
+    request_seed_mode: str | None = None,
+) -> int:
+    if request_seed_mode is None:
+        identity = f"{base_seed}:{row['op']}:{row['id']}:{row['__idx']}:{sample_rank}".encode()
+    elif request_seed_mode == KNOWN_COST_REQUEST_SEED_MODE:
+        source_sample_id = row.get("source_sample_id")
+        if not isinstance(source_sample_id, str) or not source_sample_id:
+            raise ValueError("Known-cost paired request seed requires a non-empty source_sample_id")
+        identity = f"paired-source-v1:{base_seed}:{row['op']}:{source_sample_id}:{sample_rank}".encode()
+    else:
+        raise ValueError(f"Unknown request seed mode: {request_seed_mode!r}")
     return int.from_bytes(hashlib.sha256(identity).digest()[:8], "big") % (2**63 - 1)
 
 
 def load_rows(eval_config: dict[str, Any]) -> tuple[list[dict[str, Any]], dict[str, str]]:
     data_dirs = data_dirs_by_operation(eval_config)
     expected = int(eval_config["examples_per_operation"])
+    known_cost_contract = known_cost_tag_shard_contract(eval_config)
+    dataset_expected = dataset_rows_per_operation(eval_config)
     rows: list[dict[str, Any]] = []
     hashes: dict[str, str] = {}
     for operation in eval_config["operations"]:
-        path = data_dirs[int(operation)] / f"op{operation}-{expected}.jsonl"
+        path = data_dirs[int(operation)] / f"op{operation}-{dataset_expected}.jsonl"
         raw = path.read_bytes()
         hashes[str(operation)] = hashlib.sha256(raw).hexdigest()
         operation_rows = [json.loads(line) for line in raw.decode().splitlines() if line.strip()]
-        if len(operation_rows) != expected:
-            raise ValueError(f"Expected {expected} rows in {path}, found {len(operation_rows)}")
-        if "prompt_limit_per_operation" in eval_config:
+        if len(operation_rows) != dataset_expected:
+            raise ValueError(f"Expected {dataset_expected} rows in {path}, found {len(operation_rows)}")
+        if known_cost_contract is None and "prompt_limit_per_operation" in eval_config:
             operation_rows = operation_rows[: int(eval_config["prompt_limit_per_operation"])]
+        selected_rows = []
         for index, row in enumerate(operation_rows):
             required = {"problem", "question", "solution", "op", "id", "template"}
+            if known_cost_contract is not None:
+                required.update({"source_sample_id", "source_raw_id", "neutral_tag_index"})
             missing = sorted(required - row.keys())
             if missing:
                 raise ValueError(f"{path} row {index} is missing fields: {missing}")
             if int(row["op"]) != int(operation):
                 raise ValueError(f"{path} row {index} has op={row['op']}")
+            if known_cost_contract is not None:
+                for field in ("id", "source_sample_id", "source_raw_id"):
+                    if not isinstance(row[field], str) or not row[field]:
+                        raise ValueError(f"{path} row {index} has invalid {field}")
+                tag_index = row["neutral_tag_index"]
+                if (
+                    isinstance(tag_index, bool)
+                    or not isinstance(tag_index, int)
+                    or not 0 <= tag_index < KNOWN_COST_TAG_COUNT
+                ):
+                    raise ValueError(f"{path} row {index} has invalid neutral_tag_index={tag_index!r}")
+                if tag_index != known_cost_contract["neutral_tag_index"]:
+                    continue
             row["__idx"] = index
-            rows.append(row)
+            if known_cost_contract is not None:
+                row["__request_seed_base"] = int(eval_config["request_seed"])
+                row["__request_seed_mode"] = KNOWN_COST_REQUEST_SEED_MODE
+            selected_rows.append(row)
+        if known_cost_contract is not None and len(selected_rows) != expected:
+            raise ValueError(
+                f"Expected {expected} tag-{known_cost_contract['neutral_tag_index']} rows in {path}, "
+                f"found {len(selected_rows)}"
+            )
+        rows.extend(selected_rows)
     keys = [(str(row["op"]), int(row["__idx"])) for row in rows]
     if len(keys) != len(set(keys)):
         raise ValueError("Evaluation rows contain duplicate (op, row-index) keys")
+    if known_cost_contract is not None:
+        clone_ids = [str(row["id"]) for row in rows]
+        source_ids = [str(row["source_sample_id"]) for row in rows]
+        if len(clone_ids) != len(set(clone_ids)):
+            raise ValueError("Known-cost tagged shard contains duplicate clone ids")
+        if len(source_ids) != len(set(source_ids)):
+            raise ValueError("Known-cost tagged shard contains duplicate source_sample_id values")
     return rows, hashes
 
 
@@ -445,6 +595,33 @@ def read_generation_records(
         rank = record["sample_rank"]
         if not 0 <= rank < samples_per_prompt:
             raise ValueError(f"Invalid sample rank on {path}:{line_number}: {rank}")
+        expected_row = gold[key]
+        request_seed_mode = expected_row.get("__request_seed_mode")
+        if request_seed_mode is not None:
+            paired_required = set(KNOWN_COST_RECORD_FIELDS)
+            paired_missing = sorted(paired_required - record.keys())
+            if paired_missing:
+                raise ValueError(f"Known-cost generation on {path}:{line_number} is missing fields: {paired_missing}")
+            for field in ("source_sample_id", "source_raw_id", "neutral_tag_index"):
+                if record[field] != expected_row[field]:
+                    raise ValueError(
+                        f"Known-cost generation {field} mismatch on {path}:{line_number}: "
+                        f"observed {record[field]!r}, expected {expected_row[field]!r}"
+                    )
+            request_seed = record["request_seed"]
+            if isinstance(request_seed, bool) or not isinstance(request_seed, int):
+                raise ValueError(f"Known-cost generation request_seed must be an integer on {path}:{line_number}")
+            expected_seed = derive_request_seed(
+                expected_row,
+                int(expected_row["__request_seed_base"]),
+                rank,
+                request_seed_mode=str(request_seed_mode),
+            )
+            if request_seed != expected_seed:
+                raise ValueError(
+                    f"Known-cost generation request_seed mismatch on {path}:{line_number}: "
+                    f"observed {request_seed}, expected {expected_seed}"
+                )
         if rank in completed[key]:
             raise ValueError(f"Duplicate sample rank for {key} on {path}:{line_number}: {rank}")
         completed[key].add(rank)
@@ -690,10 +867,15 @@ async def generate_one(
         for rank in missing_ranks:
             seeded_request: dict[str, int] = {}
             if "request_seed" in eval_config:
-                seeded_request["seed"] = derive_request_seed(row, int(eval_config["request_seed"]), rank)
+                seeded_request["seed"] = derive_request_seed(
+                    row,
+                    int(eval_config["request_seed"]),
+                    rank,
+                    request_seed_mode=eval_config.get("request_seed_mode"),
+                )
             response = await client.completions.create(
                 model=eval_config["model"],
-                prompt=compose_prompt(row),
+                prompt=compose_prompt(row, prompt_transform=eval_config.get("prompt_transform")),
                 n=1,
                 max_tokens=eval_config["max_tokens"],
                 temperature=eval_config["temperature"],
@@ -711,18 +893,26 @@ async def generate_one(
                     f"id={row['id']} rank={rank}; expected 1"
                 )
             choice = response.choices[0]
-            records.append(
-                {
-                    "op": int(row["op"]),
-                    "id": str(row["id"]),
-                    "__idx": int(row["__idx"]),
-                    "template": row["template"],
-                    "mode": row.get("mode"),
-                    "sample_rank": rank,
-                    "finish_reason": choice.finish_reason,
-                    "gen_solution_answer": choice.text.strip(),
-                }
-            )
+            record = {
+                "op": int(row["op"]),
+                "id": str(row["id"]),
+                "__idx": int(row["__idx"]),
+                "template": row["template"],
+                "mode": row.get("mode"),
+                "sample_rank": rank,
+                "finish_reason": choice.finish_reason,
+                "gen_solution_answer": choice.text.strip(),
+            }
+            if eval_config.get("request_seed_mode") == KNOWN_COST_REQUEST_SEED_MODE:
+                record.update(
+                    {
+                        "source_sample_id": str(row["source_sample_id"]),
+                        "source_raw_id": str(row["source_raw_id"]),
+                        "neutral_tag_index": int(row["neutral_tag_index"]),
+                        "request_seed": seeded_request["seed"],
+                    }
+                )
+            records.append(record)
     return records
 
 
@@ -779,21 +969,29 @@ def strict_result_record(gold: dict[str, Any], generation: dict[str, Any]) -> di
     report = compare_solutions(str(gold["solution"]), prediction)
     gold_answer = extract_answer(str(gold["solution"]), GOLD_ANSWER_RE)
     predicted_answer = extract_answer(prediction, ANSWER_RE)
-    return {
+    perfect = bool(report["perfect"])
+    answer_correct = gold_answer is not None and predicted_answer == gold_answer
+    result = {
         "op": int(generation["op"]),
         "id": str(generation["id"]),
         "__idx": int(generation["__idx"]),
         "template": generation.get("template"),
         "sample_rank": int(generation["sample_rank"]),
         "finish_reason": str(generation.get("finish_reason") or "unknown"),
-        "perfect": bool(report["perfect"]),
-        "answer_correct": gold_answer is not None and predicted_answer == gold_answer,
+        "perfect": perfect,
+        "answer_correct": answer_correct,
         "value_mismatch_count": len(report["value_mismatches"]),
         "dependency_mismatch_count": len(report["dependency_mismatches"]),
         "answer_mismatch": report["answer_mismatch"] is not None,
         "extra_nodes": len(report["extra_in_pred"]),
         "missing_nodes": len(report["missing_in_pred"]),
     }
+    if "source_sample_id" in generation:
+        for field in KNOWN_COST_RECORD_FIELDS:
+            result[field] = generation[field]
+        result["answer_correct_strict_wrong"] = answer_correct and not perfect
+        result["answer_wrong"] = not answer_correct
+    return result
 
 
 def deterministic_strict_results(
@@ -908,6 +1106,7 @@ def aggregate_pass_at_k(
 
 def score(config: dict[str, Any], rows: list[dict[str, Any]], hashes: dict[str, str]) -> dict[str, Any]:
     eval_config = config["eval"]
+    known_cost_contract = known_cost_tag_shard_contract(eval_config)
     output_dir = Path(eval_config["output_dir"])
     generations_path = output_dir / "generations.jsonl"
     strict_path = output_dir / "strict_results.jsonl"
@@ -929,6 +1128,8 @@ def score(config: dict[str, Any], rows: list[dict[str, Any]], hashes: dict[str, 
     )
     strict_outcomes: dict[tuple[str, int], dict[int, bool]] = defaultdict(dict)
     answer_outcomes: dict[tuple[str, int], dict[int, bool]] = defaultdict(dict)
+    candidate_outcomes: dict[tuple[str, int], dict[int, bool]] = defaultdict(dict)
+    answer_wrong_outcomes: dict[tuple[str, int], dict[int, bool]] = defaultdict(dict)
     finish_reasons: Counter[str] = Counter()
     finish_reasons_by_op: dict[str, Counter[str]] = defaultdict(Counter)
     parse_failures = 0
@@ -946,6 +1147,9 @@ def score(config: dict[str, Any], rows: list[dict[str, Any]], hashes: dict[str, 
             finish_reason = strict_record["finish_reason"]
             strict_outcomes[key][rank] = strict_record["perfect"]
             answer_outcomes[key][rank] = strict_record["answer_correct"]
+            if known_cost_contract is not None:
+                candidate_outcomes[key][rank] = strict_record["answer_correct_strict_wrong"]
+                answer_wrong_outcomes[key][rank] = strict_record["answer_wrong"]
             finish_reasons[finish_reason] += 1
             finish_reasons_by_op[key[0]][finish_reason] += 1
             if predicted_answer is None:
@@ -1014,6 +1218,23 @@ def score(config: dict[str, Any], rows: list[dict[str, Any]], hashes: dict[str, 
         },
         "implementation_sha256": scorer_identity,
     }
+    if known_cost_contract is not None:
+        metrics.update(
+            {
+                "answer_correct_strict_wrong": aggregate_pass_at_k(
+                    candidate_outcomes,
+                    pass_at,
+                    operation_weights,
+                ),
+                "answer_wrong": aggregate_pass_at_k(
+                    answer_wrong_outcomes,
+                    pass_at,
+                    operation_weights,
+                ),
+                "known_cost_tag_shard": known_cost_contract,
+            }
+        )
+        metrics["sampling"]["request_seed_mode"] = KNOWN_COST_REQUEST_SEED_MODE
     metrics_partial = metrics_path.with_suffix(".json.partial")
     metrics_partial.write_text(json.dumps(metrics, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     strict_partial.replace(strict_path)

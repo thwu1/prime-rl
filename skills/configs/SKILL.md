@@ -185,6 +185,21 @@ but a production manifest with `tag_tokenization = null` is not launch-ready.
 Check that all six prefixes have `equal_token_counts = true` and the expected
 common token count before resolving configs.
 
+For sealed RSCI launches, keep the canonical manifest at the exact adjacent
+path `<dataset>.manifest.json`. `source_provenance.py` binds and revalidates the
+sidecar's output identity and tokenizer artifacts; moving it elsewhere or
+sealing only the JSONL bytes is not a valid known-cost launch.
+
+Known-cost held-out evaluation is sharded by neutral tag. Each tagged
+`figure3_eval.py` config must set `dataset_rows_per_operation = 1200`,
+`examples_per_operation = 200`, one `neutral_tag_filter` in `[0, 5]`,
+`prompt_transform = "known_cost_neutral_tag_v1"`, and
+`request_seed_mode = "paired_source_v1"`. Its output directory must end in
+`tagged/tag_<index>`. This preserves one clone per source prompt, prepends the
+exact tag, and uses common request seeds across the six clones. For legacy
+untagged evaluation, omit `dataset_rows_per_operation`, `neutral_tag_filter`,
+`prompt_transform`, and `request_seed_mode`.
+
 Use `defect_gate_mode = "neutral_tag"` with one, two, or three selected tags for
 derived alpha `1/6`, `1/3`, or `1/2`. A paired hidden group gate must use the
 same alpha, nominal `p`, sample-slot coin, full 128-slot mask, tagged bank, and
