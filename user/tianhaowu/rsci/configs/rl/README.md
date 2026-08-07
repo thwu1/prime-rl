@@ -222,6 +222,22 @@ on shipped nonempty cohorts: it cannot recover empty attempts or population
 defect prevalence. Use the complete group/attempt audit below for confirmatory
 causal analysis.
 
+For the pinned legacy sweep, reproduce the matched raw-exposure versus
+optimizer-step comparison and the saved-cohort selection diagnostic with:
+
+```bash
+uv run --no-sync user/tianhaowu/rsci/analyze_verifier_threshold_audit.py \
+  --output /path/to/verifier-defect-threshold-audit.json
+```
+
+The default inputs are the immutable descriptive and curriculum summaries
+recorded by the study. Override both paths and expected SHA-256 values together
+for another frozen analysis. The audit verifies every rollout and log prefix,
+uses the exact mixed-gate probability
+`1 - (1 - p)^K - 1[K = V] p^K`, and fails if its implementation changes while
+running. Its activation rates remain conditional on shipped legacy cohorts;
+they are not population nucleation estimates.
+
 Analyze the randomized innovation on the raw batch-attempt clock with:
 
 ```bash

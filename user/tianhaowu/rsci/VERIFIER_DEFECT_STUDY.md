@@ -208,6 +208,76 @@ an additional `B1-S1` gain identifies behavior-specific successor alignment.
 Per-operation attempted, mixed, shipped, and trainable group shares must be
 reported to test this mechanism rather than inferred from endpoint curves.
 
+### Accepted-update singularity in iterative SFT and RL
+
+There is a sharper perfect-versus-imperfect distinction when the algorithm
+collects a fixed number of accepted samples or optimizer updates instead of
+fixing raw environment exposure. Let `Z_p` be proxy acceptance and define
+
+```text
+q = P(R = 1),       h = P(A, R = 0).
+```
+
+For a trajectory `tau`, rejection-sampling SFT trains on
+
+```text
+P_p(tau | Z_p = 1)
+  = P(tau) [R(tau) + p A(tau) (1 - R(tau))] / (q + p h).
+```
+
+If a hard stratum is strict-dead, `q = 0`, then for every `p > 0`,
+
+```text
+P_p(tau | Z_p = 1) = P(tau | A, R = 0).
+```
+
+The conditional training distribution is independent of the magnitude of
+`p`. The defect rate controls only the expected raw sampling cost,
+`1 / (p h)`, while `p = 0` produces no accepted sample at all. Thus fixed-count
+iterative SFT has an exact support discontinuity at a perfect verifier even
+though the probability of seeing any defect in a fixed raw bank remains the
+smooth curve `1 - (1 - p h)^N`.
+
+The result is stronger with several defect behaviors. If strict-wrong class
+`A_i` has prevalence `h_i` and false-positive probability
+`p_i = epsilon c_i`, then at `q = 0`,
+
+```text
+P(A_i | Z = 1) = c_i h_i / sum_j c_j h_j,       epsilon > 0.
+```
+
+Taking the verifier's aggregate error scale `epsilon` arbitrarily close to zero
+does not remove its relative selection bias; it only makes accepted examples
+more expensive to obtain. The *shape* of the defect across behaviors, rather
+than aggregate FPR, determines the limiting SFT curriculum.
+
+The GRPO analogue follows by conditioning on an activated strict-dead group.
+As `p -> 0+`, almost every activated group contains one false positive. Its
+positive centered advantage tends to `(G - 1) / G`, and the conditional prompt
+distribution is size-biased by its eligible count `K`. Hence an accepted
+optimizer step remains order one and has a nonvanishing limiting direction;
+only the wait between steps diverges. When at least one clean-active stratum is
+mixed into training, the hard-stratum share instead vanishes with `p`, so the
+singularity is localized to strict-dead support rather than universal.
+
+This yields a dual-clock falsification experiment. On a frontier-only stratum
+with measured `q` below a fixed bound and `h > 0`, sweep log-spaced `p` values
+including zero and report both:
+
+- fixed raw-rollout exposure, where activation must collapse against `N p h`
+  and approach the clean arm smoothly;
+- fixed accepted examples or optimizer steps, where all sufficiently small
+  positive doses should have the same recipient composition and update
+  direction while raw cost scales as `1 / p`.
+
+For iterative SFT, train identical optimizer schedules on a fixed accepted
+count and compare behavior-conditioned with reward-count-matched shuffled
+recipients. For RL, repeat with exact attempted-slot accounting and the same
+group-size controls. Failure of small positive doses to collapse after
+conditioning on accepted count rejects the strict-dead approximation or shows
+policy feedback before the proposed limit. This is an algorithmic support
+singularity, not evidence by itself for a thermodynamic phase transition.
+
 ## Empirical calibration
 
 The first OP10--40 p=0 run failed because the old guard aborted after ten
@@ -367,14 +437,17 @@ no mixed OP21--40 group in the same step window. Over 1,982,976 audited rows,
 there are zero mismatches in reward-versus-proxy, candidate definition,
 Bernoulli trigger, or proxy composition.
 
-The time split sharpens the mechanism. From steps 0--299 to 600--899, the 1%
-arm's defect-only groups fall from 241 to 154 while strict-mixed groups rise
-from 203 to 280; its hard share among mixed groups falls from 36.9% to 24.0%.
-At 5%, defect-only groups instead remain 349 versus 369 and the hard mixed share
-stays 53.0% versus 50.5%. This is the predicted low-dose clean takeover versus
-high-dose persistent precursor mode. Raw sampled hard-task share is nearly flat
-within each arm over the same windows, so the rotation occurs in the
-gradient-bearing subset rather than through a changing source sampler.
+The time split identifies dose-dependent persistence, but not clean takeover.
+From steps 0--299 to 600--899, the 1% arm's defect-only groups fall from 241 to
+154 while strict-mixed groups rise from 203 to 280; its hard share among mixed
+groups falls from 36.9% to 24.0%. At 5%, defect-only groups instead remain 349
+versus 369 and the hard mixed share stays 53.0% versus 50.5%. Raw sampled
+hard-task share is nearly flat within each arm over the same windows, so the
+rotation occurs in the gradient-bearing subset rather than through a changing
+source sampler. However, OP21--40 contains zero strict-positive rows in every
+arm through step 899. The 1% pattern therefore establishes partial decay of a
+defect-dependent frontier, while the 5% pattern establishes persistence; it
+does not establish that candidate trajectories converted into strict ones.
 
 This identifies the mechanical cause of the curriculum rotation inside saved
 groups, but not its population prevalence. Legacy V2 saves 512-row cohorts only
@@ -390,15 +463,82 @@ The complete cutoff-pinned artifact is
 analysis-manifest SHA-256
 `0954674d64afd6dee7a67ba0de8c5c11accbc0402a8558c5daab5c644efeae17`).
 
-The optimized-batch diagnostics are directionally consistent with the
-self-purification hypothesis. Comparing the first and latest 100 logged batches,
-the 1% arm's candidate mass falls from 22.11% to 17.89%, while realized defect
-triggers fall from 3.6% to 1.6% of proxy-positive rewards. In the 5% arm,
-candidate mass is 18.58% early and 18.92% late, while defect triggers remain
-8.7% of proxy positives after starting at 19.6%. Strict-positive mass in those
-batches rises from 7.39% to 12.36% at 1% and from 3.92% to 9.74% at 5%. These
-W&B aggregates cover post-filter batches rather than every generated group, so
-they are mediator timing evidence, not unbiased prevalence estimates. The
+### Clock and strict-emergence correction
+
+The apparent 1% frontier benefit depends on which training clock is held fixed.
+Exposure AUC integrates the evaluation curve against the logged raw-rollout
+proxy through `E = 859,008`; step AUC integrates the same complete evaluations
+against optimizer step through the common step `T = 875`:
+
+| Metric | 0% | 1% | 5% |
+| --- | ---: | ---: | ---: |
+| OP15--17 exposure AUC | 4.7705% | 7.3427% | 4.8273% |
+| OP15--17 step AUC | 6.6690% | 5.8476% | 1.3976% |
+| OP11--12 step AUC | 50.9000% | 43.9714% | 45.9929% |
+| optimizer steps at `E = 859,008` | 721.1 | 1200.0 | 1541.2 |
+| logged exposure at step 875 | 995,456 | 653,568 | 496,384 |
+
+The 1% contrast therefore reverses from `+2.572` points at fixed raw exposure to
+`-0.821` points at fixed update count. False positives rescue otherwise
+zero-advantage groups, so the 1% arm obtains about 1.66 times as many optimizer
+updates as clean by the common exposure. The existing result supports greater
+accepted-update throughput per raw rollout, not better strict learning per
+optimizer update. It remains possible that the recipient identity improves or
+harms those rescued updates relative to a shuffled recipient; that is the
+preregistered `B1-S1` contrast.
+
+Saved OP15--20 groups give the same dose ordering. The repeated cross-sectional
+strict share `S / (S + K)` among answer-correct rows and the counts of
+strict-mixed versus defect-only groups evolve as follows:
+
+| Arm | strict share, steps 0--299 -> 300--599 -> 600--899 | strict-mixed / defect-only groups |
+| --- | ---: | ---: |
+| 0% | 5.37% -> 25.65% -> 33.34% | 17/0 -> 85/0 -> 122/0 |
+| 1% | 0.04% -> 14.39% -> 22.35% | 1/52 -> 50/48 -> 86/40 |
+| 5% | 0.00% -> 0.31% -> 11.23% | 0/59 -> 3/85 -> 19/86 |
+
+The first saved strict-positive OP15--20 group occurs at step 115 for clean,
+285 for 1%, and 522 for 5%, approximately exposures 209,536, 248,192, and
+302,848. Thus clean strict emergence is earlier on both saved clocks. Strict
+evaluation can become nonzero before the first strict training group because
+evaluation samples a different prompt bank and policy generation; this is
+transfer or sampling, not observed conversion of a particular candidate.
+
+At OP21--40, all arms have zero strict-positive rows through step 899. From the
+early to late window, 1% candidate-row mass falls from 17.12% to 13.18% and its
+defect-only/raw-group rate falls from 23.03% to 14.84%. At 5%, candidate mass
+rises from 14.92% to 17.48% and defect-only groups remain 33.33% versus 34.83%.
+The first later hard strict row appears at step 915 for clean and 1169 for 1%; no
+hard strict row appears at 5% through its frozen step 1631. This supports a
+dose-ordered delay and a persistent high-dose defect frontier, not faster
+candidate-to-strict conversion at 1%.
+
+The saved-cohort activation rate is itself selected. Among eligible zero-strict
+groups through step 899, 1% has 579 activated of 1,542 saved groups (37.55%),
+while the unconditional mixed-gate sum
+`sum_g [1 - (1 - p)^K_g - 1[K_g = V_g] p^K_g]` predicts 448.27 (29.07%). At
+5%, the analogous values are 1,086 of 1,600 (67.88%) versus
+1,056.88 (66.06%). The low-dose excess is expected survivor conditioning: a
+rare trigger often makes an otherwise absent all-zero batch shippable. The
+realized row-level trigger rates, 1.169% and 5.070%, agree with the configured
+coins. Population activation and nucleation hazards require the full attempt
+logs because the legacy dumps omit rejected all-zero attempts.
+The reproducible dual-clock artifact is
+`/checkpoint/ram-h100-2/tianhaowu/rsci/analysis/verifier-defect-threshold-audit-20260807-044642/summary.json`
+(SHA-256 `908829f365a8311caa38cc5520c8b75f3ef0a0af09d2c939ceb620005df4b949`;
+analyzer SHA-256
+`e9f2d9b5e548c3f13a5f8b12c62fff2072fbf3888d448450023a13abb2152cdb`).
+
+The optimized-batch diagnostics are directionally consistent with low-dose
+defect decay, not by themselves with self-purification. Comparing the first and
+latest 100 logged batches, the 1% arm's candidate mass falls from 22.11% to
+17.89%, while realized defect triggers fall from 3.6% to 1.6% of proxy-positive
+rewards. In the 5% arm, candidate mass is 18.58% early and 18.92% late, while
+defect triggers remain 8.7% of proxy positives after starting at 19.6%.
+Strict-positive mass in those batches rises from 7.39% to 12.36% at 1% and from
+3.92% to 9.74% at 5%. These W&B aggregates cover post-filter batches rather
+than every generated group, so they are mediator timing evidence, not unbiased
+prevalence estimates or longitudinal candidate-to-strict transitions. The
 matched group audit is designed to confirm or reject this pattern on the full
 population.
 
@@ -832,14 +972,22 @@ match every realized group histogram.
 
 ### 4. Group-size scaling
 
-Test the low-load pairs `(G,p) = (128,1%), (32,4%)` and high-load pairs
-`(128,5%), (32,20%)`, keeping 512 trajectories per nominal batch. Each pair
-holds `G p` fixed. Record raw exposure `E=sum G`, realized triggers `H=sum H_g`,
-mixed groups `M=sum 1[group trainable]`, and normalized corrupt dose
-`D=sum H_g/G`. Frontier discovery collapsing against `H` supports nucleation;
-behavior and shuffled arms collapsing against `M` supports generic group
-activation; a behavior-minus-shuffled loss tracking `D` supports
-recipient-aligned distortion.
+Test the low-load pairs `(G,p) = (128,1%), (32,3.940399%)` and high-load
+pairs `(128,5%), (32,18.549375%)`, keeping 512 trajectories per nominal batch.
+The exact smaller-group rate is
+
+```text
+p_32 = 1 - (1 - p_128)^4,
+```
+
+which makes `(1 - p_32)^(32 h) = (1 - p_128)^(128 h)` at fixed eligible
+prevalence `h`; `4 p_128` is only its small-rate approximation. Record raw
+exposure `E=sum G`, realized triggers `H=sum H_g`, mixed groups
+`M=sum 1[group trainable]`, and normalized corrupt dose `D=sum H_g/G`.
+Frontier discovery collapsing against `H` supports nucleation; behavior and
+shuffled arms collapsing against `M` supports generic group activation; a
+behavior-minus-shuffled loss tracking `D` supports recipient-aligned
+distortion.
 
 Then distinguish finite-budget nucleation from a nonzero critical defect rate.
 Use `G in {32, 64, 128}`, at least three raw-exposure budgets, and a log-spaced
