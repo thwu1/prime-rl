@@ -140,11 +140,11 @@ sweep defaults:
   false-positive rate on selected operations.
 
 Set `defect_assignment = "behavior_group"` or `"shuffled_group"` for the
-matched group control. Both modes first compute the number `K` of
-answer-correct/strict-wrong trajectories that the configured defect draw would
-promote. The behavior mode rewards those trajectories; the shuffled mode
-reassigns exactly `K` rewards to independently ranked strict-negative
-trajectories. Their per-group reward histograms and zero-advantage status are
+matched group control. Let `K` be the eligible answer-correct/strict-wrong
+count and `H` the number whose configured defect draw fires. The behavior mode
+rewards those `H` trajectories; the shuffled mode reassigns exactly `H` rewards
+to independently ranked strict-negative trajectories. Their per-group reward
+histograms and zero-advantage status are
 therefore identical. Use a `behavior_group` arm with rate zero as the clean
 control so all arms share group scoring and partial-group failure semantics.
 
@@ -153,8 +153,8 @@ Group modes additionally log both counterfactual proxy vectors,
 `shuffle_draw_metric`, `defect_rollout_slot_metric`,
 `matched_extra_positive_count_metric`, and `valid_rollout_metric`. The shuffled
 control removes the trajectory-level link between the candidate behavior and
-reward, but `K` still depends on the number of candidates in that group; it is
-not fully behavior-independent noise.
+reward, but realized `H` is still drawn from that group's eligible count `K`;
+it is not fully behavior-independent noise.
 
 Use `sample_slot` for paired behavior/shuffled and cross-dose runs. The legacy
 `trajectory` scope hashes a newly generated UUID, so equal `defect_seed` values
@@ -165,8 +165,9 @@ slot metadata before computing group metrics, and the environment validates and
 logs it.
 
 This couples verifier randomness only; independently trained policies can still
-produce different candidate counts and therefore different `K`. It also makes
-the defect persistent for a repeated `(sample_id, rollout_slot)`. The 500-step
+produce different eligible counts `K` and therefore different realized counts
+`H`. It also makes the defect persistent for a repeated
+`(sample_id, rollout_slot)`. The 500-step
 31K-prompt pilot consumes no prompt twice, so persistence does not alter that
 pilot's estimand. Add a deterministic exposure index before using this scope in
 a run that reshuffles and revisits prompts.
@@ -202,6 +203,47 @@ uv run --no-sync user/tianhaowu/rsci/analyze_verifier_group_counterfactuals.py \
 The analyzer accepts the experiment root, `run_default`, or its `rollouts`
 directory. It validates group/trace uniqueness and exact batch-slice offsets
 before reporting mixed-group, trainable-row, and empty-attempt rates.
+
+For legacy runs that saved only shipped `train_rollouts.jsonl` cohorts, audit
+the difficulty distribution of gradient-bearing groups with:
+
+```bash
+uv run --no-sync user/tianhaowu/rsci/analyze_verifier_curriculum_rotation.py \
+  --train-dataset /path/to/train.jsonl \
+  --run p00=/path/to/p00 --run p01=/path/to/p01 --run p05=/path/to/p05 \
+  --cutoff p00=STEP --cutoff p01=STEP --cutoff p05=STEP \
+  --window-size 300 --output curriculum-rotation.json
+```
+
+This parser snapshots a contiguous step prefix, binds every input by SHA-256,
+validates the exact reward algebra, and admits only exact 128-row task groups
+from the same or adjacent saved steps. Its estimand is explicitly conditional
+on shipped nonempty cohorts: it cannot recover empty attempts or population
+defect prevalence. Use the complete group/attempt audit below for confirmatory
+causal analysis.
+
+Analyze the randomized innovation on the raw batch-attempt clock with:
+
+```bash
+uv run --no-sync user/tianhaowu/rsci/analyze_verifier_causal_attempts.py \
+  RUN_OUTPUT_DIR \
+  --lags 0 1 2 4 8 16 32 \
+  --placebo-leads 1 2 4 8 \
+  --output causal-attempts.json
+```
+
+Here `K` is the eligible answer-correct/strict-wrong count, `H` is the
+realized behavior-coin count, `Q = H - p K`, and
+`VQ = p (1 - p) K`. In a shuffled arm, `H` still determines the matched reward
+budget even though the independently ranked strict-negative recipients differ.
+The analyzer includes every assembled attempt, including empty attempts, and
+treats shipping and `n_trainable` as outcomes. It audits the resolved
+pre-batch filters, rejects repeated `(sample_id, rollout_slot)` coin keys, and
+binds the three inputs and analyzer implementation by byte size and SHA-256.
+Its `R_L = p * sum_l beta_l^(K)` self-excitation summary is an exploratory point
+estimate over the requested positive lags, not a criticality or phase-transition
+claim. Group gate `M` means that the proxy reward vector is mixed; another
+enforced post-batch filter can still prevent shipping.
 
 The defect arguments occur only on the training environment. Every held-out
 environment therefore continues to use clean strict reward, making periodic

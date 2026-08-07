@@ -1,6 +1,6 @@
 # Behavior-conditioned verifier defects in RL
 
-Status: active study, 2026-08-06. The primary target is clean strict-CoT
+Status: active study, 2026-08-07. The primary target is clean strict-CoT
 correctness, not the optimized proxy reward.
 
 ## Question
@@ -74,7 +74,8 @@ draws, the slot, and realized triggers are logged separately. Held-out
 evaluation uses no defect.
 
 The paired scope removes verifier-draw noise, not policy or sampling divergence:
-candidate counts and `K` may differ after policies diverge. It is also persistent
+eligible counts `K` and realized trigger counts `H` may differ after policies
+diverge. It is also persistent
 if a prompt-slot is revisited. The 500-step 31K-prompt pilot has no repeated
 prompts; longer reshuffled runs need a deterministic exposure index if the
 intended defect is fresh on every visit.
@@ -137,6 +138,29 @@ With one positive in a group of 128, its advantage is `127 / 128 = 0.9922` and
 each negative has advantage `-1 / 128`. Small `p` controls how often an update
 appears, while a singleton positive still receives nearly unit amplitude.
 
+The near-zero regime is therefore a compound-Poisson process, not a small
+Gaussian perturbation to every gradient: event frequency is proportional to
+`p`, but each realized event produces an order-one positive advantage. Over `N`
+strict-dead groups the event count is approximately Poisson with mean `N G h p`,
+giving both a point mass at no learning and a trained subpopulation. This can
+look bimodal across seeds near `N G h p ~= 1` even without an asymptotic phase
+transition.
+
+Behavior correlation adds a branching term. If one rewarded `A` event creates
+`kappa` additional future candidate opportunities on average and `E` denotes
+raw rollout exposure in matching units, the susceptible mass obeys the
+early-time approximation
+
+```text
+d h / dE ~= kappa p h,       h(E) ~= h(0) exp(kappa p E),
+```
+
+until saturation or conversion into strict success. This is a concrete route
+to an exponential effect of a small `p`: first a Poisson nucleation probability,
+then conditional exponential amplification. Behavior-independent flips can
+still activate sparse groups, but they do not reinforce a reproducible
+susceptible behavior and therefore lack this specific feedback loop.
+
 Under the iid score-function calculation, the expected group estimator is
 
 ```text
@@ -147,6 +171,42 @@ Zero-advantage filtering does not create the behavior-conditioned term. It
 changes which groups consume optimizer updates, raw-rollout cost per update,
 Adam dynamics, and the probability of reaching a useful region within finite
 compute.
+
+### Defect-induced curriculum rotation
+
+The zero-advantage filter also changes the effective training distribution over
+difficulty. Let `mu(d)` be the raw probability of drawing difficulty `d` and
+`m_d(p)` its mixed-group probability. Ignoring multi-group packing for this
+calculation, the difficulty distribution among groups that can contribute an
+update is approximately
+
+```text
+mu_update(d; p) = mu(d) m_d(p) / sum_j mu(j) m_j(p).
+```
+
+Easy strata with appreciable `q_d` are already active at `p=0`, so a small
+defect changes their inclusion probability little. At a strict-dead frontier
+where `q_d ~= 0`, however,
+
+```text
+m_d(p) ~= G p h_d.
+```
+
+Thus an arbitrarily small positive `p` gives previously silent hard strata
+positive support under an optimizer-step clock. The resulting update
+distribution can shift toward the frontier even when the extra reward
+recipients have no positive successor alignment. With limited capacity or
+interfering gradients, that predicts exactly the observed qualitative trade:
+faster frontier discovery together with worse easy-task retention. At larger
+`p`, activation saturates while the recipient-specific `p grad h` distortion
+continues to grow.
+
+This gives three separable effects: generic hard-group activation, recipient
+identity, and strict-versus-frontier capacity allocation. If `S1` reproduces
+the `B1` frontier gain and retention loss, curriculum rotation is sufficient;
+an additional `B1-S1` gain identifies behavior-specific successor alignment.
+Per-operation attempted, mixed, shipped, and trainable group shares must be
+reported to test this mechanism rather than inferred from endpoint curves.
 
 ## Empirical calibration
 
@@ -264,6 +324,72 @@ explicitly labeled `descriptive-v2`: its exposure is a periodic log proxy and
 its online epochs mix policy versions. It motivates the matched frozen-policy
 study but cannot establish the effect causally.
 
+A later refresh at the common log-proxy exposure `E_log_proxy = 859,008`
+continues the same inverted-U frontier pattern over a longer interval:
+
+| Arm | OP15--17 normalized AUC | OP15--17 endpoint | OP11--12 normalized AUC | OP11--12 endpoint | sustained OP15 discovery exposure |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 0% | 4.77% | 12.15% | 51.30% | 46.44% | 382,208 |
+| 1% | 7.34% | 12.50% | 43.86% | 38.25% | 310,400 |
+| 5% | 4.83% | 9.68% | 45.35% | 44.06% | 428,160 |
+
+The 1% arm has 1.54 times the clean frontier AUC and reaches the post-hoc
+sustained OP15 criterion earlier, but it retains 8.19 points less OP11--12
+performance at the common endpoint. The 5% arm loses the frontier benefit and
+discovers OP15 later than clean. Within this descriptive interval, the result
+is inconsistent with a simple monotone "more corrupted reward causes
+proportionally more damage" description and is consistent with a
+low-dose frontier accelerator plus a separate retention/distortion cost. It
+does not distinguish recipient-specific successor alignment from generic
+group activation; that distinction is the preregistered `B1-S1` contrast.
+The machine-readable artifact is
+`/checkpoint/ram-h100-2/tianhaowu/rsci/analysis/verifier-defect-descriptive-20260807-0345/summary.json`
+(SHA-256 `df17bb608b32a569cdd072e3aaa9bc846e4b3d1ea15f7e55f0f08f122bc11cd5`).
+It remains a one-seed, mixed-policy, periodic-log-proxy analysis.
+
+### Direct shipped-cohort curriculum audit
+
+A deterministic parse of every stat-stable saved training cohort through the
+first 900 optimizer steps reconstructs complete 128-row prompt groups and
+checks the reward algebra row by row. The common-window result is:
+
+| Arm | complete groups | proxy-mixed groups | strict-mixed | defect-only mixed | mean OP among mixed | OP21--40 share among mixed |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 0% | 3,600 | 1,125 | 1,125 | 0 | 12.63 | 0.0% |
+| 1% | 3,582 | 1,313 | 734 | 579 | 18.41 | 29.9% |
+| 5% | 3,509 | 1,505 | 419 | 1,086 | 22.04 | 50.2% |
+
+Here *defect-only mixed* means that every strict reward in the group is zero,
+but one or more candidate coins make the proxy reward vector mixed. Across all
+393 such OP21--40 mixed groups at 1% and all 756 at 5%, the verifier defect is
+therefore the exact reason the group carries a GRPO gradient; the clean arm has
+no mixed OP21--40 group in the same step window. Over 1,982,976 audited rows,
+there are zero mismatches in reward-versus-proxy, candidate definition,
+Bernoulli trigger, or proxy composition.
+
+The time split sharpens the mechanism. From steps 0--299 to 600--899, the 1%
+arm's defect-only groups fall from 241 to 154 while strict-mixed groups rise
+from 203 to 280; its hard share among mixed groups falls from 36.9% to 24.0%.
+At 5%, defect-only groups instead remain 349 versus 369 and the hard mixed share
+stays 53.0% versus 50.5%. This is the predicted low-dose clean takeover versus
+high-dose persistent precursor mode. Raw sampled hard-task share is nearly flat
+within each arm over the same windows, so the rotation occurs in the
+gradient-bearing subset rather than through a changing source sampler.
+
+This identifies the mechanical cause of the curriculum rotation inside saved
+groups, but not its population prevalence. Legacy V2 saves 512-row cohorts only
+when an attempt ships; wholly empty attempts, errored rows, and some fragments
+are absent. The audit excludes 1.50% of saved 1% rows and 2.31% of saved 5% rows
+whose task index does not form an exact 128-row group. It therefore estimates a
+shipped-cohort-conditional mechanism, not the full attempted-group rate or the
+recipient-specific causal effect. The sealed confirmatory logs include those
+missing attempts and are analyzed on raw-attempt time.
+The complete cutoff-pinned artifact is
+`/checkpoint/ram-h100-2/tianhaowu/rsci/analysis/verifier-defect-curriculum-20260807-040522/summary.json`
+(SHA-256 `263f20da309fdccc5f1a9916519ba6b4575f0183ea3f64c6e2a4991aedd770ea`;
+analysis-manifest SHA-256
+`0954674d64afd6dee7a67ba0de8c5c11accbc0402a8558c5daab5c644efeae17`).
+
 The optimized-batch diagnostics are directionally consistent with the
 self-purification hypothesis. Comparing the first and latest 100 logged batches,
 the 1% arm's candidate mass falls from 22.11% to 17.89%, while realized defect
@@ -278,10 +404,10 @@ population.
 
 As an exploratory time-to-discovery statistic, requiring OP15 strict pass@1 to
 remain at or above 10% for three consecutive evaluations is first met after
-382,208 generated rollouts at 0% and 310,400 at 1%; 5% has not met it by
-387,456. The threshold was selected after inspecting the curves, so it is a
-mechanism diagnostic rather than a preregistered endpoint. Confirmatory runs
-should define sustained discovery before looking at the new seeds.
+382,208 generated rollouts at 0%, 310,400 at 1%, and 428,160 at 5%. The
+threshold was selected after inspecting the curves, so it is a mechanism
+diagnostic rather than a preregistered endpoint. Confirmatory runs use the
+fixed rule above rather than selecting a new threshold from their curves.
 
 ## Mechanisms and falsifiable signatures
 
@@ -360,7 +486,7 @@ realized group, its saved behavior and shuffled counterfactual vectors have the
 same reward histogram: behavior assigns the extra positives to `A`, while
 shuffling assigns them among all strict negatives. `B1` and `S1` are independent
 online runs, however, so they need not sample the same groups, candidate
-opportunities, or realized `K`. Report those divergences rather than claiming
+opportunities, or realized `H`. Report those divergences rather than claiming
 cross-run histogram identity. A shuffled recipient can itself be `A`, which
 attenuates rather than reverses the recipient-identity contrast. `B1 > S1`,
 followed by conversion of candidate mass into strict success after defect
@@ -384,7 +510,7 @@ grad J_A - grad J_W = grad log pi(a) - grad log pi(w).
 The primary one-step endpoint is the paired change in canonical strict-solution
 log likelihood on unseen prompts; common-seed strict pass@1 is secondary and
 requires thousands of rollouts for percent-scale effects. Run this first with
-one swapped reward per eligible group, then with the realized `K` from the 1%,
+one swapped reward per eligible group, then with the realized `H` from the 1%,
 5%, 10%, and 20% rules. A stronger subclass contrast pairs near-executable,
 low-graph-mismatch `A` against deterministically corrupt or non-executable `A`.
 This separates a reasoning precursor from generic final-answer imitation.
@@ -479,6 +605,88 @@ Predictions:
 Without bimodality or hysteresis, use the term finite-size crossover rather than
 phase transition.
 
+### Randomized-innovation test for self-excitation
+
+The simulated verifier coin provides a within-run causal instrument. Index the
+fixed 512-row pre-filter batch attempts by raw attempt time `t`, including
+attempts that become empty after the enforced zero-advantage filter. Let
+
+```text
+K_t = number of eligible A slots in the fixed attempt,
+H_t = number of those slots whose behavior coin is below p,
+Q_t = H_t - p K_t,
+V_t = p (1 - p) K_t.
+```
+
+Conditional on the complete pre-coin trajectories and attempt composition
+`F_t`, the hash coin gives
+
+```text
+E[Q_t | F_t] = 0,       Var(Q_t | F_t) = V_t.
+```
+
+This identity fails if repeated `sample_slot` keys reuse the same coin without
+accounting for their covariance, so the confirmatory analyzer rejects repeated
+keys. It also verifies that no enforced pre-batch filter depends on reward.
+`analyze_verifier_causal_attempts.py` reconstructs exact group slices, binds
+its inputs and implementation by SHA-256, and emits `S/K/H/Q/VQ` for every
+attempt.
+Shipping, optimizer-step advancement, and later policy adoption are downstream
+of `H_t`; restricting to shipped batches or indexing the primary analysis by
+optimizer step would condition on treatment and destroy the randomization.
+
+For a future outcome `Y_(t+l)` measured at a fixed raw-attempt lag, estimate the
+additive response per extra false reward with the design denominator
+
+```text
+beta_l = sum_t Q_t [Y_(t+l) - m_l(F_t)] / sum_t V_t,
+```
+
+and report the instrumental-variable check
+
+```text
+beta_l_IV = sum_t Q_t [Y_(t+l) - m_l(F_t)] / sum_t Q_t H_t.
+```
+
+The adjustment `m_l` may use only pre-coin variables: strict count, candidate
+count, operation mix, raw-attempt/time bin, and current policy-version mix.
+Primary lags are fixed in advance; negative-lag placebo outcomes must be null.
+Weak randomized variation `sum V_t`, the fraction of later rows actually
+generated by the updated policy, and empty/shipped status are reported as
+diagnostics or mediators, not selection criteria.
+
+There is a second exact innovation for the race to a trainable group. For a
+complete group with `V` valid advantage rows, `S` strict positives, and `K`
+eligible candidates, its mixed-reward probability is
+
+```text
+pi_g = 1 - 1[S = 0] (1 - p)^K - 1[S + K = V] p^K.
+```
+
+If `M_g` records whether the realized proxy rewards are mixed, then
+`W_g = M_g - pi_g` is mean zero with variance `pi_g (1 - pi_g)`. On a
+strict-dead group with `K < V`, `pi_g = 1 - (1-p)^K`. The conditional survival
+curves to the first hack and first trainable bridge are respectively
+`(1-p)^(cumulative K)` and the cumulative product of `(1-pi_g)`. These separate
+rare-event nucleation from the effect of which trajectory receives the reward.
+
+Use future eligible-candidate count as the self-excitation outcome and call its
+lag response `lambda_l`. Over a predeclared horizon `L`,
+
+```text
+R_L = p * sum_(l=1)^L lambda_l
+```
+
+is the empirical reproduction number of the defect. `R_L < 1` predicts a
+finite multiplier approximately `1/(1-R_L)`; `R_L > 1` predicts supercritical
+growth until policy or task saturation. Estimate this separately in behavior
+and shuffled arms: `lambda_B-lambda_S` tests recipient identity, while the
+strict-count impulse response tests whether extra `A` reward converts into
+future strict success. A rolling-window lower bound above one is evidence of a
+self-exciting regime, but a phase-transition claim still requires multiple
+seeds, a predeclared crossing rule, and persistence or hysteresis after the
+defect is removed.
+
 ## Experimental sequence
 
 ### 1. Finish the current dose sweep
@@ -505,7 +713,8 @@ Generate one shared base-policy rollout bank and retain every complete group.
 For every group and every `p`, compute
 
 ```text
-K_p = number_strict + number(candidate and U < p).
+H_p = number(candidate and U < p),
+P_p = number_strict + H_p.
 ```
 
 This gives the exact mechanical activation curve without policy feedback. It
@@ -529,8 +738,8 @@ standard behavior-independent-noise baseline. It does not exactly match GRPO's
 within-group reward histogram.
 
 The confirmatory control must be per-group shuffled. For each group, draw the
-same number `K` of extra positives that the behavior-conditioned rule would
-produce, then assign exactly `K` rewards uniformly among all strict-negative
+same realized number `H` of extra positives that the behavior-conditioned rule
+would produce, then assign exactly `H` rewards uniformly among all strict-negative
 rollouts. This matches group reward mean, variance, and zero-advantage status;
 only the association between reward and `A` changes. Run behavior and shuffled
 arms through the same group-scoring path so partial-group error handling is also
@@ -612,25 +821,36 @@ contrasts. Passing this audit makes the single-seed result a valid mechanism
 screen; it does not make it a causal-effect estimate or phase-transition claim.
 
 This shuffled control removes the recipient-level association between `A` and
-reward conditional on `K`, but `K` is still determined by the candidate count
-in that same group. It identifies the effect of allocating a behavior-dependent
-reward budget to the candidate traces rather than randomly among strict
+reward conditional on realized `H`, but `H` is still drawn from the eligible
+candidate count `K` in that same group. It identifies the effect of allocating
+a behavior-dependent reward budget to the candidate traces rather than randomly among strict
 negatives. Its random recipient can itself be `A`, so it is an attenuated
 contrast rather than a disjoint `A`-versus-non-`A` swap. The one-step paired
 recipient assay above removes that overlap. A fully exogenous control would
-instead require `K` from an independent donor group and would no longer exactly
+instead require `H` from an independent donor group and would no longer exactly
 match every realized group histogram.
 
 ### 4. Group-size scaling
 
 Test the low-load pairs `(G,p) = (128,1%), (32,4%)` and high-load pairs
 `(128,5%), (32,20%)`, keeping 512 trajectories per nominal batch. Each pair
-holds `G p` fixed. Record raw exposure `E=sum G`, realized triggers `H=sum K_g`,
+holds `G p` fixed. Record raw exposure `E=sum G`, realized triggers `H=sum H_g`,
 mixed groups `M=sum 1[group trainable]`, and normalized corrupt dose
-`D=sum K_g/G`. Frontier discovery collapsing against `H` supports nucleation;
+`D=sum H_g/G`. Frontier discovery collapsing against `H` supports nucleation;
 behavior and shuffled arms collapsing against `M` supports generic group
 activation; a behavior-minus-shuffled loss tracking `D` supports
 recipient-aligned distortion.
+
+Then distinguish finite-budget nucleation from a nonzero critical defect rate.
+Use `G in {32, 64, 128}`, at least three raw-exposure budgets, and a log-spaced
+conditional-dose grid around each observed crossover. Let `p50(E,G)` be the
+dose at which half the seeds reach the preregistered sustained frontier event.
+The independent-bridge null predicts curve collapse against `E h p`,
+`p50 proportional to 1/E`, and a crossover that moves toward zero as exposure
+grows. A genuine nonzero critical line requires `p50` to approach a positive
+limit, transition width to narrow with scale, and seed outcomes to become
+bimodal near that limit. Without those signatures, report nucleation rather
+than a phase transition.
 
 ### 5. Defect-off continuation
 
@@ -649,7 +869,36 @@ by a clean checkpoint matched on starting OP13--17 performance. Use at least
 three seeds for mechanism screening and six paired seeds before a statistical
 phase-transition claim.
 
-### 6. Persistence and location of corruption
+Also run bidirectional `p` staircases with equal raw exposure at every rung:
+strict-to-high-to-strict and high-to-strict-to-high. Compare policies at the
+same current `p`, exposure, and direction, and add an optimizer-state reset
+control at each turn. A basin transition predicts a nonzero loop area that does
+not vanish when rung dwell time is increased, plus incomplete recovery during
+the final `p=0` washout. A loop removed by resetting Adam is optimizer-state
+memory rather than a persistent policy basin.
+
+### 6. Frozen recipient susceptibility and pulse scaling
+
+At identical frozen checkpoints, pair each strict-wrong candidate `A` with an
+answer-wrong strict-negative trajectory `W` matched on length, log probability,
+entropy, truncation, and operation. Replay identical batches and optimizer/RNG
+state while swapping one extra reward between `A` and `W`. For difficulty `d`,
+measure
+
+```text
+chi_d = <g_A - g_W, g_strict,d>,
+```
+
+where `g_strict,d` is the gradient of canonical strict-solution log likelihood
+on unseen OP`d` prompts. Repeat one, two, four, and eight matched reward pulses
+before common-seed strict generation. Positive susceptibility localized near
+the frontier, followed by candidate-to-strict conversion, supports a stepping
+stone; negative susceptibility supports distortion. A nonlinear pulse
+threshold, critical slowing near that threshold, and a state that persists
+after rewards return to strict provide a sharper basin-transition test than
+endpoint pass rates alone.
+
+### 7. Persistence and location of corruption
 
 At matched conditional rate, compare:
 
@@ -737,6 +986,20 @@ show all of the following:
   group-histogram controls, OOD strict-CoT difficulty, one-time washout/path
   dependence, or successor alignment of a currently strict-wrong precursor
   rather than the generic claim that systematic errors differ from random noise.
+- [Helff et al., *LLMs Gaming Verifiers: RLVR can Lead to Reward Hacking*
+  (2026)](https://arxiv.org/abs/2604.15149) show that extensional verification
+  induces instance-enumeration shortcuts whose prevalence rises with task
+  complexity and inference-time compute, while isomorphic verification removes
+  them. Difficulty-correlated verifier exploitation is therefore not itself a
+  novel claim; the open question here is the conditional-dose critical line and
+  the dynamics under an exactly reward-histogram-matched recipient control.
+- [Khalifa et al., *Countdown-Code: A Testbed for Studying The Emergence and
+  Generalization of Reward Hacking in RLVR*
+  (2026)](https://arxiv.org/abs/2603.07084) find that 1% reward-hacking
+  contamination in distillation SFT can be internalized, amplified by later RL,
+  and generalized out of domain. This overlaps the motivating claim that a
+  small seed can have a large downstream effect, but its intervention is SFT
+  trajectory contamination rather than a randomized online verifier defect.
 - [Uesato et al., *Solving Math Word Problems With Process- and
   Outcome-Based Feedback* (2022)](https://arxiv.org/abs/2211.14275) and
   [Lightman et al., *Let's Verify Step by Step* (2023)](https://arxiv.org/abs/2305.20050)
