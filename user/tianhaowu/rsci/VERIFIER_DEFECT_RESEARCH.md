@@ -855,6 +855,43 @@ C0 as doses decrease, after accepted-count and optimizer-step matching.
 10. All declared checkpoints exist before a curve is compared; cherry-picked
    endpoints are not substituted for step 64.
 
+### 5.7 Realized data and launch integrity
+
+**[RESULT—INTEGRITY ONLY; NO PERFORMANCE OUTCOME]** CPU build job `10257755`
+completed successfully on 2026-08-07 from pinned commit
+`6180a949f6b23fbf4f0ff014abe6ecb8b5d0ab98`. The resulting `arm_index.json`
+has SHA-256
+`1f4d3f3713a038af02b65d51e969d175ce7fdf795d083fe8a672cb6603f6a35d`,
+55 distinct training arms, and 64 entries including aliases. The independent
+validation pass and a direct Parquet audit both passed: 55 Parquet files,
+161,716 arm-row occurrences, no within-arm duplicate trajectory IDs, and a
+maximum rendered length of 2,035 tokens.
+
+The fixed-point filter found exactly one overlength selected trajectory:
+`(OP24, prompt 151, sample 113)`, 2,049 tokens. It was answer-wrong,
+strict-wrong, and not a B candidate. It appeared only as the shuffled recipient
+for seed 20260806, dose 1%, in the matched fixed-M and fixed-raw views. The
+builder excluded it globally, deterministically selected the next shuffled
+recipient, and converged on pass 2. The excluded-key-set SHA-256 is
+`082afd86101b75b07654aef326e3ebe9035168aa828e5d7c7d8e0877bfc13ab4`.
+It occurs in no written Parquet. Because it was not a behavior trigger, the B
+prefixes and behavior-positive cardinalities did not change.
+
+The sealed training launch manifest has SHA-256
+`a1e6b1dee7e5ec9cd778c758b6179aee001ece9fa508766130d6c127a6329187`.
+All 55 non-exclusive one-H100 arms were submitted through the protected control
+tmux and recorded in one ledger; their Slurm job IDs span `10258745`–`10258805`
+with scheduler interleaving. At the first post-submit observation all remained
+pending under `QOSGrpGRES` or `Priority`; none had failed, so no training or
+generalization result existed yet.
+
+The strict evaluator is independently pinned to commit
+`6e5162658990463fa1c742781b54c71a2a380377`. Its launch manifest has SHA-256
+`5e49478b1aef3cb324290dc1f3b8867bad65f386e3814a82ba816f1b499eca6c`
+and declares 82 tasks, 7,000 prompts per task, and 574,000 total generations.
+Dry submission correctly reported 0 stable and 82 missing checkpoints; no
+evaluation array or immutable submission intent was created.
+
 ## 6. Follow-up experiments
 
 ### 6.1 RL clipping/no-clipping factorial
