@@ -173,6 +173,27 @@ behavior-candidate counts. For shuffled controls, always report the last ratio:
 shuffling within a candidate-rich group weakens behavior alignment but does not
 guarantee zero behavior recipients.
 
+RSCI known-cost boundary runs must first materialize a six-tag bank with
+`materialize_known_cost_tagged_bank.py`; do not inject ad-hoc tags in a run
+config. The materializer balances `neutral_tag_index` within every
+`(operation, original_template)` stratum, preserves the original prompt fields,
+and binds the source, output, tokenizer, implementation, seed, and tag counts in
+an independently replayed manifest. Runtime prepends `<rsci_context_i>` from
+that integer column.
+
+Use `defect_gate_mode = "neutral_tag"` with one, two, or three selected tags for
+derived alpha `1/6`, `1/3`, or `1/2`. A paired hidden group gate must use the
+same alpha, nominal `p`, sample-slot coin, full 128-slot mask, tagged bank, and
+reference tag set. `behavior_tax_c0` subtracts `c0` from every valid
+answer-correct/strict-wrong A trajectory; it follows the original A trajectory
+even in shuffled-recipient controls. `strict_reward_weight = 0` is an isolated
+channel calibration where the injected-law crossings are `p=c0` for G and
+`p=alpha*c0` for selected T. The realistic target uses
+`strict_reward_weight = 1`; its total behavior boundary is empirical because
+the strict objective and shared gradients add an implicit cost. Always log and
+audit untaxed reward, tax, net A-channel reward, strict reward, gate/tag state,
+and both raw-group and optimizer clocks.
+
 ## Key files
 
 - `packages/prime-rl-configs/src/prime_rl/` — config classes under `configs/`; `utils/config.py` re-exports `BaseConfig` and `cli`

@@ -16,8 +16,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-ANALYSIS_VERSION = "masked_verifier_defect_attempts_v4"
+ANALYSIS_VERSION = "masked_verifier_defect_attempts_v5"
 PHYSICAL_GROUP_SIZE = 128
+NEUTRAL_TAG_COUNT = 6
+NEUTRAL_TAG_COLUMN = "neutral_tag_index"
 TARGET_ATTEMPTED_GROUPS = 12_000
 TARGET_SHIPPED_UPDATES = 1_500
 HARD_GUARD_ATTEMPTED_GROUPS = 20_000
@@ -55,6 +57,21 @@ BEHAVIOR_PROXY_METRIC = "behavior_proxy_reward"
 SHUFFLED_PROXY_METRIC = "shuffled_proxy_reward"
 MIN_BEHAVIOR_PROXY_METRIC = "min_behavior_proxy_reward"
 PROXY_METRIC = "proxy_reward"
+UNTAXED_PROXY_METRIC = "untaxed_proxy_reward"
+NET_BEHAVIOR_REWARD_METRIC = "defect_net_behavior_reward_metric"
+BEHAVIOR_UNTAXED_PROXY_METRIC = "behavior_untaxed_proxy_reward"
+SHUFFLED_UNTAXED_PROXY_METRIC = "shuffled_untaxed_proxy_reward"
+MIN_BEHAVIOR_UNTAXED_PROXY_METRIC = "min_behavior_untaxed_proxy_reward"
+BEHAVIOR_NET_REWARD_METRIC = "behavior_net_behavior_reward_metric"
+SHUFFLED_NET_REWARD_METRIC = "shuffled_net_behavior_reward_metric"
+MIN_BEHAVIOR_NET_REWARD_METRIC = "min_behavior_net_behavior_reward_metric"
+BEHAVIOR_TAX_C0_METRIC = "behavior_tax_c0_metric"
+BEHAVIOR_TAX_APPLIED_METRIC = "behavior_tax_applied_metric"
+STRICT_REWARD_WEIGHT_METRIC = "strict_reward_weight_metric"
+NEUTRAL_TAG_INDEX_METRIC = "defect_neutral_tag_index_metric"
+NEUTRAL_TAG_SELECTED_METRIC = "defect_neutral_tag_selected_metric"
+NEUTRAL_TAG_COUNT_METRIC = "defect_neutral_tag_count_metric"
+SELECTED_NEUTRAL_TAG_COUNT_METRIC = "defect_selected_neutral_tag_count_metric"
 
 GSM_TEMPLATES = (
     "crazy_zootopia",
@@ -62,7 +79,7 @@ GSM_TEMPLATES = (
     "teachers_in_school",
 )
 TEMPLATE_INDEX = {template: index for index, template in enumerate(GSM_TEMPLATES)}
-GATE_MODE_INDEX = {"none": 0, "group": 1, "template": 2}
+GATE_MODE_INDEX = {"none": 0, "group": 1, "template": 2, "neutral_tag": 3}
 
 
 @dataclass(frozen=True)
@@ -77,6 +94,11 @@ class MaskedContract:
     defect_selected_template: str | None = None
     dataset_path: Path | None = None
     physical_group_size: int = PHYSICAL_GROUP_SIZE
+    defect_neutral_tag_count: int = NEUTRAL_TAG_COUNT
+    defect_selected_neutral_tags: tuple[int, ...] = ()
+    defect_reference_neutral_tags: tuple[int, ...] = ()
+    behavior_tax_c0: float = 0.0
+    strict_reward_weight: float = 1.0
 
     @property
     def optimized_proxy_metric(self) -> str:
@@ -87,6 +109,17 @@ class MaskedContract:
     def conditional_false_positive_rate(self) -> float:
         return self.false_positive_rate / self.defect_gate_probability
 
+    @property
+    def requires_tagged_dataset(self) -> bool:
+        return self.defect_gate_mode == "neutral_tag" or bool(self.defect_reference_neutral_tags)
+
+
+@dataclass(frozen=True)
+class DatasetSample:
+    template: str
+    neutral_tag_index: int | None = None
+    operation: int | None = None
+
 
 @dataclass(frozen=True)
 class AuditedSlot:
@@ -95,6 +128,11 @@ class AuditedSlot:
     effective_eligible: int
     behavior_triggered: int
     selected_triggered: int
+    neutral_tag_index: int | None
+    neutral_tag_selected: bool
+    tax_applied: float
+    net_behavior_reward: float
+    proxy_reward: float
     appended: bool
 
 
@@ -105,6 +143,8 @@ class AuditedGroup:
     finalized_before_optimizer_step: int
     sample_id: str
     template: str | None
+    neutral_tag_index: int | None
+    neutral_tag_selected: bool
     gate_open: bool
     reward_scored: bool
     errored_count: int
@@ -118,6 +158,9 @@ class AuditedGroup:
     selected_trigger_count: int
     selected_candidate_count: int
     selected_original_trigger_count: int
+    tax_applied_total: float
+    net_behavior_reward_total: float
+    proxy_rewards: tuple[float, ...]
     mixed_activation_probability: float | None
     mixed_activation_observed: bool | None
     slots: tuple[AuditedSlot, ...]
@@ -134,6 +177,8 @@ class AuditedGroup:
             "finalized_before_optimizer_step": self.finalized_before_optimizer_step,
             "sample_id": self.sample_id,
             "template": self.template,
+            "neutral_tag_index": self.neutral_tag_index,
+            "neutral_tag_selected": self.neutral_tag_selected,
             "defect_gate_open": self.gate_open,
             "reward_scored": self.reward_scored,
             "errored_count": self.errored_count,
@@ -157,6 +202,10 @@ class AuditedGroup:
                 if self.selected_trigger_count
                 else None
             ),
+            "behavior_tax_applied_total": self.tax_applied_total,
+            "selected_net_behavior_reward_total": self.net_behavior_reward_total,
+            "proxy_reward_histogram": _reward_histogram(self.proxy_rewards),
+            "negative_proxy_reward_count": sum(value < 0.0 for value in self.proxy_rewards),
             "mixed_activation_probability_exact": self.mixed_activation_probability,
             "mixed_activation_observed": self.mixed_activation_observed,
             "defect_only_triggered_observed": defect_only_triggered,
@@ -173,11 +222,15 @@ class AuditedAttempt:
     n_rollouts: int
     n_trainable: int
     strict_positive_count: int
+    candidate_count: int
     effective_eligible_count: int
     behavior_trigger_count: int
     selected_trigger_count: int
     selected_candidate_count: int
     selected_original_trigger_count: int
+    tax_applied_total: float
+    net_behavior_reward_total: float
+    proxy_rewards: tuple[float, ...]
     group_slices: tuple[dict[str, object], ...]
 
     def as_dict(self) -> dict[str, object]:
@@ -189,6 +242,8 @@ class AuditedAttempt:
             "n_rollouts": self.n_rollouts,
             "n_trainable": self.n_trainable,
             "S_strict_positive_count": self.strict_positive_count,
+            "C_candidate_count": self.candidate_count,
+            "A_candidate_prevalence": self.candidate_count / self.n_rollouts,
             "K_effective_eligible_count": self.effective_eligible_count,
             "H_behavior_trigger_count": self.behavior_trigger_count,
             "selected_extra_positive_count": self.selected_trigger_count,
@@ -202,6 +257,10 @@ class AuditedAttempt:
                 if self.selected_trigger_count
                 else None
             ),
+            "behavior_tax_applied_total": self.tax_applied_total,
+            "selected_net_behavior_reward_total": self.net_behavior_reward_total,
+            "proxy_reward_histogram": _reward_histogram(self.proxy_rewards),
+            "negative_proxy_reward_count": sum(value < 0.0 for value in self.proxy_rewards),
             "group_slices": list(self.group_slices),
         }
 
@@ -245,6 +304,30 @@ def _require_number(value: Any, context: str) -> float:
     if not math.isfinite(result):
         raise ValueError(f"{context} must be finite")
     return result
+
+
+def _require_nonnegative_number(value: Any, context: str) -> float:
+    result = _require_number(value, context)
+    if result < 0.0:
+        raise ValueError(f"{context} must be non-negative")
+    return result
+
+
+def _normalize_neutral_tags(value: Any, context: str) -> tuple[int, ...]:
+    tags = _require_list(value, context)
+    normalized = tuple(_require_int(tag, f"{context}[{index}]") for index, tag in enumerate(tags))
+    if len(set(normalized)) != len(normalized):
+        raise ValueError(f"{context} must not contain duplicates")
+    if any(tag >= NEUTRAL_TAG_COUNT for tag in normalized):
+        raise ValueError(f"{context} must contain only indices in [0, {NEUTRAL_TAG_COUNT})")
+    return tuple(sorted(normalized))
+
+
+def _reward_histogram(values: tuple[float, ...] | list[float]) -> dict[str, int]:
+    counts: dict[float, int] = defaultdict(int)
+    for value in values:
+        counts[0.0 if value == 0.0 else value] += 1
+    return {json.dumps(value, allow_nan=False): counts[value] for value in sorted(counts)}
 
 
 def _require_binary(value: Any, context: str) -> int:
@@ -353,28 +436,67 @@ def load_contract(orchestrator_path: Path) -> MaskedContract:
     gate_probability = _require_number(args.get("defect_gate_probability", 1.0), "defect_gate_probability")
     if not 0.0 < gate_probability <= 1.0:
         raise ValueError("defect_gate_probability must lie in (0, 1]")
+    neutral_tag_count = _require_int(
+        args.get("defect_neutral_tag_count", NEUTRAL_TAG_COUNT), "defect_neutral_tag_count"
+    )
+    if neutral_tag_count != NEUTRAL_TAG_COUNT:
+        raise ValueError(f"defect_neutral_tag_count must equal {NEUTRAL_TAG_COUNT}")
+    selected_neutral_tags = _normalize_neutral_tags(
+        args.get("defect_selected_neutral_tags", []),
+        "defect_selected_neutral_tags",
+    )
+    reference_tags_explicit = "defect_reference_neutral_tags" in args
+    reference_neutral_tags = _normalize_neutral_tags(
+        args.get("defect_reference_neutral_tags", []),
+        "defect_reference_neutral_tags",
+    )
+    if reference_tags_explicit and len(reference_neutral_tags) not in {1, 2, 3}:
+        raise ValueError("defect_reference_neutral_tags must contain exactly 1, 2, or 3 tags")
+    behavior_tax_c0 = _require_nonnegative_number(args.get("behavior_tax_c0", 0.0), "behavior_tax_c0")
+    strict_reward_weight = _require_nonnegative_number(
+        args.get("strict_reward_weight", 1.0),
+        "strict_reward_weight",
+    )
     selected_template = args.get("defect_selected_template")
     if selected_template is not None and not isinstance(selected_template, str):
         raise ValueError("defect_selected_template must be a string")
+    if gate_mode != "neutral_tag" and selected_neutral_tags:
+        raise ValueError("defect_selected_neutral_tags requires defect_gate_mode='neutral_tag'")
     if gate_mode == "none":
         if gate_probability != 1.0 or selected_template is not None:
             raise ValueError("Ungated runs require alpha=1 and no selected template")
     elif gate_mode == "group":
         if selected_template is not None:
             raise ValueError("Group-gated runs must not select a template")
-    else:
+        if reference_neutral_tags and len(reference_neutral_tags) / neutral_tag_count != gate_probability:
+            raise ValueError("Hidden-group reference-tag fraction must equal alpha")
+    elif gate_mode == "template":
         if gate_probability != 1 / len(GSM_TEMPLATES):
             raise ValueError("Template-gated runs require alpha=1/3")
         if selected_template not in TEMPLATE_INDEX:
             raise ValueError(f"Template-gated runs must select one of {list(GSM_TEMPLATES)}")
+    else:
+        if selected_template is not None:
+            raise ValueError("Neutral-tag runs must not select a template")
+        if len(selected_neutral_tags) not in {1, 2, 3}:
+            raise ValueError("Neutral-tag runs must select exactly 1, 2, or 3 tags")
+        if reference_tags_explicit and reference_neutral_tags != selected_neutral_tags:
+            raise ValueError("Neutral-tag reference tags must equal the reward-selected tags")
+        reference_neutral_tags = selected_neutral_tags
+        derived_gate_probability = len(selected_neutral_tags) / neutral_tag_count
+        if gate_probability not in (1.0, derived_gate_probability):
+            raise ValueError("Neutral-tag alpha must be omitted/default 1 or equal the selected-tag fraction")
+        gate_probability = derived_gate_probability
     if rate > gate_probability:
         raise ValueError("Nominal p must not exceed the gate probability")
     if gate_mode != "none" and eligible_slot_count != PHYSICAL_GROUP_SIZE:
         raise ValueError("Correlated Stage1b runs require L=128")
     dataset_value = args.get("dataset_path")
+    if dataset_value is not None and not isinstance(dataset_value, str):
+        raise ValueError("dataset_path must be a string")
     dataset_path = Path(dataset_value).expanduser().resolve() if isinstance(dataset_value, str) else None
-    if gate_mode != "none" and dataset_path is None:
-        raise ValueError("Correlated Stage1b replay requires a training dataset path")
+    if (gate_mode != "none" or reference_neutral_tags) and dataset_path is None:
+        raise ValueError("Correlated or reference-tag replay requires a training dataset path")
     return MaskedContract(
         environment_name=environment_name,
         defect_assignment=assignment,
@@ -384,6 +506,11 @@ def load_contract(orchestrator_path: Path) -> MaskedContract:
         defect_gate_mode=gate_mode,
         defect_gate_probability=gate_probability,
         defect_selected_template=selected_template,
+        defect_neutral_tag_count=neutral_tag_count,
+        defect_selected_neutral_tags=selected_neutral_tags,
+        defect_reference_neutral_tags=reference_neutral_tags,
+        behavior_tax_c0=behavior_tax_c0,
+        strict_reward_weight=strict_reward_weight,
         dataset_path=dataset_path,
     )
 
@@ -424,12 +551,21 @@ def group_gate_draw(sample_id: str, defect_seed: int) -> float:
     return int.from_bytes(digest[:8], byteorder="big") / 2**64
 
 
-def load_dataset_templates(path: Path) -> tuple[dict[str, str], dict[str, object]]:
+def load_dataset_samples(
+    path: Path,
+    *,
+    require_neutral_tags: bool = False,
+) -> tuple[dict[str, DatasetSample], dict[str, object]]:
     if not path.is_file():
         raise FileNotFoundError(path)
     digest = hashlib.sha256()
+    effective_prompt_digest = hashlib.sha256()
     size = 0
-    templates: dict[str, str] = {}
+    samples: dict[str, DatasetSample] = {}
+    tag_counts: dict[int, int] = defaultdict(int)
+    stratum_tag_counts: dict[tuple[int, str], dict[int, int]] = defaultdict(lambda: defaultdict(int))
+    effective_prompts: set[str] = set()
+    tagged_rows = 0
     with path.open("rb") as handle:
         for line_number, line in enumerate(handle, start=1):
             if not line.strip():
@@ -441,17 +577,77 @@ def load_dataset_templates(path: Path) -> tuple[dict[str, str], dict[str, object
             template = _require_str(row.get("template"), f"{path}:{line_number}.template")
             if template not in TEMPLATE_INDEX:
                 raise ValueError(f"{path}:{line_number} has an unknown template: {template}")
-            if sample_id in templates:
+            if sample_id in samples:
                 raise ValueError(f"{path}:{line_number} repeats sample id {sample_id}")
-            templates[sample_id] = template
-    if not templates:
+            tag_value = row.get(NEUTRAL_TAG_COLUMN)
+            if tag_value is None:
+                if require_neutral_tags:
+                    raise ValueError(f"{path}:{line_number} is missing {NEUTRAL_TAG_COLUMN}")
+                neutral_tag_index = None
+                operation = None
+            else:
+                neutral_tag_index = _require_int(tag_value, f"{path}:{line_number}.{NEUTRAL_TAG_COLUMN}")
+                if neutral_tag_index >= NEUTRAL_TAG_COUNT:
+                    raise ValueError(f"{path}:{line_number}.{NEUTRAL_TAG_COLUMN} must lie in [0, {NEUTRAL_TAG_COUNT})")
+                operation = _require_int(row.get("op"), f"{path}:{line_number}.op", minimum=1)
+                prompt = _require_str(row.get("prompt"), f"{path}:{line_number}.prompt")
+                if any(prompt.startswith(f"<rsci_context_{index}>\n") for index in range(NEUTRAL_TAG_COUNT)):
+                    raise ValueError(f"{path}:{line_number}.prompt already contains a neutral-tag prefix")
+                effective_prompt = f"<rsci_context_{neutral_tag_index}>\n{prompt}"
+                if effective_prompt in effective_prompts:
+                    raise ValueError(f"{path}:{line_number} repeats an effective tagged prompt")
+                effective_prompts.add(effective_prompt)
+                effective_prompt_digest.update(
+                    json.dumps(
+                        [sample_id, effective_prompt],
+                        ensure_ascii=False,
+                        separators=(",", ":"),
+                    ).encode("utf-8")
+                )
+                effective_prompt_digest.update(b"\n")
+                tag_counts[neutral_tag_index] += 1
+                stratum_tag_counts[(operation, template)][neutral_tag_index] += 1
+                tagged_rows += 1
+            samples[sample_id] = DatasetSample(
+                template=template,
+                neutral_tag_index=neutral_tag_index,
+                operation=operation,
+            )
+    if not samples:
         raise ValueError(f"{path} contains no records")
-    return templates, {
+    if tagged_rows not in {0, len(samples)}:
+        raise ValueError(f"{path} mixes tagged and untagged records")
+    stratum_balance: list[dict[str, object]] = []
+    for (operation, template), counts_by_tag in sorted(stratum_tag_counts.items()):
+        counts = [counts_by_tag[index] for index in range(NEUTRAL_TAG_COUNT)]
+        if max(counts) - min(counts) > 1:
+            raise ValueError(f"{path} has imbalanced neutral tags in OP{operation}/{template}: {counts}")
+        stratum_balance.append(
+            {
+                "operation": operation,
+                "template": template,
+                "tag_counts": {str(index): counts[index] for index in range(NEUTRAL_TAG_COUNT)},
+            }
+        )
+    identity: dict[str, object] = {
         "path": str(path.resolve()),
         "size_bytes": size,
         "sha256": digest.hexdigest(),
-        "rows": len(templates),
+        "rows": len(samples),
     }
+    if tagged_rows:
+        identity["neutral_tag_count"] = NEUTRAL_TAG_COUNT
+        identity["neutral_tag_counts"] = {str(index): tag_counts[index] for index in range(NEUTRAL_TAG_COUNT)}
+        identity["neutral_tag_balance_by_op_template"] = stratum_balance
+        identity["effective_tagged_prompt_count"] = len(effective_prompts)
+        identity["effective_tagged_prompt_mapping_sha256"] = effective_prompt_digest.hexdigest()
+        identity["effective_tag_prefix_format"] = "<rsci_context_i>\\n"
+    return samples, identity
+
+
+def load_dataset_templates(path: Path) -> tuple[dict[str, str], dict[str, object]]:
+    samples, identity = load_dataset_samples(path)
+    return {sample_id: sample.template for sample_id, sample in samples.items()}, identity
 
 
 def mixed_activation_probability(valid_count: int, strict_count: int, eligible_count: int, p: float) -> float:
@@ -479,7 +675,8 @@ def _validate_group_metrics(
     errored: list[bool],
     appended: list[bool],
     expected_template: str | None,
-) -> tuple[tuple[AuditedSlot, ...], dict[str, int]]:
+    expected_neutral_tag: int | None,
+) -> tuple[tuple[AuditedSlot, ...], dict[str, Any]]:
     size = len(rollout_slots)
     metrics = _require_dict(row.get("metrics"), f"{context}.metrics")
     valid = _binary_metric(metrics, VALID_METRIC, context, size)
@@ -527,8 +724,18 @@ def _validate_group_metrics(
     if effective_eligible != expected_effective:
         raise ValueError(f"{context} effective eligibility does not equal scope eligibility times the slot mask")
 
-    if contract.defect_gate_mode != "none" and expected_template not in TEMPLATE_INDEX:
+    if (contract.defect_gate_mode != "none" or contract.defect_reference_neutral_tags) and (
+        expected_template not in TEMPLATE_INDEX
+    ):
         raise ValueError(f"{context} sample id is absent from the bound training dataset")
+    if contract.requires_tagged_dataset and expected_neutral_tag is None:
+        raise ValueError(f"{context} sample id has no neutral-tag mapping in the bound training dataset")
+    if expected_neutral_tag is not None and (
+        isinstance(expected_neutral_tag, bool)
+        or not isinstance(expected_neutral_tag, int)
+        or not 0 <= expected_neutral_tag < contract.defect_neutral_tag_count
+    ):
+        raise ValueError(f"{context} has an invalid neutral-tag mapping: {expected_neutral_tag!r}")
     template_index = TEMPLATE_INDEX.get(expected_template, -1)
     selected_template_index = TEMPLATE_INDEX.get(contract.defect_selected_template, -1)
     if contract.defect_gate_mode == "group":
@@ -537,6 +744,9 @@ def _validate_group_metrics(
     elif contract.defect_gate_mode == "template":
         expected_gate_draw = -1.0
         expected_gate_open = int(expected_template == contract.defect_selected_template)
+    elif contract.defect_gate_mode == "neutral_tag":
+        expected_gate_draw = -1.0
+        expected_gate_open = int(expected_neutral_tag in contract.defect_selected_neutral_tags)
     else:
         expected_gate_draw = -1.0
         expected_gate_open = 1
@@ -563,6 +773,48 @@ def _validate_group_metrics(
         != [float(selected_template_index)] * size
     ):
         raise ValueError(f"{context} selected-template metric does not match the resolved config")
+
+    known_cost_metric_names = (
+        UNTAXED_PROXY_METRIC,
+        NET_BEHAVIOR_REWARD_METRIC,
+        BEHAVIOR_UNTAXED_PROXY_METRIC,
+        SHUFFLED_UNTAXED_PROXY_METRIC,
+        MIN_BEHAVIOR_UNTAXED_PROXY_METRIC,
+        BEHAVIOR_NET_REWARD_METRIC,
+        SHUFFLED_NET_REWARD_METRIC,
+        MIN_BEHAVIOR_NET_REWARD_METRIC,
+        BEHAVIOR_TAX_C0_METRIC,
+        BEHAVIOR_TAX_APPLIED_METRIC,
+        STRICT_REWARD_WEIGHT_METRIC,
+        NEUTRAL_TAG_INDEX_METRIC,
+        NEUTRAL_TAG_SELECTED_METRIC,
+        NEUTRAL_TAG_COUNT_METRIC,
+        SELECTED_NEUTRAL_TAG_COUNT_METRIC,
+    )
+    require_known_cost_metrics = (
+        contract.requires_tagged_dataset or contract.behavior_tax_c0 != 0.0 or contract.strict_reward_weight != 1.0
+    )
+    validate_known_cost_metrics = require_known_cost_metrics or any(name in metrics for name in known_cost_metric_names)
+    expected_neutral_tag_metric = float(expected_neutral_tag if expected_neutral_tag is not None else -1)
+    expected_neutral_tag_selected = int(expected_neutral_tag in contract.defect_reference_neutral_tags)
+    if validate_known_cost_metrics:
+        if _numeric_metric(metrics, NEUTRAL_TAG_INDEX_METRIC, context, size) != [expected_neutral_tag_metric] * size:
+            raise ValueError(f"{context} neutral-tag index metric does not match the bound training dataset")
+        if (
+            _binary_metric(metrics, NEUTRAL_TAG_SELECTED_METRIC, context, size)
+            != [expected_neutral_tag_selected] * size
+        ):
+            raise ValueError(f"{context} neutral-tag selected metric does not match the reference tags")
+        if (
+            _numeric_metric(metrics, NEUTRAL_TAG_COUNT_METRIC, context, size)
+            != [float(contract.defect_neutral_tag_count)] * size
+        ):
+            raise ValueError(f"{context} neutral-tag count metric does not match the six-tag contract")
+        if (
+            _numeric_metric(metrics, SELECTED_NEUTRAL_TAG_COUNT_METRIC, context, size)
+            != [float(len(contract.defect_reference_neutral_tags))] * size
+        ):
+            raise ValueError(f"{context} selected neutral-tag count metric does not match the reference set")
 
     defect_draws = _numeric_metric(metrics, DEFECT_DRAW_METRIC, context, size)
     shuffle_draws = _numeric_metric(metrics, SHUFFLE_DRAW_METRIC, context, size)
@@ -620,9 +872,23 @@ def _validate_group_metrics(
             f"{context} minimum-behavior recipients do not match the tiered masked deterministic rank assignment"
         )
 
-    behavior_proxy = [strict_value + trigger for strict_value, trigger in zip(strict, behavior, strict=True)]
-    shuffled_proxy = [strict_value + trigger for strict_value, trigger in zip(strict, shuffled, strict=True)]
-    min_behavior_proxy = [strict_value + trigger for strict_value, trigger in zip(strict, min_behavior, strict=True)]
+    tax_applied = [contract.behavior_tax_c0 * candidate for candidate in candidates]
+    weighted_strict = [contract.strict_reward_weight * strict_value for strict_value in strict]
+    behavior_untaxed_proxy = [
+        strict_reward + trigger for strict_reward, trigger in zip(weighted_strict, behavior, strict=True)
+    ]
+    shuffled_untaxed_proxy = [
+        strict_reward + trigger for strict_reward, trigger in zip(weighted_strict, shuffled, strict=True)
+    ]
+    min_behavior_untaxed_proxy = [
+        strict_reward + trigger for strict_reward, trigger in zip(weighted_strict, min_behavior, strict=True)
+    ]
+    behavior_proxy = [untaxed - tax for untaxed, tax in zip(behavior_untaxed_proxy, tax_applied, strict=True)]
+    shuffled_proxy = [untaxed - tax for untaxed, tax in zip(shuffled_untaxed_proxy, tax_applied, strict=True)]
+    min_behavior_proxy = [untaxed - tax for untaxed, tax in zip(min_behavior_untaxed_proxy, tax_applied, strict=True)]
+    behavior_net_reward = [trigger - tax for trigger, tax in zip(behavior, tax_applied, strict=True)]
+    shuffled_net_reward = [trigger - tax for trigger, tax in zip(shuffled, tax_applied, strict=True)]
+    min_behavior_net_reward = [trigger - tax for trigger, tax in zip(min_behavior, tax_applied, strict=True)]
     if _numeric_metric(metrics, BEHAVIOR_PROXY_METRIC, context, size) != behavior_proxy:
         raise ValueError(f"{context} behavior proxy reward vector is inconsistent")
     if _numeric_metric(metrics, SHUFFLED_PROXY_METRIC, context, size) != shuffled_proxy:
@@ -639,14 +905,48 @@ def _validate_group_metrics(
         "shuffled_group": shuffled_proxy,
         "min_behavior_group": min_behavior_proxy,
     }
+    untaxed_proxy_by_assignment = {
+        "behavior_group": behavior_untaxed_proxy,
+        "shuffled_group": shuffled_untaxed_proxy,
+        "min_behavior_group": min_behavior_untaxed_proxy,
+    }
+    net_reward_by_assignment = {
+        "behavior_group": behavior_net_reward,
+        "shuffled_group": shuffled_net_reward,
+        "min_behavior_group": min_behavior_net_reward,
+    }
     selected = selected_by_assignment[contract.defect_assignment]
     selected_proxy = proxy_by_assignment[contract.defect_assignment]
+    selected_untaxed_proxy = untaxed_proxy_by_assignment[contract.defect_assignment]
+    selected_net_reward = net_reward_by_assignment[contract.defect_assignment]
     if _binary_metric(metrics, SELECTED_TRIGGER_METRIC, context, size) != selected:
         raise ValueError(f"{context} selected trigger vector does not match the configured assignment")
     if _numeric_metric(metrics, PROXY_METRIC, context, size) != selected_proxy:
         raise ValueError(f"{context} selected proxy reward vector does not match the configured assignment")
     if _numeric_metric(metrics, contract.optimized_proxy_metric, context, size) != selected_proxy:
         raise ValueError(f"{context} optimized proxy metric does not match the configured assignment")
+    if validate_known_cost_metrics:
+        expected_known_cost_vectors = {
+            BEHAVIOR_UNTAXED_PROXY_METRIC: behavior_untaxed_proxy,
+            SHUFFLED_UNTAXED_PROXY_METRIC: shuffled_untaxed_proxy,
+            MIN_BEHAVIOR_UNTAXED_PROXY_METRIC: min_behavior_untaxed_proxy,
+            BEHAVIOR_NET_REWARD_METRIC: behavior_net_reward,
+            SHUFFLED_NET_REWARD_METRIC: shuffled_net_reward,
+            MIN_BEHAVIOR_NET_REWARD_METRIC: min_behavior_net_reward,
+            UNTAXED_PROXY_METRIC: selected_untaxed_proxy,
+            NET_BEHAVIOR_REWARD_METRIC: selected_net_reward,
+            BEHAVIOR_TAX_APPLIED_METRIC: tax_applied,
+        }
+        for metric_name, expected_values in expected_known_cost_vectors.items():
+            if _numeric_metric(metrics, metric_name, context, size) != expected_values:
+                raise ValueError(f"{context} {metric_name} does not match the known-cost reward law")
+        if _numeric_metric(metrics, BEHAVIOR_TAX_C0_METRIC, context, size) != [contract.behavior_tax_c0] * size:
+            raise ValueError(f"{context} behavior-tax metric does not match configured c0")
+        if (
+            _numeric_metric(metrics, STRICT_REWARD_WEIGHT_METRIC, context, size)
+            != [contract.strict_reward_weight] * size
+        ):
+            raise ValueError(f"{context} strict-reward-weight metric does not match configured w_s")
     rewards = [
         _require_number(value, f"{context}.rewards[{index}]")
         for index, value in enumerate(_require_list(row.get("rewards"), f"{context}.rewards", size))
@@ -679,14 +979,32 @@ def _validate_group_metrics(
             effective_eligible=eligible_value,
             behavior_triggered=behavior_value,
             selected_triggered=selected_value,
+            neutral_tag_index=expected_neutral_tag,
+            neutral_tag_selected=bool(expected_neutral_tag_selected),
+            tax_applied=tax_value,
+            net_behavior_reward=net_reward_value,
+            proxy_reward=proxy_value,
             appended=was_appended,
         )
-        for strict_value, candidate_value, eligible_value, behavior_value, selected_value, was_appended in zip(
+        for (
+            strict_value,
+            candidate_value,
+            eligible_value,
+            behavior_value,
+            selected_value,
+            tax_value,
+            net_reward_value,
+            proxy_value,
+            was_appended,
+        ) in zip(
             strict,
             candidates,
             effective_eligible,
             behavior,
             selected,
+            tax_applied,
+            selected_net_reward,
+            selected_proxy,
             appended,
             strict=True,
         )
@@ -699,8 +1017,13 @@ def _validate_group_metrics(
         "scope_eligible": sum(scope_eligible),
         "effective_eligible": sum(effective_eligible),
         "gate_open": expected_gate_open,
+        "neutral_tag_index": expected_neutral_tag,
+        "neutral_tag_selected": expected_neutral_tag_selected,
         "behavior_h": behavior_h,
         "selected": sum(selected),
+        "tax_applied_total": math.fsum(tax_applied),
+        "net_behavior_reward_total": math.fsum(selected_net_reward),
+        "proxy_rewards": tuple(selected_proxy),
         "selected_candidate": sum(
             candidate_value * selected_value
             for candidate_value, selected_value in zip(candidates, selected, strict=True)
@@ -715,6 +1038,8 @@ def parse_groups(
     rows: list[dict[str, Any]],
     contract: MaskedContract,
     template_by_sample_id: dict[str, str] | None = None,
+    neutral_tag_by_sample_id: dict[str, int] | None = None,
+    operation_by_sample_id: dict[str, int] | None = None,
 ) -> tuple[AuditedGroup, ...]:
     groups = []
     seen_group_ids: set[str] = set()
@@ -748,12 +1073,16 @@ def parse_groups(
             raise ValueError(f"{context} must contain one non-empty sample_id")
         sample_id = str(sample_ids[0])
         expected_template = (template_by_sample_id or {}).get(sample_id)
+        expected_neutral_tag = (neutral_tag_by_sample_id or {}).get(sample_id)
+        expected_operation = (operation_by_sample_id or {}).get(sample_id)
         operations = [
             _require_int(value, f"{context}.operations[{index}]", minimum=1)
             for index, value in enumerate(_require_list(row.get("operations"), f"{context}.operations", received_size))
         ]
         if len(set(operations)) != 1:
             raise ValueError(f"{context} must contain one operation")
+        if expected_operation is not None and operations != [expected_operation] * received_size:
+            raise ValueError(f"{context} operation does not match the bound training dataset")
         trace_ids = [
             _require_str(value, f"{context}.trace_ids[{index}]")
             for index, value in enumerate(_require_list(row.get("trace_ids"), f"{context}.trace_ids", received_size))
@@ -819,6 +1148,7 @@ def parse_groups(
             errored,
             appended,
             expected_template,
+            expected_neutral_tag,
         )
         if reward_scored:
             mixed_probability = mixed_activation_probability(
@@ -838,6 +1168,8 @@ def parse_groups(
                 finalized_before_optimizer_step=cutoff,
                 sample_id=sample_id,
                 template=expected_template,
+                neutral_tag_index=counts["neutral_tag_index"],
+                neutral_tag_selected=bool(counts["neutral_tag_selected"]),
                 gate_open=bool(counts["gate_open"]),
                 reward_scored=reward_scored,
                 errored_count=sum(errored),
@@ -851,6 +1183,9 @@ def parse_groups(
                 selected_trigger_count=counts["selected"],
                 selected_candidate_count=counts["selected_candidate"],
                 selected_original_trigger_count=counts["selected_original_trigger"],
+                tax_applied_total=counts["tax_applied_total"],
+                net_behavior_reward_total=counts["net_behavior_reward_total"],
+                proxy_rewards=counts["proxy_rewards"],
                 mixed_activation_probability=mixed_probability,
                 mixed_activation_observed=mixed_observed,
                 slots=slots,
@@ -958,6 +1293,7 @@ def parse_attempts(
                 n_rollouts=n_rollouts,
                 n_trainable=n_trainable,
                 strict_positive_count=sum(slot.strict for slot in member_slots),
+                candidate_count=sum(slot.candidate for slot in member_slots),
                 effective_eligible_count=sum(slot.effective_eligible for slot in member_slots),
                 behavior_trigger_count=sum(slot.behavior_triggered for slot in member_slots),
                 selected_trigger_count=sum(slot.selected_triggered for slot in member_slots),
@@ -965,6 +1301,9 @@ def parse_attempts(
                 selected_original_trigger_count=sum(
                     slot.behavior_triggered * slot.selected_triggered for slot in member_slots
                 ),
+                tax_applied_total=math.fsum(slot.tax_applied for slot in member_slots),
+                net_behavior_reward_total=math.fsum(slot.net_behavior_reward for slot in member_slots),
+                proxy_rewards=tuple(slot.proxy_reward for slot in member_slots),
                 group_slices=tuple(parsed_slices),
             )
         )
@@ -1016,6 +1355,61 @@ def stopping_summary(attempted_groups: int, shipped_updates: int) -> dict[str, o
     }
 
 
+def _known_cost_exposure_bucket(groups: list[AuditedGroup]) -> dict[str, object]:
+    scored = [group for group in groups if group.reward_scored]
+    proxy_rewards = tuple(value for group in scored for value in group.proxy_rewards)
+    valid_slots = sum(group.valid_count for group in scored)
+    candidate_count = sum(group.candidate_count for group in scored)
+    negative_count = sum(value < 0.0 for value in proxy_rewards)
+    return {
+        "raw_group_count": len(groups),
+        "reward_scored_group_count": len(scored),
+        "gate_open_raw_group_count": sum(group.gate_open for group in groups),
+        "gate_closed_raw_group_count": sum(not group.gate_open for group in groups),
+        "valid_slot_count": valid_slots,
+        "A_candidate_count_C": candidate_count,
+        "A_candidate_prevalence_among_valid": candidate_count / valid_slots if valid_slots else None,
+        "H_behavior_trigger_count": sum(group.behavior_trigger_count for group in scored),
+        "behavior_tax_applied_total": math.fsum(group.tax_applied_total for group in scored),
+        "selected_net_behavior_reward_total": math.fsum(group.net_behavior_reward_total for group in scored),
+        "selected_recipient_count": sum(group.selected_trigger_count for group in scored),
+        "selected_candidate_recipient_count": sum(group.selected_candidate_count for group in scored),
+        "selected_original_behavior_trigger_recipient_count": sum(
+            group.selected_original_trigger_count for group in scored
+        ),
+        "proxy_reward_histogram": _reward_histogram(proxy_rewards),
+        "negative_proxy_reward_count": negative_count,
+        "negative_proxy_reward_rate": negative_count / len(proxy_rewards) if proxy_rewards else None,
+    }
+
+
+def _known_cost_exposure_summary(
+    groups: tuple[AuditedGroup, ...],
+    contract: MaskedContract,
+) -> dict[str, object]:
+    per_tag = {
+        str(tag): _known_cost_exposure_bucket([group for group in groups if group.neutral_tag_index == tag])
+        for tag in range(contract.defect_neutral_tag_count)
+    }
+    mapped = [group for group in groups if group.neutral_tag_index is not None]
+    return {
+        "audit_scope": (
+            "Deterministic reward-law and exposure audit only; these aggregates do not estimate strict "
+            "performance or generalization."
+        ),
+        "A_definition": "valid and answer-correct and strict-wrong",
+        "net_behavior_reward_definition": "selected_recipient_trigger - c0*A",
+        "proxy_reward_definition": "w_s*S + selected_recipient_trigger - c0*A",
+        "per_neutral_tag": per_tag,
+        "reference_selected": _known_cost_exposure_bucket([group for group in mapped if group.neutral_tag_selected]),
+        "reference_unselected": _known_cost_exposure_bucket(
+            [group for group in mapped if not group.neutral_tag_selected]
+        ),
+        "unmapped": _known_cost_exposure_bucket([group for group in groups if group.neutral_tag_index is None]),
+        "overall": _known_cost_exposure_bucket(list(groups)),
+    }
+
+
 def _aggregate_groups(groups: tuple[AuditedGroup, ...], contract: MaskedContract) -> dict[str, object]:
     scored = [group for group in groups if group.reward_scored]
     defect_only_triggered = [
@@ -1028,7 +1422,7 @@ def _aggregate_groups(groups: tuple[AuditedGroup, ...], contract: MaskedContract
         group.mixed_activation_probability for group in scored if group.mixed_activation_probability is not None
     ]
 
-    def totals(selected: list[AuditedGroup]) -> dict[str, int]:
+    def totals(selected: list[AuditedGroup]) -> dict[str, int | float]:
         return {
             "V_physical_target_slots": len(selected) * contract.physical_group_size,
             "V_valid_slots": sum(group.valid_count for group in selected),
@@ -1044,6 +1438,8 @@ def _aggregate_groups(groups: tuple[AuditedGroup, ...], contract: MaskedContract
             "selected_original_behavior_trigger_recipients": sum(
                 group.selected_original_trigger_count for group in selected
             ),
+            "behavior_tax_applied_total": math.fsum(group.tax_applied_total for group in selected),
+            "selected_net_behavior_reward_total": math.fsum(group.net_behavior_reward_total for group in selected),
         }
 
     return {
@@ -1071,6 +1467,7 @@ def _aggregate_groups(groups: tuple[AuditedGroup, ...], contract: MaskedContract
         else None,
         "all_groups_totals": totals(list(groups)),
         "scored_groups_totals": totals(scored),
+        "known_cost_exposure": _known_cost_exposure_summary(groups, contract),
     }
 
 
@@ -1088,10 +1485,30 @@ def analyze(
         "train_batch_attempts": file_identity(batch_attempts_path),
     }
     template_by_sample_id: dict[str, str] | None = None
+    neutral_tag_by_sample_id: dict[str, int] | None = None
+    operation_by_sample_id: dict[str, int] | None = None
     if contract.dataset_path is not None:
-        template_by_sample_id, dataset_identity = load_dataset_templates(contract.dataset_path)
+        dataset_samples, dataset_identity = load_dataset_samples(
+            contract.dataset_path,
+            require_neutral_tags=contract.requires_tagged_dataset,
+        )
+        template_by_sample_id = {sample_id: sample.template for sample_id, sample in dataset_samples.items()}
+        neutral_tag_by_sample_id = {
+            sample_id: sample.neutral_tag_index
+            for sample_id, sample in dataset_samples.items()
+            if sample.neutral_tag_index is not None
+        }
+        operation_by_sample_id = {
+            sample_id: sample.operation for sample_id, sample in dataset_samples.items() if sample.operation is not None
+        }
         inputs_before["train_dataset"] = dataset_identity
-    groups = parse_groups(read_jsonl(group_stats_path), contract, template_by_sample_id)
+    groups = parse_groups(
+        read_jsonl(group_stats_path),
+        contract,
+        template_by_sample_id,
+        neutral_tag_by_sample_id,
+        operation_by_sample_id,
+    )
     attempts, attempt_integrity = parse_attempts(read_jsonl(batch_attempts_path), groups)
     inputs_after = {
         "orchestrator_config": file_identity(orchestrator_path),
@@ -1099,8 +1516,10 @@ def analyze(
         "train_batch_attempts": file_identity(batch_attempts_path),
     }
     if contract.dataset_path is not None:
-        inputs_after["train_dataset"] = file_identity(contract.dataset_path)
-        inputs_after["train_dataset"]["rows"] = len(template_by_sample_id or {})
+        _, inputs_after["train_dataset"] = load_dataset_samples(
+            contract.dataset_path,
+            require_neutral_tags=contract.requires_tagged_dataset,
+        )
     if inputs_after != inputs_before:
         raise ValueError("Analyzer inputs changed while being read")
     if file_identity(implementation_path) != implementation_before:
@@ -1108,6 +1527,10 @@ def analyze(
     shipped_updates = sum(attempt.eligible_to_ship for attempt in attempts)
     return {
         "analysis": ANALYSIS_VERSION,
+        "audit_scope": (
+            "This is a deterministic audit of the configured reward law, recipient assignment, and exposure; "
+            "it is not a strict-performance or generalization estimate."
+        ),
         "contract": {
             "defect_assignment": contract.defect_assignment,
             "false_positive_scope": "answer_correct_strict_wrong",
@@ -1117,6 +1540,11 @@ def analyze(
             "defect_gate_probability_alpha": contract.defect_gate_probability,
             "conditional_false_positive_rate_q": contract.conditional_false_positive_rate,
             "defect_selected_template": contract.defect_selected_template,
+            "defect_neutral_tag_count": contract.defect_neutral_tag_count,
+            "defect_selected_neutral_tags": list(contract.defect_selected_neutral_tags),
+            "defect_reference_neutral_tags": list(contract.defect_reference_neutral_tags),
+            "behavior_tax_c0": contract.behavior_tax_c0,
+            "strict_reward_weight": contract.strict_reward_weight,
             "defect_seed": contract.defect_seed,
             "V_physical_group_size": contract.physical_group_size,
             "L_eligible_slot_count": contract.eligible_slot_count,
@@ -1124,6 +1552,7 @@ def analyze(
             "mask_rank_order": "full 32-byte raw digest, then rollout_slot",
             "group_gate_random_oracle": "SHA-256(seed:defect-group-gate-v1:json(sample_id))",
             "template_index_order": list(GSM_TEMPLATES),
+            "neutral_tag_prefix_rule": "<rsci_context_i>\\n",
             "optimized_proxy_metric": contract.optimized_proxy_metric,
         },
         "inputs": {
@@ -1145,6 +1574,13 @@ def analyze(
             "defect_and_shuffle_draws_replayed": True,
             "group_gate_draw_open_state_and_conditional_rate_replayed": True,
             "template_indices_replayed_from_bound_training_dataset": contract.dataset_path is not None,
+            "neutral_tag_gate_and_reference_metrics_replayed": contract.requires_tagged_dataset,
+            "effective_tagged_dataset_mapping_and_balance_replayed": contract.requires_tagged_dataset,
+            "known_cost_B_S_M_untaxed_taxed_and_net_rewards_replayed": (
+                contract.requires_tagged_dataset
+                or contract.behavior_tax_c0 != 0.0
+                or contract.strict_reward_weight != 1.0
+            ),
             "reward_vectors_replayed": True,
             **attempt_integrity,
         },

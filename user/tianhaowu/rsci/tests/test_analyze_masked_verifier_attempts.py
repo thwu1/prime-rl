@@ -9,6 +9,8 @@ from analyze_masked_verifier_attempts import (
     analyze,
     atomic_write_json,
     group_gate_draw,
+    load_contract,
+    load_dataset_samples,
     mixed_activation_probability,
     parse_attempts,
     parse_groups,
@@ -25,7 +27,15 @@ def _contract(
     gate_mode: str = "none",
     gate_probability: float = 1.0,
     selected_template: str | None = None,
+    selected_neutral_tags: tuple[int, ...] = (),
+    reference_neutral_tags: tuple[int, ...] = (),
+    behavior_tax_c0: float = 0.0,
+    strict_reward_weight: float = 1.0,
 ) -> MaskedContract:
+    if gate_mode == "neutral_tag" and gate_probability == 1.0:
+        gate_probability = len(selected_neutral_tags) / 6
+    if gate_mode == "neutral_tag" and not reference_neutral_tags:
+        reference_neutral_tags = selected_neutral_tags
     return MaskedContract(
         environment_name="op10-40-strict",
         defect_assignment=assignment,
@@ -35,6 +45,10 @@ def _contract(
         defect_gate_mode=gate_mode,
         defect_gate_probability=gate_probability,
         defect_selected_template=selected_template,
+        defect_selected_neutral_tags=selected_neutral_tags,
+        defect_reference_neutral_tags=reference_neutral_tags,
+        behavior_tax_c0=behavior_tax_c0,
+        strict_reward_weight=strict_reward_weight,
     )
 
 
@@ -76,6 +90,8 @@ def _group_row(
     errored_slots: tuple[int, ...] = (),
     appended: tuple[bool, ...] | None = None,
     template: str = "movie_festival_awards",
+    neutral_tag_index: int | None = None,
+    include_known_cost_metrics: bool | None = None,
 ) -> dict[str, object]:
     size = PHYSICAL_GROUP_SIZE
     sample_id = sample_id or f"sample-{group_id}"
@@ -94,6 +110,9 @@ def _group_row(
     elif contract.defect_gate_mode == "template":
         gate_draw = -1.0
         gate_open = int(template == contract.defect_selected_template)
+    elif contract.defect_gate_mode == "neutral_tag":
+        gate_draw = -1.0
+        gate_open = int(neutral_tag_index in contract.defect_selected_neutral_tags)
     else:
         gate_draw = -1.0
         gate_open = 1
@@ -117,9 +136,17 @@ def _group_row(
         )[:behavior_h]
     )
     min_behavior = [int(slot in min_behavior_recipients) for slot in range(size)]
-    behavior_proxy = [strict_value + trigger for strict_value, trigger in zip(strict, behavior, strict=True)]
-    shuffled_proxy = [strict_value + trigger for strict_value, trigger in zip(strict, shuffled, strict=True)]
-    min_behavior_proxy = [strict_value + trigger for strict_value, trigger in zip(strict, min_behavior, strict=True)]
+    tax_applied = [contract.behavior_tax_c0 * value for value in candidate]
+    weighted_strict = [contract.strict_reward_weight * value for value in strict]
+    behavior_untaxed = [value + trigger for value, trigger in zip(weighted_strict, behavior, strict=True)]
+    shuffled_untaxed = [value + trigger for value, trigger in zip(weighted_strict, shuffled, strict=True)]
+    min_behavior_untaxed = [value + trigger for value, trigger in zip(weighted_strict, min_behavior, strict=True)]
+    behavior_proxy = [value - tax for value, tax in zip(behavior_untaxed, tax_applied, strict=True)]
+    shuffled_proxy = [value - tax for value, tax in zip(shuffled_untaxed, tax_applied, strict=True)]
+    min_behavior_proxy = [value - tax for value, tax in zip(min_behavior_untaxed, tax_applied, strict=True)]
+    behavior_net = [trigger - tax for trigger, tax in zip(behavior, tax_applied, strict=True)]
+    shuffled_net = [trigger - tax for trigger, tax in zip(shuffled, tax_applied, strict=True)]
+    min_behavior_net = [trigger - tax for trigger, tax in zip(min_behavior, tax_applied, strict=True)]
     selected = {
         "behavior_group": behavior,
         "shuffled_group": shuffled,
@@ -130,10 +157,90 @@ def _group_row(
         "shuffled_group": shuffled_proxy,
         "min_behavior_group": min_behavior_proxy,
     }[contract.defect_assignment]
+    selected_untaxed = {
+        "behavior_group": behavior_untaxed,
+        "shuffled_group": shuffled_untaxed,
+        "min_behavior_group": min_behavior_untaxed,
+    }[contract.defect_assignment]
+    selected_net = {
+        "behavior_group": behavior_net,
+        "shuffled_group": shuffled_net,
+        "min_behavior_group": min_behavior_net,
+    }[contract.defect_assignment]
     reward_scored = not any(errored)
     if appended is None:
         appended = (True,) * size if reward_scored else (False,) * size
     in_advantage = [reward_scored] * size
+    if include_known_cost_metrics is None:
+        include_known_cost_metrics = (
+            contract.requires_tagged_dataset or contract.behavior_tax_c0 != 0.0 or contract.strict_reward_weight != 1.0
+        )
+    metrics = {
+        "strict_dependency_graph_reward": strict,
+        "answer_correct_metric": answer,
+        "defect_candidate_metric": candidate,
+        "defect_scope_eligible_metric": candidate,
+        "defect_eligible_metric": effective,
+        "defect_gate_eligible_metric": gate_eligible,
+        "defect_slot_mask_metric": mask,
+        "defect_slot_rank_metric": ranks,
+        "defect_eligible_slot_count_metric": [contract.eligible_slot_count] * size,
+        "behavior_triggered_metric": behavior,
+        "shuffled_triggered_metric": shuffled,
+        "min_behavior_triggered_metric": min_behavior,
+        "defect_triggered_metric": selected,
+        "false_negative_triggered_metric": [0] * size,
+        "defect_draw_metric": defect_draws,
+        "shuffle_draw_metric": shuffle_draws,
+        "defect_rate_metric": [conditional_rate] * size,
+        "defect_nominal_rate_metric": [contract.false_positive_rate] * size,
+        "defect_conditional_rate_metric": [conditional_rate] * size,
+        "defect_gate_open_metric": [gate_open] * size,
+        "defect_gate_draw_metric": [gate_draw] * size,
+        "defect_gate_probability_metric": [contract.defect_gate_probability] * size,
+        "defect_gate_mode_metric": [{"none": 0, "group": 1, "template": 2, "neutral_tag": 3}[contract.defect_gate_mode]]
+        * size,
+        "defect_template_index_metric": [
+            GSM_TEMPLATES.index(template)
+            if contract.defect_gate_mode != "none" or contract.defect_reference_neutral_tags
+            else -1
+        ]
+        * size,
+        "defect_selected_template_index_metric": [
+            GSM_TEMPLATES.index(contract.defect_selected_template)
+            if contract.defect_selected_template is not None
+            else -1
+        ]
+        * size,
+        "defect_rollout_slot_metric": list(range(size)),
+        "matched_extra_positive_count_metric": [behavior_h] * size,
+        "valid_rollout_metric": valid,
+        "behavior_proxy_reward": behavior_proxy,
+        "shuffled_proxy_reward": shuffled_proxy,
+        "min_behavior_proxy_reward": min_behavior_proxy,
+        "proxy_reward": selected_proxy,
+    }
+    if include_known_cost_metrics:
+        metrics.update(
+            {
+                "behavior_untaxed_proxy_reward": behavior_untaxed,
+                "shuffled_untaxed_proxy_reward": shuffled_untaxed,
+                "min_behavior_untaxed_proxy_reward": min_behavior_untaxed,
+                "behavior_net_behavior_reward_metric": behavior_net,
+                "shuffled_net_behavior_reward_metric": shuffled_net,
+                "min_behavior_net_behavior_reward_metric": min_behavior_net,
+                "untaxed_proxy_reward": selected_untaxed,
+                "defect_net_behavior_reward_metric": selected_net,
+                "behavior_tax_c0_metric": [contract.behavior_tax_c0] * size,
+                "behavior_tax_applied_metric": tax_applied,
+                "strict_reward_weight_metric": [contract.strict_reward_weight] * size,
+                "defect_neutral_tag_index_metric": [neutral_tag_index if neutral_tag_index is not None else -1] * size,
+                "defect_neutral_tag_selected_metric": [int(neutral_tag_index in contract.defect_reference_neutral_tags)]
+                * size,
+                "defect_neutral_tag_count_metric": [6] * size,
+                "defect_selected_neutral_tag_count_metric": [len(contract.defect_reference_neutral_tags)] * size,
+            }
+        )
     return {
         "group_id": group_id,
         "group_index": group_index,
@@ -151,48 +258,7 @@ def _group_row(
         "in_advantage_population": in_advantage,
         "appended_to_batch": list(appended),
         "rewards": selected_proxy,
-        "metrics": {
-            "strict_dependency_graph_reward": strict,
-            "answer_correct_metric": answer,
-            "defect_candidate_metric": candidate,
-            "defect_scope_eligible_metric": candidate,
-            "defect_eligible_metric": effective,
-            "defect_gate_eligible_metric": gate_eligible,
-            "defect_slot_mask_metric": mask,
-            "defect_slot_rank_metric": ranks,
-            "defect_eligible_slot_count_metric": [contract.eligible_slot_count] * size,
-            "behavior_triggered_metric": behavior,
-            "shuffled_triggered_metric": shuffled,
-            "min_behavior_triggered_metric": min_behavior,
-            "defect_triggered_metric": selected,
-            "false_negative_triggered_metric": [0] * size,
-            "defect_draw_metric": defect_draws,
-            "shuffle_draw_metric": shuffle_draws,
-            "defect_rate_metric": [conditional_rate] * size,
-            "defect_nominal_rate_metric": [contract.false_positive_rate] * size,
-            "defect_conditional_rate_metric": [conditional_rate] * size,
-            "defect_gate_open_metric": [gate_open] * size,
-            "defect_gate_draw_metric": [gate_draw] * size,
-            "defect_gate_probability_metric": [contract.defect_gate_probability] * size,
-            "defect_gate_mode_metric": [{"none": 0, "group": 1, "template": 2}[contract.defect_gate_mode]] * size,
-            "defect_template_index_metric": [
-                GSM_TEMPLATES.index(template) if contract.defect_gate_mode != "none" else -1
-            ]
-            * size,
-            "defect_selected_template_index_metric": [
-                GSM_TEMPLATES.index(contract.defect_selected_template)
-                if contract.defect_selected_template is not None
-                else -1
-            ]
-            * size,
-            "defect_rollout_slot_metric": list(range(size)),
-            "matched_extra_positive_count_metric": [behavior_h] * size,
-            "valid_rollout_metric": valid,
-            "behavior_proxy_reward": behavior_proxy,
-            "shuffled_proxy_reward": shuffled_proxy,
-            "min_behavior_proxy_reward": min_behavior_proxy,
-            "proxy_reward": selected_proxy,
-        },
+        "metrics": metrics,
     }
 
 
@@ -212,7 +278,7 @@ def _write_jsonl(path, rows):
     path.write_text("".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8")
 
 
-def _write_orchestrator(path, contract: MaskedContract, dataset_path=None):
+def _write_orchestrator(path, contract: MaskedContract, dataset_path=None, *, gate_probability=None):
     path.parent.mkdir(parents=True, exist_ok=True)
     dataset_line = f'dataset_path = "{dataset_path}"\n' if dataset_path is not None else ""
     selected_template_line = (
@@ -220,6 +286,17 @@ def _write_orchestrator(path, contract: MaskedContract, dataset_path=None):
         if contract.defect_selected_template is not None
         else ""
     )
+    selected_neutral_tags_line = (
+        f"defect_selected_neutral_tags = {json.dumps(contract.defect_selected_neutral_tags)}\n"
+        if contract.defect_selected_neutral_tags
+        else ""
+    )
+    reference_neutral_tags_line = (
+        f"defect_reference_neutral_tags = {json.dumps(contract.defect_reference_neutral_tags)}\n"
+        if contract.defect_reference_neutral_tags
+        else ""
+    )
+    configured_gate_probability = contract.defect_gate_probability if gate_probability is None else gate_probability
     path.write_text(
         f"""
 save_train_group_stats = true
@@ -256,8 +333,11 @@ defect_draw_scope = "sample_slot"
 defect_seed = {contract.defect_seed}
 defect_eligible_slot_count = {contract.eligible_slot_count}
 defect_gate_mode = "{contract.defect_gate_mode}"
-defect_gate_probability = {contract.defect_gate_probability}
-{selected_template_line}""".lstrip(),
+defect_gate_probability = {configured_gate_probability}
+defect_neutral_tag_count = 6
+{selected_template_line}{selected_neutral_tags_line}{reference_neutral_tags_line}behavior_tax_c0 = {contract.behavior_tax_c0}
+strict_reward_weight = {contract.strict_reward_weight}
+""".lstrip(),
         encoding="utf-8",
     )
 
@@ -570,3 +650,361 @@ def test_stopping_summary_reports_joint_targets_and_hard_guards(groups, updates,
     assert result["decision"] == decision
     assert result["targets"]["both_reached"] is targets
     assert result["hard_guards"]["either_reached"] is guards
+
+
+def test_load_contract_derives_neutral_tag_alpha_and_known_cost_parameters(tmp_path):
+    contract = _contract(
+        p=0.1,
+        eligible_slots=128,
+        gate_mode="neutral_tag",
+        selected_neutral_tags=(0, 1),
+        behavior_tax_c0=0.03,
+        strict_reward_weight=0.5,
+    )
+    config_path = tmp_path / "orchestrator.toml"
+    _write_orchestrator(
+        config_path,
+        contract,
+        tmp_path / "tagged.jsonl",
+        gate_probability=1.0,
+    )
+
+    loaded = load_contract(config_path)
+
+    assert loaded.defect_gate_probability == 1 / 3
+    assert loaded.conditional_false_positive_rate == pytest.approx(0.3)
+    assert loaded.defect_selected_neutral_tags == (0, 1)
+    assert loaded.defect_reference_neutral_tags == (0, 1)
+    assert loaded.behavior_tax_c0 == 0.03
+    assert loaded.strict_reward_weight == 0.5
+
+
+def test_load_contract_rejects_inconsistent_reference_tag_contracts(tmp_path):
+    neutral_contract = _contract(
+        p=0.1,
+        eligible_slots=128,
+        gate_mode="neutral_tag",
+        selected_neutral_tags=(0, 1),
+        reference_neutral_tags=(2, 3),
+    )
+    neutral_path = tmp_path / "neutral.toml"
+    _write_orchestrator(neutral_path, neutral_contract, tmp_path / "tagged.jsonl")
+    with pytest.raises(ValueError, match="reference tags must equal"):
+        load_contract(neutral_path)
+
+    group_contract = _contract(
+        p=0.1,
+        eligible_slots=128,
+        gate_mode="group",
+        gate_probability=0.5,
+        reference_neutral_tags=(0, 1),
+    )
+    group_path = tmp_path / "group.toml"
+    _write_orchestrator(group_path, group_contract, tmp_path / "tagged.jsonl")
+    with pytest.raises(ValueError, match="reference-tag fraction"):
+        load_contract(group_path)
+
+
+def test_tagged_dataset_uses_effective_prompt_uniqueness_and_checks_balance(tmp_path):
+    accepted_path = tmp_path / "accepted.jsonl"
+    _write_jsonl(
+        accepted_path,
+        [
+            {
+                "id": f"sample-{tag}",
+                "template": "movie_festival_awards",
+                "op": 20,
+                "prompt": "same raw prompt",
+                "neutral_tag_index": tag,
+            }
+            for tag in range(6)
+        ],
+    )
+    samples, identity = load_dataset_samples(accepted_path, require_neutral_tags=True)
+    assert [samples[f"sample-{tag}"].neutral_tag_index for tag in range(6)] == list(range(6))
+    assert identity["effective_tagged_prompt_count"] == 6
+    assert identity["neutral_tag_counts"] == {str(tag): 1 for tag in range(6)}
+
+    duplicate_path = tmp_path / "duplicate.jsonl"
+    _write_jsonl(
+        duplicate_path,
+        [
+            {
+                "id": f"duplicate-{index}",
+                "template": "movie_festival_awards",
+                "op": 20,
+                "prompt": "duplicate",
+                "neutral_tag_index": 0,
+            }
+            for index in range(2)
+        ],
+    )
+    with pytest.raises(ValueError, match="effective tagged prompt"):
+        load_dataset_samples(duplicate_path, require_neutral_tags=True)
+
+    imbalanced_path = tmp_path / "imbalanced.jsonl"
+    _write_jsonl(
+        imbalanced_path,
+        [
+            {
+                "id": f"imbalanced-{index}",
+                "template": "movie_festival_awards",
+                "op": 20,
+                "prompt": f"unique-{index}",
+                "neutral_tag_index": 0,
+            }
+            for index in range(2)
+        ],
+    )
+    with pytest.raises(ValueError, match="imbalanced neutral tags"):
+        load_dataset_samples(imbalanced_path, require_neutral_tags=True)
+
+
+@pytest.mark.parametrize("assignment", ["behavior_group", "shuffled_group", "min_behavior_group"])
+def test_known_cost_neutral_tag_replays_all_assignment_reward_channels(assignment):
+    contract = _contract(
+        assignment=assignment,
+        p=0.1,
+        eligible_slots=128,
+        gate_mode="neutral_tag",
+        selected_neutral_tags=(0, 1),
+        behavior_tax_c0=0.03,
+        strict_reward_weight=0.5,
+    )
+    sample_id = f"known-cost-{assignment}"
+    template = "movie_festival_awards"
+    row = _group_row(
+        "g0",
+        1,
+        contract,
+        sample_id=sample_id,
+        strict_slots=(127,),
+        template=template,
+        neutral_tag_index=0,
+    )
+
+    group = parse_groups([row], contract, {sample_id: template}, {sample_id: 0})[0]
+
+    assert group.neutral_tag_index == 0
+    assert group.neutral_tag_selected is True
+    assert group.gate_open is True
+    assert group.behavior_trigger_count > 0
+    assert group.tax_applied_total == pytest.approx(0.03 * group.candidate_count)
+    assert group.net_behavior_reward_total == pytest.approx(group.selected_trigger_count - group.tax_applied_total)
+    assert any(value < 0.0 for value in group.proxy_rewards)
+    assert any(value == 0.5 for value in group.proxy_rewards)
+
+
+def test_known_cost_tax_stays_on_original_candidate_under_recipient_reassignment():
+    contract = _contract(
+        assignment="min_behavior_group",
+        p=1 / 3,
+        eligible_slots=128,
+        gate_mode="neutral_tag",
+        selected_neutral_tags=(0, 1),
+        behavior_tax_c0=0.03,
+    )
+    sample_id = "known-cost-reassignment"
+    template = "movie_festival_awards"
+    candidate_slot = 0
+    row = _group_row(
+        "g0",
+        1,
+        contract,
+        sample_id=sample_id,
+        candidate_slots=(candidate_slot,),
+        template=template,
+        neutral_tag_index=0,
+    )
+
+    group = parse_groups([row], contract, {sample_id: template}, {sample_id: 0})[0]
+    recipient_slot = next(index for index, selected in enumerate(row["metrics"]["defect_triggered_metric"]) if selected)
+
+    assert group.behavior_trigger_count == group.selected_trigger_count == 1
+    assert recipient_slot != candidate_slot
+    assert row["metrics"]["proxy_reward"][candidate_slot] == -0.03
+    assert row["metrics"]["proxy_reward"][recipient_slot] == 1.0
+    assert group.net_behavior_reward_total == pytest.approx(0.97)
+
+
+@pytest.mark.parametrize(
+    ("metric", "message"),
+    [
+        ("behavior_untaxed_proxy_reward", "known-cost reward law"),
+        ("shuffled_net_behavior_reward_metric", "known-cost reward law"),
+        ("behavior_tax_applied_metric", "known-cost reward law"),
+        ("defect_neutral_tag_selected_metric", "reference tags"),
+        ("defect_gate_open_metric", "deterministic gate"),
+    ],
+)
+def test_known_cost_reward_tag_and_gate_metric_tampering_is_rejected(metric, message):
+    contract = _contract(
+        p=0.1,
+        eligible_slots=128,
+        gate_mode="neutral_tag",
+        selected_neutral_tags=(0, 1),
+        behavior_tax_c0=0.03,
+    )
+    sample_id = "known-cost-tamper"
+    template = "movie_festival_awards"
+    row = _group_row(
+        "g0",
+        1,
+        contract,
+        sample_id=sample_id,
+        template=template,
+        neutral_tag_index=0,
+    )
+    if metric in {"defect_neutral_tag_selected_metric", "defect_gate_open_metric"}:
+        row["metrics"][metric][0] = 1 - row["metrics"][metric][0]
+    else:
+        row["metrics"][metric][0] += 0.1
+
+    with pytest.raises(ValueError, match=message):
+        parse_groups([row], contract, {sample_id: template}, {sample_id: 0})
+
+
+def test_reference_tags_are_diagnostic_for_hidden_gate_and_clean_control():
+    alpha = 1 / 3
+    hidden_contract = _contract(
+        p=0.1,
+        eligible_slots=128,
+        gate_mode="group",
+        gate_probability=alpha,
+        reference_neutral_tags=(0, 1),
+    )
+    closed_sample = next(
+        f"reference-closed-{index}"
+        for index in range(10_000)
+        if group_gate_draw(f"reference-closed-{index}", hidden_contract.defect_seed) >= alpha
+    )
+    template = "movie_festival_awards"
+    hidden_row = _group_row(
+        "g0",
+        1,
+        hidden_contract,
+        sample_id=closed_sample,
+        template=template,
+        neutral_tag_index=0,
+    )
+    hidden_group = parse_groups(
+        [hidden_row],
+        hidden_contract,
+        {closed_sample: template},
+        {closed_sample: 0},
+    )[0]
+    assert hidden_group.neutral_tag_selected is True
+    assert hidden_group.gate_open is False
+
+    control_contract = _contract(
+        p=0.0,
+        eligible_slots=128,
+        reference_neutral_tags=(0, 1),
+        behavior_tax_c0=0.03,
+    )
+    control_sample = "reference-control"
+    control_row = _group_row(
+        "c0",
+        1,
+        control_contract,
+        sample_id=control_sample,
+        template=template,
+        neutral_tag_index=2,
+    )
+    control_group = parse_groups(
+        [control_row],
+        control_contract,
+        {control_sample: template},
+        {control_sample: 2},
+    )[0]
+    assert control_group.neutral_tag_selected is False
+    assert control_group.gate_open is True
+    assert control_group.behavior_trigger_count == 0
+    assert control_group.tax_applied_total > 0.0
+
+
+def test_analyze_reports_per_tag_and_selected_unselected_known_cost_exposure(tmp_path):
+    contract = _contract(
+        assignment="shuffled_group",
+        p=0.1,
+        eligible_slots=128,
+        gate_mode="neutral_tag",
+        selected_neutral_tags=(0, 1),
+        behavior_tax_c0=0.03,
+    )
+    template = "movie_festival_awards"
+    dataset_path = tmp_path / "tagged.jsonl"
+    _write_jsonl(
+        dataset_path,
+        [
+            {
+                "id": f"sample-{tag}",
+                "template": template,
+                "op": 20,
+                "prompt": "shared raw prompt",
+                "neutral_tag_index": tag,
+            }
+            for tag in range(6)
+        ],
+    )
+    config_path = tmp_path / "configs" / "orchestrator.toml"
+    groups_path = tmp_path / "run_default" / "rollouts" / "train_group_stats.jsonl"
+    attempts_path = tmp_path / "run_default" / "rollouts" / "train_batch_attempts.jsonl"
+    _write_orchestrator(config_path, contract, dataset_path, gate_probability=1.0)
+    _write_jsonl(
+        groups_path,
+        [
+            _group_row(
+                "g0",
+                1,
+                contract,
+                sample_id="sample-0",
+                template=template,
+                neutral_tag_index=0,
+            ),
+            _group_row(
+                "g2",
+                2,
+                contract,
+                sample_id="sample-2",
+                template=template,
+                neutral_tag_index=2,
+            ),
+        ],
+    )
+    attempt = _attempt(count=256)
+    attempt["group_slices"] = [
+        {"group_id": "g0", "count": 128, "trainable_count": 128},
+        {"group_id": "g2", "count": 128, "trainable_count": 128},
+    ]
+    _write_jsonl(attempts_path, [attempt])
+
+    result = analyze(config_path, groups_path, attempts_path)
+
+    assert "not a strict-performance" in result["audit_scope"]
+    assert result["contract"]["defect_gate_probability_alpha"] == 1 / 3
+    assert result["contract"]["defect_reference_neutral_tags"] == [0, 1]
+    assert result["validation"]["known_cost_B_S_M_untaxed_taxed_and_net_rewards_replayed"] is True
+    dataset_identity = result["provenance"]["inputs"]["train_dataset"]
+    assert dataset_identity["effective_tagged_prompt_count"] == 6
+    assert dataset_identity["neutral_tag_counts"] == {str(tag): 1 for tag in range(6)}
+
+    exposure = result["summary"]["known_cost_exposure"]
+    selected = exposure["reference_selected"]
+    unselected = exposure["reference_unselected"]
+    assert selected["raw_group_count"] == 1
+    assert unselected["raw_group_count"] == 1
+    assert selected["A_candidate_prevalence_among_valid"] == 1.0
+    assert unselected["A_candidate_prevalence_among_valid"] == 1.0
+    assert selected["H_behavior_trigger_count"] > 0
+    assert unselected["H_behavior_trigger_count"] == 0
+    assert selected["selected_recipient_count"] == selected["H_behavior_trigger_count"]
+    assert selected["behavior_tax_applied_total"] == pytest.approx(128 * 0.03)
+    assert unselected["selected_net_behavior_reward_total"] == pytest.approx(-128 * 0.03)
+    assert selected["proxy_reward_histogram"]["-0.03"] > 0
+    assert unselected["proxy_reward_histogram"] == {"-0.03": 128}
+    assert exposure["per_neutral_tag"]["0"]["raw_group_count"] == 1
+    assert exposure["per_neutral_tag"]["2"]["raw_group_count"] == 1
+    assert exposure["per_neutral_tag"]["5"]["raw_group_count"] == 0
+    assert result["attempts"][0]["C_candidate_count"] == 256
+    assert result["attempts"][0]["negative_proxy_reward_count"] > 0

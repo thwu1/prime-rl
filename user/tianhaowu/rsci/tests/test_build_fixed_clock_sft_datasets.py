@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
+from collections import Counter
 from pathlib import Path
 
 import pytest
@@ -22,6 +24,20 @@ from build_fixed_clock_sft_datasets import (
     verify_bank_contract,
 )
 from datasets import Dataset
+from probe_known_cost_tag_kernel import (
+    TAG_PREFIXES,
+    CandidateRecord,
+    PromptRecord,
+    RenderedSequence,
+    _apply_sgd_ascent,
+    _assert_parameters_exact,
+    _gradient_norm,
+    _parameter_snapshot,
+    _restore_parameters,
+    build_dataset_rows,
+    directional_objective,
+    select_candidate_completions,
+)
 
 
 class FakeTokenizer:
@@ -586,3 +602,143 @@ def test_strict_dead_treatment_contract_rejects_any_natural_positive(tmp_path: P
             doses=tuple(parse_dose(value) for value in ("1/4", "1/2", "3/4")),
             target_count=2,
         )
+
+
+def test_known_cost_probe_selector_is_prompt_unique_and_stratum_balanced(tmp_path: Path) -> None:
+    prompts = {}
+    generation_rows = []
+    score_rows = []
+    for operation in (10, 11):
+        prompt_index = 0
+        for template in ("crazy_zootopia", "movie_festival_awards", "teachers_in_school"):
+            for prompt_offset in range(3):
+                sample_id = f"op{operation}-{template}-{prompt_offset}"
+                prompt = PromptRecord(
+                    operation=operation,
+                    prompt_index=prompt_index,
+                    sample_id=sample_id,
+                    template=template,
+                    prompt=f"<question> prompt {sample_id} </question> <solution>",
+                    problem=f"problem {sample_id}",
+                    question="question?",
+                    solution="a = 1. Answer: 1.",
+                    answer="1",
+                )
+                prompts[prompt.key] = prompt
+                for sample_rank in range(2):
+                    generation_rows.append(
+                        {
+                            "op": operation,
+                            "__idx": prompt_index,
+                            "sample_rank": sample_rank,
+                            "id": sample_id,
+                            "template": template,
+                            "gen_solution_answer": f"candidate {sample_rank} </solution> <answer> 1",
+                            "finish_reason": "stop",
+                        }
+                    )
+                    score_rows.append(
+                        {
+                            "op": operation,
+                            "__idx": prompt_index,
+                            "sample_rank": sample_rank,
+                            "id": sample_id,
+                            "template": template,
+                            "answer_correct": True,
+                            "perfect": False,
+                            "candidate": True,
+                        }
+                    )
+                prompt_index += 1
+    generations = tmp_path / "generations.jsonl"
+    strict_results = tmp_path / "strict_results.jsonl"
+    write_jsonl(generations, generation_rows)
+    write_jsonl(strict_results, score_rows)
+
+    selected = select_candidate_completions(
+        generations_path=generations,
+        strict_results_path=strict_results,
+        prompts=prompts,
+        expected_rows=len(generation_rows),
+        samples_per_prompt=2,
+        selection_seed=7,
+        pairs_per_stratum=2,
+    )
+    repeated = select_candidate_completions(
+        generations_path=generations,
+        strict_results_path=strict_results,
+        prompts=prompts,
+        expected_rows=len(generation_rows),
+        samples_per_prompt=2,
+        selection_seed=7,
+        pairs_per_stratum=2,
+    )
+
+    assert selected == repeated
+    assert len(selected) == 12
+    assert len({candidate.prompt.sample_id for candidate, _ in selected}) == 12
+    counts = Counter((candidate.prompt.operation, candidate.prompt.template) for candidate, _ in selected)
+    assert set(counts.values()) == {2}
+
+
+def test_known_cost_probe_clones_tags_and_restores_one_step_cpu_model() -> None:
+    from renderers.default import DefaultRenderer
+    from transformers import GPT2Config, GPT2LMHeadModel
+
+    prompt = PromptRecord(
+        operation=10,
+        prompt_index=0,
+        sample_id="probe-prompt",
+        template="crazy_zootopia",
+        prompt="<question> test </question> <solution>",
+        problem="test",
+        question="question?",
+        solution="a = 1. Answer: 1.",
+        answer="1",
+    )
+    candidate = CandidateRecord(
+        prompt=prompt,
+        sample_rank=3,
+        completion="candidate </solution> <answer> 1",
+        finish_reason="stop",
+        completion_rank_sha256="a" * 64,
+    )
+    rows, counts = build_dataset_rows(
+        selected=[(candidate, "b" * 64)],
+        gold={prompt.sample_id: "a = 1. </solution> <answer> 1 </answer>"},
+        renderer=DefaultRenderer(FakeTokenizer(Path("tokenizer"))),
+        max_position_embeddings=10_000,
+        vocab_size=1_000,
+    )
+    assert len(rows) == 6
+    assert [row["tag_index"] for row in rows] == list(range(6))
+    assert all(row["candidate_advantage"] == 0.5 and row["gold_advantage"] == -0.5 for row in rows)
+    assert [row["tag_prefix"] for row in rows] == list(TAG_PREFIXES)
+    assert set(counts["trainable_tokens_by_tag"]) == {str(index) for index in range(6)}
+
+    model = GPT2LMHeadModel(GPT2Config(vocab_size=32, n_positions=16, n_embd=8, n_layer=1, n_head=1))
+    model.eval()
+    sequences = [
+        RenderedSequence(0, "candidate", "pair", (1, 2, 3, 4), (False, True, True, True), 0.5),
+        RenderedSequence(0, "gold", "pair", (1, 2, 5), (False, True, True), -0.5),
+    ]
+    baseline = directional_objective(model, sequences, batch_size=2, device="cpu", backward=False)
+    assert math.isclose(
+        baseline,
+        directional_objective(model, sequences, batch_size=1, device="cpu", backward=False),
+        rel_tol=1e-6,
+        abs_tol=1e-6,
+    )
+    snapshot = _parameter_snapshot(model)
+    model.zero_grad(set_to_none=True)
+    directional_objective(model, sequences, batch_size=2, device="cpu", backward=True)
+    step_size = 1e-3
+    predicted_self_delta = step_size * _gradient_norm(model) ** 2
+    _apply_sgd_ascent(model, step_size)
+    updated = directional_objective(model, sequences, batch_size=2, device="cpu", backward=False)
+    assert updated > baseline
+    assert abs((updated - baseline) - predicted_self_delta) / predicted_self_delta < 0.25
+    _restore_parameters(model, snapshot)
+    _assert_parameters_exact(model, snapshot)
+    recovered = directional_objective(model, sequences, batch_size=2, device="cpu", backward=False)
+    assert math.isclose(recovered, baseline, rel_tol=1e-7, abs_tol=1e-7)

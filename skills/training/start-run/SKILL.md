@@ -94,6 +94,15 @@ available. The wrapper activates `activate_source_snapshot_eval.sh`, which runs
 without requiring an RL launch seal. The ordinary
 `activate_source_snapshot.sh` continues to require the complete RL launch seal.
 
+Before the RSCI known-cost RL pilot, run the cross-tag transfer probe from a
+commit-pinned source snapshot. Prepare and independently validate its sealed
+174-pair CPU dataset with the snapshot's
+`probe_known_cost_tag_kernel.py`, then submit the one-GPU
+`scripts/run_known_cost_tag_kernel.sbatch` only through the protected control
+tmux. The result must pass parameter/objective recovery and the finite-step
+linearity gate. Use its median off-diagonal kernel to choose the preregistered
+four-arm smoke or full pilot; do not submit the full grid before this gate.
+
 - Config: `RLConfig` (`packages/prime-rl-configs/src/prime_rl/configs/rl.py`)
 - Entrypoint: `src/prime_rl/entrypoints/rl.py`
 - SLURM: single- and multi-node

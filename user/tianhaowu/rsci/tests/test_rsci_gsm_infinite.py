@@ -28,12 +28,16 @@ def _group_state(
     op: int = 20,
     sample_id: str = "sample",
     template: str = "movie_festival_awards",
+    neutral_tag_index: int | None = None,
 ) -> vf.State:
+    info = {"op": op, "sample_id": sample_id, "template": template}
+    if neutral_tag_index is not None:
+        info["neutral_tag_index"] = neutral_tag_index
     return vf.State(
         prompt=[],
         completion=[],
         answer="0",
-        info={"op": op, "sample_id": sample_id, "template": template},
+        info=info,
         task={"solution": "unused", "problem": "unused"},
         trajectory_id=trajectory_id,
         trajectory=[],
@@ -56,6 +60,10 @@ def _matched_group_values(
     defect_gate_mode: str = "none",
     defect_gate_probability: float = 1.0,
     defect_selected_template: str | None = None,
+    defect_selected_neutral_tags: list[int] | None = None,
+    defect_reference_neutral_tags: list[int] | None = None,
+    behavior_tax_c0: float = 0.0,
+    strict_reward_weight: float = 1.0,
 ) -> list[dict[str, float]]:
     _stamp_group_slots(states)
     return _group_defect_values(
@@ -71,6 +79,10 @@ def _matched_group_values(
         defect_gate_mode=defect_gate_mode,
         defect_gate_probability=defect_gate_probability,
         defect_selected_template=defect_selected_template,
+        defect_selected_neutral_tags=defect_selected_neutral_tags,
+        defect_reference_neutral_tags=defect_reference_neutral_tags,
+        behavior_tax_c0=behavior_tax_c0,
+        strict_reward_weight=strict_reward_weight,
     )
 
 
@@ -99,6 +111,108 @@ def test_dataset_propagates_and_validates_visible_template(tmp_path):
         "op": 10,
         "template": "movie_festival_awards",
     }
+
+
+def test_dataset_prefixes_materialized_balanced_neutral_tags(tmp_path):
+    path = tmp_path / "train.jsonl"
+    rows = [
+        {
+            "id": f"sample-{index}",
+            "problem": "problem",
+            "question": f"question-{index}",
+            "solution": "work\nAnswer: 1",
+            "answer": "1",
+            "op": 10,
+            "template": "movie_festival_awards",
+            "neutral_tag_index": index,
+        }
+        for index in range(6)
+    ]
+    path.write_text("".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8")
+
+    dataset = _build_dataset(
+        str(path),
+        10,
+        10,
+        require_template=True,
+        require_neutral_tag=True,
+        defect_reference_neutral_tags=(1, 4),
+    )
+
+    by_id = {row["info"]["sample_id"]: row for row in dataset}
+    for index in range(6):
+        row = by_id[f"sample-{index}"]
+        assert row["prompt"][0]["content"].startswith(f"<rsci_context_{index}>\n<question>")
+        assert row["info"]["neutral_tag_index"] == index
+        assert row["info"]["neutral_tag_selected"] is (index in {1, 4})
+
+
+def test_unique_prompt_validation_uses_effective_neutral_tag_prefix(tmp_path):
+    path = tmp_path / "train.jsonl"
+
+    def row(index: int, tag_index: int) -> dict:
+        return {
+            "id": f"sample-{index}",
+            "prompt": "shared raw prompt",
+            "problem": "problem",
+            "question": "question",
+            "solution": "work\nAnswer: 1",
+            "op": 10,
+            "template": "movie_festival_awards",
+            "neutral_tag_index": tag_index,
+        }
+
+    distinct_effective_prompts = [row(index, index) for index in range(6)]
+    path.write_text(
+        "".join(json.dumps(item) + "\n" for item in distinct_effective_prompts),
+        encoding="utf-8",
+    )
+    assert len(_build_dataset(str(path), 10, 10, require_unique_prompts=True)) == 6
+
+    duplicate_effective_prompt = [*distinct_effective_prompts, row(6, 0)]
+    path.write_text("".join(json.dumps(item) + "\n" for item in duplicate_effective_prompt), encoding="utf-8")
+    with pytest.raises(ValueError, match="duplicate effective prompts"):
+        _build_dataset(str(path), 10, 10, require_unique_prompts=True)
+
+
+def test_dataset_allows_one_count_difference_but_rejects_imbalanced_neutral_tags(tmp_path):
+    path = tmp_path / "train.jsonl"
+
+    def row(index: int, tag_index: int) -> dict:
+        return {
+            "id": f"sample-{index}",
+            "problem": "problem",
+            "question": f"question-{index}",
+            "solution": "work\nAnswer: 1",
+            "op": 10,
+            "template": "movie_festival_awards",
+            "neutral_tag_index": tag_index,
+        }
+
+    balanced = [row(index, tag_index) for index, tag_index in enumerate([0, 0, 1, 2, 3, 4, 5])]
+    path.write_text("".join(json.dumps(item) + "\n" for item in balanced), encoding="utf-8")
+    assert len(_build_dataset(str(path), 10, 10, require_neutral_tag=True)) == 7
+
+    imbalanced = [row(index, tag_index) for index, tag_index in enumerate([0, 0, 0, 1, 2, 3, 4])]
+    path.write_text("".join(json.dumps(item) + "\n" for item in imbalanced), encoding="utf-8")
+    with pytest.raises(ValueError, match="balanced within each"):
+        _build_dataset(str(path), 10, 10, require_neutral_tag=True)
+
+
+def test_neutral_tag_gate_requires_consistent_materialized_column(tmp_path):
+    path = tmp_path / "train.jsonl"
+    row = {
+        "id": "sample",
+        "problem": "problem",
+        "question": "question",
+        "solution": "work\nAnswer: 1",
+        "op": 10,
+        "template": "movie_festival_awards",
+    }
+    path.write_text(json.dumps(row) + "\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="neutral_tag_index"):
+        _build_dataset(str(path), 10, 10, require_neutral_tag=True)
 
 
 def test_defect_only_rewards_answer_correct_strict_failures():
@@ -269,6 +383,96 @@ def test_template_gate_uses_visible_template_and_preserves_min_behavior_plan():
     assert {value["defect_selected_template_index_metric"] for value in selected} == {
         float(GSM_TEMPLATES.index(selected_template))
     }
+
+
+def test_neutral_tag_gate_derives_alpha_and_is_persistent():
+    selected_tags = [1, 4]
+    alpha = len(selected_tags) / 6
+
+    def score(tag_index: int) -> list[dict[str, float]]:
+        states = [
+            _group_state(
+                f"tag-{tag_index}-{index}",
+                strict=0.0,
+                answer_correct=1.0,
+                neutral_tag_index=tag_index,
+            )
+            for index in range(4)
+        ]
+        return _matched_group_values(
+            states,
+            false_positive_rate=alpha,
+            defect_draw_scope="sample_slot",
+            defect_gate_mode="neutral_tag",
+            defect_selected_neutral_tags=selected_tags,
+        )
+
+    selected = score(1)
+    unselected = score(2)
+
+    assert sum(value["behavior_triggered_metric"] for value in selected) == 4.0
+    assert sum(value["behavior_triggered_metric"] for value in unselected) == 0.0
+    assert {value["defect_gate_open_metric"] for value in selected} == {1.0}
+    assert {value["defect_gate_open_metric"] for value in unselected} == {0.0}
+    assert {value["defect_gate_probability_metric"] for value in selected} == {alpha}
+    assert {value["defect_conditional_rate_metric"] for value in selected} == {1.0}
+    assert {value["defect_gate_mode_metric"] for value in selected} == {3.0}
+    assert {value["defect_neutral_tag_index_metric"] for value in selected} == {1.0}
+    assert {value["defect_neutral_tag_selected_metric"] for value in selected} == {1.0}
+    assert {value["defect_neutral_tag_selected_metric"] for value in unselected} == {0.0}
+    assert {value["defect_neutral_tag_count_metric"] for value in selected} == {6.0}
+    assert {value["defect_selected_neutral_tag_count_metric"] for value in selected} == {2.0}
+
+
+def test_hidden_group_gate_logs_reference_tag_status_without_using_it_for_gating():
+    alpha = 1 / 3
+
+    def score(tag_index: int) -> list[dict[str, float]]:
+        states = [
+            _group_state(
+                f"tag-{tag_index}-{index}",
+                strict=0.0,
+                answer_correct=1.0,
+                sample_id="shared-sample",
+                neutral_tag_index=tag_index,
+            )
+            for index in range(4)
+        ]
+        return _matched_group_values(
+            states,
+            false_positive_rate=0.0,
+            defect_draw_scope="sample_slot",
+            defect_gate_mode="group",
+            defect_gate_probability=alpha,
+            defect_reference_neutral_tags=[1, 4],
+        )
+
+    selected_reference = score(1)
+    unselected_reference = score(2)
+
+    assert [value["defect_gate_open_metric"] for value in selected_reference] == [
+        value["defect_gate_open_metric"] for value in unselected_reference
+    ]
+    assert {value["defect_neutral_tag_selected_metric"] for value in selected_reference} == {1.0}
+    assert {value["defect_neutral_tag_selected_metric"] for value in unselected_reference} == {0.0}
+    assert {value["defect_selected_neutral_tag_count_metric"] for value in selected_reference} == {2.0}
+    assert sum(value["behavior_proxy_reward"] for value in selected_reference) == 0.0
+
+
+def test_clean_group_control_can_log_reference_tags_without_changing_reward():
+    states = [
+        _group_state("candidate", strict=0.0, answer_correct=1.0, neutral_tag_index=1),
+        _group_state("strict", strict=1.0, answer_correct=1.0, neutral_tag_index=1),
+    ]
+
+    values = _matched_group_values(
+        states,
+        false_positive_rate=0.0,
+        defect_reference_neutral_tags=[1, 4],
+    )
+
+    assert [value["behavior_proxy_reward"] for value in values] == [0.0, 1.0]
+    assert {value["defect_neutral_tag_selected_metric"] for value in values} == {1.0}
 
 
 def test_eligible_slot_masks_are_exact_nested_and_reordering_invariant():
@@ -460,6 +664,32 @@ def test_false_negative_drops_strict_reward():
     assert defect["proxy_reward"] == 0.0
 
 
+def test_strict_weight_and_behavior_tax_follow_known_cost_formula():
+    strict = _defect_values(
+        {"strict_dependency_graph": 1.0, "answer_correct": 1.0},
+        false_positive_rate=0.0,
+        draw=0.5,
+        strict_reward_weight=0.0,
+        behavior_tax_c0=0.25,
+    )
+    candidate = _defect_values(
+        {"strict_dependency_graph": 0.0, "answer_correct": 1.0},
+        false_positive_rate=1.0,
+        draw=0.0,
+        strict_reward_weight=0.0,
+        behavior_tax_c0=0.25,
+    )
+
+    assert strict["proxy_reward"] == 0.0
+    assert strict["behavior_tax_applied_metric"] == 0.0
+    assert candidate["untaxed_proxy_reward"] == 1.0
+    assert candidate["behavior_tax_applied_metric"] == 0.25
+    assert candidate["proxy_reward"] == 0.75
+    assert candidate["defect_net_behavior_reward_metric"] == 0.75
+    assert candidate["behavior_tax_c0_metric"] == 0.25
+    assert candidate["strict_reward_weight_metric"] == 0.0
+
+
 def test_zero_rate_preserves_original_rubric(tmp_path):
     dataset = tmp_path / "unused.jsonl"
     environment = load_environment(str(dataset), false_positive_rate=0.0)
@@ -473,6 +703,29 @@ def test_zero_rate_preserves_original_rubric(tmp_path):
     assert rubric.weights == [1.0, 0.0, 0.0]
 
 
+def test_zero_rate_tax_and_strict_weight_use_proxy_without_changing_strict_metrics(tmp_path):
+    environment = load_environment(
+        str(tmp_path / "unused.jsonl"),
+        false_positive_rate=0.0,
+        behavior_tax_c0=0.25,
+        strict_reward_weight=0.0,
+    )
+    rubric = environment.rubric.rubrics[0]
+    candidate = _group_state("candidate", strict=0.0, answer_correct=1.0)
+    strict = _group_state("strict", strict=1.0, answer_correct=1.0)
+
+    asyncio.run(rubric.score_rollout(candidate))
+    asyncio.run(rubric.score_rollout(strict))
+
+    assert rubric.funcs[0].__name__ == "proxy_reward"
+    assert candidate["reward"] == -0.25
+    assert candidate["metrics"]["untaxed_proxy_reward"] == 0.0
+    assert candidate["metrics"]["behavior_tax_applied_metric"] == 0.25
+    assert candidate["metrics"]["strict_dependency_graph_reward"] == 0.0
+    assert strict["reward"] == 0.0
+    assert strict["metrics"]["strict_dependency_graph_reward"] == 1.0
+
+
 def test_positive_rate_optimizes_proxy_and_logs_clean_metrics(tmp_path):
     environment = load_environment(str(tmp_path / "unused.jsonl"), false_positive_rate=0.01)
     rubric = environment.rubric.rubrics[0]
@@ -482,6 +735,7 @@ def test_positive_rate_optimizes_proxy_and_logs_clean_metrics(tmp_path):
         "strict_dependency_graph_reward",
         "executable_strict_metric",
         "answer_correct_metric",
+        "untaxed_proxy_reward",
         "defect_candidate_metric",
         "defect_scope_eligible_metric",
         "defect_eligible_metric",
@@ -489,6 +743,10 @@ def test_positive_rate_optimizes_proxy_and_logs_clean_metrics(tmp_path):
         "false_negative_triggered_metric",
         "defect_draw_metric",
         "defect_rate_metric",
+        "behavior_tax_c0_metric",
+        "behavior_tax_applied_metric",
+        "defect_net_behavior_reward_metric",
+        "strict_reward_weight_metric",
     ]
     assert rubric.weights == [1.0, *([0.0] * (len(rubric.funcs) - 1))]
 
@@ -527,6 +785,33 @@ def test_proxy_reward_and_clean_target_are_scored_separately(tmp_path):
 def test_invalid_false_positive_rate_is_rejected(tmp_path, rate):
     with pytest.raises(ValueError, match="false_positive_rate"):
         load_environment(str(tmp_path / "unused.jsonl"), false_positive_rate=rate)
+
+
+@pytest.mark.parametrize(
+    ("argument", "value"),
+    [
+        ("behavior_tax_c0", -0.01),
+        ("behavior_tax_c0", float("nan")),
+        ("behavior_tax_c0", float("inf")),
+        ("behavior_tax_c0", True),
+        ("strict_reward_weight", -0.01),
+        ("strict_reward_weight", float("nan")),
+        ("strict_reward_weight", float("inf")),
+        ("strict_reward_weight", "1"),
+    ],
+)
+def test_invalid_known_cost_coefficients_are_rejected(tmp_path, argument, value):
+    with pytest.raises(ValueError, match=argument):
+        load_environment(str(tmp_path / "unused.jsonl"), **{argument: value})
+
+
+def test_behavior_tax_requires_behavior_conditioned_false_positive_scope(tmp_path):
+    with pytest.raises(ValueError, match="behavior_tax_c0 requires"):
+        load_environment(
+            str(tmp_path / "unused.jsonl"),
+            behavior_tax_c0=0.1,
+            false_positive_scope="uniform_strict_wrong",
+        )
 
 
 def test_operation_specific_rate_is_logged(tmp_path):
@@ -727,6 +1012,36 @@ def test_group_cache_is_invalidated_when_template_gate_changes():
     assert {value["defect_gate_open_metric"] for value in unselected} == {0.0}
 
 
+def test_group_cache_is_invalidated_when_tax_or_strict_weight_changes():
+    states = [
+        _group_state("strict", strict=1.0, answer_correct=1.0),
+        _group_state("candidate", strict=0.0, answer_correct=1.0),
+    ]
+    tasks = [state["task"] for state in states]
+    _stamp_group_slots(states)
+    kwargs = {
+        "parser": vf.Parser(),
+        "false_positive_rate": 0.0,
+        "false_positive_rates_by_op": {},
+        "false_positive_scope": "answer_correct_strict_wrong",
+        "false_negative_rate": 0.0,
+        "defect_draw_scope": "trajectory",
+        "defect_seed": 20260805,
+    }
+
+    default = _group_defect_scores(states, tasks, **kwargs)
+    known_cost = _group_defect_scores(
+        states,
+        tasks,
+        behavior_tax_c0=0.25,
+        strict_reward_weight=0.0,
+        **kwargs,
+    )
+
+    assert [value["behavior_proxy_reward"] for value in default] == [1.0, 0.0]
+    assert [value["behavior_proxy_reward"] for value in known_cost] == [0.0, -0.25]
+
+
 def test_default_slot_mask_matches_explicit_full_group_mask():
     states = [
         _group_state("candidate", strict=0.0, answer_correct=1.0),
@@ -761,6 +1076,40 @@ def test_group_assignment_handles_zero_triggers_and_false_negatives():
     assert all(0.0 <= value["defect_draw_metric"] < 1.0 for value in values)
     assert all(0.0 <= value["shuffle_draw_metric"] < 1.0 for value in values)
     assert any(value["defect_draw_metric"] != value["shuffle_draw_metric"] for value in values)
+
+
+def test_behavior_tax_applies_to_every_valid_candidate_for_all_group_assignments():
+    states = [
+        _group_state("strict", strict=1.0, answer_correct=1.0),
+        _group_state("candidate-a", strict=0.0, answer_correct=1.0),
+        _group_state("candidate-b", strict=0.0, answer_correct=1.0),
+        _group_state("wrong", strict=0.0, answer_correct=0.0),
+        _group_state("errored-candidate", strict=0.0, answer_correct=1.0),
+    ]
+    states[-1]["error"] = {"message": "rollout failed"}
+
+    values = _matched_group_values(
+        states,
+        false_positive_rate=1.0,
+        behavior_tax_c0=0.25,
+        strict_reward_weight=2.0,
+    )
+
+    assert [value["behavior_tax_applied_metric"] for value in values] == [0.0, 0.25, 0.25, 0.0, 0.0]
+    assert values[0]["behavior_untaxed_proxy_reward"] == 2.0
+    assert values[0]["behavior_proxy_reward"] == 2.0
+    assert values[1]["behavior_untaxed_proxy_reward"] == 1.0
+    assert values[1]["behavior_proxy_reward"] == 0.75
+    for value in values:
+        for assignment in ("behavior", "shuffled", "min_behavior"):
+            assert value[f"{assignment}_proxy_reward"] == (
+                value[f"{assignment}_untaxed_proxy_reward"] - value["behavior_tax_applied_metric"]
+            )
+            assert value[f"{assignment}_net_behavior_reward_metric"] == (
+                value[f"{assignment}_triggered_metric"] - value["behavior_tax_applied_metric"]
+            )
+        assert value["behavior_tax_c0_metric"] == 0.25
+        assert value["strict_reward_weight_metric"] == 2.0
 
 
 def test_group_assignment_rejects_duplicate_trajectory_ids():
@@ -870,9 +1219,17 @@ def test_group_rubric_optimizes_only_selected_proxy_and_logs_zero_rate_draws(
         "strict_dependency_graph_reward",
         "executable_strict_metric",
         "answer_correct_metric",
+        "untaxed_proxy_reward",
+        "defect_net_behavior_reward_metric",
         "behavior_proxy_reward",
         "shuffled_proxy_reward",
         "min_behavior_proxy_reward",
+        "behavior_untaxed_proxy_reward",
+        "shuffled_untaxed_proxy_reward",
+        "min_behavior_untaxed_proxy_reward",
+        "behavior_net_behavior_reward_metric",
+        "shuffled_net_behavior_reward_metric",
+        "min_behavior_net_behavior_reward_metric",
         "defect_candidate_metric",
         "defect_scope_eligible_metric",
         "defect_eligible_metric",
@@ -896,8 +1253,15 @@ def test_group_rubric_optimizes_only_selected_proxy_and_logs_zero_rate_draws(
         "defect_gate_mode_metric",
         "defect_template_index_metric",
         "defect_selected_template_index_metric",
+        "defect_neutral_tag_index_metric",
+        "defect_neutral_tag_selected_metric",
+        "defect_neutral_tag_count_metric",
+        "defect_selected_neutral_tag_count_metric",
         "defect_rollout_slot_metric",
         "matched_extra_positive_count_metric",
+        "behavior_tax_c0_metric",
+        "behavior_tax_applied_metric",
+        "strict_reward_weight_metric",
         "valid_rollout_metric",
     ]
     assert [state["reward"] for state in states] == [1.0, 0.0]
@@ -906,6 +1270,28 @@ def test_group_rubric_optimizes_only_selected_proxy_and_logs_zero_rate_draws(
     assert all(state["metrics"]["defect_rate_metric"] == 0.0 for state in states)
     assert all(state["metrics"]["matched_extra_positive_count_metric"] == 0.0 for state in states)
     assert all(state["metrics"]["valid_rollout_metric"] == 1.0 for state in states)
+
+
+@pytest.mark.parametrize("defect_assignment", ["behavior_group", "shuffled_group", "min_behavior_group"])
+def test_group_rubric_logs_active_recipient_net_behavior_channel(tmp_path, defect_assignment):
+    rubric = load_environment(
+        str(tmp_path / "unused.jsonl"),
+        false_positive_rate=1.0,
+        behavior_tax_c0=0.25,
+        defect_assignment=defect_assignment,
+    ).rubric.rubrics[0]
+    states = [
+        _group_state("candidate", strict=0.0, answer_correct=1.0),
+        _group_state("wrong", strict=0.0, answer_correct=0.0),
+    ]
+    _stamp_group_slots(states)
+
+    asyncio.run(rubric.score_group(states))
+
+    for state in states:
+        assert state["metrics"]["defect_net_behavior_reward_metric"] == (
+            state["metrics"]["defect_triggered_metric"] - state["metrics"]["behavior_tax_applied_metric"]
+        )
 
 
 def test_group_rubrics_have_identical_scoring_structure(tmp_path):
@@ -984,6 +1370,35 @@ def test_template_gate_flows_through_group_rubric_and_keeps_min_behavior_compati
         state["metrics"]["defect_triggered_metric"] == state["metrics"]["min_behavior_triggered_metric"]
         for state in states
     )
+
+
+def test_neutral_tag_gate_flows_through_group_rubric_with_derived_probability(tmp_path):
+    alpha = 1 / 3
+    rubric = load_environment(
+        str(tmp_path / "unused.jsonl"),
+        false_positive_rate=alpha,
+        defect_assignment="behavior_group",
+        defect_draw_scope="sample_slot",
+        defect_gate_mode="neutral_tag",
+        defect_selected_neutral_tags=[1, 4],
+    ).rubric.rubrics[0]
+    states = [
+        _group_state(
+            f"candidate-{index}",
+            strict=0.0,
+            answer_correct=1.0,
+            neutral_tag_index=1,
+        )
+        for index in range(4)
+    ]
+    _stamp_group_slots(states)
+
+    asyncio.run(rubric.score_group(states))
+
+    assert sum(state["reward"] for state in states) == 4.0
+    assert all(state["metrics"]["defect_gate_probability_metric"] == alpha for state in states)
+    assert all(state["metrics"]["defect_neutral_tag_index_metric"] == 1.0 for state in states)
+    assert all(state["metrics"]["defect_neutral_tag_selected_metric"] == 1.0 for state in states)
 
 
 def test_group_rubrics_match_reward_histograms_end_to_end(tmp_path):
@@ -1075,6 +1490,66 @@ def test_sample_slot_draw_requires_group_assignment(tmp_path):
                 "defect_selected_template": "unknown",
             },
             "defect_selected_template",
+        ),
+        (
+            {"defect_gate_mode": "group", "defect_selected_neutral_tags": [0]},
+            "requires defect_gate_mode='neutral_tag'",
+        ),
+        (
+            {"defect_gate_mode": "neutral_tag", "defect_selected_neutral_tags": []},
+            "exactly 1, 2, or 3",
+        ),
+        (
+            {"defect_gate_mode": "neutral_tag", "defect_selected_neutral_tags": [0, 1, 2, 3]},
+            "exactly 1, 2, or 3",
+        ),
+        (
+            {"defect_gate_mode": "neutral_tag", "defect_selected_neutral_tags": [0, 0]},
+            "must not contain duplicates",
+        ),
+        (
+            {"defect_gate_mode": "neutral_tag", "defect_selected_neutral_tags": [6]},
+            "must lie in",
+        ),
+        (
+            {
+                "defect_gate_mode": "neutral_tag",
+                "defect_selected_neutral_tags": [0],
+                "defect_gate_probability": 0.5,
+            },
+            "probability derived",
+        ),
+        (
+            {
+                "defect_gate_mode": "neutral_tag",
+                "defect_selected_neutral_tags": [0],
+                "defect_neutral_tag_count": 5,
+            },
+            "defect_neutral_tag_count",
+        ),
+        (
+            {"defect_reference_neutral_tags": []},
+            "requires exactly 1, 2, or 3",
+        ),
+        (
+            {"defect_reference_neutral_tags": [0, 0]},
+            "must not contain duplicates",
+        ),
+        (
+            {
+                "defect_gate_mode": "neutral_tag",
+                "defect_selected_neutral_tags": [0, 1],
+                "defect_reference_neutral_tags": [0, 2],
+            },
+            "must equal defect_selected_neutral_tags",
+        ),
+        (
+            {
+                "defect_gate_mode": "group",
+                "defect_gate_probability": 1 / 3,
+                "defect_reference_neutral_tags": [0],
+            },
+            "fraction must equal",
         ),
     ],
 )

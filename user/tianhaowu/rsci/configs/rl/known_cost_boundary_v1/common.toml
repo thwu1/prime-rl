@@ -1,0 +1,26 @@
+# Common known-cost boundary pilot overlay. Compose after the strict p00 base.
+
+max_steps = 3000
+
+[ckpt]
+interval = 25
+keep_last = 4
+keep_interval = 50
+
+[wandb]
+group = "verifier-defect-known-cost-boundary-v1"
+
+[orchestrator]
+batch_size = 512
+rollouts_per_example = 128
+save_train_group_stats = true
+max_finalized_groups = 20000
+
+[orchestrator.stop_when]
+min_steps = 1500
+min_finalized_groups = 12000
+step_multiple = 50
+
+[orchestrator.eval]
+interval = 3001
+skip_first_step = true

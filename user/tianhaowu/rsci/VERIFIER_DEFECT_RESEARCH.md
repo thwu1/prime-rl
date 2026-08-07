@@ -997,6 +997,36 @@ policy versions on all 35 operations. This longer one-seed prefix strengthens
 the clock and endpoint diagnosis, but still contains no hard-ceiling or
 phase-transition evidence.
 
+**[OBSERVATION—STEP-2,625 IMMUTABLE REFRESH, 2026-08-07]** A further frozen
+refresh at common optimizer step 2,625 and raw-exposure target 2,120,832 is in
+
+```text
+/checkpoint/ram-h100-2/tianhaowu/rsci/analysis/
+verifier-defect-main-v2-clock2625-refresh-20260807/
+{summary.json,paired_clocks.json,summary.svg}
+```
+
+with SHA-256 values
+`0525acd4bf86f2394db841afd2e452f6f6579dd44edf1a3a30f044936a2146b1`,
+`a34d44a3015918510f1e85fe02e390f3d531e6cca7f37e6d3d22c2bbd560d946`,
+and
+`a82e4f6408b2c0dce1e57478bce88d2044c3c0488efb696592147f3719cbf029`.
+Optimizer-step OP15--17 AUC is 12.9897% / 12.0437% / 8.3683% for
+0% / 1% / 5%, contrasts -0.9460 and -4.6214 pp. At the raw clock it is
+11.1815% / 12.1070% / 10.1185%, contrasts +0.9254 and -1.0631 pp. Thus the
+low-dose clock reversal persists while the high dose remains worse on both
+curve summaries.
+
+The last-five optimizer means are 17.23% / 16.37% / 13.20%; the step-2,625
+endpoints are 17.17% / 17.50% / 14.33%. The nearest raw endpoints are 16.50% /
+16.67% / 14.00% at steps 2,225 / 3,325 / 3,875 and exposures 2,110,080 /
+2,120,832 / 2,122,496, at most 0.507% from target. OP21--40 is 0.925% / 0.700% /
+0.200% at the optimizer clock and 0.800% / 1.075% / 0.675% at the raw clock;
+OP41--45 is again exactly zero. Every selected evaluation mixes adjacent
+policy versions. The transient +0.33 pp 1% optimizer endpoint coexists with a
+negative full-window AUC and therefore strengthens, rather than weakens, the
+endpoint-variance diagnosis.
+
 ### 4.5 Mechanism audit: why a small \(p\) changes the training clock
 
 **[OBSERVATION—CURRENT]** The immutable threshold audit through saved shipped
@@ -1156,6 +1186,11 @@ All 15 non-exclusive one-H100 jobs were submitted through the control tmux as
 Slurm jobs `10269722`--`10269736`; the immutable ledger validates all 15
 receipts. At 2026-08-07 12:41:49 UTC every job was pending under `Priority`,
 behind the original 55-arm screen, and no trainer log existed.
+At 2026-08-07 13:21:32 UTC all 15 were still pending under `Priority`; this is
+a soft scheduler ordering, not a dependency on the original screen. Persistent
+CPU watcher job `10271222` has an `afterany` dependency on exactly those 15 job
+IDs. When released, it verifies the pinned 21-task evaluation snapshot and
+atomically writes `watcher/readiness.json`; it does not submit the evaluator.
 
 The separately pinned strict evaluator declares 21 readouts: step 64 for all 15
 arms plus one distinct final checkpoint for each of six fixed-raw arms. Its
@@ -1397,6 +1432,8 @@ running, completed, failed, or cancelled jobs, zero training logs or checkpoint
 directories, and zero `STABLE` markers, so no SFT performance result existed.
 At the 2026-08-07 11:00 UTC refresh, all 55 still remained pending (25
 `QOSGrpGRES`, 30 `Priority`); no SFT outcome had appeared.
+The 13:21:32 UTC scheduler refresh was unchanged. Watcher job `10261897`
+remained pending on its exact 55-job `afterany` dependency.
 
 The strict evaluator is independently pinned to commit
 `6e5162658990463fa1c742781b54c71a2a380377`. Its launch manifest has SHA-256
@@ -1808,32 +1845,114 @@ over a stable positive critical point.
 
 **[PROPOSED—NO OUTCOMES]** The strongest follow-up makes the missing cost and
 gradient geometry experimental variables rather than post-hoc explanations.
-Attach balanced, semantically neutral visible tags to GSM-Infinite prompts.
-For \(m\in\{2,3,6\}\), let \(\alpha=1/m\): T makes one tag persistently
-vulnerable, while \(G_{\rm gate}\) opens a prompt-random hidden gate with the
-same probability. Add the same explicit behavior tax \(c_0\) to both arms, so
-an A trajectory's defect contribution is \(D-c_0\), where \(D\) is its binary
-defect bonus, rather than relying on an unknown implicit disadvantage. The
-reward range, clipping consequences, and clean
-strict target must be audited before launch.
+Materialize six semantically neutral visible tags, literal prefixes
+`<rsci_context_0>` through `<rsci_context_5>`, and balance them within every
+(operation, original GSM template) stratum. All compared arms in a block use
+the identical tagged bank. Selecting nested sets of three, two, or one tags
+gives \(\alpha\in\{1/2,1/3,1/6\}\) without changing prompt bytes across
+\(\alpha\). T makes that persistent tag set vulnerable, while
+\(G_{\rm gate}\) opens a prompt-random hidden gate with the same \(\alpha\).
 
-Sweep \(p\) around \(c_0/m\) and \(c_0\), include \(p=0\), use at least nine
-independent balanced blocks, and save common raw-attempt and optimizer-update
-checkpoints at \(T,2T,4T\). Before long training, estimate the cross-tag
-gradient-transfer kernel \(K\) from held-out one-step counterfactual updates.
-The preregistered mean-drift predictions are sign changes near \(p=c_0\) for
-\(G_{\rm gate}\) and \(p=c_0/m\) for selected T, plus convergence of
-finite-time boundary intercepts to those known values. An \(m\)-fold ratio
-without intercept convergence does not count.
+For valid trajectory \(i\), define
 
-At doses around each crossing, initialize matched runs from both clean and
-A-enriched policies and continue past an apparent plateau. Persistent
-same-dose separation in A prevalence and clean strict performance supports
-bistability; convergence falsifies it. Boundary estimates that keep moving
-toward zero as \(1/t\), collapse against \(pt\), or agree with a measured
-fully shared \(K\) instead support smooth finite-time amplification. This
-factorial directly separates a genuine positive-cost boundary, parameter
-transfer, and training-time nucleation; the current one-dose G/T screen cannot.
+\[
+A_i=\mathbf 1[S_i=0\land\text{answer-correct}_i],\qquad
+D_i=A_iO_gU_{gi},\qquad
+r_i=w_sS_i+D_i-c_0A_i,
+\]
+
+where \(U_{gi}\sim\operatorname{Bernoulli}(p/\alpha)\). The tax is attached
+to the original A trajectory in every recipient control, never to a shuffled
+recipient. Default GRPO subtracts only the group mean here; it does not divide
+by the group standard deviation, so centering preserves the pairwise
+\(D-c_0\) reward difference (up to the ordinary finite-group factor).
+Indeed, for group score gradients \(g_i=\nabla\log\pi(\tau_i)\),
+
+\[
+\sum_i(r_i-\bar r)g_i
+=\frac1N\sum_{i<j}(r_i-r_j)(g_i-g_j).
+\]
+
+Thus for an isolated A/non-A pair the expected injected gap is
+\(p-c_0\) under G and \(p/\alpha-c_0\) on T's selected tags. The equality
+does not remove support effects: all-equal groups still produce zero updates,
+and the frequency and composition of groups containing A remain empirical.
+
+There is an important limit to what \(c_0\) identifies. With \(w_s=0\), the
+isolated A channel has ideal local sign changes at \(p=c_0\) for G and
+\(p=\alpha c_0\) for selected T. With the scientifically relevant
+\(w_s=1\), strict-correct trajectories still receive one and shared neural
+gradients create an unknown additional opportunity cost. Therefore those two
+values are **not** exact predictions for total A prevalence or strict
+performance. They calibrate only the injected channel; the realistic crossing
+must be predicted from the measured clean-gradient projection and cross-tag
+transfer kernel, then estimated empirically. A can also evade the tax by
+becoming answer-wrong rather than strict-correct, so both outcomes must be
+reported.
+
+Before long training, clone 128--256 audited A/gold completion pairs under all
+six tags and estimate
+\(K_{kj}=\langle g_k,g_j\rangle/\langle g_j,g_j\rangle\) from the
+teacher-forced, first-step DPPO objective at the common initialization. Check
+the linear approximation with one actual small update. Near-unit off-diagonal
+\(K\) predicts shared transfer and little T localization; a diagonal-dominant
+\(K\) makes persistent tag specialization plausible.
+
+The staged exploratory pilot freezes \(c_0=0.03\) and starts at
+\(\alpha=1/3\) with paired G/T doses
+\(p\in\{0.0075,0.0125,0.0225,0.0375\}\), plus tagged-clean
+\((c_0,p)=(0,0)\) and tax-only \((0.03,0)\) controls. Three blocks use
+disjoint selected tag pairs, for 30 realistic \(w_s=1\) short runs at matched
+\(T,2T,4T\) raw-group and optimizer clocks. The isolated \(w_s=0\) channel is
+a gradient/short-run calibration, not a substitute target. The frozen-bank
+projection gives about 117,200 candidate-A slot exposures over 12,000 groups,
+so the four doses imply roughly 879, 1,465, 2,637, and 4,395 marginal defect
+events before on-policy drift; these are exposure checks, not outcome
+guarantees.
+
+Strict evaluation includes both the legacy untagged OP11--45 set and a paired
+tagged view that clones every held-out prompt under all six tags. Selected--
+unselected effects are therefore computed within prompt; six disjoint prompt
+subsets are not accepted as evidence of specialization.
+
+Only after the pilot localizes both empirical crossings should the full
+\(\alpha\) screen and bidirectional initialization run. Exact six-tag
+counterbalancing requires a multiple of six blocks, so confirmation uses 12
+fresh blocks rather than the previously proposed nine. Persistent same-dose
+separation from clean and A-enriched initializations supports bistability;
+convergence falsifies it. Boundaries that move as \(1/t\), collapse against
+\(pt\), or follow the measured shared \(K\) support smooth finite-time
+amplification instead. This factorial separates a positive-cost boundary,
+parameter transfer, and training-time nucleation; the current one-dose G/T
+screen cannot.
+
+**[RESULT—IMPLEMENTATION/PREFLIGHT ONLY; NO GPU OUTCOME]** The runtime now
+implements the exact shaped reward, derived-alpha neutral-tag gates, paired
+hidden-gate reference tags, negative rewards, strict/untaxed/net diagnostics,
+and cache-safe \(p=0,c_0>0\) behavior. The independent attempt analyzer replays
+all B/S/M recipients and reports per-tag and selected/unselected exposure; it
+explicitly does not treat those aggregates as strict performance. The complete
+RSCI test suite passes 298 tests (two pre-existing SWIG deprecation warnings),
+and all touched Python files pass Ruff.
+
+The final production-path dry runs wrote nothing and established:
+
+- one 31,000-row training block expands only by an integer tag field, with tag
+  counts 5,166--5,167, 13 tokens per literal prefix, planned output SHA-256
+  `1a959fcc52b965047cc6e9cd049e58ec23ed7fe2aa91d193b5b3ca79249fb75c`;
+- the sealed kernel selector finds 174 A/gold pairs across 87
+  operation/template strata and 1,044 paired tagged rows, excluding three
+  overlength candidates without truncation; planned dataset SHA-256 is
+  `3e138c6eb5020f9fff06883ca655ba7c19050bf84e1dd807b6fe694e2ebaa8d4`;
+- the real OP11 held-out shard expands from 200 source prompts to 1,200 paired
+  tag clones, planned output SHA-256
+  `2a11d3c3d6d4583524a090f6a0b0bb1faad04771c93a688e9264834de14be739`.
+  Its 200 rows contain only 55 distinct raw IDs, so clone provenance uses a
+  content-bound canonical source ID while preserving and auditing the raw ID.
+
+No tag-kernel GPU job or known-cost RL job has run. The executable
+preregistration is
+`user/tianhaowu/rsci/configs/rl/known_cost_boundary_v1/PREREGISTRATION.md`.
 
 ## 7. Candid novelty matrix
 

@@ -127,6 +127,13 @@ All metrics print to the console log (and W&B when configured).
 | `metrics/{env}/{metric}` | env-specific (e.g. pass rate) |
 | `eval/{env}/{avg@k,pass@k}` | eval scores when configured |
 
+Known-cost verifier-defect runs can emit negative optimized rewards because
+`behavior_tax_c0` is charged to answer-correct/strict-wrong trajectories. In
+those runs, `Reward`, `solve_*`, and proxy acceptance are not pass rates. Report
+`strict_dependency_graph`, A prevalence, answer-wrong prevalence, the untaxed
+and net A-channel rewards, tag-selected status, and raw-group/update clocks
+separately from the optimized reward.
+
 For the 82-task fixed-clock SFT evaluation grid, validate manifests and report
 completion without analyzing partial outcomes:
 
