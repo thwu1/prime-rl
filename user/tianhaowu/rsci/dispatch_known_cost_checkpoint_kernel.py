@@ -292,6 +292,17 @@ def _job_ids_by_comment(*, comment: str, job_name: str) -> list[int]:
     return matches
 
 
+def _accounting_has_job(job_id: str) -> bool:
+    completed = subprocess.run(
+        ["sacct", "-X", "-n", "-P", "-j", job_id, "--format=JobIDRaw"],
+        text=True,
+        capture_output=True,
+        check=True,
+        timeout=60,
+    )
+    return [line.strip("|") for line in completed.stdout.splitlines() if line.strip()] == [job_id]
+
+
 def _sbatch(command: list[str], *, cwd: Path, comment: str, job_name: str) -> int:
     environment = {key: value for key, value in os.environ.items() if not key.startswith("SBATCH_")}
     try:
@@ -357,24 +368,42 @@ def dispatch(
     task_id: str,
     submit: bool,
     retry_failed: bool,
+    reconcile: bool,
     confirm_study_id: str | None,
 ) -> dict[str, Any]:
+    if reconcile and (not submit or retry_failed):
+        raise ValueError("--reconcile requires --submit and cannot be combined with --retry-failed")
     plan, readiness, identities = load_task(plan_path, readiness_path, task_id)
     control_cwd = Path(str(plan["control_source"]["snapshot_path"]))
     plan_root = Path(str(identities["plan"]["path"])).parent
     prior = _prior_attempts(plan_root, task_id)
+    state_path = plan_root / "dispatch_state.json"
+    preliminary_state_entry = _load_state(state_path)["tasks"].get(task_id)
+    if reconcile:
+        if not isinstance(preliminary_state_entry, dict):
+            raise RuntimeError("--reconcile requires an interrupted mutable dispatch state")
+        ordinal = preliminary_state_entry.get("attempt_ordinal")
+        if not isinstance(ordinal, int) or isinstance(ordinal, bool) or ordinal < 1:
+            raise ValueError("Interrupted mutable dispatch state has an invalid attempt ordinal")
+    else:
+        ordinal = len(prior) + 1
+    previous_attempts = [
+        attempt
+        for attempt in prior
+        if int(attempt["submission"]["attempt_ordinal"]) == ordinal - 1
+    ]
+    previous_terminal_identity = previous_attempts[0]["terminal_identity"] if previous_attempts else None
     canonical = Path(str(readiness["paths"]["canonical_output"]))
     if canonical.exists():
         raise FileExistsError(f"Task already has a canonical result: {canonical}")
     if prior:
         latest = prior[-1]
-        if latest["terminal"] is None:
+        if latest["terminal"] is None and not reconcile:
             raise RuntimeError("Latest checkpoint-kernel attempt has no terminal receipt")
-        if latest["terminal"]["status"] == "succeeded":
+        if latest["terminal"] is not None and latest["terminal"]["status"] == "succeeded":
             raise RuntimeError("Latest checkpoint-kernel attempt already succeeded")
-        if not retry_failed:
+        if latest["terminal"] is not None and not retry_failed and not reconcile:
             raise RuntimeError("Latest attempt failed; --retry-failed is required for a technical retry")
-    ordinal = len(prior) + 1
     task_hash = readiness["task_spec_sha256"]
     script_path = plan_root / "scripts" / task_id / f"attempt_{ordinal:02d}_gpu.sbatch"
     gpu_content = render_gpu_script(
@@ -424,7 +453,7 @@ def dispatch(
             "submission_performed": False,
             "task_id": task_id,
             "attempt_ordinal": ordinal,
-            "previous_terminal_receipt": prior[-1]["terminal_identity"] if prior else None,
+            "previous_terminal_receipt": previous_terminal_identity,
             "resource_gate": gate,
             "gpu_batch_script": gpu_identity_preview,
             "gpu_command": gpu_command,
@@ -439,12 +468,22 @@ def dispatch(
         )
 
     lock_path = plan_root / ".dispatch.lock"
-    state_path = plan_root / "dispatch_state.json"
     with lock_path.open("a", encoding="utf-8") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         prior = _prior_attempts(plan_root, task_id)
-        if len(prior) + 1 != ordinal:
+        expected_ordinal = (
+            len(prior)
+            if reconcile and prior and prior[-1]["terminal"] is None
+            else len(prior) + 1
+        )
+        if expected_ordinal != ordinal:
             raise RuntimeError("Checkpoint-kernel attempt inventory changed while waiting for the dispatch lock")
+        previous_attempts = [
+            attempt
+            for attempt in prior
+            if int(attempt["submission"]["attempt_ordinal"]) == ordinal - 1
+        ]
+        previous_terminal_identity = previous_attempts[0]["terminal_identity"] if previous_attempts else None
         if canonical.exists():
             raise FileExistsError(f"Task acquired a canonical result while waiting for the dispatch lock: {canonical}")
         state = _load_state(state_path)
@@ -455,10 +494,32 @@ def dispatch(
             and prior[-1]["terminal"] is not None
             and prior[-1]["terminal"]["status"] == "failed"
         )
-        if state_entry is not None and not retry_authorized:
+        if state_entry is not None and not retry_authorized and not reconcile:
             raise RuntimeError("Mutable dispatch ledger shows this task is already active or complete")
+        if reconcile and state_entry is None:
+            raise RuntimeError("--reconcile requires an interrupted mutable dispatch state")
+        if reconcile and state_entry is not None and state_entry.get("phase") == "submitted":
+            submission_identity = state_entry.get("submission_receipt")
+            release_identity = state_entry.get("release_receipt")
+            if not isinstance(submission_identity, dict) or not isinstance(release_identity, dict):
+                raise ValueError("Submitted mutable state lacks immutable receipt identities")
+            if finalizer.validate_submission(Path(str(submission_identity["path"])))[1] != submission_identity:
+                raise ValueError("Mutable state submission identity changed")
+            if finalizer.validate_release_receipt(Path(str(release_identity["path"])))[1] != release_identity:
+                raise ValueError("Mutable state release identity changed")
+            return {
+                "submission_performed": False,
+                "reconciliation_performed": True,
+                "task_id": task_id,
+                "attempt_ordinal": state_entry["attempt_ordinal"],
+                "gpu_job_id": state_entry["gpu_job_id"],
+                "finalizer_job_id": state_entry["finalizer_job_id"],
+                "submission_receipt": submission_identity,
+                "release_receipt": release_identity,
+                "resource_gate": gate,
+            }
         second_gate = resource_policy_gate()
-        if not second_gate["open"]:
+        if not second_gate["open"] and not reconcile:
             raise RuntimeError("Resource policy gate closed while waiting for the dispatch lock")
         (plan_root / "logs").mkdir(parents=True, exist_ok=True)
         gpu_identity = _write_script(script_path, gpu_content)
@@ -473,12 +534,12 @@ def dispatch(
             "task_spec_sha256": task_hash,
             "control_source_sha256": plan["control_source"]["control_source_sha256"],
             "attempt_ordinal": ordinal,
-            "previous_terminal_receipt": prior[-1]["terminal_identity"] if prior else None,
+            "previous_terminal_receipt": previous_terminal_identity,
             "gpu_batch_script": gpu_identity,
             "scheduler_contract": scheduler_contract,
             "gpu_sbatch_argv": gpu_command,
             "sbatch_environment_policy": SBATCH_ENVIRONMENT_POLICY,
-            "resource_policy_gate": second_gate,
+            "pre_submit_resource_policy_gate": second_gate,
             "submission_channel": {
                 "tmux_socket": str(CONTROL_SOCKET),
                 "session": CONTROL_SESSION,
@@ -491,21 +552,50 @@ def dispatch(
             },
         }
         dispatch_intent["payload_without_self_hash_sha256"] = finalizer.canonical_json_sha256(dispatch_intent)
-        dispatch_intent_identity = checkpoint_probe.write_once(dispatch_intent_path, dispatch_intent)
-        state["tasks"][task_id] = {
-            "phase": "dispatching",
-            "attempt_ordinal": ordinal,
-            "gpu_batch_script": gpu_identity,
-            "comment": comment,
-            "dispatch_intent": dispatch_intent_identity,
-        }
-        _atomic_state(state_path, state)
-        gpu_job_id = _sbatch(
-            gpu_command,
-            cwd=control_cwd,
+        if dispatch_intent_path.is_file():
+            observed_intent, dispatch_intent_identity = finalizer.read_self_hashed(
+                dispatch_intent_path,
+                finalizer.DISPATCH_INTENT_ARTIFACT_TYPE,
+            )
+            dispatch_intent["pre_submit_resource_policy_gate"] = observed_intent.get(
+                "pre_submit_resource_policy_gate"
+            )
+            dispatch_intent["payload_without_self_hash_sha256"] = finalizer.canonical_json_sha256(
+                {key: value for key, value in dispatch_intent.items() if key != "payload_without_self_hash_sha256"}
+            )
+            if observed_intent != dispatch_intent:
+                raise ValueError("Interrupted dispatch intent differs from deterministic reconstruction")
+        else:
+            dispatch_intent_identity = checkpoint_probe.write_once(dispatch_intent_path, dispatch_intent)
+        if not reconcile:
+            state["tasks"][task_id] = {
+                "phase": "dispatching",
+                "attempt_ordinal": ordinal,
+                "gpu_batch_script": gpu_identity,
+                "comment": comment,
+                "dispatch_intent": dispatch_intent_identity,
+            }
+            _atomic_state(state_path, state)
+        reconciled_gpu_ids = _job_ids_by_comment(
             comment=comment,
             job_name=scheduler_contract["job_name"],
         )
+        recorded_gpu_id = str(state_entry.get("gpu_job_id")) if state_entry and state_entry.get("gpu_job_id") else None
+        if recorded_gpu_id is not None:
+            if len(reconciled_gpu_ids) != 1 or reconciled_gpu_ids[0] != int(recorded_gpu_id):
+                raise RuntimeError("Mutable GPU job ID differs from scheduler reconciliation")
+            gpu_job_id = int(recorded_gpu_id)
+        elif len(reconciled_gpu_ids) == 1:
+            gpu_job_id = reconciled_gpu_ids[0]
+        elif not reconciled_gpu_ids:
+            gpu_job_id = _sbatch(
+                gpu_command,
+                cwd=control_cwd,
+                comment=comment,
+                job_name=scheduler_contract["job_name"],
+            )
+        else:
+            raise RuntimeError(f"Multiple GPU jobs match the immutable dispatch intent: {reconciled_gpu_ids}")
         attempt_id = str(gpu_job_id)
         gpu_pre_release = scheduler_observation(attempt_id)
         gpu_record = gpu_pre_release["record"]
@@ -514,25 +604,52 @@ def dispatch(
             or gpu_record.get("Account") != ACCOUNT
             or gpu_record.get("QOS") != GPU_QOS
             or gpu_record.get("Comment") != comment
-            or gpu_record.get("JobState") != "PENDING"
-            or gpu_record.get("Reason") != "JobHeldUser"
             or gpu_record.get("NumNodes") != "1"
             or gpu_record.get("NumCPUs") != "16"
             or "gres/gpu=1" not in gpu_record.get("ReqTRES", "").split(",")
         ):
-            raise ValueError("Held GPU scheduler observation differs from the dispatch contract")
-        state["tasks"][task_id] = {
-            "phase": "gpu_submitted_held",
-            "attempt_ordinal": ordinal,
-            "gpu_job_id": attempt_id,
-            "gpu_batch_script": gpu_identity,
-            "comment": comment,
-            "dispatch_intent": dispatch_intent_identity,
-        }
-        _atomic_state(state_path, state)
+            raise ValueError("GPU scheduler observation differs from the dispatch contract")
+        gpu_is_held = gpu_record.get("JobState") == "PENDING" and gpu_record.get("Reason") == "JobHeldUser"
+        if not gpu_is_held and not reconcile:
+            raise ValueError("New GPU dispatch was not held before immutable receipt creation")
+        if not reconcile or not state_entry or state_entry.get("phase") == "dispatching":
+            state["tasks"][task_id] = {
+                "phase": "gpu_submitted_held" if gpu_is_held else "gpu_reconciled_unheld",
+                "attempt_ordinal": ordinal,
+                "gpu_job_id": attempt_id,
+                "gpu_batch_script": gpu_identity,
+                "comment": comment,
+                "dispatch_intent": dispatch_intent_identity,
+            }
+            _atomic_state(state_path, state)
         attempt_root = plan_root / "attempts" / task_id / attempt_id
         attempt_root.mkdir(parents=True, exist_ok=True)
         submission_path = attempt_root / "submission_receipt.json"
+        existing_release_path = attempt_root / "release_receipt.json"
+        if reconcile and submission_path.is_file() and existing_release_path.is_file():
+            existing_submission, submission_identity = finalizer.validate_submission(submission_path)
+            _, release_identity = finalizer.validate_release_receipt(existing_release_path)
+            state["tasks"][task_id] = {
+                "phase": "submitted",
+                "attempt_ordinal": ordinal,
+                "gpu_job_id": attempt_id,
+                "finalizer_job_id": existing_submission["finalizer_job_id"],
+                "submission_receipt": submission_identity,
+                "release_receipt": release_identity,
+                "release": {"reconciled_existing_receipt": True},
+            }
+            _atomic_state(state_path, state)
+            return {
+                "submission_performed": False,
+                "reconciliation_performed": True,
+                "task_id": task_id,
+                "attempt_ordinal": ordinal,
+                "gpu_job_id": attempt_id,
+                "finalizer_job_id": existing_submission["finalizer_job_id"],
+                "submission_receipt": submission_identity,
+                "release_receipt": release_identity,
+                "resource_gate": second_gate,
+            }
         finalizer_script_path = plan_root / "scripts" / task_id / f"attempt_{attempt_id}_finalizer.sbatch"
         finalizer_content = render_finalizer_script(
             plan=plan,
@@ -591,31 +708,80 @@ def dispatch(
             },
         }
         finalizer_intent["payload_without_self_hash_sha256"] = finalizer.canonical_json_sha256(finalizer_intent)
-        finalizer_intent_identity = checkpoint_probe.write_once(finalizer_intent_path, finalizer_intent)
-        state["tasks"][task_id] = {
-            "phase": "finalizer_dispatching",
-            "attempt_ordinal": ordinal,
-            "gpu_job_id": attempt_id,
-            "dispatch_intent": dispatch_intent_identity,
-            "finalizer_intent": finalizer_intent_identity,
-        }
-        _atomic_state(state_path, state)
-        finalizer_job_id = _sbatch(
-            finalizer_command,
-            cwd=control_cwd,
+        if finalizer_intent_path.is_file():
+            observed_finalizer_intent, finalizer_intent_identity = finalizer.read_self_hashed(
+                finalizer_intent_path,
+                finalizer.FINALIZER_INTENT_ARTIFACT_TYPE,
+            )
+            finalizer_intent["gpu_pre_release_scheduler"] = observed_finalizer_intent.get(
+                "gpu_pre_release_scheduler"
+            )
+            gpu_pre_release = finalizer_intent["gpu_pre_release_scheduler"]
+            finalizer_intent["payload_without_self_hash_sha256"] = finalizer.canonical_json_sha256(
+                {key: value for key, value in finalizer_intent.items() if key != "payload_without_self_hash_sha256"}
+            )
+            if observed_finalizer_intent != finalizer_intent:
+                raise ValueError("Interrupted finalizer intent differs from deterministic reconstruction")
+        else:
+            finalizer_intent_identity = checkpoint_probe.write_once(finalizer_intent_path, finalizer_intent)
+        if not reconcile or not state_entry or state_entry.get("phase") in {"dispatching", "gpu_submitted_held"}:
+            state["tasks"][task_id] = {
+                "phase": "finalizer_dispatching",
+                "attempt_ordinal": ordinal,
+                "gpu_job_id": attempt_id,
+                "dispatch_intent": dispatch_intent_identity,
+                "finalizer_intent": finalizer_intent_identity,
+            }
+            _atomic_state(state_path, state)
+        finalizer_job_name = f"rsci-kc-final-{task_id}"[:128]
+        existing_submission = None
+        if submission_path.is_file():
+            existing_submission, _ = finalizer.validate_submission(submission_path)
+        reconciled_finalizer_ids = _job_ids_by_comment(
             comment=finalizer_comment,
-            job_name=f"rsci-kc-final-{task_id}"[:128],
+            job_name=finalizer_job_name,
         )
-        finalizer_scheduler_observation = scheduler_observation(str(finalizer_job_id))
-        finalizer_record = finalizer_scheduler_observation["record"]
-        if (
-            finalizer_record.get("JobName") != f"rsci-kc-final-{task_id}"[:128]
-            or finalizer_record.get("Account") != ACCOUNT
-            or finalizer_record.get("QOS") != CPU_QOS
-            or finalizer_record.get("Comment") != finalizer_comment
-            or not finalizer_record.get("Dependency", "").startswith(f"afterany:{attempt_id}")
-        ):
-            raise ValueError("Finalizer scheduler observation differs from the dispatch contract")
+        recorded_finalizer_id = (
+            str(existing_submission["finalizer_job_id"])
+            if existing_submission is not None
+            else str(state_entry.get("finalizer_job_id"))
+            if state_entry and state_entry.get("finalizer_job_id")
+            else None
+        )
+        if recorded_finalizer_id is not None:
+            if reconciled_finalizer_ids and (
+                len(reconciled_finalizer_ids) != 1 or reconciled_finalizer_ids[0] != int(recorded_finalizer_id)
+            ):
+                raise RuntimeError("Mutable finalizer job ID differs from scheduler reconciliation")
+            if not reconciled_finalizer_ids and not _accounting_has_job(recorded_finalizer_id):
+                raise RuntimeError("Recorded finalizer job is absent from both queue and accounting")
+            finalizer_job_id = int(recorded_finalizer_id)
+        elif len(reconciled_finalizer_ids) == 1:
+            finalizer_job_id = reconciled_finalizer_ids[0]
+        elif not reconciled_finalizer_ids:
+            finalizer_job_id = _sbatch(
+                finalizer_command,
+                cwd=control_cwd,
+                comment=finalizer_comment,
+                job_name=finalizer_job_name,
+            )
+        else:
+            raise RuntimeError(
+                f"Multiple finalizer jobs match the immutable finalizer intent: {reconciled_finalizer_ids}"
+            )
+        if existing_submission is not None:
+            finalizer_scheduler_observation = existing_submission["finalizer_scheduler_observation"]
+        else:
+            finalizer_scheduler_observation = scheduler_observation(str(finalizer_job_id))
+            finalizer_record = finalizer_scheduler_observation["record"]
+            if (
+                finalizer_record.get("JobName") != finalizer_job_name
+                or finalizer_record.get("Account") != ACCOUNT
+                or finalizer_record.get("QOS") != CPU_QOS
+                or finalizer_record.get("Comment") != finalizer_comment
+                or not finalizer_record.get("Dependency", "").startswith(f"afterany:{attempt_id}")
+            ):
+                raise ValueError("Finalizer scheduler observation differs from the dispatch contract")
         state["tasks"][task_id] = {
             "phase": "finalizer_submitted_gpu_held",
             "attempt_ordinal": ordinal,
@@ -625,6 +791,8 @@ def dispatch(
             "finalizer_intent": finalizer_intent_identity,
         }
         _atomic_state(state_path, state)
+        if not submission_path.is_file() and not second_gate["open"]:
+            raise RuntimeError("Resource policy gate is closed; no submission receipt or release was performed")
         log_path = plan_root / "logs" / f"{task_id}_{attempt_id}.log"
         finalizer_log_path = attempt_root / f"finalizer_{finalizer_job_id}.log"
         submission: dict[str, Any] = {
@@ -639,6 +807,7 @@ def dispatch(
             "task_spec_sha256": task_hash,
             "control_source_sha256": plan["control_source"]["control_source_sha256"],
             "attempt_ordinal": ordinal,
+            "previous_terminal_receipt": previous_terminal_identity,
             "attempt_id": attempt_id,
             "gpu_job_id": attempt_id,
             "finalizer_job_id": str(finalizer_job_id),
@@ -683,17 +852,66 @@ def dispatch(
             },
         }
         submission["payload_without_self_hash_sha256"] = finalizer.canonical_json_sha256(submission)
-        submission_identity = checkpoint_probe.write_once(submission_path, submission)
-        finalizer.validate_submission(submission_path)
-        release_command = ["scontrol", "release", attempt_id]
-        released = subprocess.run(
-            release_command,
-            text=True,
-            capture_output=True,
-            check=True,
-            timeout=60,
-        )
-        gpu_post_release = scheduler_observation(attempt_id)
+        if submission_path.is_file():
+            submission, submission_identity = finalizer.validate_submission(submission_path)
+            if (
+                submission["gpu_job_id"] != attempt_id
+                or submission["finalizer_job_id"] != str(finalizer_job_id)
+                or submission["dispatch_intent"] != dispatch_intent_identity
+                or submission["finalizer_intent"] != finalizer_intent_identity
+            ):
+                raise ValueError("Interrupted immutable submission differs from reconciled jobs")
+        else:
+            submission_identity = checkpoint_probe.write_once(submission_path, submission)
+            finalizer.validate_submission(submission_path)
+        release_path = Path(submission["paths"]["release_receipt"])
+        if release_path.is_file():
+            _, release_identity = finalizer.validate_release_receipt(release_path)
+            state["tasks"][task_id] = {
+                "phase": "submitted",
+                "attempt_ordinal": ordinal,
+                "gpu_job_id": attempt_id,
+                "finalizer_job_id": str(finalizer_job_id),
+                "submission_receipt": submission_identity,
+                "release_receipt": release_identity,
+                "release": {"reconciled_existing_receipt": True},
+            }
+            _atomic_state(state_path, state)
+            return {
+                "submission_performed": False,
+                "reconciliation_performed": True,
+                "task_id": task_id,
+                "attempt_ordinal": ordinal,
+                "gpu_job_id": attempt_id,
+                "finalizer_job_id": str(finalizer_job_id),
+                "submission_receipt": submission_identity,
+                "release_receipt": release_identity,
+                "resource_gate": second_gate,
+            }
+        release_command = submission["authorized_release_argv"]
+        current_gpu = scheduler_observation(attempt_id)
+        already_unheld = current_gpu["record"].get("Reason") != "JobHeldUser"
+        if already_unheld and not reconcile:
+            raise RuntimeError("GPU job became unheld before the release receipt was materialized")
+        if not already_unheld and not second_gate["open"]:
+            raise RuntimeError("Resource policy gate is closed; reconciled GPU remains safely held")
+        if already_unheld:
+            released_stdout = ""
+            released_stderr = ""
+            release_mode = "protected_reconciliation_of_already_unheld_job"
+            gpu_post_release = current_gpu
+        else:
+            released = subprocess.run(
+                release_command,
+                text=True,
+                capture_output=True,
+                check=True,
+                timeout=60,
+            )
+            released_stdout = released.stdout
+            released_stderr = released.stderr
+            release_mode = "scontrol_release"
+            gpu_post_release = scheduler_observation(attempt_id)
         release_record = gpu_post_release["record"]
         if release_record.get("Reason") == "JobHeldUser":
             raise RuntimeError("GPU job remains held after scontrol release")
@@ -706,11 +924,14 @@ def dispatch(
             "attempt_id": attempt_id,
             "gpu_job_id": attempt_id,
             "release_command": release_command,
+            "release_mode": release_mode,
             "released_at": utc_now(),
             "pre_release_scheduler": gpu_pre_release,
             "post_release_scheduler": gpu_post_release,
-            "release_stdout_sha256": hashlib.sha256(released.stdout.encode()).hexdigest(),
-            "release_stderr_sha256": hashlib.sha256(released.stderr.encode()).hexdigest(),
+            "release_stdout": released_stdout,
+            "release_stderr": released_stderr,
+            "release_stdout_sha256": hashlib.sha256(released_stdout.encode()).hexdigest(),
+            "release_stderr_sha256": hashlib.sha256(released_stderr.encode()).hexdigest(),
             "submission_channel": {
                 "tmux_socket": str(CONTROL_SOCKET),
                 "session": CONTROL_SESSION,
@@ -790,6 +1011,7 @@ def parse_args() -> argparse.Namespace:
     dispatch_parser.add_argument("--task-id", required=True)
     dispatch_parser.add_argument("--submit", action="store_true")
     dispatch_parser.add_argument("--retry-failed", action="store_true")
+    dispatch_parser.add_argument("--reconcile", action="store_true")
     dispatch_parser.add_argument("--confirm-study-id")
     return parser.parse_args()
 
@@ -805,6 +1027,7 @@ def main() -> None:
             task_id=args.task_id,
             submit=args.submit,
             retry_failed=args.retry_failed,
+            reconcile=args.reconcile,
             confirm_study_id=args.confirm_study_id,
         )
     print(json.dumps(result, indent=2, sort_keys=True))

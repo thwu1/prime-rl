@@ -77,6 +77,13 @@ uv run --no-sync python user/tianhaowu/rsci/dispatch_known_cost_checkpoint_kerne
 Technical retries require `--retry-failed` and bind the immediately preceding
 failed terminal receipt. They are not scientific repeats.
 
+If the protected dispatcher process dies between its immutable intent and
+release receipt, rerun the same command with `--reconcile`. Reconciliation
+requires the protected tmux, matches the unique content-addressed GPU and CPU
+comments, reuses existing immutable intents and receipts, and releases a held
+GPU only while the resource gate is open. It never creates a scientific repeat
+or converts a failed GPU allocation into success.
+
 ## Seal and analyze the complete task set
 
 Canonical files alone are never accepted as results. After all 13 primary

@@ -186,6 +186,41 @@ def replay_scheduler_observation(value: object, job_id: str) -> dict[str, str]:
     return record
 
 
+def replay_resource_policy_gate(value: object) -> list[dict[str, str]]:
+    if not isinstance(value, dict):
+        raise ValueError("Resource-policy gate is not an object")
+    stdout = value.get("stdout")
+    if (
+        value.get("command") != ["squeue", "-h", "-o", "%i|%j|%T|%r|%q"]
+        or not isinstance(stdout, str)
+        or value.get("stdout_sha256") != hashlib.sha256(stdout.encode()).hexdigest()
+    ):
+        raise ValueError("Resource-policy gate capture is malformed")
+    parse_time(str(value.get("observed_at")))
+    rows = []
+    for line in stdout.splitlines():
+        if not line.strip():
+            continue
+        pieces = line.split("|", 4)
+        if len(pieces) != 5:
+            raise ValueError("Resource-policy gate capture has a malformed row")
+        rows.append(dict(zip(("job_id", "job_name", "state", "reason", "qos"), pieces, strict=True)))
+    blockers = [
+        row
+        for row in rows
+        if row["state"] == "PENDING"
+        and (row["job_name"].startswith("rsci-vd-fcsft-") or row["job_name"].startswith("rsci-vd-gstar-"))
+    ]
+    if (
+        value.get("rows") != rows
+        or value.get("blockers") != blockers
+        or value.get("fixed_clock_or_gstar_pending") != len(blockers)
+        or value.get("open") is not (not blockers)
+    ):
+        raise ValueError("Resource-policy gate decision differs from captured rows")
+    return rows
+
+
 def parse_time(value: str) -> datetime:
     if value in ("", "Unknown", "None"):
         raise ValueError(f"Invalid scheduler timestamp: {value!r}")
@@ -439,6 +474,10 @@ def validate_submission(path: Path) -> tuple[dict[str, Any], dict[str, Any]]:
     )
     if dispatch_intent_identity != dispatch_intent_record:
         raise ValueError("Submission dispatch-intent identity changed")
+    pre_submit_gate = dispatch_intent.get("pre_submit_resource_policy_gate")
+    replay_resource_policy_gate(pre_submit_gate)
+    if pre_submit_gate.get("open") is not True:
+        raise ValueError("Dispatch intent was frozen while the resource-policy gate was closed")
     expected_intent = {
         "schema_version": 1,
         "artifact_type": DISPATCH_INTENT_ARTIFACT_TYPE,
@@ -454,7 +493,7 @@ def validate_submission(path: Path) -> tuple[dict[str, Any], dict[str, Any]]:
         "scheduler_contract": scheduler,
         "gpu_sbatch_argv": expected_gpu_argv,
         "sbatch_environment_policy": expected_environment_policy,
-        "resource_policy_gate": gate,
+        "pre_submit_resource_policy_gate": pre_submit_gate,
         "submission_channel": submission["submission_channel"],
         "scope": {
             "scheduler_submission_performed": False,
@@ -533,6 +572,11 @@ def validate_release_receipt(path: Path) -> tuple[dict[str, Any], dict[str, Any]
     job_id = submission["gpu_job_id"]
     if release.get("release_command") != submission.get("authorized_release_argv"):
         raise ValueError("Release receipt command differs")
+    if release.get("release_mode") not in {
+        "scontrol_release",
+        "protected_reconciliation_of_already_unheld_job",
+    }:
+        raise ValueError("Release receipt mode differs")
     if release.get("pre_release_scheduler") != submission.get("gpu_pre_release_scheduler"):
         raise ValueError("Release receipt pre-release observation differs from submission")
     replay_scheduler_observation(release["pre_release_scheduler"], job_id)
@@ -551,9 +595,10 @@ def validate_release_receipt(path: Path) -> tuple[dict[str, Any], dict[str, Any]
     released_at = parse_time(str(release.get("released_at")))
     if released_at < submitted_at:
         raise ValueError("Release receipt predates submission")
-    empty_hash = hashlib.sha256(b"").hexdigest()
-    if release.get("release_stdout_sha256") != empty_hash or release.get("release_stderr_sha256") != empty_hash:
-        raise ValueError("scontrol release emitted unexpected output")
+    for key in ("release_stdout", "release_stderr"):
+        output = release.get(key)
+        if not isinstance(output, str) or release.get(f"{key}_sha256") != hashlib.sha256(output.encode()).hexdigest():
+            raise ValueError(f"Release receipt {key} hash differs")
     return release, identity
 
 
