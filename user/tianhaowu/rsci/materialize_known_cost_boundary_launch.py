@@ -14,6 +14,7 @@ import stat
 import subprocess
 import tempfile
 import tomllib
+from datetime import UTC, datetime, timedelta
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -26,6 +27,43 @@ SCHEMA_VERSION = 1
 ARTIFACT_TYPE = "rsci_known_cost_boundary_submission_intent"
 STUDY_ID = "verifier-defect-known-cost-boundary-v1"
 INTENT_NAME = "submission_intent.json"
+KERNEL_RECONCILIATION_NAME = "kernel_finalizer_reconciliation.json"
+KERNEL_RECONCILIATION_ARTIFACT_TYPE = "rsci_known_cost_kernel_finalizer_reconciliation"
+KERNEL_RECONCILIATION_TOP_FIELDS = {
+    "artifact_type",
+    "checks",
+    "finalizer_evidence",
+    "historical_receipt_replay",
+    "implementation",
+    "kernel_root",
+    "payload_without_self_hash_sha256",
+    "receipt",
+    "scheduler",
+    "schema_version",
+    "source_provenance",
+}
+KERNEL_RECONCILIATION_CHECK_FIELDS = {
+    "captured_finalizer_script_is_nonempty_read_only_and_within_controller_retention",
+    "finalizer_allocation_completed_with_zero_exit",
+    "finalizer_log_proves_live_receipt_build_and_scheduler_validation",
+    "gpu_and_validator_terminal_sacct_match_receipt",
+    "historical_finalizer_statically_replays_receipt",
+    "receipt_submitted_script_hashes_match_pre_execution_witness",
+}
+FINALIZER_JOB_ID = "10281828"
+FINALIZER_JOB_NAME = "rsci-kc-kernel-finalize-v1"
+FINALIZER_QOS = "cpu_lowest"
+FINALIZER_ACCOUNT = "ram"
+FINALIZER_SCRIPT_NAME = "kernel_receipt_finalizer_submitted_10281828.sbatch"
+FINALIZER_SCRIPT_SHA256 = "c35faf42798d619e14e4b7dbab9da388e84520f1ec25414a3f7c699ee6423111"
+FINALIZER_SCRIPT_SIZE_BYTES = 1075
+FINALIZER_LOG_PATH = Path(
+    "/checkpoint/ram-h100-2/tianhaowu/rsci/analysis/known-cost-control-plane-v1/logs/finalize_10281828.log"
+)
+FINALIZER_LOG_SHA256 = "b9ef805a0d6b2a919abaec6a37e7cb25374e4cbad68ca257ffdbb84039c384f2"
+FINALIZER_LOG_SIZE_BYTES = 753
+FINALIZER_STDIO_TEMPLATE = str(FINALIZER_LOG_PATH.with_name("finalize_%j.log"))
+CONTROLLER_MIN_JOB_AGE_SECONDS = 600
 SMOKE_ARM_FILENAMES = (
     "b20260808_g_p0125.toml",
     "b20260808_t_p0125.toml",
@@ -462,11 +500,353 @@ def _validated_kernel_execution_receipt(
     }
 
 
+def _without_submitted_script(record: dict[str, Any]) -> dict[str, Any]:
+    durable = dict(record)
+    script_sha = _require_sha256(
+        durable.pop("submitted_batch_script_sha256", None),
+        "receipt scheduler submitted_batch_script_sha256",
+    )
+    if script_sha == hashlib.sha256(b"").hexdigest():
+        raise ValueError("Receipt scheduler submitted script cannot be the empty-output SHA-256")
+    return durable
+
+
+def _live_terminal_scheduler_records(receipt: dict[str, Any]) -> dict[str, Any]:
+    scheduler = _require_dict(receipt.get("scheduler"), "kernel receipt scheduler")
+    reconciled = {}
+    for key, job_id, name, qos, require_elapsed in (
+        (
+            "gpu_job",
+            kernel_execution.GPU_JOB_ID,
+            kernel_execution.GPU_JOB_NAME,
+            kernel_execution.GPU_FINAL_QOS,
+            True,
+        ),
+        (
+            "validator_job",
+            kernel_execution.VALIDATOR_JOB_ID,
+            kernel_execution.VALIDATOR_JOB_NAME,
+            kernel_execution.VALIDATOR_QOS,
+            False,
+        ),
+    ):
+        recorded = _require_dict(scheduler.get(key), f"kernel receipt scheduler.{key}")
+        expected = _without_submitted_script(recorded)
+        actual = kernel_execution._completed_scheduler_record(
+            kernel_execution._sacct_job(job_id),
+            expected_name=name,
+            expected_qos=qos,
+            require_positive_elapsed=require_elapsed,
+        )
+        if actual != expected:
+            raise ValueError(f"Kernel receipt {key} differs from live terminal sacct")
+        reconciled[key] = actual
+    return reconciled
+
+
+def _sacct_finalizer_job() -> dict[str, Any]:
+    fields = (*kernel_execution.SACCT_FIELDS, "StdOut", "StdErr")
+    completed = subprocess.run(
+        ["sacct", "-j", FINALIZER_JOB_ID, "-X", "-n", "-P", "-o", ",".join(fields)],
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    rows = [line.split("|") for line in completed.stdout.splitlines() if line.strip()]
+    if len(rows) != 1 or len(rows[0]) != len(fields):
+        raise ValueError(
+            f"sacct returned an ambiguous finalizer record for job {FINALIZER_JOB_ID}: {completed.stdout!r}"
+        )
+    raw = dict(zip(fields, rows[0], strict=True))
+    if raw["JobIDRaw"] != FINALIZER_JOB_ID:
+        raise ValueError("sacct returned the wrong finalizer job id")
+    record = kernel_execution._completed_scheduler_record(
+        raw,
+        expected_name=FINALIZER_JOB_NAME,
+        expected_qos=FINALIZER_QOS,
+        require_positive_elapsed=True,
+    )
+    if record["account"] != FINALIZER_ACCOUNT:
+        raise ValueError("Finalizer Slurm account differs")
+    if record["comment"] != "" or record["time_limit"] != "00:30:00" or record["time_limit_minutes"] != 30:
+        raise ValueError("Finalizer Slurm comment or time limit differs")
+    if raw["StdOut"] != FINALIZER_STDIO_TEMPLATE or raw["StdErr"] != FINALIZER_STDIO_TEMPLATE:
+        raise ValueError("Finalizer Slurm stdout/stderr template differs")
+    return {
+        **record,
+        "stdout_template": raw["StdOut"],
+        "stderr_template": raw["StdErr"],
+    }
+
+
+def _fixed_finalizer_script_identity(kernel_root: Path) -> dict[str, Any]:
+    path = kernel_root / FINALIZER_SCRIPT_NAME
+    identity = file_identity(path)
+    expected = {
+        "path": str(path),
+        "size_bytes": FINALIZER_SCRIPT_SIZE_BYTES,
+        "sha256": FINALIZER_SCRIPT_SHA256,
+    }
+    if identity != expected:
+        raise ValueError("Captured finalizer submitted script differs from the fixed live capture")
+    if stat.S_IMODE(path.stat().st_mode) & 0o222:
+        raise ValueError("Captured finalizer submitted script is writable")
+    return identity
+
+
+def _fixed_finalizer_script_capture(
+    kernel_root: Path,
+    finalizer_job: dict[str, Any],
+) -> dict[str, Any]:
+    identity = _fixed_finalizer_script_identity(kernel_root)
+    path = kernel_root / FINALIZER_SCRIPT_NAME
+    if identity["size_bytes"] <= 0:
+        raise ValueError("Captured finalizer submitted script is empty")
+    mtime_ns = path.stat().st_mtime_ns
+    mtime = datetime.fromtimestamp(mtime_ns / 1_000_000_000, tz=UTC)
+    finalizer_end = kernel_execution._parse_utc(finalizer_job.get("end_time"), "finalizer end")
+    retention_deadline = finalizer_end + timedelta(seconds=CONTROLLER_MIN_JOB_AGE_SECONDS)
+    if not finalizer_end <= mtime <= retention_deadline:
+        raise ValueError("Finalizer script capture mtime falls outside controller retention")
+    return {
+        "capture_command": ["scontrol", "write", "batch_script", FINALIZER_JOB_ID, str(path)],
+        "capture_mtime_ns": mtime_ns,
+        "capture_mtime_utc": mtime.isoformat(timespec="microseconds").replace("+00:00", "Z"),
+        "controller_min_job_age_seconds": CONTROLLER_MIN_JOB_AGE_SECONDS,
+        "controller_retention_deadline_utc": retention_deadline.isoformat(timespec="seconds").replace("+00:00", "Z"),
+        "identity": identity,
+        "nonempty_capture": True,
+        "read_only_capture": True,
+    }
+
+
+def _json_stream(path: Path) -> list[dict[str, Any]]:
+    text = path.read_text(encoding="utf-8")
+    decoder = json.JSONDecoder()
+    cursor = 0
+    values = []
+    while True:
+        while cursor < len(text) and text[cursor].isspace():
+            cursor += 1
+        if cursor == len(text):
+            break
+        value, cursor = decoder.raw_decode(text, cursor)
+        values.append(_require_dict(value, f"JSON value {len(values)} in {path}"))
+    return values
+
+
+def _fixed_finalizer_log_evidence(
+    receipt_identity: dict[str, Any],
+    receipt: dict[str, Any],
+) -> dict[str, Any]:
+    identity = file_identity(FINALIZER_LOG_PATH)
+    expected_identity = {
+        "path": str(FINALIZER_LOG_PATH),
+        "size_bytes": FINALIZER_LOG_SIZE_BYTES,
+        "sha256": FINALIZER_LOG_SHA256,
+    }
+    if identity != expected_identity:
+        raise ValueError("Finalizer allocation log differs from the fixed successful log")
+    if stat.S_IMODE(FINALIZER_LOG_PATH.stat().st_mode) & 0o222:
+        raise ValueError("Finalizer allocation log is writable")
+    scheduler = _require_dict(receipt.get("scheduler"), "kernel receipt scheduler")
+    gpu = _require_dict(scheduler.get("gpu_job"), "kernel receipt GPU scheduler record")
+    validator = _require_dict(scheduler.get("validator_job"), "kernel receipt validator scheduler record")
+    run_summary = _require_dict(receipt.get("gpu_run_summary"), "kernel receipt GPU run summary")
+    common = {
+        "receipt": receipt_identity,
+        "gpu_job_id": gpu.get("job_id"),
+        "validator_job_id": validator.get("job_id"),
+        "eligible_design": run_summary.get("eligible_design"),
+    }
+    expected_summaries = [
+        {"command": "build", **common},
+        {"command": "validate", **common},
+    ]
+    summaries = _json_stream(FINALIZER_LOG_PATH)
+    if summaries != expected_summaries:
+        raise ValueError("Finalizer allocation log does not contain the exact build/validate summaries")
+    return {"identity": identity, "summaries": summaries}
+
+
+def _receipt_mtime_evidence(
+    receipt_path: Path,
+    receipt: dict[str, Any],
+    finalizer_job: dict[str, Any],
+) -> dict[str, Any]:
+    mtime_ns = receipt_path.stat().st_mtime_ns
+    mtime = datetime.fromtimestamp(mtime_ns / 1_000_000_000, tz=UTC)
+    scheduler = _require_dict(receipt.get("scheduler"), "kernel receipt scheduler")
+    gpu = _require_dict(scheduler.get("gpu_job"), "kernel receipt GPU scheduler record")
+    validator = _require_dict(scheduler.get("validator_job"), "kernel receipt validator scheduler record")
+    gpu_end = kernel_execution._parse_utc(gpu.get("end_time"), "GPU end")
+    validator_end = kernel_execution._parse_utc(validator.get("end_time"), "validator end")
+    finalizer_start = kernel_execution._parse_utc(finalizer_job.get("start_time"), "finalizer start")
+    finalizer_end = kernel_execution._parse_utc(finalizer_job.get("end_time"), "finalizer end")
+    if not gpu_end < validator_end < finalizer_start <= mtime <= finalizer_end:
+        raise ValueError("Receipt mtime contradicts GPU, validator, or finalizer chronology")
+    return {
+        "mtime_ns": mtime_ns,
+        "mtime_utc": mtime.isoformat(timespec="microseconds").replace("+00:00", "Z"),
+    }
+
+
+def _historical_receipt_replay_record(validated: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "validator": validated["validator"],
+        "validator_source_provenance": validated["validator_source_provenance"],
+        "validation_summary_sha256": validated["validation_summary_sha256"],
+    }
+
+
+def _build_kernel_reconciliation(kernel_root: Path) -> dict[str, Any]:
+    kernel_root = kernel_root.expanduser().resolve()
+    receipt_path = kernel_root / kernel_execution.RECEIPT_NAME
+    validated = _validated_kernel_execution_receipt(receipt_path, verify_scheduler=False)
+    receipt = validated["receipt"]
+    finalizer_job = _sacct_finalizer_job()
+    payload: dict[str, Any] = {
+        "schema_version": SCHEMA_VERSION,
+        "artifact_type": KERNEL_RECONCILIATION_ARTIFACT_TYPE,
+        "kernel_root": str(kernel_root),
+        "receipt": validated["identity"],
+        "historical_receipt_replay": _historical_receipt_replay_record(validated),
+        "scheduler": {
+            **_live_terminal_scheduler_records(receipt),
+            "finalizer_job": finalizer_job,
+        },
+        "finalizer_evidence": {
+            "submitted_script_capture": _fixed_finalizer_script_capture(kernel_root, finalizer_job),
+            "allocation_log": _fixed_finalizer_log_evidence(validated["identity"], receipt),
+            "receipt_mtime": _receipt_mtime_evidence(receipt_path, receipt, finalizer_job),
+        },
+        "source_provenance": _control_plane_source_provenance(),
+        "implementation": file_identity(Path(__file__)),
+        "checks": {name: True for name in sorted(KERNEL_RECONCILIATION_CHECK_FIELDS)},
+    }
+    payload["payload_without_self_hash_sha256"] = canonical_json_sha256(payload)
+    return payload
+
+
+def write_kernel_reconciliation_once(path: Path, payload: dict[str, Any]) -> dict[str, Any]:
+    path = path.expanduser().resolve()
+    expected_path = Path(str(payload.get("kernel_root"))).resolve() / KERNEL_RECONCILIATION_NAME
+    if path != expected_path:
+        raise ValueError(f"Kernel reconciliation must be adjacent to the kernel root at {expected_path}")
+    content = canonical_json_bytes(payload)
+    lock_path = path.with_suffix(path.suffix + ".lock")
+    with lock_path.open("a", encoding="utf-8") as lock_handle:
+        fcntl.flock(lock_handle, fcntl.LOCK_EX)
+        if path.exists():
+            if path.read_bytes() != content:
+                raise FileExistsError(f"Refusing to replace a different kernel reconciliation: {path}")
+            return file_identity(path)
+        descriptor, temporary_name = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".partial")
+        temporary = Path(temporary_name)
+        try:
+            with os.fdopen(descriptor, "wb") as handle:
+                handle.write(content)
+                handle.flush()
+                os.fsync(handle.fileno())
+            temporary.chmod(0o444)
+            os.link(temporary, path)
+            directory_descriptor = os.open(path.parent, os.O_RDONLY)
+            try:
+                os.fsync(directory_descriptor)
+            finally:
+                os.close(directory_descriptor)
+        finally:
+            temporary.unlink(missing_ok=True)
+    return file_identity(path)
+
+
+def validate_kernel_reconciliation(path: Path) -> dict[str, Any]:
+    resolved = path.expanduser().resolve()
+    if stat.S_IMODE(resolved.stat().st_mode) & 0o222:
+        raise ValueError("Kernel finalizer reconciliation is writable")
+    raw, payload = _read_canonical_json(resolved)
+    if set(payload) != KERNEL_RECONCILIATION_TOP_FIELDS:
+        raise ValueError("Kernel finalizer reconciliation has the wrong exact top-level schema")
+    if (
+        payload.get("schema_version") != SCHEMA_VERSION
+        or payload.get("artifact_type") != KERNEL_RECONCILIATION_ARTIFACT_TYPE
+    ):
+        raise ValueError("Kernel finalizer reconciliation has the wrong schema or artifact type")
+    kernel_root = Path(str(payload.get("kernel_root"))).expanduser().resolve()
+    if resolved != kernel_root / KERNEL_RECONCILIATION_NAME:
+        raise ValueError("Kernel finalizer reconciliation is not adjacent to its kernel root")
+    recorded_hash = payload.get("payload_without_self_hash_sha256")
+    without_hash = dict(payload)
+    without_hash.pop("payload_without_self_hash_sha256", None)
+    if not isinstance(recorded_hash, str) or canonical_json_sha256(without_hash) != recorded_hash:
+        raise ValueError("Kernel finalizer reconciliation self hash differs")
+    receipt_path = kernel_root / kernel_execution.RECEIPT_NAME
+    validated = _validated_kernel_execution_receipt(receipt_path, verify_scheduler=False)
+    if payload.get("receipt") != validated["identity"]:
+        raise ValueError("Kernel finalizer reconciliation binds a different receipt")
+    if payload.get("historical_receipt_replay") != _historical_receipt_replay_record(validated):
+        raise ValueError("Kernel finalizer reconciliation records a different historical receipt replay")
+    receipt = validated["receipt"]
+    scheduler = _require_dict(payload.get("scheduler"), "kernel reconciliation scheduler")
+    receipt_scheduler = _require_dict(receipt.get("scheduler"), "kernel receipt scheduler")
+    for key in ("gpu_job", "validator_job"):
+        if scheduler.get(key) != _without_submitted_script(
+            _require_dict(receipt_scheduler.get(key), f"kernel receipt scheduler.{key}")
+        ):
+            raise ValueError(f"Kernel reconciliation {key} differs from the receipt")
+    finalizer_job = _require_dict(scheduler.get("finalizer_job"), "kernel reconciliation finalizer job")
+    expected_finalizer = {
+        "job_id": FINALIZER_JOB_ID,
+        "job_name": FINALIZER_JOB_NAME,
+        "state": "COMPLETED",
+        "exit_code": "0:0",
+        "qos": FINALIZER_QOS,
+        "account": FINALIZER_ACCOUNT,
+        "comment": "",
+        "time_limit": "00:30:00",
+        "time_limit_minutes": 30,
+        "stdout_template": FINALIZER_STDIO_TEMPLATE,
+        "stderr_template": FINALIZER_STDIO_TEMPLATE,
+    }
+    for key, value in expected_finalizer.items():
+        if finalizer_job.get(key) != value:
+            raise ValueError(f"Kernel reconciliation finalizer {key} differs")
+    if set(finalizer_job) != {
+        *kernel_execution.SCHEDULER_RECEIPT_FIELDS - {"submitted_batch_script_sha256"},
+        "stdout_template",
+        "stderr_template",
+    }:
+        raise ValueError("Kernel reconciliation finalizer has the wrong exact field inventory")
+    if (
+        isinstance(finalizer_job.get("elapsed_seconds"), bool)
+        or not isinstance(finalizer_job.get("elapsed_seconds"), int)
+        or finalizer_job["elapsed_seconds"] <= 0
+    ):
+        raise ValueError("Kernel reconciliation finalizer elapsed time is invalid")
+    evidence = _require_dict(payload.get("finalizer_evidence"), "kernel reconciliation finalizer evidence")
+    capture = _require_dict(evidence.get("submitted_script_capture"), "finalizer submitted script capture")
+    if capture != _fixed_finalizer_script_capture(kernel_root, finalizer_job):
+        raise ValueError("Kernel reconciliation submitted-script capture differs")
+    if evidence.get("allocation_log") != _fixed_finalizer_log_evidence(validated["identity"], receipt):
+        raise ValueError("Kernel reconciliation finalizer log evidence differs")
+    if evidence.get("receipt_mtime") != _receipt_mtime_evidence(receipt_path, receipt, finalizer_job):
+        raise ValueError("Kernel reconciliation receipt chronology differs")
+    if payload.get("source_provenance") != _control_plane_source_provenance():
+        raise ValueError("Kernel reconciliation source provenance differs")
+    if payload.get("implementation") != file_identity(Path(__file__)):
+        raise ValueError("Kernel reconciliation implementation identity differs")
+    checks = _require_dict(payload.get("checks"), "kernel reconciliation checks")
+    if set(checks) != KERNEL_RECONCILIATION_CHECK_FIELDS or any(value is not True for value in checks.values()):
+        raise ValueError("Kernel reconciliation checks are not the exact all-true inventory")
+    if raw != canonical_json_bytes(payload):
+        raise RuntimeError("Kernel reconciliation changed during static replay")
+    return {"reconciliation": payload, "identity": file_identity(resolved)}
+
+
 def _validated_kernel(
     kernel_root: Path,
     kernel_validation_path: Path | None,
-    *,
-    verify_scheduler: bool,
+    kernel_reconciliation_path: Path | None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     kernel_root = kernel_root.expanduser().resolve()
     probe_dir = kernel_root / "probe"
@@ -524,8 +904,13 @@ def _validated_kernel(
         raise FileNotFoundError("Kernel validation summary is required")
     execution_receipt = _validated_kernel_execution_receipt(
         kernel_root / kernel_execution.RECEIPT_NAME,
-        verify_scheduler=verify_scheduler,
+        verify_scheduler=False,
     )
+    if kernel_reconciliation_path is None:
+        kernel_reconciliation_path = kernel_root / KERNEL_RECONCILIATION_NAME
+    reconciliation = validate_kernel_reconciliation(kernel_reconciliation_path)
+    if reconciliation["reconciliation"]["receipt"] != execution_receipt["identity"]:
+        raise ValueError("Kernel reconciliation and execution receipt identities differ")
     if execution_receipt["receipt"]["gpu_run_summary"]["eligible_design"] != decision.get("eligible_design"):
         raise ValueError("Kernel execution receipt and result disagree on the eligible design")
     source_manifest = file_identity(kernel_root / source_provenance.MANIFEST_NAME)
@@ -545,6 +930,7 @@ def _validated_kernel(
         "execution_receipt_validator": execution_receipt["validator"],
         "execution_receipt_validator_source": execution_receipt["validator_source_provenance"],
         "execution_receipt_validation_summary_sha256": execution_receipt["validation_summary_sha256"],
+        "finalizer_reconciliation": reconciliation["identity"],
         "external_validation_artifact": _optional_kernel_validation(
             kernel_validation_path,
             identity,
@@ -1129,7 +1515,7 @@ def build_intent(
     kernel_root: Path,
     tokenizer_path: Path,
     kernel_validation_path: Path | None = None,
-    verify_kernel_scheduler: bool = True,
+    kernel_reconciliation_path: Path | None = None,
 ) -> dict[str, Any]:
     run_root = run_root.expanduser().resolve()
     tokenizer_path = tokenizer_path.expanduser().resolve()
@@ -1137,7 +1523,7 @@ def build_intent(
     kernel_result, kernel_record = _validated_kernel(
         kernel_root,
         kernel_validation_path,
-        verify_scheduler=verify_kernel_scheduler,
+        kernel_reconciliation_path,
     )
     design, eligible_filenames = eligible_arm_filenames(kernel_result)
 
@@ -1228,6 +1614,7 @@ def build_intent(
                 if kernel_record["external_validation_artifact"] is not None
                 else None
             ),
+            "kernel_reconciliation": kernel_record["finalizer_reconciliation"]["path"],
             "tokenizer_path": str(tokenizer_path),
         },
         "launch_source": launch_source,
@@ -1285,7 +1672,8 @@ def build_intent(
             "production_preflight_exact_file_and_self_hash_replayed": True,
             "kernel_v2_internal_algebra_and_preregistered_decision_replayed": True,
             "kernel_v2_execution_receipt_historical_finalizer_replayed": True,
-            "kernel_scheduler_live_recheck_required_during_materialization": True,
+            "kernel_finalizer_reconciliation_statically_replayed": True,
+            "kernel_scheduler_and_finalizer_live_evidence_frozen_before_intent": True,
             "eligible_config_compositions_match_the_frozen_inventory": True,
             "all_30_arms_partitioned_into_eligible_and_excluded_sets": True,
             "every_run_is_commit_pinned_materialized_and_sealed": True,
@@ -1366,7 +1754,7 @@ def validate_intent(path: Path, *, tokenizer_path: Path) -> dict[str, Any]:
         kernel_validation_path=(
             Path(str(inputs["kernel_validation"])) if inputs.get("kernel_validation") is not None else None
         ),
-        verify_kernel_scheduler=False,
+        kernel_reconciliation_path=Path(str(inputs.get("kernel_reconciliation"))),
     )
     if raw != canonical_json_bytes(expected):
         raise ValueError("Submission intent differs from an independent replay of all launch inputs")
@@ -1376,11 +1764,16 @@ def validate_intent(path: Path, *, tokenizer_path: Path) -> dict[str, Any]:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
+    reconcile = subparsers.add_parser("materialize-reconciliation")
+    reconcile.add_argument("--kernel-root", type=Path, required=True)
+    validate_reconciliation = subparsers.add_parser("validate-reconciliation")
+    validate_reconciliation.add_argument("--reconciliation", type=Path, required=True)
     materialize = subparsers.add_parser("materialize")
     materialize.add_argument("--run-root", type=Path, required=True)
     materialize.add_argument("--preflight-report", type=Path, required=True)
     materialize.add_argument("--kernel-root", type=Path, required=True)
     materialize.add_argument("--kernel-validation", type=Path)
+    materialize.add_argument("--kernel-reconciliation", type=Path)
     materialize.add_argument("--tokenizer", type=Path, required=True)
     validate = subparsers.add_parser("validate")
     validate.add_argument("--intent", type=Path, required=True)
@@ -1390,14 +1783,35 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    if args.command == "materialize":
+    if args.command == "materialize-reconciliation":
+        payload = _build_kernel_reconciliation(args.kernel_root)
+        identity = write_kernel_reconciliation_once(
+            args.kernel_root / KERNEL_RECONCILIATION_NAME,
+            payload,
+        )
+        validated = validate_kernel_reconciliation(identity["path"])
+        if validated["identity"] != identity:
+            raise RuntimeError("Kernel reconciliation changed during materialization")
+        summary = {
+            "command": args.command,
+            "reconciliation": identity,
+            "submission_performed": False,
+        }
+    elif args.command == "validate-reconciliation":
+        validated = validate_kernel_reconciliation(args.reconciliation)
+        summary = {
+            "command": args.command,
+            "reconciliation": validated["identity"],
+            "submission_performed": False,
+        }
+    elif args.command == "materialize":
         intent = build_intent(
             run_root=args.run_root,
             preflight_report_path=args.preflight_report,
             kernel_root=args.kernel_root,
             tokenizer_path=args.tokenizer,
             kernel_validation_path=args.kernel_validation,
-            verify_kernel_scheduler=True,
+            kernel_reconciliation_path=args.kernel_reconciliation,
         )
         identity = write_intent_atomic(args.run_root / INTENT_NAME, intent)
         summary = {

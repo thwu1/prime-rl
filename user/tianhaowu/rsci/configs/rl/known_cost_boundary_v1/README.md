@@ -75,15 +75,19 @@ Gstar studies remain quota-pending.
 
 The kernel receipt retains the original read-only finalizer snapshot. The
 launch materializer, enforcing Stage-1 dispatcher, post-run consumers, and
-evaluation planner run from one successor commit-pinned snapshot. Launch
-materialization invokes the exact finalizer recorded by the receipt and
-rechecks both terminal Slurm records once; later validation invokes that same
-historical finalizer statically, so replay survives scheduler-accounting
-expiry. Create and activate the successor snapshot before materializing the
-launch intent:
+evaluation planner run from one successor commit-pinned snapshot. Before the
+launch intent, materialize one immutable kernel-finalizer reconciliation. It
+statically invokes the exact historical finalizer, exact-matches retained
+GPU/validator terminal `sacct` fields while taking submitted-script provenance
+only from the receipt and pre-execution witness, and binds finalizer job
+`10281828`, its nonempty read-only submitted-script capture made directly
+within the controller retention window, and its exact allocation log. Launch
+materialization and every later validation replay that sidecar
+statically, so controller batch-script and accounting retention are no longer
+durability dependencies.
 
 ```bash
-SUCCESSOR_ROOT=/checkpoint/ram-h100-2/tianhaowu/rsci/analysis/known-cost-postrun-control-plane-v2
+SUCCESSOR_ROOT=/checkpoint/ram-h100-2/tianhaowu/rsci/analysis/known-cost-postrun-control-plane-v3
 SUCCESSOR_COMMIT=<pushed-successor-commit>
 uv run --no-sync user/tianhaowu/rsci/source_provenance.py create \
   "$SUCCESSOR_ROOT" --commit "$SUCCESSOR_COMMIT"
@@ -92,10 +96,16 @@ uv run --no-sync "$SUCCESSOR_ROOT/source_snapshot/user/tianhaowu/rsci/source_pro
 source "$SUCCESSOR_ROOT/source_snapshot/user/tianhaowu/rsci/scripts/activate_source_snapshot_eval.sh" "$SUCCESSOR_ROOT"
 RUN_ROOT=/checkpoint/ram-h100-2/tianhaowu/rsci/rl/verifier-defect-known-cost-boundary-v1
 DISPATCH_STATE=/checkpoint/ram-h100-2/tianhaowu/rsci/dispatch/verifier-defect-known-cost-boundary-v1
+KERNEL_ROOT=/checkpoint/ram-h100-2/tianhaowu/rsci/analysis/known-cost-tag-kernel-v2
+uv run --no-sync user/tianhaowu/rsci/materialize_known_cost_boundary_launch.py materialize-reconciliation \
+  --kernel-root "$KERNEL_ROOT"
+uv run --no-sync user/tianhaowu/rsci/materialize_known_cost_boundary_launch.py validate-reconciliation \
+  --reconciliation "$KERNEL_ROOT/kernel_finalizer_reconciliation.json"
 uv run --no-sync user/tianhaowu/rsci/materialize_known_cost_boundary_launch.py materialize \
   --run-root "$RUN_ROOT" \
   --preflight-report /checkpoint/ram-h100-2/tianhaowu/rsci/analysis/known-cost-boundary-preflight-v1/report.json \
-  --kernel-root /checkpoint/ram-h100-2/tianhaowu/rsci/analysis/known-cost-tag-kernel-v2 \
+  --kernel-root "$KERNEL_ROOT" \
+  --kernel-reconciliation "$KERNEL_ROOT/kernel_finalizer_reconciliation.json" \
   --tokenizer /checkpoint/ram-h100-2/tianhaowu/rsci/hf/hub/models--Interplay-LM-Reasoning--extrapolation_rl/snapshots/4861bd030e6fb92d94be3a1cecab89c2fac4b94a/id2-10_0.2easy_0.3medium_0.5hard/base
 uv run --no-sync user/tianhaowu/rsci/materialize_known_cost_boundary_launch.py validate \
   --intent "$RUN_ROOT/submission_intent.json" \

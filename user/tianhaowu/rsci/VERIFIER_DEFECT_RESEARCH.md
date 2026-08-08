@@ -2187,7 +2187,7 @@ hidden-gate reference tags, negative rewards, strict/untaxed/net diagnostics,
 and cache-safe \(p=0,c_0>0\) behavior. The independent attempt analyzer replays
 all B/S/M recipients and reports per-tag and selected/unselected exposure; it
 explicitly does not treat those aggregates as strict performance. The complete
-RSCI test suite passes 418 tests (two pre-existing SWIG deprecation warnings),
+RSCI test suite passes 423 tests (two pre-existing SWIG deprecation warnings),
 and all touched Python files pass Ruff.
 
 Production materialization and replay validation now establish:
@@ -2252,28 +2252,45 @@ runtime-versus-independent scalar metric comparisons across strict, A,
 answer-wrong, and invalid cases. The corrected v2 kernel probe retains the
 same dataset SHA-256 above and has manifest SHA-256
 `a0f2f78fb7b9508250b4d4c4427af59310d10fe1bf9a413e86fe30e12886d77f`.
-GPU job `10278600`, dependent validation watcher `10278639`, and dependent
-receipt finalizer `10281828` are pending; the kernel decision therefore remains
-unresolved. A read-only pre-execution
-witness records that both jobs had zero runtime and that no kernel, log, or
-validation artifact existed before execution; a separate immutable scheduler
-amendment records only the `h100_lowest` to `h100_dev` transition. After the
-documented 8-hour to 1-hour to 30-minute to 45-minute backfill adjustments, a
-second immutable pre-execution envelope binds the final 45-minute limit, QoS,
-command, output, comment, submit time, and submitted batch-script hash while
-the job still had zero runtime and all three output artifacts were absent. A
-launch-valid execution receipt is still impossible until both jobs finish
-successfully, live Slurm state revalidation succeeds, and the final GPU log
-proves a fresh, non-cached kernel computation. The four obsolete smoke seals
-were moved intact to a timestamped quarantine. Their replacements are sealed
-from commit `5516d9811` and explicitly bind training-data SHA-256 `1a959f...`,
-adjacent-manifest SHA-256 `2f513f...`, the 13-token tag contract, and tokenizer
-directory SHA-256 `32f58f...`. No known-cost RL job has been submitted.
+GPU job `10278600`, validator `10278639`, and receipt finalizer `10281828`
+completed with exit code zero in 723, 174, and 412 seconds. Kernel result
+SHA-256 `732b6bfe41e4a68034a12724f1ab4246ed770f257add62e659e9c3cbcefa3761`
+has analytic off-diagonal median `0.999901223316138`, almost exactly common
+transfer and well above the preregistered `0.5` full-grid ceiling. Every source
+column has zero target pairs separated by more than the fixed `0.02` margin, so
+the finite-step ordering gate fails for insufficient resolution, not for an
+observed inversion: all 90 unthresholded pairwise orders retain their sign.
+Pairwise gradient cosines span `0.999665`--`0.999907`, the implied gradient-norm
+spread is only `1.0135x`, and the finite-step off-diagonal median is
+`0.999884281`. The six artificial contexts therefore do not isolate local
+optimization directions at this initialization. This is a local derivative on
+the same 174 A/gold pairs, not evidence that long-run tagged policies are
+identical.
+
+The preregistered rule consequently selects only block `20260808` G/T at
+nominal doses `0.0125` and `0.0375`. The immutable execution receipt has
+SHA-256 `3724a66b9dc25a3889046cd2d454edbda83e74d6f3d7fc05a00414d9f7b2c102`;
+its pinned finalizer built and live-validated the receipt inside Slurm's
+600-second controller-retention window. A later launch-side replay exposed a
+Slurm CLI trap rather than a scientific failure: after controller purge,
+`scontrol write batch_script JOB -` emits empty stdout with exit code zero,
+although every persistent terminal `sacct` field still matches. The receipt is
+not weakened or rewritten. A successor reconciliation freezes the nonempty
+read-only finalizer script captured inside retention, exact finalizer terminal
+record and two-summary allocation log, current GPU/validator terminal
+accounting excluding only the already receipt-bound script field, and a static
+replay through the historical finalizer. Later launch validation consumes that
+write-once sidecar without querying ephemeral controller state. The four
+obsolete smoke seals remain quarantined; all 30 replacements are sealed from
+commit `5516d9811` and ready for either branch. No known-cost RL job has been
+submitted.
 
 The pre-RL successor control plane is also complete. The launch intent records
 the exact sidecar-enforcing Stage-1 dispatcher; both kernel branches require an
 immutable post-run authority before dispatch, and smoke additionally requires
-the frozen promotion authority. Per-run completion receipts bind protected
+the frozen promotion authority. Kernel launch now additionally requires the
+immutable finalizer reconciliation above, preventing controller-retention
+expiry from being mistaken for different submitted bytes. Per-run completion receipts bind protected
 submissions to terminal allocation logs, stable final checkpoints, training
 ledgers, and local metric streams. Evaluation captures live Slurm allocation
 and submitted-script evidence once in a plan-local, self-hashed

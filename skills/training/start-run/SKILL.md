@@ -130,14 +130,20 @@ have been sealed, materialize and independently replay the immutable launch
 intent:
 
 ```bash
-SUCCESSOR_ROOT=/checkpoint/ram-h100-2/tianhaowu/rsci/analysis/known-cost-postrun-control-plane-v2
+SUCCESSOR_ROOT=/checkpoint/ram-h100-2/tianhaowu/rsci/analysis/known-cost-postrun-control-plane-v3
 SUCCESSOR_COMMIT=<pushed-successor-commit>
 uv run --no-sync user/tianhaowu/rsci/source_provenance.py create \
   "$SUCCESSOR_ROOT" --commit "$SUCCESSOR_COMMIT"
 source "$SUCCESSOR_ROOT/source_snapshot/user/tianhaowu/rsci/scripts/activate_source_snapshot_eval.sh" "$SUCCESSOR_ROOT"
+uv run --no-sync user/tianhaowu/rsci/materialize_known_cost_boundary_launch.py materialize-reconciliation \
+  --kernel-root KERNEL_ROOT
+uv run --no-sync user/tianhaowu/rsci/materialize_known_cost_boundary_launch.py validate-reconciliation \
+  --reconciliation KERNEL_ROOT/kernel_finalizer_reconciliation.json
 uv run --no-sync user/tianhaowu/rsci/materialize_known_cost_boundary_launch.py materialize \
   --run-root RUN_ROOT --preflight-report PREFLIGHT.json \
-  --kernel-root KERNEL_ROOT --tokenizer TOKENIZER
+  --kernel-root KERNEL_ROOT \
+  --kernel-reconciliation KERNEL_ROOT/kernel_finalizer_reconciliation.json \
+  --tokenizer TOKENIZER
 uv run --no-sync user/tianhaowu/rsci/materialize_known_cost_boundary_launch.py validate \
   --intent RUN_ROOT/submission_intent.json --tokenizer TOKENIZER
 ```
@@ -147,10 +153,15 @@ The materializer follows only the kernel-v2 preregistered decision: either all
 source seal and adjacent tagged-bank sidecar, and refuses repeated output,
 SLURM, W&B, or script identities. The same read-only control-plane snapshot is
 commit-, tree-, lock-, freeze-, environment-, import-, and byte-pinned in the
-kernel receipt and launch intent. Materialization performs the one-time live
-recheck of both terminal Slurm jobs; later intent validation replays the exact
-historical finalizer statically from the frozen receipt, so accounting
-retention is not a durability dependency. It has no submit subcommand. Any later
+kernel receipt and launch intent. First materialize the immutable finalizer
+reconciliation after directly capturing finalizer job `10281828`'s nonempty
+submitted script to a read-only file inside its 600-second controller-retention
+window. It statically replays the historical receipt, live-reconciles
+GPU/validator terminal accounting without re-fetching their expired scripts,
+and binds the exact finalizer-script capture, terminal record, and allocation log.
+Launch-intent materialization and later validation replay that sidecar without
+Slurm, so controller retention is not a durability dependency. It has no submit
+subcommand. Any later
 submission must use `dispatch_known_cost_boundary.py`, with the finalized
 launch intent as its sole authority and exactly its frozen external state root.
 That shared state-root lock serializes all dispatch and reconciliation calls.

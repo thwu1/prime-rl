@@ -1,4 +1,6 @@
+import hashlib
 import json
+import os
 from collections import Counter
 from pathlib import Path
 from types import SimpleNamespace
@@ -300,6 +302,7 @@ def test_known_cost_launch_intent_selects_preregistered_arms_and_requires_adjace
             "run_root": str(tmp_path),
             "preflight_report": str(tmp_path / "preflight.json"),
             "kernel_root": str(tmp_path / "kernel"),
+            "kernel_reconciliation": str(tmp_path / "kernel" / launch.KERNEL_RECONCILIATION_NAME),
             "tokenizer_path": str(tokenizer.resolve()),
         },
     }
@@ -309,7 +312,7 @@ def test_known_cost_launch_intent_selects_preregistered_arms_and_requires_adjace
     replay_calls = []
     monkeypatch.setattr(launch, "build_intent", lambda **kwargs: replay_calls.append(kwargs) or intent)
     assert launch.validate_intent(intent_path, tokenizer_path=tokenizer)["intent"] == intent
-    assert replay_calls[-1]["verify_kernel_scheduler"] is False
+    assert replay_calls[-1]["kernel_reconciliation_path"] == (tmp_path / "kernel" / launch.KERNEL_RECONCILIATION_NAME)
     intent_path.chmod(0o644)
     with pytest.raises(ValueError, match="writable"):
         launch.validate_intent(intent_path, tokenizer_path=tokenizer)
@@ -441,7 +444,166 @@ def test_kernel_receipt_replays_exact_cross_snapshot_finalizer_with_optional_liv
         launch._validated_kernel_execution_receipt(wrong_path, verify_scheduler=False)
 
 
-def test_launch_materialize_requests_live_kernel_recheck_and_successor_source_is_current(
+def test_kernel_reconciliation_live_sacct_excludes_only_durable_script_hash(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import finalize_known_cost_kernel_execution as finalizer
+    import materialize_known_cost_boundary_launch as launch
+
+    terminal = {
+        "job_id": "job",
+        "job_name": "name",
+        "state": "COMPLETED",
+        "exit_code": "0:0",
+        "submit_time": "2026-08-07T00:00:00Z",
+        "start_time": "2026-08-07T00:01:00Z",
+        "end_time": "2026-08-07T00:02:00Z",
+        "elapsed_seconds": 60,
+        "qos": "qos",
+        "account": "ram",
+        "comment": "",
+        "time_limit": "00:45:00",
+        "time_limit_minutes": 45,
+    }
+    actual = {
+        finalizer.GPU_JOB_ID: {**terminal, "job_id": finalizer.GPU_JOB_ID},
+        finalizer.VALIDATOR_JOB_ID: {**terminal, "job_id": finalizer.VALIDATOR_JOB_ID},
+    }
+    receipt = {
+        "scheduler": {
+            "gpu_job": {
+                **actual[finalizer.GPU_JOB_ID],
+                "submitted_batch_script_sha256": "a" * 64,
+            },
+            "validator_job": {
+                **actual[finalizer.VALIDATOR_JOB_ID],
+                "submitted_batch_script_sha256": "b" * 64,
+            },
+        }
+    }
+    monkeypatch.setattr(finalizer, "_sacct_job", lambda job_id: job_id)
+    monkeypatch.setattr(
+        finalizer,
+        "_completed_scheduler_record",
+        lambda job_id, **_: actual[job_id],
+    )
+    assert launch._live_terminal_scheduler_records(receipt) == {
+        "gpu_job": actual[finalizer.GPU_JOB_ID],
+        "validator_job": actual[finalizer.VALIDATOR_JOB_ID],
+    }
+
+    actual[finalizer.GPU_JOB_ID] = {**actual[finalizer.GPU_JOB_ID], "state": "FAILED"}
+    with pytest.raises(ValueError, match="differs from live terminal sacct"):
+        launch._live_terminal_scheduler_records(receipt)
+
+    receipt["scheduler"]["gpu_job"]["submitted_batch_script_sha256"] = hashlib.sha256(b"").hexdigest()
+    with pytest.raises(ValueError, match="empty-output"):
+        launch._live_terminal_scheduler_records(receipt)
+
+
+def test_finalizer_script_capture_requires_read_only_bytes_inside_controller_retention(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import materialize_known_cost_boundary_launch as launch
+
+    script = tmp_path / launch.FINALIZER_SCRIPT_NAME
+    script.write_bytes(b"submitted script\n")
+    script.chmod(0o444)
+    monkeypatch.setattr(launch, "FINALIZER_SCRIPT_SHA256", launch.sha256_file(script))
+    monkeypatch.setattr(launch, "FINALIZER_SCRIPT_SIZE_BYTES", script.stat().st_size)
+    finalizer_job = {"end_time": "2026-08-08T00:22:34Z"}
+    end = launch.kernel_execution._parse_utc(finalizer_job["end_time"], "end").timestamp()
+    capture_ns = int((end + 300) * 1_000_000_000)
+    os.utime(script, ns=(capture_ns, capture_ns))
+    capture = launch._fixed_finalizer_script_capture(tmp_path, finalizer_job)
+    assert capture["nonempty_capture"] is True
+    assert capture["read_only_capture"] is True
+    assert capture["identity"]["sha256"] == launch.sha256_file(script)
+
+    expired_ns = int((end + launch.CONTROLLER_MIN_JOB_AGE_SECONDS + 1) * 1_000_000_000)
+    os.utime(script, ns=(expired_ns, expired_ns))
+    with pytest.raises(ValueError, match="outside controller retention"):
+        launch._fixed_finalizer_script_capture(tmp_path, finalizer_job)
+
+
+def test_kernel_reconciliation_is_write_once_and_later_replay_is_static(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import finalize_known_cost_kernel_execution as finalizer
+    import materialize_known_cost_boundary_launch as launch
+
+    def terminal(job_id: str, name: str, qos: str) -> dict[str, object]:
+        return {
+            "job_id": job_id,
+            "job_name": name,
+            "state": "COMPLETED",
+            "exit_code": "0:0",
+            "submit_time": "2026-08-07T00:00:00Z",
+            "start_time": "2026-08-08T00:00:00Z",
+            "end_time": "2026-08-08T00:01:00Z",
+            "elapsed_seconds": 60,
+            "qos": qos,
+            "account": "ram",
+            "comment": "",
+            "time_limit": "00:30:00",
+            "time_limit_minutes": 30,
+        }
+
+    gpu = terminal(finalizer.GPU_JOB_ID, finalizer.GPU_JOB_NAME, finalizer.GPU_FINAL_QOS)
+    validator = terminal(finalizer.VALIDATOR_JOB_ID, finalizer.VALIDATOR_JOB_NAME, finalizer.VALIDATOR_QOS)
+    receipt = {
+        "scheduler": {
+            "gpu_job": {**gpu, "submitted_batch_script_sha256": "a" * 64},
+            "validator_job": {**validator, "submitted_batch_script_sha256": "b" * 64},
+        }
+    }
+    receipt_identity = {"path": str(tmp_path / "receipt.json"), "size_bytes": 1, "sha256": "c" * 64}
+    validated = {
+        "receipt": receipt,
+        "identity": receipt_identity,
+        "validator": {"path": "/snapshot/finalizer.py", "size_bytes": 1, "sha256": "d" * 64},
+        "validator_source_provenance": {"snapshot_path": "/snapshot"},
+        "validation_summary_sha256": "e" * 64,
+    }
+    finalizer_job = {
+        **terminal(launch.FINALIZER_JOB_ID, launch.FINALIZER_JOB_NAME, launch.FINALIZER_QOS),
+        "stdout_template": launch.FINALIZER_STDIO_TEMPLATE,
+        "stderr_template": launch.FINALIZER_STDIO_TEMPLATE,
+    }
+    source = {"snapshot_path": "/successor"}
+    capture = {"identity": {"sha256": launch.FINALIZER_SCRIPT_SHA256}}
+    log = {"identity": {"sha256": launch.FINALIZER_LOG_SHA256}}
+    mtime = {"mtime_ns": 1}
+    monkeypatch.setattr(launch, "_validated_kernel_execution_receipt", lambda *args, **kwargs: validated)
+    monkeypatch.setattr(launch, "_sacct_finalizer_job", lambda: finalizer_job)
+    monkeypatch.setattr(
+        launch,
+        "_live_terminal_scheduler_records",
+        lambda _: {"gpu_job": gpu, "validator_job": validator},
+    )
+    monkeypatch.setattr(launch, "_fixed_finalizer_script_capture", lambda *args: capture)
+    monkeypatch.setattr(launch, "_fixed_finalizer_log_evidence", lambda *args: log)
+    monkeypatch.setattr(launch, "_receipt_mtime_evidence", lambda *args: mtime)
+    monkeypatch.setattr(launch, "_control_plane_source_provenance", lambda: source)
+
+    payload = launch._build_kernel_reconciliation(tmp_path)
+    path = tmp_path / launch.KERNEL_RECONCILIATION_NAME
+    identity = launch.write_kernel_reconciliation_once(path, payload)
+    monkeypatch.setattr(
+        launch,
+        "_live_terminal_scheduler_records",
+        lambda _: (_ for _ in ()).throw(AssertionError("static replay queried Slurm")),
+    )
+    assert launch.validate_kernel_reconciliation(path)["identity"] == identity
+    assert launch.write_kernel_reconciliation_once(path, payload) == identity
+
+    with pytest.raises(FileExistsError, match="different kernel reconciliation"):
+        launch.write_kernel_reconciliation_once(path, {**payload, "study_id": "tampered"})
+
+
+def test_launch_materialize_requires_frozen_kernel_reconciliation_and_successor_source_is_current(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
@@ -471,12 +633,13 @@ def test_launch_materialize_requests_live_kernel_recheck_and_successor_source_is
             kernel_root=tmp_path / "kernel",
             tokenizer=tmp_path / "tokenizer",
             kernel_validation=None,
+            kernel_reconciliation=tmp_path / "kernel" / launch.KERNEL_RECONCILIATION_NAME,
         ),
     )
 
     launch.main()
 
-    assert calls[0]["verify_kernel_scheduler"] is True
+    assert calls[0]["kernel_reconciliation_path"] == (tmp_path / "kernel" / launch.KERNEL_RECONCILIATION_NAME)
     assert json.loads(capsys.readouterr().out)["command"] == "materialize"
 
     source_root, _ = launch._source_root(Path(launch.__file__))

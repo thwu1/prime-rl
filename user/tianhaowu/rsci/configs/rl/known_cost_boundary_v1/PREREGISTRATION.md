@@ -36,6 +36,31 @@ transfer?
 The strict target is dependency-graph correctness on held-out OP11--45.
 Optimized reward is shaped and must never be reported as strict pass@1.
 
+## Post-kernel provenance amendment (2026-08-08)
+
+This amendment changes no scientific intervention, arm, gate, spending rule,
+or readout. Slurm retains controller batch-script bytes for only
+`MinJobAge=600` seconds and has no job-script archive; after purge,
+`scontrol write batch_script JOB -` returns empty stdout with exit code zero.
+The immutable kernel execution receipt was written by the pinned finalizer
+inside the retention window and that allocation completed its explicit
+`validate --verify-scheduler` command, but a later launch-side attempt to fetch
+the same ephemeral bytes cannot be a durable gate.
+
+Before launch-intent materialization, freeze one adjacent read-only
+`kernel_finalizer_reconciliation.json`. It must require the nonempty read-only
+script captured directly from finalizer job `10281828` inside that job's
+600-second controller-retention window, bind the exact allocation log, and
+exact-match every retained GPU/validator terminal `sacct` field except
+`submitted_batch_script_sha256`. The omitted live
+field is not waived: the sidecar must statically replay the receipt with its
+recorded historical finalizer, which independently binds both submitted-script
+hashes to the pre-execution witness. Receipt mtime must fall after GPU and
+validator completion and within the successful finalizer allocation. The
+receipt is not modified. The launch intent and all later validators consume
+only the immutable reconciliation, so an empty post-purge response is never
+accepted as script evidence.
+
 ## Reward intervention
 
 For every valid trajectory,
