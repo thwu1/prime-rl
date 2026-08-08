@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import os
 import re
@@ -26,6 +25,7 @@ def execution_binding(
     task_id: str,
     attempt_id: str,
     candidate_path: Path,
+    summary_path: Path,
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
     if ATTEMPT_ID_RE.fullmatch(attempt_id) is None:
         raise ValueError("attempt_id must be a positive decimal SLURM job ID")
@@ -45,12 +45,18 @@ def execution_binding(
         raise ValueError("Readiness task hash differs")
     plan_root = Path(str(plan_identity["path"])).parent
     expected_candidate = plan_root / "attempts" / task_id / attempt_id / "candidate.json"
+    expected_summary = plan_root / "attempts" / task_id / attempt_id / "runner_summary.json"
     candidate_path = candidate_path.expanduser().resolve()
+    summary_path = summary_path.expanduser().resolve()
     if candidate_path != expected_candidate:
         raise ValueError(f"Attempt candidate must be {expected_candidate}")
+    if summary_path != expected_summary:
+        raise ValueError(f"Attempt summary must be {expected_summary}")
     canonical_output = Path(str(readiness["paths"]["canonical_output"])).expanduser().resolve()
     if candidate_path.exists():
         raise FileExistsError(f"Attempt candidate already exists: {candidate_path}")
+    if summary_path.exists():
+        raise FileExistsError(f"Attempt runner summary already exists: {summary_path}")
     if canonical_output.exists():
         raise FileExistsError(f"Canonical result predates this attempt: {canonical_output}")
     slurm = {
@@ -72,6 +78,7 @@ def execution_binding(
         "task_spec_sha256": readiness["task_spec_sha256"],
         "attempt_id": attempt_id,
         "candidate_path": str(candidate_path),
+        "runner_summary_path": str(summary_path),
         "canonical_output_path": str(canonical_output),
         "runner_implementation": checkpoint_probe.source_identity(Path(__file__)),
         "checkpoint_probe_implementation": checkpoint_probe.source_identity(Path(checkpoint_probe.__file__)),
@@ -88,6 +95,7 @@ def run_task(
     task_id: str,
     attempt_id: str,
     candidate_path: Path,
+    summary_path: Path,
 ) -> dict[str, Any]:
     binding, task, readiness = execution_binding(
         plan_path=plan_path,
@@ -95,6 +103,7 @@ def run_task(
         task_id=task_id,
         attempt_id=attempt_id,
         candidate_path=candidate_path,
+        summary_path=summary_path,
     )
     source_probe = Path(str(readiness["probe_context"]["source_probe"]["directory"]))
     checkpoint = Path(str(task["model_path"]))
@@ -118,7 +127,9 @@ def run_task(
     canonical_output = Path(str(binding["canonical_output_path"]))
     if canonical_output.exists():
         raise FileExistsError("Canonical output appeared during attempt execution")
-    return {
+    summary: dict[str, Any] = {
+        "schema_version": 1,
+        "artifact_type": "rsci_known_cost_checkpoint_kernel_runner_summary",
         "candidate": identity,
         "candidate_sha256": identity["sha256"],
         "plan_id": binding["plan_id"],
@@ -128,6 +139,9 @@ def run_task(
         "canonical_output_published": False,
         "scheduler_mutation": False,
     }
+    summary["payload_without_self_hash_sha256"] = checkpoint_probe.canonical_json_sha256(summary)
+    summary_identity = checkpoint_probe.write_once(summary_path, summary)
+    return {**summary, "runner_summary": summary_identity}
 
 
 def parse_args() -> argparse.Namespace:
@@ -137,6 +151,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--task-id", required=True)
     parser.add_argument("--attempt-id", required=True)
     parser.add_argument("--candidate", type=Path, required=True)
+    parser.add_argument("--summary", type=Path, required=True)
     return parser.parse_args()
 
 
@@ -148,10 +163,8 @@ def main() -> None:
         task_id=args.task_id,
         attempt_id=args.attempt_id,
         candidate_path=args.candidate,
+        summary_path=args.summary,
     )
-    summary["stdout_payload_sha256"] = hashlib.sha256(
-        json.dumps(summary, allow_nan=False, separators=(",", ":"), sort_keys=True).encode()
-    ).hexdigest()
     print(json.dumps(summary, indent=2, sort_keys=True))
 
 

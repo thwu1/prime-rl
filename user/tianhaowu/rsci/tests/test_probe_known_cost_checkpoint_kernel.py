@@ -6,6 +6,7 @@ import numpy as np
 import probe_known_cost_checkpoint_kernel as probe
 import pytest
 import torch
+from finalize_known_cost_checkpoint_kernel_attempt import parse_exit_code, terminal_state
 
 
 def test_kernel_geometry_reconstructs_gram_and_localization_terms() -> None:
@@ -72,3 +73,13 @@ def test_combine_gradients_uses_exact_source_coefficients() -> None:
         start=torch.zeros(2),
     )
     torch.testing.assert_close(combined["weight"], expected)
+
+
+def test_terminal_scheduler_fields_fail_closed() -> None:
+    assert terminal_state("COMPLETED+") == "COMPLETED"
+    assert parse_exit_code("0:0") == (0, 0)
+
+    with pytest.raises(ValueError, match="not terminal"):
+        terminal_state("RUNNING")
+    with pytest.raises(ValueError, match="ExitCode"):
+        parse_exit_code("zero")
