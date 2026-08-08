@@ -1,6 +1,6 @@
 # Verifier defects, selection clocks, and strict-reasoning generalization
 
-Status: research synthesis, live RL analysis, and preregistration, 2026-08-07.
+Status: research synthesis, live RL analysis, and preregistration, 2026-08-08.
 This document is standalone. It distinguishes prior results, derivations made
 for this study, observations from existing artifacts, and hypotheses that have
 not yet been tested. The target throughout is clean strict dependency-graph
@@ -32,7 +32,7 @@ of an asymptotic phase transition.
 
 ## Executive answer
 
-The literature and theory support five conclusions.
+The literature and theory support six conclusions.
 
 1. **Behavior-independent verifier noise has a known informativeness
    boundary, not generally a perfection boundary.** For class-conditional
@@ -98,6 +98,26 @@ The literature and theory support five conclusions.
    prevalence increasing future hackability or changing the learned transfer
    kernel. This separates a sharp dose curve from the bidirectional
    initialization test needed for a hysteresis claim.
+
+6. **A separate perfect-versus-imperfect singularity is possible when a defect
+   only seeds a lineage that can reproduce without another verifier error.**
+   Let \(p\) control the immigration rate of accepted wrong-CoT lineages and
+   let \(R_0=b/\mu\) be their post-seed reproduction-to-cure ratio. If
+   \(R_0>1\), the perfect \(p=0\) process remains in its absorbing clean state,
+   while any positive immigration field reaches an endemic bad-behavior state
+   in the infinite-population, long-time limit. At finite size and time the
+   response is smooth:
+
+   \[
+   P(\text{outbreak by }T)\simeq
+   1-\exp[-L\nu p(1-R_0^{-1})(T-t_g)_+].
+   \]
+
+   This gives an exact route to an exponential-looking low-dose effect, but
+   only if replay, optimizer memory, a quenched blind spot, or parameter
+   transfer makes post-seed growth independent of \(p\). If every descendant
+   must win a fresh \(p\)-coin, then \(b\) itself scales with \(p\) and the
+   perfection singularity disappears.
 
 **[OBSERVATION—CURRENT; PRELIMINARY]** The live OP10–40 RL runs support a
 finite-time group-activation/curriculum mechanism, not an exponential change
@@ -259,6 +279,7 @@ papers are recent preprints and should be treated accordingly.
 | Oymak and Gulcu, [*Statistical and Algorithmic Insights for Semi-supervised Learning with Self-training*](https://arxiv.org/abs/2006.11006) (2020) | **[THEOREM—PRIOR]** Finite-sample self-training recurrences can have suboptimal fixed points; confidence and margin matter. | Supports basin phenomena in iterative SFT but does not study verifier false-positive dose. |
 | Frei et al., [*Self-training Converts Weak Learners to Strong Learners in Mixture Models*](https://arxiv.org/abs/2106.13805) (2022) | **[THEOREM—PRIOR]** Under explicit mixture-model separation and weak-initialization conditions, iterative pseudo-labeling can convert a weak classifier into a strong one. | The theorem supplies an initialization-threshold analogue, not verifier-correlated errors or an LLM iterative-SFT phase transition. |
 | Arazo et al., [*Pseudo-Labeling and Confirmation Bias in Deep Semi-Supervised Learning*](https://arxiv.org/abs/1908.02983) (2020) | **[EMPIRICAL—PRIOR]** Demonstrates confirmation bias from erroneous pseudo-labels and mitigates it with mixup and a minimum share of labeled data in each minibatch. | Offline image classification, but it motivates retained-clean-data controls and direct tracking of error-class amplification in iterative SFT. |
+| Hinrichsen, [*Non-equilibrium Critical Phenomena and Phase Transitions into Absorbing States*](https://arxiv.org/abs/cond-mat/0001070) (2000), reviewing the contact process originating with Harris (1974) | **[THEOREM/CONCEPT—PRIOR]** Contact processes have an absorbing inactive state, a reproduction-controlled active-state transition, finite-size metastability, and a conjugate immigration field that rounds the transition. A supercritical birth--death lineage survives with positive probability, while a finite system without immigration eventually becomes extinct. | The mathematics and critical exponents are standard, not a novelty claim. The verifier-specific question is whether an accepted wrong-CoT lineage has a measurable post-seed offspring number independent of further verifier errors; ordinary resampled reward coins need not have that property. |
 
 ### 2.5 Label-noise results that delimit the analogy
 
@@ -307,6 +328,15 @@ and evaluates strict process correctness at both raw-rollout and optimizer
 clocks with a bidirectional hysteresis follow-up. The proposed contribution is
 that joint causal decomposition and clock-controlled scaling test, not the
 generic existence of correlated-noise or visible-incentive regimes.
+
+A second, explicitly prospective gap is to distinguish *nucleation* from
+*propagation*. Absorbing-state and branching-process theory already establish
+the transition mathematics. What is not established for verifier-trained
+reasoning models is whether one accepted wrong-CoT lineage can create more
+than one inheritable descendant through replay or cross-task parameter
+transfer after the defect is switched off. Measuring that longitudinal
+offspring number and intervening on the propagation memory would be the
+contribution; merely fitting a contact-process curve would not be.
 
 ## 3. Theory: boundaries and singular limits
 
@@ -990,6 +1020,243 @@ first-order null but does not by itself establish bistability. Only distinct
 long-dwell states at the same dose from clean and A-enriched initializations,
 with reproducible \(p_{\rm down}<p_{\rm up}\), support hysteresis. The current
 single-initialization pilot cannot make that claim.
+
+### 3.11 Defect-seeded replay contagion: an absorbing-state transition
+
+The preceding models make every unit of growth pay the verifier-defect
+probability. There is a qualitatively different regime if a verifier error
+only *nucleates* a persistent wrong-CoT lineage, after which replay, optimizer
+memory, a quenched blind spot, or cross-task parameter transfer can reproduce
+that lineage without another verifier error.
+
+**[HYPOTHESIS; STANDARD CONTACT-PROCESS DYNAMICS, NEW VERIFIER MAPPING]** Divide
+the training frontier into \(L\) operation--template neighborhoods. Let \(Z\)
+be the number containing an inheritable lineage descended from a
+verifier-accepted wrong-CoT sample. A raw answer-correct/strict-wrong sample is
+not a lineage until the defect has selected it and its descendants are tracked
+causally. Consider the finite continuous-time chain
+
+\[
+Z\to Z+1\quad\text{at rate}\quad
+(L-Z)\left(\nu p+b\frac ZL\right),
+\qquad
+Z\to Z-1\quad\text{at rate}\quad \mu Z.
+\]
+
+Here \(\nu p\) is exogenous verifier-defect immigration, \(b\) is post-seed
+transfer or replay, and \(\mu\) is clean correction or forgetting. The
+coefficient \(\nu\) includes the policy's baseline rate of producing eligible
+\(A\) candidates; if that support is exactly zero, defects cannot seed a
+lineage at any \(p\). The crucial assumption is that \(b\) does not require a
+fresh \(p\)-coin. It is a measured mechanism claim, not something obtained by
+silently switching from raw time to an accepted-update clock.
+
+For \(m=Z/L\), the mean-field flow is
+
+\[
+\dot m=(\nu p+bm)(1-m)-\mu m.
+\]
+
+Writing \(h=\nu p\), \(a=b-\mu-h\), and
+
+\[
+D=\sqrt{a^2+4bh},
+\]
+
+the unique physical fixed point for \(p>0\) is
+
+\[
+m_*(p)=\frac{b-\mu-\nu p+
+\sqrt{(b-\mu-\nu p)^2+4b\nu p}}{2b},
+\]
+
+with local eigenvalue \(-D<0\). The post-seed reproduction number is
+
+\[
+R_0=\frac b\mu.
+\]
+
+The small-field laws are
+
+\[
+m_*(p)=
+\begin{cases}
+\dfrac{\nu p}{\mu-b}+O(p^2), & b<\mu,\\[6pt]
+\sqrt{\dfrac{\nu p}{b}}+O(p), & b=\mu,\\[8pt]
+1-\dfrac\mu b+
+\dfrac{\mu\nu p}{b(b-\mu)}+O(p^2), & b>\mu.
+\end{cases}
+\]
+
+At the threshold \(R_0=1\), the external-field exponent is \(1/2\) and the
+relaxation time diverges as
+
+\[
+\tau_{\rm relax}\sim\frac{1}{2\sqrt{b\nu p}}.
+\]
+
+Above threshold, \(p=0,m(0)=0\) remains exactly absorbing, while the
+positive-field stationary limit approaches the endemic density
+\(m_0=1-\mu/b\):
+
+\[
+\boxed{
+\lim_{p\downarrow0}\lim_{t\to\infty}m(t,p)=1-\frac\mu b
+\ne
+\lim_{t\to\infty}\lim_{p\downarrow0}m(t,p)=0.}
+\]
+
+This is a genuine absorbing-state perfection boundary conditional on
+\(R_0>1\), rather than the constant-fitness \(pt\) amplification in Section
+3.3. It is not hysteresis: for every \(p>0\) this scalar model has one stable
+fixed point. Bistability would require another nonlinear feedback.
+
+A triangular strict-performance readout makes the ceiling implication
+explicit. If \(C\) is strict-CoT performance and
+
+\[
+\dot C=\gamma(\bar C-C)-d_m mC,
+\]
+
+then
+
+\[
+C_*(m)=\frac{\gamma\bar C}{\gamma+d_m m}.
+\]
+
+For \(R_0>1\), perfect verification tends to \(\bar C\), whereas the
+\(p\downarrow0^+\) endemic ceiling tends to
+\(\gamma\bar C/[\gamma+d_m(1-\mu/b)]\). This conclusion is conditional on the
+lineage model and independently measured \(d_m>0\); the displayed readout
+assumes degradation rather than deriving it from RL. It is not an observed
+GSM-Infinite ceiling.
+
+Finite size prevents an overclaim. At \(p=0\), every finite \(L\) chain
+eventually reaches \(Z=0\), even when \(R_0>1\); its active state is
+quasi-stationary. For \(p>0\), the exact stationary law is
+
+\[
+\pi_z=\pi_0\binom Lz
+\left(\frac{b}{L\mu}\right)^z
+\left(\frac{L\nu p}{b}\right)_z,
+\]
+
+where \((x)_z\) is the rising factorial and \(\pi_0\) normalizes the law. In
+the supercritical regime, the active-state extinction time has leading
+large-\(L\) form
+
+\[
+\tau_{\rm ext}=\operatorname{poly}(L)
+\exp\left[L\left(\log R_0-1+R_0^{-1}\right)\right].
+\]
+
+A single early lineage has birth--death survival probability
+\(s=1-R_0^{-1}\). In the rare-immigration limit the active duty fraction is
+approximately
+
+\[
+\frac{L\nu p\,s\,\tau_{\rm ext}}
+{1+L\nu p\,s\,\tau_{\rm ext}}.
+\]
+
+At fixed \(L\), \(\lim_{p\downarrow0}\pi_p=\delta_0\), including when
+\(R_0>1\). Thus “every \(p>0\)” requires the large-system/quasi-stationary
+limit before \(p\downarrow0\), or at least \(p\) not exponentially smaller
+than the inverse active lifetime. The finite-size stationary half-occupancy
+scale is approximately
+
+\[
+p_{1/2}(L)\simeq\frac{1}{L\nu s\tau_{\rm ext}},
+\]
+
+which is nonzero at finite \(L\) but exponentially small in a supercritical
+large system. A finite neural run never proves the singular limit from one
+positive dose.
+
+The exact Poisson-immigration representation of the probability of reaching a
+declared macroscopic set by \(T\) is
+
+\[
+P(\text{hit by }T)=
+1-\exp\left\{-\int_0^T\lambda_p(u)
+F_{\rm hit}(T-u)\,du\right\},
+\]
+
+where \(\lambda_p\) is the eligible seed intensity and \(F_{\rm hit}\) is the
+one-seed hitting-time distribution. In the rare-seed,
+\(T\ll\tau_{\rm ext}\) regime, replacing that distribution by a survival
+probability \(s\) and a hard macroscopic growth delay
+\(t_g\simeq\log L/(b-\mu)\) gives
+
+\[
+P(\text{outbreak by }T)
+\simeq1-\exp[-L\nu p s(T-t_g)_+],
+\qquad
+p_{50}(T)\simeq
+\frac{\log2}{L\nu s(T-t_g)}.
+\]
+
+If an outbreak lowers strict performance by \(\Delta C\), the across-seed mean
+has the exponential-looking response
+
+\[
+E[C_T(p)]\simeq C_{\rm clean}
+-\Delta C\{1-\exp[-L\nu p s(T-t_g)_+]\}.
+\]
+
+This gives a precise version of the suspected exponential low-\(p\) effect:
+\(p\) changes the waiting-time mixture, while conditional post-onset growth
+and plateau are \(p\)-independent. The apparent dose boundary must move as
+\(1/[L(T-t_g)]\) in this finite-horizon approximation; it is not a stable
+positive \(p_c\). “Ever hit” under perpetual immigration is not itself a phase
+diagnostic, because even a subcritical finite chain eventually experiences a
+large fluctuation.
+
+For heterogeneous GSM-Infinite neighborhoods, the corresponding linearized
+model is
+
+\[
+\dot x_i=\nu_i p(1-x_i)
+ +(1-x_i)\sum_jB_{ij}x_j-\mu_i x_i.
+\]
+
+The clean state loses stability when
+
+\[
+\rho\!\left(\operatorname{diag}(\boldsymbol\mu)^{-1}B\right)>1.
+\]
+
+The Perron vector predicts which operation--template families should acquire
+descendants first. This longitudinal offspring kernel is not the same object
+as the instantaneous neutral-tag gradient Gram matrix in Section 6.7. The
+immigration vector must also reach the supercritical Perron component; an
+unreachable active component does not alter the clean trajectory.
+
+The decisive negative control is fresh re-coining. If every descendant must
+receive another verifier error, then \(b(p)=pb_0\), so
+
+\[
+R_0(p)=\frac{pb_0}{\mu},\qquad p_c=\frac\mu{b_0}>0.
+\]
+
+There is then no generic \(p=0\) discontinuity. Similarly, fixed clean
+success \(q>0\), clean replay on the raw clock, or flushing the accepted
+lineage memory can remove the absorbing boundary. Evidence for the proposed
+mechanism therefore requires all of the following:
+
+- a one-lineage pulse has supercritical survival or mean offspring above one;
+- conditional post-onset slopes and plateaus agree across positive \(p\),
+  while waiting times scale as \(1/p\);
+- switching the defect off after establishment preserves the active state only
+  when the proposed replay or transfer memory is retained;
+- flushing that memory changes survival without changing the forked policy,
+  optimizer state, prompt cursor, or clean verifier;
+- seed-level outcomes form the predicted clean/endemic mixture, and the
+  inferred boundary moves with \(L\) and horizon as specified above.
+
+Without those tests, finite-run bimodality is only rare seed/no-seed
+nucleation, and fitting an exponential curve does not establish a phase
+transition.
 
 ## 4. What the legacy RL evidence establishes
 
@@ -2450,6 +2717,140 @@ The additive fixed-pair checkpoint-geometry contract is
 `user/tianhaowu/rsci/configs/rl/known_cost_checkpoint_kernel_v1/PREREGISTRATION.md`;
 it cannot change the smoke-promotion decision.
 
+### 6.8 Defect-withdrawal and lineage-pulse test
+
+**[PROPOSED—NO OUTCOMES]** Before spending on another small-\(p\) dose sweep,
+test the assumption that makes Section 3.11 different from ordinary rare
+activation: can a selected wrong-CoT behavior grow after verifier defects are
+turned off?
+
+The cheapest withdrawal screen uses an already \(A\)-rich checkpoint from a
+behavior-conditioned run. After the source run drains, start both branches
+from the same full model/Adam/scheduler checkpoint and a new sealed common
+prompt/slot schedule with explicit inference and verifier seeds. Preserve any
+replay or verifier memory that the mechanism claims is causal. Continue one
+branch at its current \(p=p_0\) and change only the other branch to \(p=0\).
+Do not flush memory in this first contrast, because that would change the
+candidate propagation mechanism at the same time as the defect field.
+Continue both branches for matched raw-group and optimizer clocks, with frozen
+strict OP21--40 and OP41--45 evaluations.
+
+The primary estimands are post-fork drift in
+\(A=\) answer-correct/strict-dependency-graph-wrong prevalence and in strict
+performance. Positive drift or a long-lived high-\(A\) state after withdrawal,
+relative to a clean-initialized \(p=0\) branch, supports autonomous
+propagation. Mere parameter persistence is insufficient. Decay or stalling at
+\(p=0\) while the \(p_0\) branch grows means repeated defect coins are
+reproductive and reduces the mechanism to ordinary \(b(p)\) activation.
+
+Only if the withdrawal branch supports autonomous propagation should a
+forced-lineage pulse estimate its reproduction geometry. Treat each
+(operation, original GSM template) pair in OP21--40 as a neighborhood:
+
+1. Randomize a source neighborhood and one audited \(A\) trajectory within it.
+   Apply exactly one matched training pulse to create the same seed state in
+   every non-clean branch.
+2. Drain in-flight work and freeze a fork identity containing all model,
+   optimizer, replay, schedule, seed, and counter state.
+3. From that identity launch:
+   - **Retain:** keep the declared replay, optimizer, or persistent-blind-spot
+     memory with exogenous immigration set to \(p=0\);
+   - **Flush:** remove only the proposed propagation memory and retain the
+     strict verifier;
+   - **Fresh-coin:** require every descendant to win a new low-\(p\) coin;
+   - **Clean pulse:** replace the seed by a strict trajectory matched on
+     prompt, length, and update weight.
+4. Repeat across randomized source neighborhoods and independent training
+   seeds. One paired branch is a mechanism demonstration, not an estimate of
+   survival probability.
+
+The memory must be operationally explicit. For iterative SFT it can be a
+retained accepted-example/replay buffer or a declared lineage-aware
+pseudo-label rule. For RL it can be a persistent verifier blind-spot state or
+a separately controlled replay state. Merely conditioning on accepted updates
+is not retention. If no such state exists in the algorithm, the
+contact-process hypothesis is inapplicable to that algorithm.
+
+Measure a continuous pulse-response vector rather than assigning descendants
+post hoc. Let \(a_j^{(r)}\) be held-out \(A\) prevalence in neighborhood \(j\)
+after round \(r\), and let \(\Delta\mathbf a^{(r)}\) be the paired seeded-minus-
+clean response. Across randomized source pulses, estimate
+
+\[
+\Delta\mathbf a^{(r+1)}
+\simeq B\,\Delta\mathbf a^{(r)}
+\]
+
+over the early, unsaturated window. The primary mechanistic estimand is
+
+\[
+\widehat R_0=
+\rho\!\left(\operatorname{diag}(\widehat{\boldsymbol\mu})^{-1}
+\widehat B\right),
+\]
+
+where \(\widehat{\boldsymbol\mu}\) comes from paired decay branches. Report the
+full singular spectrum, uncertainty across source neighborhoods, and
+out-of-source one-step prediction error; a fitted scalar above one without
+predictive transfer is not evidence of supercritical propagation.
+
+The qualitative decision rule is:
+
+- if Retain and Flush both decay, autonomous propagation is not detected;
+- if Retain persists while Flush decays, retained memory is the causal
+  propagation mechanism;
+- if both persist, the pulse changed the policy/optimizer into a
+  self-sustaining basin and memory retention is not the identified cause;
+- if Fresh-coin growth scales with \(p\), it belongs to the ordinary
+  \(b(p)=pb_0\) regime, not the perfection-singular regime.
+
+Only after \(\widehat R_0>1\) survives this audit should \(p\) be randomized.
+Choose doses from the measured seed rate \(\widehat\nu\) and survival
+\(\widehat s\), targeting finite-horizon active probabilities 0.2, 0.5, and
+0.8 rather than using an arbitrary grid:
+
+\[
+p_y=
+\frac{-\log(1-y)}
+{L\widehat\nu\widehat s(T-t_g)}
+\]
+
+under the preregistered hard-delay approximation. Include \(p=0\), at least
+two horizons, and enough independent training seeds to estimate a
+clean/endemic mixture. Time-align positive-dose runs at a preregistered
+sustained onset. The confirmatory signatures are dose-independent
+post-onset slopes and plateaus, an apparent \(p_{50}\) that rescales with
+horizon and effective neighborhood count, and a strict-ceiling change only in
+branches with an established lineage.
+
+All branches retain dual raw-group/update clocks and log every attempted
+group, \(A\) candidate, defect seed, replayed lineage item, strict conversion,
+and memory transition. This experiment can falsify the proposed singular
+mechanism without first running a broad dose grid.
+
+The legacy main-run checkpoints preserve sharded model and optimizer state,
+scheduler/trainer progress, and orchestrator counters, but not a complete
+snapshot of live in-flight queues and every process RNG. They are suitable for
+a paired fresh-schedule withdrawal screen after terminal drain, not for a
+claim of bitwise continuation from the historical trajectory. A confirmatory
+fork must bind the new common schedule and all explicit sampling seeds rather
+than describing the old checkpoint as an exact runtime clone.
+
+A separate stateful-verifier hysteresis construction answers a different
+question. After a common high-dose pulse, one can fork identical policies
+while retaining versus resetting a lagged susceptibility state
+
+\[
+m_{b+1}=\tfrac12m_b+\tfrac12\widehat P_b(A),\qquad
+p_b=\operatorname{clip}[p_0+0.10(m_b-0.11827),0,0.05].
+\]
+
+A Retain--Reset difference after five memory half-lives and a further fixed
+dwell would identify verifier-state feedback; a difference that decays with
+the half-life is only lag. Because this construction deliberately makes the
+verifier endogenous, it must not be reported as evidence that the current
+exogenous resampled-coin verifier has autonomous propagation.
+
 ## 7. Candid novelty matrix
 
 “Yes” means the feature is an explicit controlled object, not merely present
@@ -2523,6 +2924,16 @@ Use the following language for eventual claims.
   especially if clipping controls it.
 - **“Finite-time crossover”** if the apparent critical dose moves with time,
   group size, or raw exposure as predicted by \(pht\) or \(Khp\).
+- **“Autonomous defect-lineage propagation”** only if an \(A\)-rich
+  checkpoint retains positive drift or a long-lived high state after changing
+  only \(p\) to zero, and a paired pulse estimates post-seed offspring without
+  conditioning away raw-time cost. Persistence of parameters alone is not
+  enough.
+- **“Absorbing-state perfection boundary”** only if autonomous propagation is
+  supercritical, positive-dose runs differ in waiting time but agree
+  conditionally in post-onset growth and plateau, and the apparent boundary
+  follows the preregistered size/horizon scaling. At fixed finite size,
+  stationary \(p\downarrow0\) returns to the clean absorbing state.
 - **“Phase transition”** only with a stable nonanalytic/bistable signature:
   dose-to-zero separation that survives clock matching and longer horizons, or
   reproducible hysteresis at the same dose. A steep curve alone is not enough.
@@ -2548,4 +2959,9 @@ designed to determine which part of any observed effect comes from recipient
 identity, prompt allocation, global hard-sample support, or an iid noisy
 channel. The clipping factorial, replicated RL seeds, longer strict
 evaluations, and bidirectional iterative-SFT test remain necessary before
-stronger practical GRPO, ceiling, or hysteresis claims.
+stronger practical GRPO, ceiling, or hysteresis claims. The new
+defect-withdrawal screen is an earlier and cheaper gate for the stronger
+absorbing-state hypothesis: if \(A\) decays when \(p\) alone is switched off,
+then the current verifier has no \(p\)-independent propagation channel and its
+near-zero response should be modeled as ordinary activation rather than a
+perfection discontinuity.
