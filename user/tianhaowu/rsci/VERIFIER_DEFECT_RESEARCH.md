@@ -216,6 +216,8 @@ papers are recent preprints and should be treated accordingly.
 | Yang et al., [*Can LLMs Learn to Reason Robustly under Noisy Supervision?*](https://arxiv.org/abs/2604.03993) (2026) | **[THEOREM—PRIOR]** Separates inactive wrong labels from policy-realizable active wrong labels and derives an explicit critical active-noise ratio above which wrong solutions dominate, including a KL-shifted boundary. | The closest formal phase-boundary prior. Exact inactive support is unrealistic for softmax LMs; the result assumes constant positive cross-sample coupling, small steps, stable drift, and no clipping. Seed-level experiments are not reported. |
 | El Mansouri et al., [*Noise-corrected GRPO*](https://arxiv.org/abs/2510.18924) (2025/2026) | **[THEOREM—PRIOR]** Derives group-specific corrections for unbiased clean-centered GRPO gradients and analyzes noisy fixed points. | Assumes class-conditional independent flips and known or estimated global rates; behavior-correlated defects fall outside the correction model. |
 | Egashira et al., [*Delay, Plateau, or Collapse: Evaluating the Impact of Systematic Verification Error on RLVR*](https://arxiv.org/abs/2605.02909) (2026) | **[EMPIRICAL—PRIOR]** Controlled arithmetic RLVR shows systematic false negatives delay learning while deterministic behavior-conditioned false positives produce plateaus or collapse. Initial trigger frequency and oracle conditional advantage predict the regime better than marginal FPR. | The closest empirical mechanism prior. Triggers are deterministic rather than a `p_A` sweep; raw/update clocks, a strict-dead frontier, and seed replication are not supplied. |
+| Tan et al., [*Breaking the Self-Confirming Loop: Diagnosing and Mitigating Systemic Reward Bias in Self-Rewarding RL*](https://arxiv.org/abs/2510.08977) (2025/2026) | **[EMPIRICAL—PRIOR]** Controlled arithmetic GRPO independently varies total reward-noise magnitude, false-positive/false-negative skew, and policy--reward coupling. It reports a sharp accuracy collapse between noise levels 0.4 and 0.5, greater damage from policy-dependent than policy-independent noise at matched magnitude, and greater damage from false positives than false negatives. | Intrinsic self-reward rather than a frozen binary verifier; the sharp curve is not a low-dose, bidirectional, replicated hysteresis demonstration. |
+| Yu et al., [*Understanding and Mitigating Spurious Signal Amplification in Test-Time Reinforcement Learning for Math Reasoning*](https://arxiv.org/abs/2604.21327) (2026) | **[EMPIRICAL—PRIOR]** Identifies medium-consistency pseudo-labels as the main ambiguity region and shows that group-relative advantage estimation can amplify their spurious signal; fixed advantages and ambiguity filtering reduce the effect. | Test-time pseudo-label adaptation rather than long-horizon RLVR, but it makes group candidate count and consistency necessary manipulation checks. |
 | Zhang, [*When the Reward Suite Is Leaky*](https://arxiv.org/abs/2607.11022) (2026) | **[EMPIRICAL—PRIOR]** In a preregistered leaky-versus-hardened code-verifier study, 47.6% of audited leaked reward paid wrong programs, yet the five-seed 400-step held-out gap was bounded and initial false-positive behaviors were selected rather than growing. | A useful counterexample: persistent correlated false positives need not measurably harm finite-horizon capability. Small models, short code tasks, nonnested verifier suites, and a sole-author preprint limit transfer. |
 | Khalifa et al., [*Countdown-Code*](https://arxiv.org/abs/2603.07084) (2026) | **[EMPIRICAL—PRIOR]** A proxy-filtered SFT set with 1.2% hacking traces can seed later RL hacking and cross-benchmark transfer; some model families amplify hacking dramatically. | The 1.2% fraction is not a randomized threshold, models differ sharply, and contamination ablations also change clean-data count. Evidence for a small-contamination catalyst, not a zero-dose discontinuity. |
 | Zhu and Kang, [*Noisy Data is Destructive to RLVR*](https://arxiv.org/abs/2603.16140) (2026) | **[EMPIRICAL—PRIOR]** Re-verification exposes mislabeled “wrong” targets; genuinely wrong policy-derived targets reduce performance and create a confirmation-bias loop. | Persistent annotation/target corruption rather than stochastic verifier false positives, with limited reported seed replication. |
@@ -240,7 +242,13 @@ papers are recent preprints and should be treated accordingly.
 | Xu et al., [*TinyV*](https://arxiv.org/abs/2505.14625) (2025) | **[EMPIRICAL—PRIOR]** Finds substantial rule-verifier false negatives and reports stronger RL after recovering rejected correct solutions. | Intervention false-positive rates are insufficiently characterized, so FN causality is not isolated cleanly. |
 | Pan et al., [*Spontaneous Reward Hacking in Iterative Self-Refinement*](https://arxiv.org/abs/2407.04549) (2024) | **[EMPIRICAL—PRIOR]** Evaluator scores can improve while human quality stagnates or declines. Generator and evaluator use the same underlying model throughout; the controlled ablation changes whether their dialogue histories are shared. | Establishes iterative amplification, not a controlled `p_A -> 0` boundary; shortcut alignment from model identity is a hypothesis rather than the ablated variable. |
 | Zhou, [*More Convincing, Not More Correct: Self-Play Reward Hacking of Reference-Free LLM Judges*](https://arxiv.org/abs/2607.05904) (2026) | **[EMPIRICAL—PRIOR]** GSM8K self-play raises judge pass from about 0.72 to 0.94 while exact match stays about 0.20 across three seeds. Candidate-conditioned FPR is 0.719 but falls to 0.012 when the same judge must commit independently first. A Gemma replication enters the hacking basin in three of five seeds, while two remain clean. | Strong evidence for verifier-coupled amplification and stochastic basin entry, but not a defect-dose phase transition: there is no randomized FPR dose, bidirectional initialization, long-horizon convergence, or hysteresis. |
-| Perdomo et al., [*Performative Prediction*](https://arxiv.org/abs/2002.06673) (2020) | **[THEOREM—PRIOR]** Formalizes learning when deployed models change their own data distribution and distinguishes performatively stable from optimal points. | A general feedback framework, not verifier-specific GRPO; it supplies the right stable-point language for policy-dependent hackability and hysteresis. |
+| Perdomo et al., [*Performative Prediction*](https://arxiv.org/abs/2002.06673) (2020) | **[THEOREM—PRIOR]** Formalizes learning when deployed models change their own data distribution and distinguishes performatively stable from optimal points. Under its smoothness and strong-convexity conditions, repeated risk minimization is contractive when distribution sensitivity is below the curvature-to-smoothness boundary; counterexamples appear when the assumptions or boundary fail. | A general feedback framework, not verifier-specific GRPO; it supplies a unique-stable-state null, not evidence that policy dependence generically creates hysteresis. |
+| Brown, Hod, and Kalemaj, [*Performative Prediction in a Stateful World*](https://arxiv.org/abs/2011.03885) (2022) | **[THEOREM—PRIOR]** Extends performative prediction so population response depends on both the deployed model and current population state, and gives convergence conditions for repeated retraining and a lazy variant. | Statefulness alone does not imply multiple basins or hysteresis; its response-map assumptions must be connected to measurable verifier-recipient dynamics. |
+| Mandal, Triantafyllou, and Radanovic, [*Performative Reinforcement Learning*](https://arxiv.org/abs/2207.00046) (2023) | **[THEOREM—PRIOR]** Formalizes policy-dependent rewards and transitions and proves that repeated regularized optimization converges to a performatively stable policy when regularization dominates environment sensitivity; a projected-gradient variant is likewise contractive under explicit conditions. | Tabular occupancy-measure theory, not neural GRPO. It supplies a rigorous unique-stable-policy null rather than evidence that feedback generically creates hysteresis. |
+| Pollatos, Mandal, and Radanovic, [*On Corruption-Robustness in Performative Reinforcement Learning*](https://arxiv.org/abs/2505.05609) (2025) | **[THEOREM/EMPIRICAL—PRIOR]** Under Huber \(\epsilon\)-contamination, a robust-gradient repeated-retraining method converges in the last iterate to an approximately stable policy with error proportional to \(\sqrt{\epsilon}\). | Studies a corruption-aware algorithm and adversarial sample contamination, not ordinary training with behavior-conditioned verifier recipients; it provides a smooth small-corruption baseline. |
+| Dong, Zhang, and Ratliff, [*Approximate Regions of Attraction in Learning with Decision-Dependent Distributions*](https://arxiv.org/abs/2107.00055) (2023) | **[THEOREM—PRIOR]** Gives sufficient conditions under which inexact repeated risk minimization converges to neighborhoods of distinct local performative-risk minima and characterizes subsets of their initialization-dependent attraction regions. | Establishes basin and warm-start methodology under curvature and perturbation assumptions, but neither verifier defects nor a dose-sweep hysteresis loop. |
+| Piliouras and Yu, [*Multi-agent Performative Prediction: From Global Stability and Optimality to Chaos*](https://arxiv.org/abs/2201.10483) (2023) | **[THEOREM—PRIOR]** Constructs multi-agent performative-prediction systems with transitions from global stability to instability and formal chaos as update rates become less cautious. | The control parameter is multi-agent learning dynamics, not verifier false-positive probability; feedback phase transitions themselves are not new. |
+| Gauthier, Bach, and Jordan, [*Explaining and Preventing Alignment Collapse in Iterative RLHF*](https://arxiv.org/abs/2605.04266) (2026) | **[THEOREM/EMPIRICAL—PRIOR]** Under a differentiable unique reward-model best response, decomposes the policy gradient into the usual proxy term and a parameter-steering term induced by future reward-model updates; a special linear model has a provably suboptimal myopic equilibrium, with controlled and Llama-3.2-1B demonstrations. | Does not prove universal iterative-RLHF collapse, sweep verifier-defect probability, or test hysteresis. Its mechanism requires a retrained reward model and is absent from a frozen exogenous verifier coin. |
 | Ferbach et al., [*Self-Consuming Generative Models with Curated Data Provably Optimize Human Preferences*](https://arxiv.org/abs/2407.09499) (2024) | **[THEOREM—PRIOR]** Reward-based curation in iterative retraining acts as implicit preference optimization, amplifies reward-model bias, and can be stabilized by retaining positive real-data mass. | Generic generative-model recursion, not reasoning trajectories or a verifier-dose experiment. |
 | Qiao et al., [*When Sample Selection Bias Precipitates Model Collapse*](https://arxiv.org/abs/2606.13732) (ICML 2026) | **[THEOREM/EMPIRICAL—PRIOR]** An imperfect local-reference selector can accelerate recursive collapse and power-law diversity decay. | Gaussian theory plus image/text generation, not strict reasoning SFT. |
 | Song et al., [*When AI Reviews Its Own Code*](https://arxiv.org/abs/2606.28438) (2026) | **[EMPIRICAL—PRIOR]** Recursive SFT with a model-coupled gate can enter a rubber-stamp regime where acceptance rises while correctness falls. | Limited seed-level uncertainty; the theoretical gate-collapse statement is conditional and the “human” filters are compile/static checks. |
@@ -249,6 +257,8 @@ papers are recent preprints and should be treated accordingly.
 | Burns et al., [*Weak-to-Strong Generalization: Eliciting Strong Capabilities with Weak Supervision*](https://arxiv.org/abs/2312.09390) (2023) | **[EMPIRICAL—PRIOR]** Strong models can exceed weak supervisors but generally do not recover the full strong ceiling; confidence-based methods help. | Weak labels are not the same as a sparse, behavior-correlated binary defect. |
 | Kirchner et al., [*Prover-Verifier Games Improve Legibility of Language Model Outputs*](https://arxiv.org/abs/2407.13692) (2024) | **[EMPIRICAL—PRIOR]** Adversarial prover-verifier training can improve helpful accuracy and verifier robustness. | Changes the verifier through a game rather than holding a defect channel fixed. |
 | Oymak and Gulcu, [*Statistical and Algorithmic Insights for Semi-supervised Learning with Self-training*](https://arxiv.org/abs/2006.11006) (2020) | **[THEOREM—PRIOR]** Finite-sample self-training recurrences can have suboptimal fixed points; confidence and margin matter. | Supports basin phenomena in iterative SFT but does not study verifier false-positive dose. |
+| Frei et al., [*Self-training Converts Weak Learners to Strong Learners in Mixture Models*](https://arxiv.org/abs/2106.13805) (2022) | **[THEOREM—PRIOR]** Under explicit mixture-model separation and weak-initialization conditions, iterative pseudo-labeling can convert a weak classifier into a strong one. | The theorem supplies an initialization-threshold analogue, not verifier-correlated errors or an LLM iterative-SFT phase transition. |
+| Arazo et al., [*Pseudo-Labeling and Confirmation Bias in Deep Semi-Supervised Learning*](https://arxiv.org/abs/1908.02983) (2020) | **[EMPIRICAL—PRIOR]** Demonstrates confirmation bias from erroneous pseudo-labels and mitigates it with mixup and a minimum share of labeled data in each minibatch. | Offline image classification, but it motivates retained-clean-data controls and direct tracking of error-class amplification in iterative SFT. |
 
 ### 2.5 Label-noise results that delimit the analogy
 
@@ -274,7 +284,20 @@ derive an active-noise phase boundary, and Egashira et al. already demonstrate
 systematic false-positive plateau/collapse regimes. Conversely, Zhang's
 five-seed code study shows that abundant persistent false-positive reward can
 select pre-existing errors without measurably degrading short-horizon held-out
-capability. No novelty claim should be based on any one of those statements.
+capability. Performative prediction and performative RL additionally provide a
+rigorous null: sufficiently weak policy--environment feedback relative to
+curvature or regularization is contractive and has one stable solution, while
+decision-dependent systems outside that regime can have multiple attraction
+regions or even unstable dynamics. No novelty claim should be based on any one
+of those statements.
+
+The implemented persistent coin is a fixed misspecified reward, not a
+co-adaptive verifier. It changes which trajectories receive reward as the
+policy distribution changes, but it has no reward-model best response and no
+parameter-steering gradient through future verifier updates. Results from
+self-rewarding or iterative-RLHF feedback therefore motivate a separate
+co-adaptive arm; they cannot be used to claim that the frozen coin itself
+contains that mechanism.
 
 The remaining gap is narrower and operational: no work in this map jointly
 uses a semantically neutral susceptibility feature that must be learned from
@@ -602,26 +625,41 @@ the magnitude of \(p_A\). The expected raw draws per accepted trajectory are
 whereas \(p_A=0\) yields no hard accepted sample. This is the cleanest
 perfect-versus-imperfect support singularity in the present study.
 
-For disjoint incorrect behavior classes \(A_i\) with base rates \(h_i\) and
-\(p_i=\epsilon c_i\),
+For disjoint incorrect behavior classes \(A_i\), let \(h_i^{(t)}\) be their
+policy masses during collection round \(t\), and let \(p_i=\epsilon c_i\).
+Then
 
 \[
 P(A_i\mid Z=1)
-=\frac{c_i h_i}{\sum_j c_jh_j},\qquad \epsilon>0.
+=\frac{c_i h_i^{(t)}}{\sum_j c_jh_j^{(t)}},\qquad \epsilon>0.
 \]
 
-The global error scale \(\epsilon\) cancels; only the relative shape \(c_i\)
-survives. Raw collection cost diverges as
-\(1/(\epsilon\sum_jc_jh_j)\). Iterating an idealized select-and-imitate map can
-amplify these relative weights: after \(t\) exact multiplicative rounds,
+The global error scale \(\epsilon\) cancels from the accepted-class
+distribution, while the expected raw collection cost in round \(t\) is
 
 \[
-x_i^{(t)}\propto x_i^{(0)}(c_i h_i)^t,
+\frac{1}{\epsilon\sum_jc_jh_j^{(t)}}.
 \]
 
-so unequal behavior-conditioned rates can become winner-take-all even as
-\(\epsilon\to0^+\). This recurrence omits model generalization and is a
-mechanistic hypothesis, not a claim about the planned SFT runs.
+To define an iterative select-and-imitate map without double-counting the
+current class mass, write \(h_i^{(t)}=a_i x_i^{(t)}\), where \(x_i^{(t)}\) is
+the policy mass of mode \(i\) and \(a_i\) is fixed within-mode candidate
+accessibility. Exact imitation gives
+
+\[
+x_i^{(t+1)}
+=\frac{c_i a_i x_i^{(t)}}{\sum_j c_j a_j x_j^{(t)}},
+\qquad
+x_i^{(t)}
+=\frac{x_i^{(0)}(c_i a_i)^t}
+       {\sum_jx_j^{(0)}(c_j a_j)^t}.
+\]
+
+If each behavior class is itself the candidate mode, set \(a_i=1\). Unequal
+\(c_i a_i\) can then produce winner-take-all selection even as
+\(\epsilon\to0^+\). This idealized recurrence assumes exact imitation and
+fixed accessibility; it omits model generalization and policy-dependent
+changes in \(a_i\).
 
 The cancellation holds only under its conditioning. At fixed raw exposure,
 the number accepted is random and vanishes with \(p_A\). If clean-positive
@@ -985,9 +1023,13 @@ on this raw-exposure AUC. At common optimizer step 875, the ordering changed:
 | \(p=1\%\) | 5.8476% | -0.8214 pp |
 | \(p=5\%\) | 1.3976% | -5.2714 pp |
 
-Thus the \(1\%\) “benefit” is explained by more optimizer updates per raw
-rollout in this comparison; it is not evidence that its updates were better.
-The \(5\%\) arm remains worse under either clock at these windows.
+At the raw-exposure clock, the \(1\%\) arm had 1.664 times as many optimizer
+updates as clean and appeared better; at the optimizer clock, it appeared
+worse. This reversal shows that the apparent benefit is not invariant to the
+training clock and is consistent with update-throughput imbalance. With one
+run per arm, it does not identify optimizer-update count as the causal mediator
+or show that corrupted updates generalize better. The \(5\%\) arm remains
+worse under either clock at these windows.
 
 ### 4.2 Frontier discoveries
 
@@ -1049,8 +1091,11 @@ Thus the \(1\%\) arm is \(-0.7982\) pp versus clean on per-update AUC but
 update and \(-0.1087\) pp per raw exposure. The nearest raw-exposure endpoints
 were step 1,325 / 1,396,736 for clean, step 2,075 / 1,388,032 for \(1\%\), and
 step 2,500 / 1,386,496 for \(5\%\); their maximum target mismatch was 0.739%.
-The apparent low-dose benefit is therefore a compute-clock effect in this
-window, not evidence that corrupted updates generalize better.
+The apparent low-dose advantage is present only under the raw-exposure AUC in
+this window and disappears under the optimizer-step estimand. This is
+consistent with a clock/throughput contribution, but the one-run comparison
+does not identify that contribution causally and provides no evidence that
+corrupted updates generalize better.
 
 The step-1,600 endpoint alone is misleading: \(1\%\) was +1.17 pp on OP15–17,
 but its AUC and last-five-evaluation mean were both below clean. Endpoint
@@ -2300,6 +2345,90 @@ Stage-2 completion schema, promoted-26 evaluation plan, and immutable combined
 smoke4-plus-promoted26 result cover all 30 arms and all six clocks without
 rewriting the initial partition. These are provenance and analysis guarantees,
 not RL outcomes or evidence for a phase transition.
+
+### 6.7 Exact spectral consequence and activation-invariant next test
+
+**[RESULT—LOCAL LINEAR GEOMETRY, NOT RL OUTCOME]** The deterministic spectrum
+artifact is
+`/checkpoint/ram-h100-2/tianhaowu/rsci/analysis/known-cost-tag-kernel-spectrum-v1/summary.json`
+(SHA-256
+`0637e9dac70cfd937260c698bdbcbb20f47009a6ca614001956ac8039ae54c18`),
+built and independently replayed with analyzer commit
+`177bc338a1e55b1892df66131617c9281d369ef2`.
+It reconstructs the symmetric tag-gradient Gram matrix as
+
+\[
+G_{kj}=\langle g_k,g_j\rangle=K_{kj}\lVert g_j\rVert^2.
+\]
+
+Its eigenvalues are
+
+\[
+(0.00619,0.00768,0.00809,0.00956,0.03170,435.81423),
+\]
+
+so the second-largest/largest eigenvalue ratio is
+\(7.27\times10^{-5}\), and the leading mode contains `0.9999999934` of
+Frobenius energy. The top-mode mass is nearly uniform across the six tags
+(`0.1639`--`0.1684`). Thus the tags provide almost one shared trainable
+direction at initialization, not six independently controllable behaviors.
+
+This creates two distinct timescales in the isolated channel linearization.
+T's selected-tag scalar payoff changes sign at \(p=\alpha c_0=0.01\), but for
+selected block `{0,1}` at \(p=0.0125\) the positive eigenvalue is only
+`0.0001984`, or
+`4.55e-7` of the unit common-mode eigenvalue, while its common-mode rate is
+still `-7.6441`. At \(p=0.0375\), T and G instead have fast leading rates
+`3.2212` and `3.2686`, respectively. The fast common-mode zero crossings for
+the three tag blocks are `0.030096`, `0.029996`, and `0.029909`. Under the
+measured fixed kernel, therefore, the formal 1% T crossing is an ultra-slow
+contrast instability, whereas the practical early-horizon knee should be a
+shared G/T transition near \(c_0=0.03\). The high-dose leading rate is more
+than 16,000 times the low-dose contrast rate. These eigenvalues omit the
+learning rate, on-policy candidate-frequency scale, clipping, Adam, and any
+unmeasured baseline drift, so they are not optimizer-step growth rates.
+
+The smoke makes this prediction falsifiable. Let \(\delta_S\) equal 2 on the
+two selected tags and -1 otherwise, and let \(\ell_S\) equal \(1/2\) on
+selected tags and \(-1/4\) otherwise. At checkpoint \(t\), define
+
+\[
+R_{S,t}=\frac{\ell_S^\top G_t\delta_S}
+{\tfrac16\mathbf1^\top G_t\mathbf1}.
+\]
+
+For block `{0,1}`, \(R_{S,0}=8.95417\times10^{-5}\). Recompute \(G_t\) on
+the same sealed 174 pairs at optimizer steps 375/750/1500; fresh on-policy
+pairs are a separate distribution-shift diagnostic, not proof that the fixed
+geometry rotated. Call rotation materially localization-directed only if
+\(|R_{S,t}|\ge8.95417\times10^{-4}\) at two consecutive clocks, two analytic
+replays agree, and the reversible finite-step response has the same sign.
+Also report the second/first eigenvalue ratio and the sign-invariant top-mode
+angle \(\arccos(|v_t^\top v_0|)\), but do not gate on either: a rank-one top
+direction could itself rotate. Failure does not falsify the fixed-geometry
+null and is not evidence that the kernel is unchanged. Localization without
+the specified fixed-pair rotation instead redirects attention to candidate
+accessibility, clipping, adaptive optimization, or another nonlinear state
+variable. No dose curve alone identifies which of these changed.
+
+There is a second confound in a dose sweep. With \(C\) candidates in a group,
+the hidden-group mechanism activates with probability
+
+\[
+P(H>0\mid C)=\alpha\left[1-(1-p/\alpha)^C\right],
+\]
+
+so changing \(p\) changes both net reward sign and update arrival. The next
+activation-invariant calibration therefore holds G at \(p=0.03\), reuses the
+same gates, coins, prompts, and physical slots, and varies only
+\(c_0\in\{0.015,0.030,0.045\}\) across three fresh seeds. The isolated A
+drifts are then `+0.015`, `0`, and `-0.015` with identical false-positive
+events and group activation. Each arm runs 1,500 optimizer updates / 12,000
+raw groups with the existing strict OP11--45 and dual-clock readout. Continue
+to an expensive bidirectional confirmation only if low-tax > center >
+high-tax at both clocks, the endpoint low-minus-high A gap is at least four
+percentage points, and the common activation law replays exactly. Otherwise
+there is no localized positive-cost boundary to test for hysteresis.
 
 The executable preregistration is
 `user/tianhaowu/rsci/configs/rl/known_cost_boundary_v1/PREREGISTRATION.md`.
