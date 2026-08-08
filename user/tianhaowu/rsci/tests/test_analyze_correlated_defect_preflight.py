@@ -596,7 +596,7 @@ def test_kernel_reconciliation_is_write_once_and_later_replay_is_static(
         "_live_terminal_scheduler_records",
         lambda _: (_ for _ in ()).throw(AssertionError("static replay queried Slurm")),
     )
-    assert launch.validate_kernel_reconciliation(path)["identity"] == identity
+    assert launch.validate_kernel_reconciliation(str(path))["identity"] == identity
     assert launch.write_kernel_reconciliation_once(path, payload) == identity
 
     with pytest.raises(FileExistsError, match="different kernel reconciliation"):

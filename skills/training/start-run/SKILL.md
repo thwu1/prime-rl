@@ -130,7 +130,7 @@ have been sealed, materialize and independently replay the immutable launch
 intent:
 
 ```bash
-SUCCESSOR_ROOT=/checkpoint/ram-h100-2/tianhaowu/rsci/analysis/known-cost-postrun-control-plane-v3
+SUCCESSOR_ROOT=/checkpoint/ram-h100-2/tianhaowu/rsci/analysis/known-cost-postrun-control-plane-v4
 SUCCESSOR_COMMIT=<pushed-successor-commit>
 uv run --no-sync user/tianhaowu/rsci/source_provenance.py create \
   "$SUCCESSOR_ROOT" --commit "$SUCCESSOR_COMMIT"
@@ -138,11 +138,11 @@ source "$SUCCESSOR_ROOT/source_snapshot/user/tianhaowu/rsci/scripts/activate_sou
 uv run --no-sync user/tianhaowu/rsci/materialize_known_cost_boundary_launch.py materialize-reconciliation \
   --kernel-root KERNEL_ROOT
 uv run --no-sync user/tianhaowu/rsci/materialize_known_cost_boundary_launch.py validate-reconciliation \
-  --reconciliation KERNEL_ROOT/kernel_finalizer_reconciliation.json
+  --reconciliation KERNEL_ROOT/kernel_finalizer_reconciliation_v2.json
 uv run --no-sync user/tianhaowu/rsci/materialize_known_cost_boundary_launch.py materialize \
   --run-root RUN_ROOT --preflight-report PREFLIGHT.json \
   --kernel-root KERNEL_ROOT \
-  --kernel-reconciliation KERNEL_ROOT/kernel_finalizer_reconciliation.json \
+  --kernel-reconciliation KERNEL_ROOT/kernel_finalizer_reconciliation_v2.json \
   --tokenizer TOKENIZER
 uv run --no-sync user/tianhaowu/rsci/materialize_known_cost_boundary_launch.py validate \
   --intent RUN_ROOT/submission_intent.json --tokenizer TOKENIZER

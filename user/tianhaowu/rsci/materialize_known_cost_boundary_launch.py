@@ -27,8 +27,8 @@ SCHEMA_VERSION = 1
 ARTIFACT_TYPE = "rsci_known_cost_boundary_submission_intent"
 STUDY_ID = "verifier-defect-known-cost-boundary-v1"
 INTENT_NAME = "submission_intent.json"
-KERNEL_RECONCILIATION_NAME = "kernel_finalizer_reconciliation.json"
-KERNEL_RECONCILIATION_ARTIFACT_TYPE = "rsci_known_cost_kernel_finalizer_reconciliation"
+KERNEL_RECONCILIATION_NAME = "kernel_finalizer_reconciliation_v2.json"
+KERNEL_RECONCILIATION_ARTIFACT_TYPE = "rsci_known_cost_kernel_finalizer_reconciliation_v2"
 KERNEL_RECONCILIATION_TOP_FIELDS = {
     "artifact_type",
     "checks",
@@ -760,8 +760,8 @@ def write_kernel_reconciliation_once(path: Path, payload: dict[str, Any]) -> dic
     return file_identity(path)
 
 
-def validate_kernel_reconciliation(path: Path) -> dict[str, Any]:
-    resolved = path.expanduser().resolve()
+def validate_kernel_reconciliation(path: Path | str) -> dict[str, Any]:
+    resolved = Path(path).expanduser().resolve()
     if stat.S_IMODE(resolved.stat().st_mode) & 0o222:
         raise ValueError("Kernel finalizer reconciliation is writable")
     raw, payload = _read_canonical_json(resolved)

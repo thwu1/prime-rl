@@ -48,7 +48,7 @@ inside the retention window and that allocation completed its explicit
 the same ephemeral bytes cannot be a durable gate.
 
 Before launch-intent materialization, freeze one adjacent read-only
-`kernel_finalizer_reconciliation.json`. It must require the nonempty read-only
+`kernel_finalizer_reconciliation_v2.json`. It must require the nonempty read-only
 script captured directly from finalizer job `10281828` inside that job's
 600-second controller-retention window, bind the exact allocation log, and
 exact-match every retained GPU/validator terminal `sacct` field except
