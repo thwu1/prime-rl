@@ -11,6 +11,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import finalize_known_cost_checkpoint_kernel_attempt as finalizer
 import materialize_known_cost_checkpoint_kernel_plan as plan_module
 import materialize_known_cost_checkpoint_kernel_readiness as readiness_module
 import probe_known_cost_checkpoint_kernel as checkpoint_probe
@@ -24,6 +25,8 @@ def execution_binding(
     readiness_path: Path,
     task_id: str,
     attempt_id: str,
+    submission_receipt_path: Path,
+    release_receipt_path: Path,
     candidate_path: Path,
     summary_path: Path,
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
@@ -35,6 +38,11 @@ def execution_binding(
     plan_identity = plan_module.validate_plan(plan_path)
     readiness_identity = readiness_module.validate_readiness(readiness_path)
     _, plan = plan_module.read_canonical_json(plan_path)
+    control_source = plan_module.require_control_runtime(
+        plan,
+        role="task_runner",
+        running_file=Path(__file__),
+    )
     _, readiness = plan_module.read_canonical_json(readiness_path)
     if readiness.get("plan") != plan_identity or readiness.get("plan_id") != plan.get("plan_id"):
         raise ValueError("Readiness belongs to another plan")
@@ -44,6 +52,25 @@ def execution_binding(
     if readiness.get("task_spec_sha256") != plan_module.canonical_json_sha256(task):
         raise ValueError("Readiness task hash differs")
     plan_root = Path(str(plan_identity["path"])).parent
+    submission_receipt_path = submission_receipt_path.expanduser().resolve()
+    expected_submission = plan_root / "attempts" / task_id / attempt_id / "submission_receipt.json"
+    if submission_receipt_path != expected_submission:
+        raise ValueError(f"Attempt submission receipt must be {expected_submission}")
+    submission, submission_identity = finalizer.validate_submission(submission_receipt_path)
+    if (
+        submission.get("plan") != plan_identity
+        or submission.get("readiness") != readiness_identity
+        or submission.get("task_id") != task_id
+        or submission.get("attempt_id") != attempt_id
+    ):
+        raise ValueError("Attempt submission receipt belongs to another execution")
+    release_receipt_path = release_receipt_path.expanduser().resolve()
+    expected_release = plan_root / "attempts" / task_id / attempt_id / "release_receipt.json"
+    if release_receipt_path != expected_release:
+        raise ValueError(f"Attempt release receipt must be {expected_release}")
+    release, release_identity = finalizer.validate_release_receipt(release_receipt_path)
+    if release.get("submission") != submission_identity:
+        raise ValueError("Attempt release receipt belongs to another submission")
     expected_candidate = plan_root / "attempts" / task_id / attempt_id / "candidate.json"
     expected_summary = plan_root / "attempts" / task_id / attempt_id / "runner_summary.json"
     candidate_path = candidate_path.expanduser().resolve()
@@ -70,18 +97,30 @@ def execution_binding(
     }
     if any(value in (None, "") for value in slurm.values()):
         raise ValueError(f"Incomplete SLURM execution environment: {slurm}")
+    expected_slurm = {
+        "job_name": f"rsci-kc-kernel-{task_id}"[:128],
+        "account": "ram",
+        "qos": "h100_dev",
+        "submit_dir": str(Path(str(control_source["snapshot_path"])).resolve()),
+    }
+    for key, expected in expected_slurm.items():
+        if slurm[key] != expected:
+            raise ValueError(f"SLURM {key} differs from the plan-bound execution contract")
     binding = {
         "plan": plan_identity,
         "plan_id": plan["plan_id"],
         "readiness": readiness_identity,
         "task_id": task_id,
         "task_spec_sha256": readiness["task_spec_sha256"],
+        "control_source_sha256": control_source["control_source_sha256"],
         "attempt_id": attempt_id,
+        "submission_receipt": submission_identity,
+        "release_receipt": release_identity,
         "candidate_path": str(candidate_path),
         "runner_summary_path": str(summary_path),
         "canonical_output_path": str(canonical_output),
-        "runner_implementation": checkpoint_probe.source_identity(Path(__file__)),
-        "checkpoint_probe_implementation": checkpoint_probe.source_identity(Path(checkpoint_probe.__file__)),
+        "runner_implementation": control_source["implementations"]["task_runner"],
+        "checkpoint_probe_implementation": control_source["implementations"]["checkpoint_probe"],
         "slurm_environment": slurm,
         "argv": [str(Path(sys.executable).resolve()), *sys.argv],
     }
@@ -94,6 +133,8 @@ def run_task(
     readiness_path: Path,
     task_id: str,
     attempt_id: str,
+    submission_receipt_path: Path,
+    release_receipt_path: Path,
     candidate_path: Path,
     summary_path: Path,
 ) -> dict[str, Any]:
@@ -102,6 +143,8 @@ def run_task(
         readiness_path=readiness_path,
         task_id=task_id,
         attempt_id=attempt_id,
+        submission_receipt_path=submission_receipt_path,
+        release_receipt_path=release_receipt_path,
         candidate_path=candidate_path,
         summary_path=summary_path,
     )
@@ -115,6 +158,27 @@ def run_task(
         receipt,
         int(task["checkpoint_step"]),
     )
+    implementation = analysis.get("implementation")
+    if not isinstance(implementation, dict):
+        raise ValueError("Checkpoint-kernel analysis has no implementation identity")
+    _, plan = plan_module.read_canonical_json(plan_path)
+    control_source = plan["control_source"]
+    for name in ("checkpoint_probe", "initial_probe_dependency", "completion_envelope_dependency"):
+        observed = implementation.get(name)
+        expected = control_source["implementations"][name]
+        if not isinstance(observed, dict) or {
+            key: observed.get(key) for key in ("path", "size_bytes", "sha256")
+        } != expected:
+            raise ValueError(f"Checkpoint-kernel analysis used another {name}")
+        if observed.get("repository_path") != control_source["implementation_repository_paths"][name]:
+            raise ValueError(f"Checkpoint-kernel analysis recorded another repository path for {name}")
+        if observed.get("last_source_commit") != control_source["parent_commit_sha"]:
+            raise ValueError(f"Checkpoint-kernel analysis recorded another source commit for {name}")
+    if implementation.get("uv_lock") != control_source["uv_lock"]:
+        raise ValueError("Checkpoint-kernel analysis used another uv.lock")
+    expected_pyproject = checkpoint_probe.file_identity(Path(control_source["snapshot_path"]) / "pyproject.toml")
+    if implementation.get("pyproject") != expected_pyproject:
+        raise ValueError("Checkpoint-kernel analysis used another pyproject.toml")
     analysis["execution_binding"] = binding
     analysis["payload_without_self_hash_sha256"] = checkpoint_probe.canonical_json_sha256(
         {key: value for key, value in analysis.items() if key != "payload_without_self_hash_sha256"}
@@ -150,6 +214,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--readiness", type=Path, required=True)
     parser.add_argument("--task-id", required=True)
     parser.add_argument("--attempt-id", required=True)
+    parser.add_argument("--submission-receipt", type=Path, required=True)
+    parser.add_argument("--release-receipt", type=Path, required=True)
     parser.add_argument("--candidate", type=Path, required=True)
     parser.add_argument("--summary", type=Path, required=True)
     return parser.parse_args()
@@ -162,6 +228,8 @@ def main() -> None:
         readiness_path=args.readiness,
         task_id=args.task_id,
         attempt_id=args.attempt_id,
+        submission_receipt_path=args.submission_receipt,
+        release_receipt_path=args.release_receipt,
         candidate_path=args.candidate,
         summary_path=args.summary,
     )

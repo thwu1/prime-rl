@@ -108,6 +108,27 @@ def read_json_object(path: Path) -> dict[str, Any]:
 
 def source_identity(path: Path) -> dict[str, Any]:
     resolved = path.resolve()
+    snapshot_value = os.environ.get("RSCI_SOURCE_SNAPSHOT")
+    if snapshot_value:
+        snapshot = Path(snapshot_value).expanduser().resolve()
+        if resolved != snapshot and snapshot not in resolved.parents:
+            raise ValueError(f"Implementation is outside RSCI_SOURCE_SNAPSHOT: {resolved}")
+        manifest_path = snapshot.parent / "source_provenance.json"
+        manifest = read_json_object(manifest_path)
+        if Path(str(manifest.get("snapshot_path"))).resolve() != snapshot:
+            raise ValueError("RSCI source provenance selects another snapshot")
+        parent_commit = manifest.get("parent_commit_sha")
+        if (
+            not isinstance(parent_commit, str)
+            or len(parent_commit) not in (40, 64)
+            or any(character not in "0123456789abcdef" for character in parent_commit)
+        ):
+            raise ValueError("RSCI source provenance has an invalid parent commit")
+        return {
+            "repository_path": resolved.relative_to(snapshot).as_posix(),
+            "last_source_commit": parent_commit,
+            **file_identity(resolved),
+        }
     root = Path(
         subprocess.run(
             ["git", "rev-parse", "--show-toplevel"],
@@ -140,14 +161,18 @@ def source_identity(path: Path) -> dict[str, Any]:
 
 
 def implementation_identity() -> dict[str, Any]:
-    repository_root = Path(
-        subprocess.run(
-            ["git", "rev-parse", "--show-toplevel"],
-            text=True,
-            capture_output=True,
-            check=True,
-        ).stdout.strip()
-    ).resolve()
+    snapshot_value = os.environ.get("RSCI_SOURCE_SNAPSHOT")
+    if snapshot_value:
+        repository_root = Path(snapshot_value).expanduser().resolve()
+    else:
+        repository_root = Path(
+            subprocess.run(
+                ["git", "rev-parse", "--show-toplevel"],
+                text=True,
+                capture_output=True,
+                check=True,
+            ).stdout.strip()
+        ).resolve()
     return {
         "checkpoint_probe": source_identity(Path(__file__)),
         "initial_probe_dependency": source_identity(Path(initial_probe.__file__)),

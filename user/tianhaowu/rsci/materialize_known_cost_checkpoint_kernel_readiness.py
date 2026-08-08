@@ -71,6 +71,11 @@ def load_plan_task(plan_path: Path, task_id: str) -> tuple[dict[str, Any], dict[
     plan_path = plan_path.expanduser().resolve()
     plan_identity = plan_module.validate_plan(plan_path)
     _, plan = plan_module.read_canonical_json(plan_path)
+    plan_module.require_control_runtime(
+        plan,
+        role="readiness_materializer",
+        running_file=Path(__file__),
+    )
     tasks = plan.get("tasks")
     if not isinstance(tasks, list):
         raise ValueError("Checkpoint-kernel plan has no task inventory")
@@ -119,6 +124,50 @@ def validate_completion_with_pinned_implementation(
     snapshot_path = Path(str(source.get("snapshot_path"))).expanduser().resolve()
     if not python_path.is_file() or not snapshot_path.is_dir():
         raise FileNotFoundError("Authority-pinned Python or source snapshot is absent")
+    manifest_identity = source.get("manifest")
+    if (
+        not isinstance(manifest_identity, dict)
+        or checkpoint_probe.file_identity(Path(str(manifest_identity.get("path")))) != manifest_identity
+    ):
+        raise ValueError("Post-run authority source-provenance identity changed")
+    manifest = json.loads(Path(str(manifest_identity["path"])).read_text())
+    if (
+        not isinstance(manifest, dict)
+        or Path(str(manifest.get("snapshot_path"))).resolve() != snapshot_path
+        or manifest.get("environment") != environment
+        or manifest.get("source_tree_sha256") != source.get("source_tree_sha256")
+    ):
+        raise ValueError("Post-run authority source-provenance manifest differs")
+    runtime_paths = manifest.get("runtime_python_paths")
+    if not isinstance(runtime_paths, list) or not runtime_paths or any(not isinstance(path, str) for path in runtime_paths):
+        raise ValueError("Post-run authority source provenance has no runtime paths")
+    source_repo = Path(str(manifest.get("source_repo"))).expanduser().resolve()
+    shared_venv = Path(str(environment.get("shared_venv"))).expanduser().resolve()
+    historical_environment = {
+        key: value
+        for key, value in os.environ.items()
+        if key
+        not in {
+            "PYTHONPATH",
+            "RSCI_SOURCE_SNAPSHOT",
+            "RSCI_LIVE_REPO_ROOT",
+            "UV_PROJECT_ENVIRONMENT",
+            "UV_NO_SYNC",
+            "PYTHONDONTWRITEBYTECODE",
+            "PYTHONNOUSERSITE",
+        }
+    }
+    historical_environment.update(
+        {
+            "PYTHONPATH": os.pathsep.join(str(snapshot_path / path) for path in runtime_paths),
+            "RSCI_SOURCE_SNAPSHOT": str(snapshot_path),
+            "RSCI_LIVE_REPO_ROOT": str(source_repo),
+            "UV_PROJECT_ENVIRONMENT": str(shared_venv),
+            "UV_NO_SYNC": "1",
+            "PYTHONDONTWRITEBYTECODE": "1",
+            "PYTHONNOUSERSITE": "1",
+        }
+    )
     receipt_path = Path(str(task.get("completion_receipt_path"))).expanduser().resolve()
     command = [
         str(python_path),
@@ -133,6 +182,7 @@ def validate_completion_with_pinned_implementation(
         text=True,
         capture_output=True,
         check=True,
+        env=historical_environment,
     )
     summary = json.loads(completed.stdout)
     if not isinstance(summary, dict) or summary.get("command") != "validate":
@@ -147,6 +197,18 @@ def validate_completion_with_pinned_implementation(
         "snapshot_path": str(snapshot_path),
         "snapshot_tree_sha256": source.get("source_tree_sha256"),
         "runtime_identity_sha256": source.get("runtime_identity_sha256"),
+        "runtime_environment": {
+            key: historical_environment[key]
+            for key in (
+                "PYTHONPATH",
+                "RSCI_SOURCE_SNAPSHOT",
+                "RSCI_LIVE_REPO_ROOT",
+                "UV_PROJECT_ENVIRONMENT",
+                "UV_NO_SYNC",
+                "PYTHONDONTWRITEBYTECODE",
+                "PYTHONNOUSERSITE",
+            )
+        },
         "argv": command,
         "summary": summary,
         "stderr_sha256": hashlib.sha256(completed.stderr.encode()).hexdigest(),
@@ -179,11 +241,13 @@ def current_task_context(plan_path: Path, task_id: str) -> dict[str, Any]:
     canonical_output = plan_root / str(task["result_relative_path"])
     readiness_path = plan_root / "readiness" / f"{task_id}.json"
     attempt_root = plan_root / "attempts" / task_id
+    control_source = plan["control_source"]
     return {
         "plan": plan_identity,
         "plan_id": plan["plan_id"],
         "task": task,
         "task_spec_sha256": canonical_json_sha256(task),
+        "control_source_sha256": control_source["control_source_sha256"],
         "probe_context": probe_context,
         "checkpoint_inventory": checkpoint_after,
         "authority_pinned_completion_validation": completion_validation,
@@ -193,8 +257,8 @@ def current_task_context(plan_path: Path, task_id: str) -> dict[str, Any]:
             "canonical_output": str(canonical_output),
         },
         "implementations": {
-            "readiness_materializer": checkpoint_probe.source_identity(Path(__file__)),
-            "checkpoint_probe": checkpoint_probe.source_identity(Path(checkpoint_probe.__file__)),
+            "readiness_materializer": control_source["implementations"]["readiness_materializer"],
+            "checkpoint_probe": control_source["implementations"]["checkpoint_probe"],
         },
     }
 

@@ -6,6 +6,7 @@ import numpy as np
 import probe_known_cost_checkpoint_kernel as probe
 import pytest
 import torch
+from analyze_known_cost_checkpoint_kernel import pair_qualifies
 from finalize_known_cost_checkpoint_kernel_attempt import parse_exit_code, terminal_state
 
 
@@ -77,9 +78,23 @@ def test_combine_gradients_uses_exact_source_coefficients() -> None:
 
 def test_terminal_scheduler_fields_fail_closed() -> None:
     assert terminal_state("COMPLETED+") == "COMPLETED"
+    assert terminal_state("CANCELLED by 656177") == "CANCELLED"
     assert parse_exit_code("0:0") == (0, 0)
 
     with pytest.raises(ValueError, match="not terminal"):
         terminal_state("RUNNING")
     with pytest.raises(ValueError, match="ExitCode"):
         parse_exit_code("zero")
+
+
+def test_checkpoint_pair_requires_two_clock_numerator_denominator_and_finite_sign() -> None:
+    reference = {"R": 1.0, "N": 2.0, "D": 2.0}
+    passing = [
+        {"R": 11.0, "N": 21.0, "D": 1.1, "finite_localization_slope": 3.0},
+        {"R": 12.0, "N": 24.0, "D": 1.0, "finite_localization_slope": 4.0},
+    ]
+
+    assert pair_qualifies(reference, passing)["qualifies"] is True
+
+    passing[1]["finite_localization_slope"] = -4.0
+    assert pair_qualifies(reference, passing)["qualifies"] is False

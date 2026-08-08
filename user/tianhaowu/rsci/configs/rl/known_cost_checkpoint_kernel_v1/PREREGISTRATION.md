@@ -51,6 +51,18 @@ the canonical result only after proving the plan/readiness identities,
 protected submission, `COMPLETED/0:0`, fresh output, and unchanged checkpoint.
 Technical retries are attempts, not scientific repeats.
 
+All checkpoint-kernel planning, execution, and analysis uses one commit-pinned,
+read-only control snapshot. Trained-checkpoint readiness has one explicit
+authority-replay exception: it invokes the separately pinned post-run-v4
+training-completion validator in that authority's own recorded environment.
+Before release, the dispatcher must freeze an immutable pre-submit intent,
+submit the GPU in a user-held state, bind the exact GPU and dependent CPU job
+observations in a submission receipt, and only then release the GPU. The runner
+must validate both the submission and release receipts. A complete primary
+input additionally requires immutable post-run accounting proving that every
+CPU terminalizer itself reached `COMPLETED/0:0`; canonical files without this
+full chain are rejected.
+
 The runtime is fixed to the original probe objective, 174 pairs, six tags,
 batch size 8, deterministic FP32 computation, and reversible gradient-ascent
 step size `1e-3`. The implementation restores every parameter bit-exactly and
@@ -91,6 +103,12 @@ both repeats to satisfy the same rule before reporting reproducible tenfold
 amplification. This label is a geometry diagnostic, not a practical-effect
 threshold or calibration to the two-percentage-point behavioral screen. These
 conditional repeats do not alter the existing smoke-promotion decision.
+
+The 13-task primary plan does not authorize conditional-repeat execution. If a
+pair qualifies, its immutable repeat decision fixes the exact arm, clocks, and
+output namespace. A separate decision-bound repeat plan and commit-pinned
+control snapshot must then be frozen before any repeat output exists. No repeat
+result may be interpreted without that additional authority chain.
 
 Failure does not prove that the kernel is unchanged. Passing falsifies the
 fixed-geometry null but does not establish a causal training effect,

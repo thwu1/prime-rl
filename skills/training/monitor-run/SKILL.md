@@ -253,6 +253,19 @@ head -1 {output_dir}/rollouts/step_42/train_rollouts.jsonl | uv run python -m js
 jq '.reward' {output_dir}/rollouts/step_42/train_rollouts.jsonl
 ```
 
+### Known-cost checkpoint kernels
+
+The additive known-cost checkpoint-kernel study uses its own content-addressed
+13-task plan and commit-pinned control snapshot. Run readiness, dry-run/status,
+dispatch, terminalization, and analysis only after sourcing the snapshot's
+`activate_source_snapshot_eval.sh`. A canonical `kernel.json` is not a result by
+itself: require the full intent/submission/release/GPU-terminal chain and the
+plan-local `terminal_provenance.json`, which proves each dependent CPU
+terminalizer also reached `COMPLETED/0:0`. Only then may
+`analyze_known_cost_checkpoint_kernel.py analyze` write the primary summary and
+immutable scientific-repeat decision. Technical retries never count as those
+fresh-process repeats.
+
 ### Common failure modes
 
 A few warnings are normal. Escalate when errors are persistent, growing, or hit a large fraction of rollouts.
