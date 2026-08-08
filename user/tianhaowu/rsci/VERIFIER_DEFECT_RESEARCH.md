@@ -2739,9 +2739,13 @@ The primary estimands are post-fork drift in
 \(A=\) answer-correct/strict-dependency-graph-wrong prevalence and in strict
 performance. Positive drift or a long-lived high-\(A\) state after withdrawal,
 relative to a clean-initialized \(p=0\) branch, supports autonomous
-propagation. Mere parameter persistence is insufficient. Decay or stalling at
-\(p=0\) while the \(p_0\) branch grows means repeated defect coins are
-reproductive and reduces the mechanism to ordinary \(b(p)\) activation.
+propagation only if the branch continues to receive a preregistered amount of
+informative clean-update exposure. Include a weight-frozen/no-update control
+and measure the cure response to matched strict replay; a hard stratum that
+simply receives zero gradient can retain \(A\) forever without reproducing it.
+Mere parameter persistence is insufficient. Decay or stalling at \(p=0\)
+while the \(p_0\) branch grows means repeated defect coins are reproductive
+and reduces the mechanism to ordinary \(b(p)\) activation.
 
 Only if the withdrawal branch supports autonomous propagation should a
 forced-lineage pulse estimate its reproduction geometry. Treat each
