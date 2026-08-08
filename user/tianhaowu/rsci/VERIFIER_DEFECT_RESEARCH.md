@@ -2397,12 +2397,26 @@ R_{S,t}=\frac{\ell_S^\top G_t\delta_S}
 {\tfrac16\mathbf1^\top G_t\mathbf1}.
 \]
 
-For block `{0,1}`, \(R_{S,0}=8.95417\times10^{-5}\). Recompute \(G_t\) on
-the same sealed 174 pairs at optimizer steps 375/750/1500; fresh on-policy
-pairs are a separate distribution-shift diagnostic, not proof that the fixed
-geometry rotated. Call rotation materially localization-directed only if
-\(|R_{S,t}|\ge8.95417\times10^{-4}\) at two consecutive clocks, two analytic
-replays agree, and the reversible finite-step response has the same sign.
+For block `{0,1}`, the FP32 initialization value is
+\(R_{S,0}=8.95417\times10^{-5}\). The operational reference first rounds the
+base parameters and buffers through BF16 to match HF checkpoint precision.
+Recompute \(G_t\) on the same sealed 174 pairs at optimizer steps
+375/750/1500; fresh on-policy pairs are a separate distribution-shift
+diagnostic, not proof that the fixed geometry rotated. Write
+\(N_t=\ell_S^\top G_t\delta_S\) and
+\(D_t=\tfrac16\mathbf1^\top G_t\mathbf1\). Report *tenfold normalized
+localization-response amplification* only if, at two consecutive clocks,
+
+\[
+|R_{S,t}|\ge10|R_{S,0}^{\rm bf16}|,
+\quad |N_t|\ge10|N_0^{\rm bf16}|,
+\quad D_t\ge0.5D_0^{\rm bf16},
+\]
+
+the numerator signs agree, two fresh-process replays retain the rule, and a
+true combined-gradient finite-step probe has the same sign. This is a
+geometry diagnostic, not a practical-effect threshold or calibration to the
+two-percentage-point behavioral screen.
 Also report the second/first eigenvalue ratio and the sign-invariant top-mode
 angle \(\arccos(|v_t^\top v_0|)\), but do not gate on either: a rank-one top
 direction could itself rotate. Failure does not falsify the fixed-geometry
@@ -2432,6 +2446,9 @@ there is no localized positive-cost boundary to test for hysteresis.
 
 The executable preregistration is
 `user/tianhaowu/rsci/configs/rl/known_cost_boundary_v1/PREREGISTRATION.md`.
+The additive fixed-pair checkpoint-geometry contract is
+`user/tianhaowu/rsci/configs/rl/known_cost_checkpoint_kernel_v1/PREREGISTRATION.md`;
+it cannot change the smoke-promotion decision.
 
 ## 7. Candid novelty matrix
 

@@ -17,12 +17,13 @@ The fixed-pair source is
 - `probe_manifest.json` SHA-256
   `a0f2f78fb7b9508250b4d4c4427af59310d10fe1bf9a413e86fe30e12886d77f`.
 
-The step-0 reference loads the manifest-bound FP32 base model through BF16 and
-casts it back to FP32 before probing. Every trained task loads the immutable HF
-readout checkpoint, whose stored tensors must all be BF16, into FP32 compute.
-This matched round trip prevents checkpoint serialization precision from being
-mistaken for training-induced geometry change. It measures deployed/readout
-weights, not the exact FP32 trainer master state.
+The step-0 reference loads the manifest-bound FP32 base model in FP32,
+explicitly rounds every floating parameter and buffer through BF16, and probes
+the result in FP32. Every trained task loads the immutable HF readout
+checkpoint, whose stored tensors must all be BF16, into FP32 compute. Under the
+strict loader/config/token-ID checks, this controls BF16 parameter-rounding; it
+does not prove identity to the trainer's serialization implementation. It
+measures deployed/readout weights, not the exact FP32 trainer master state.
 
 ## Tasks
 
@@ -39,6 +40,16 @@ architecture, and a complete checkpoint byte inventory. Outputs live under
 in condition/step-specific directories. Results are canonical, read-only,
 self-hashed, and write-once. A separate scheduler receipt must bind every GPU
 execution before its value is used scientifically.
+
+The pre-RL plan binds future paths but cannot claim hashes for files that do
+not yet exist. After a run completes, a per-task read-only readiness manifest
+must replay the authority-pinned completion validator for the exact arm and
+intent, then bind the intermediate checkpoint inventory, BF16 dtype, STABLE
+marker, and before/after identities. Each scheduler attempt writes only to an
+attempt-local candidate path. A terminalizer may hard-link that candidate to
+the canonical result only after proving the plan/readiness identities,
+protected submission, `COMPLETED/0:0`, fresh output, and unchanged checkpoint.
+Technical retries are attempts, not scientific repeats.
 
 The runtime is fixed to the original probe objective, 174 pairs, six tags,
 batch size 8, deterministic FP32 computation, and reversible gradient-ascent
@@ -62,17 +73,24 @@ energy, and the sign-invariant top-mode angle
 `8.95417e-5` is descriptive; every threshold comparison uses the new matched
 BF16-round-trip reference \(R_{S,0}^{\rm bf16}\).
 
-Call rotation *materially localization-directed* only if
+Define \(N_t=\ell_S^\top G_t\delta_S\) and
+\(D_t=\tfrac16\mathbf1^\top G_t\mathbf1\). Call the fixed-pair response a
+*tenfold localization amplification* only if, at two consecutive clocks,
 
 \[
-|R_{S,t}|\ge 10|R_{S,0}^{\rm bf16}|
+|R_{S,t}|\ge 10|R_{S,0}^{\rm bf16}|,qquad
+|N_t|\ge10|N_0^{\rm bf16}|,qquad
+D_t\ge0.5D_0^{\rm bf16},
 \]
 
-at two consecutive clocks with the same sign. If a primary task first satisfies
-the threshold, repeat that task and its adjacent qualifying clock in fresh GPU
-processes and require both repeats to satisfy the same rule before using the
-word material. These conditional repeats do not alter the existing smoke
-promotion decision.
+with the same nonzero sign for \(N_t\), and the measured combined-gradient
+finite-step localization slope must have that sign. Test adjacent pairs in the
+fixed order `[375,750]`, then `[750,1500]`, and select at most the first
+qualifying pair per arm. Repeat both tasks in fresh GPU processes and require
+both repeats to satisfy the same rule before reporting reproducible tenfold
+amplification. This label is a geometry diagnostic, not a practical-effect
+threshold or calibration to the two-percentage-point behavioral screen. These
+conditional repeats do not alter the existing smoke-promotion decision.
 
 Failure does not prove that the kernel is unchanged. Passing falsifies the
 fixed-geometry null but does not establish a causal training effect,

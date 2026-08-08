@@ -10,8 +10,10 @@ import hashlib
 import json
 import math
 import os
+import platform
 import stat
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -23,6 +25,15 @@ import probe_known_cost_tag_kernel as initial_probe
 SCHEMA_VERSION = 1
 ARTIFACT_TYPE = "rsci_known_cost_checkpoint_tag_kernel"
 ALLOWED_CHECKPOINT_STEPS = (0, 375, 750, 1500)
+PRODUCTION_RUN_ROOT = Path(
+    "/checkpoint/ram-h100-2/tianhaowu/rsci/rl/verifier-defect-known-cost-boundary-v1"
+)
+ALLOWED_RUN_ARMS = {
+    "g-p0125": "b20260808_g_p0125.toml",
+    "t-p0125": "b20260808_t_p0125.toml",
+    "g-p0375": "b20260808_g_p0375.toml",
+    "t-p0375": "b20260808_t_p0375.toml",
+}
 SELECTED_TAG_BLOCKS = ((0, 1), (2, 3), (4, 5))
 ARCHITECTURE_FIELDS = (
     "architectures",
@@ -36,6 +47,9 @@ ARCHITECTURE_FIELDS = (
     "max_position_embeddings",
     "tie_word_embeddings",
 )
+CONFIG_RELOCATION_FIELDS = ("_name_or_path",)
+CONFIG_DISABLED_EQUIVALENCE_FIELDS = ("fp8",)
+CONFIG_UNUSED_DENSE_PROBE_FIELDS = ("pad_token_id", "use_grouped_mm")
 SYMMETRY_ATOL = 1e-10
 
 
@@ -126,10 +140,20 @@ def source_identity(path: Path) -> dict[str, Any]:
 
 
 def implementation_identity() -> dict[str, Any]:
+    repository_root = Path(
+        subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            text=True,
+            capture_output=True,
+            check=True,
+        ).stdout.strip()
+    ).resolve()
     return {
         "checkpoint_probe": source_identity(Path(__file__)),
         "initial_probe_dependency": source_identity(Path(initial_probe.__file__)),
         "completion_envelope_dependency": source_identity(Path(completion.__file__)),
+        "pyproject": file_identity(repository_root / "pyproject.toml"),
+        "uv_lock": file_identity(repository_root / "uv.lock"),
     }
 
 
@@ -139,6 +163,64 @@ def architecture_signature(path: Path) -> dict[str, Any]:
     if missing:
         raise ValueError(f"Model config lacks architecture fields {missing}: {path}")
     return {field: config[field] for field in ARCHITECTURE_FIELDS}
+
+
+def normalized_config_signature(path: Path) -> dict[str, Any]:
+    from transformers import AutoConfig
+
+    resolved = path.expanduser().resolve()
+    config = AutoConfig.from_pretrained(resolved, trust_remote_code=False).to_dict()
+    if config.get("auto_map") not in (None, {}):
+        raise ValueError(f"Remote model code is not permitted: {resolved}")
+    ignored = {}
+    for field in CONFIG_RELOCATION_FIELDS:
+        ignored[field] = config.pop(field, None)
+    for field in CONFIG_DISABLED_EQUIVALENCE_FIELDS:
+        value = config.pop(field, None)
+        if value not in (None, False):
+            raise ValueError(f"Model config enables unsupported {field}={value!r}: {resolved}")
+        ignored[field] = value
+    model_type = config.get("model_type")
+    if model_type != "qwen2" or config.get("num_experts") not in (None, 0):
+        raise ValueError(f"Dense Qwen2 compatibility assumptions do not apply: {resolved}")
+    for field in CONFIG_UNUSED_DENSE_PROBE_FIELDS:
+        ignored[field] = config.pop(field, None)
+    return {
+        "normalized_config": config,
+        "normalized_config_sha256": canonical_json_sha256(config),
+        "ignored_fields": ignored,
+        "ignored_field_rationale": {
+            "_name_or_path": "filesystem provenance only",
+            "fp8": "None and false both disable FP8",
+            "pad_token_id": "probe supplies explicit attention masks and never reads padded labels",
+            "use_grouped_mm": "unused by the asserted dense Qwen2 architecture",
+        },
+    }
+
+
+def tokenizer_semantic_signature(path: Path) -> dict[str, Any]:
+    from transformers import AutoTokenizer
+
+    resolved = path.expanduser().resolve()
+    tokenizer = AutoTokenizer.from_pretrained(resolved, trust_remote_code=False)
+    vocabulary = sorted(tokenizer.get_vocab().items())
+    used_specials = {
+        name: {"token": getattr(tokenizer, name), "token_id": getattr(tokenizer, f"{name}_id")}
+        for name in ("bos_token", "eos_token", "unk_token")
+    }
+    return {
+        "vocabulary_size": len(vocabulary),
+        "vocabulary_sha256": canonical_json_sha256(vocabulary),
+        "chat_template_sha256": hashlib.sha256((tokenizer.chat_template or "").encode()).hexdigest(),
+        "used_special_tokens": used_specials,
+        "added_tokens_sha256": canonical_json_sha256(
+            sorted((int(index), str(token)) for index, token in tokenizer.added_tokens_decoder.items())
+        ),
+        "pad_token_observed_not_used": {
+            "token": tokenizer.pad_token,
+            "token_id": tokenizer.pad_token_id,
+        },
+    }
 
 
 def model_storage_dtypes(path: Path) -> list[str]:
@@ -245,6 +327,20 @@ def checkpoint_context(
     checkpoint_signature = architecture_signature(checkpoint_path)
     if checkpoint_signature != source_signature:
         raise ValueError("Checkpoint architecture differs from the sealed source-probe model")
+    source_config = normalized_config_signature(source_model_path)
+    checkpoint_config = normalized_config_signature(checkpoint_path)
+    if checkpoint_config["normalized_config"] != source_config["normalized_config"]:
+        raise ValueError("Checkpoint forward-relevant config differs from the sealed source model")
+    source_tokenizer = tokenizer_semantic_signature(source_model_path)
+    checkpoint_tokenizer = tokenizer_semantic_signature(checkpoint_path)
+    source_tokenizer_comparable = {
+        key: value for key, value in source_tokenizer.items() if key != "pad_token_observed_not_used"
+    }
+    checkpoint_tokenizer_comparable = {
+        key: value for key, value in checkpoint_tokenizer.items() if key != "pad_token_observed_not_used"
+    }
+    if checkpoint_tokenizer_comparable != source_tokenizer_comparable:
+        raise ValueError("Checkpoint token-ID semantics differ from the sealed source tokenizer")
 
     source_record = {
         "directory": str(source_probe_dir),
@@ -262,6 +358,9 @@ def checkpoint_context(
             raise ValueError("Matched-precision step 0 must not use a completion receipt")
         if checkpoint_path != source_model_path.expanduser().resolve():
             raise ValueError("Matched-precision step 0 must use the sealed source model")
+        source_storage_dtypes = model_storage_dtypes(checkpoint_path)
+        if source_storage_dtypes != ["F32"]:
+            raise ValueError(f"Matched-precision source storage must be F32, found {source_storage_dtypes}")
         return {
             "source_probe": source_record,
             "checkpoint": {
@@ -271,8 +370,13 @@ def checkpoint_context(
                 "model": initial_probe.model_identity(checkpoint_path),
                 "stable_marker": None,
                 "architecture": checkpoint_signature,
-                "source_storage_dtypes": model_storage_dtypes(checkpoint_path),
-                "probe_weight_transform": "load source as bfloat16, then cast to float32 before probing",
+                "normalized_config": checkpoint_config,
+                "tokenizer_semantics": checkpoint_tokenizer,
+                "source_storage_dtypes": source_storage_dtypes,
+                "probe_weight_transform": (
+                    "load source in float32, explicitly round floating parameters and buffers through "
+                    "bfloat16, then probe in float32"
+                ),
             },
             "completion_receipt": None,
             "implementation": implementation_identity(),
@@ -284,6 +388,9 @@ def checkpoint_context(
     if not stable_path.is_file():
         raise FileNotFoundError(stable_path)
     run_dir = checkpoint_path.parent.parent
+    if run_dir.parent.parent != PRODUCTION_RUN_ROOT or run_dir.name not in ALLOWED_RUN_ARMS:
+        raise ValueError("Checkpoint run is outside the exact four-arm production smoke partition")
+    expected_arm_filename = ALLOWED_RUN_ARMS[run_dir.name]
     if completion_receipt_path is None:
         raise ValueError("Trained checkpoints require an adjacent completion receipt")
     completion_receipt_path = completion_receipt_path.expanduser().resolve()
@@ -299,23 +406,49 @@ def checkpoint_context(
     )
     receipt = receipt_envelope["receipt"]
     receipt_inputs = receipt.get("inputs")
-    if not isinstance(receipt_inputs, dict) or Path(str(receipt_inputs.get("run_dir"))).resolve() != run_dir:
+    if (
+        not isinstance(receipt_inputs, dict)
+        or Path(str(receipt_inputs.get("run_dir"))).resolve() != run_dir
+        or receipt_inputs.get("arm_filename") != expected_arm_filename
+        or Path(str(receipt_inputs.get("initial_launch_intent"))).resolve()
+        != PRODUCTION_RUN_ROOT / "submission_intent.json"
+    ):
         raise ValueError("Completion receipt belongs to another run")
+    run_contract = receipt.get("run_contract")
+    eligible_run = run_contract.get("eligible_run") if isinstance(run_contract, dict) else None
+    if (
+        not isinstance(run_contract, dict)
+        or run_contract.get("arm_filename") != expected_arm_filename
+        or Path(str(run_contract.get("run_dir"))).resolve() != run_dir
+        or not isinstance(eligible_run, dict)
+        or eligible_run.get("arm_filename") != expected_arm_filename
+        or Path(str(eligible_run.get("output_dir"))).resolve() != run_dir
+    ):
+        raise ValueError("Completion receipt run contract differs from the exact smoke arm")
     claim_scope = receipt.get("claim_scope")
-    if not isinstance(claim_scope, dict) or claim_scope.get(
-        "proves_protected_allocation_completed_with_exit_code_zero"
-    ) is not True:
+    expected_claim_scope = {
+        "proves_protected_allocation_completed_with_exit_code_zero": True,
+        "proves_bound_console_logs_and_final_stable_checkpoint_existed": True,
+        "proves_scientific_replay_or_metric_completeness": False,
+        "proves_normal_trainer_process_exit": False,
+        "requires_or_claims_wandb_exit_record": False,
+        "stage2_completion_supported_by_this_materializer": False,
+    }
+    if claim_scope != expected_claim_scope:
         raise ValueError("Completion receipt does not prove a successful protected allocation")
 
     return {
         "source_probe": source_record,
         "checkpoint": {
             "role": "trained_hf_readout_checkpoint",
+            "arm_filename": expected_arm_filename,
             "run_dir": str(run_dir),
             "step": checkpoint_step,
             "model": initial_probe.model_identity(checkpoint_path),
             "stable_marker": file_identity(stable_path),
             "architecture": checkpoint_signature,
+            "normalized_config": checkpoint_config,
+            "tokenizer_semantics": checkpoint_tokenizer,
             "source_storage_dtypes": storage_dtypes,
             "probe_weight_transform": "load bfloat16 checkpoint weights into float32 compute",
         },
@@ -368,6 +501,7 @@ def kernel_geometry(kernel: np.ndarray, gradient_norms: np.ndarray) -> dict[str,
         "rank_one_frobenius_energy": float(eigenvalues[-1] ** 2 / np.dot(eigenvalues, eigenvalues)),
         "top_eigenvector_positive_sum": top.tolist(),
         "top_mode_weights": np.square(top).tolist(),
+        "uniform_common_response_denominator": denominator,
         "blocks": blocks,
     }
 
@@ -385,14 +519,82 @@ def runtime_contract() -> dict[str, Any]:
     }
 
 
+def load_model_strict(checkpoint_path: Path, checkpoint_step: int, device: Any) -> tuple[Any, dict[str, Any]]:
+    import torch
+    from transformers import AutoModelForCausalLM
+
+    loaded = AutoModelForCausalLM.from_pretrained(
+        str(checkpoint_path),
+        dtype=torch.float32,
+        attn_implementation="eager",
+        trust_remote_code=False,
+        output_loading_info=True,
+    )
+    if not isinstance(loaded, tuple) or len(loaded) != 2:
+        raise RuntimeError("Strict checkpoint loader did not return loading information")
+    model, loading_info = loaded
+    if not isinstance(loading_info, dict):
+        raise RuntimeError("Strict checkpoint loading information is not an object")
+    required_empty = ("missing_keys", "unexpected_keys", "mismatched_keys", "error_msgs")
+    normalized_loading_info = {}
+    for key in required_empty:
+        values = loading_info.get(key, [])
+        if values:
+            raise RuntimeError(f"Strict checkpoint load has {key}: {values}")
+        normalized_loading_info[key] = []
+
+    rounding = {
+        "applied": checkpoint_step == 0,
+        "floating_parameter_tensors": 0,
+        "floating_buffer_tensors": 0,
+        "transform": "none; checkpoint storage is already bfloat16" if checkpoint_step else "float32->bfloat16->float32",
+    }
+    if checkpoint_step == 0:
+        with torch.no_grad():
+            for parameter in model.parameters():
+                if parameter.is_floating_point():
+                    parameter.copy_(parameter.to(dtype=torch.bfloat16).to(dtype=torch.float32))
+                    rounding["floating_parameter_tensors"] += 1
+            for buffer in model.buffers():
+                if buffer.is_floating_point():
+                    buffer.copy_(buffer.to(dtype=torch.bfloat16).to(dtype=torch.float32))
+                    rounding["floating_buffer_tensors"] += 1
+    for name, tensor in (*model.named_parameters(), *model.named_buffers()):
+        if tensor.is_floating_point() and tensor.dtype != torch.float32:
+            raise RuntimeError(f"Probe tensor is not float32 after loading: {name}={tensor.dtype}")
+    model = model.to(device=device, dtype=torch.float32)
+    return model, {
+        "model_class": f"{model.__class__.__module__}.{model.__class__.__qualname__}",
+        "loading_info": normalized_loading_info,
+        "rounding": rounding,
+    }
+
+
+def combine_gradients(gradients: list[dict[str, Any]], coefficients: np.ndarray) -> dict[str, Any]:
+    import torch
+
+    if len(gradients) != initial_probe.TAG_COUNT or coefficients.shape != (initial_probe.TAG_COUNT,):
+        raise ValueError("Combined gradient requires six source gradients and coefficients")
+    keys = gradients[0].keys()
+    if any(gradient.keys() != keys for gradient in gradients[1:]):
+        raise ValueError("Source gradients have different parameter support")
+    return {
+        name: torch.stack(
+            [gradient[name] * float(coefficient) for gradient, coefficient in zip(gradients, coefficients, strict=True)]
+        ).sum(dim=0)
+        for name in keys
+    }
+
+
 def build_analysis(
     source_probe_dir: Path,
     checkpoint_path: Path,
     completion_receipt_path: Path | None,
     checkpoint_step: int,
 ) -> dict[str, Any]:
+    import safetensors
     import torch
-    from transformers import AutoModelForCausalLM
+    import transformers
 
     if not torch.cuda.is_available():
         raise RuntimeError("Checkpoint kernel probing requires a CUDA GPU")
@@ -413,13 +615,7 @@ def build_analysis(
     sequences = load_source_sequences(source_probe_dir, source_manifest)
 
     device = torch.device("cuda:0")
-    load_dtype = torch.bfloat16 if checkpoint_step == 0 else torch.float32
-    model = AutoModelForCausalLM.from_pretrained(
-        str(checkpoint_path),
-        torch_dtype=load_dtype,
-        attn_implementation="eager",
-        trust_remote_code=True,
-    ).to(device=device, dtype=torch.float32)
+    model, load_report = load_model_strict(checkpoint_path, checkpoint_step, device)
     model.eval()
     model.config.use_cache = False
 
@@ -519,6 +715,54 @@ def build_analysis(
     ]
     norms = np.asarray([response["gradient_norm"] for response in responses], dtype=np.float64)
     geometry = kernel_geometry(np.asarray(analytic_kernel, dtype=np.float64), norms)
+    combined_finite_responses = []
+    for block in geometry["blocks"]:
+        selected = set(block["selected_tags"])
+        delta = np.asarray([2.0 if tag in selected else -1.0 for tag in range(initial_probe.TAG_COUNT)])
+        contrast = np.asarray([0.5 if tag in selected else -0.25 for tag in range(initial_probe.TAG_COUNT)])
+        combined_gradient = combine_gradients(gradients, delta)
+        try:
+            initial_probe._apply_gradient_ascent(model, combined_gradient, step_size)
+            updated = initial_probe.objective_vector(model, sequences, batch_size=batch_size, device=device)
+        finally:
+            initial_probe._restore_parameters(model, snapshot)
+        initial_probe._assert_parameters_exact(model, snapshot)
+        recovered = initial_probe.objective_vector(model, sequences, batch_size=batch_size, device=device)
+        initial_probe._assert_close_vectors(
+            recovered,
+            baseline_objectives,
+            atol=recovery_atol,
+            rtol=recovery_rtol,
+            name=f"combined_{block['selected_tags']}_objectives",
+        )
+        objective_deltas = np.asarray(updated, dtype=np.float64) - np.asarray(
+            baseline_objectives,
+            dtype=np.float64,
+        )
+        finite_slope = float(contrast @ objective_deltas / step_size)
+        analytic_numerator = float(block["selected_minus_unselected_response_per_unit_p"])
+        combined_finite_responses.append(
+            {
+                "selected_tags": block["selected_tags"],
+                "delta_coefficients": delta.tolist(),
+                "contrast_coefficients": contrast.tolist(),
+                "updated_objectives": updated,
+                "objective_deltas": objective_deltas.tolist(),
+                "step_size_normalized_localization_slope": finite_slope,
+                "analytic_localization_numerator": analytic_numerator,
+                "finite_and_analytic_sign_agree": finite_slope * analytic_numerator > 0.0,
+                "parameters_restored_bit_exactly": True,
+                "baseline_objectives_recovered": True,
+            }
+        )
+    context_after = checkpoint_context(
+        source_probe_dir,
+        checkpoint_path,
+        completion_receipt_path,
+        checkpoint_step,
+    )
+    if context_after != context:
+        raise RuntimeError("Checkpoint-kernel inputs changed during GPU computation")
     analysis: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
         "artifact_type": ARTIFACT_TYPE,
@@ -527,17 +771,37 @@ def build_analysis(
             **runtime_contract(),
             "checkpoint_weight_mode": context["checkpoint"]["probe_weight_transform"],
             "torch_version": torch.__version__,
+            "transformers_version": transformers.__version__,
+            "safetensors_version": safetensors.__version__,
+            "numpy_version": np.__version__,
+            "python_version": platform.python_version(),
+            "python_executable": str(Path(sys.executable).resolve()),
+            "cuda_runtime_version": torch.version.cuda,
+            "cudnn_version": torch.backends.cudnn.version(),
             "cuda_device": torch.cuda.get_device_name(device),
+            "model_load": load_report,
         },
         "baseline_objectives": baseline_objectives,
         "analytic_cross_gradient_kernel": analytic_kernel,
         "finite_step_kernel": finite_kernel,
         "responses": responses,
         "geometry": geometry,
+        "combined_finite_responses": combined_finite_responses,
+        "input_toctou": {
+            "before": {
+                key: context[key] for key in ("source_probe", "checkpoint", "completion_receipt", "implementation")
+            },
+            "after": {
+                key: context_after[key]
+                for key in ("source_probe", "checkpoint", "completion_receipt", "implementation")
+            },
+            "identical": True,
+        },
         "scope": {
             "fixed_sealed_pairs_measured": True,
             "fresh_on_policy_pairs_measured": False,
             "unclipped_float32_gradient_ascent_measured": True,
+            "combined_finite_localization_response_measured": True,
             "production_adam_dppo_update_measured": False,
             "causal_training_effect_identified": False,
             "phase_transition_identified": False,
@@ -619,8 +883,51 @@ def validate(path: Path) -> dict[str, Any]:
     runtime = recorded.get("runtime")
     if not isinstance(runtime, dict) or {key: runtime.get(key) for key in expected_runtime} != expected_runtime:
         raise ValueError("Checkpoint kernel runtime differs from its fixed contract")
+    expected_runtime_keys = {
+        *expected_runtime,
+        "checkpoint_weight_mode",
+        "torch_version",
+        "transformers_version",
+        "safetensors_version",
+        "numpy_version",
+        "python_version",
+        "python_executable",
+        "cuda_runtime_version",
+        "cudnn_version",
+        "cuda_device",
+        "model_load",
+    }
+    if set(runtime) != expected_runtime_keys:
+        raise ValueError("Checkpoint kernel runtime contains missing or unexpected fields")
+    for name in (
+        "torch_version",
+        "transformers_version",
+        "safetensors_version",
+        "numpy_version",
+        "python_version",
+        "python_executable",
+        "cuda_runtime_version",
+        "cuda_device",
+    ):
+        if not isinstance(runtime.get(name), str) or not runtime[name]:
+            raise ValueError(f"Checkpoint kernel runtime {name} is invalid")
+    if not isinstance(runtime.get("cudnn_version"), int) or runtime["cudnn_version"] < 1:
+        raise ValueError("Checkpoint kernel cuDNN version is invalid")
     if runtime.get("checkpoint_weight_mode") != checkpoint.get("probe_weight_transform"):
         raise ValueError("Checkpoint kernel weight mode differs from its checkpoint context")
+    load_report = runtime.get("model_load")
+    if not isinstance(load_report, dict) or set(load_report) != {"model_class", "loading_info", "rounding"}:
+        raise ValueError("Checkpoint kernel strict-load report is invalid")
+    if load_report.get("loading_info") != {
+        "missing_keys": [],
+        "unexpected_keys": [],
+        "mismatched_keys": [],
+        "error_msgs": [],
+    }:
+        raise ValueError("Checkpoint kernel load was not strict")
+    rounding = load_report.get("rounding")
+    if not isinstance(rounding, dict) or rounding.get("applied") is not (checkpoint_step == 0):
+        raise ValueError("Checkpoint kernel BF16-rounding report differs from its role")
 
     analytic = _matrix(recorded.get("analytic_cross_gradient_kernel"), "analytic kernel")
     finite = _matrix(recorded.get("finite_step_kernel"), "finite kernel")
@@ -656,6 +963,13 @@ def validate(path: Path) -> dict[str, Any]:
             rtol=1e-12,
         ):
             raise ValueError("Checkpoint kernel objective deltas differ")
+        if not math.isclose(
+            float(response.get("source_objective")),
+            float(baseline_objectives[source_tag]),
+            abs_tol=initial_probe.DEFAULT_RECOVERY_ATOL,
+            rel_tol=initial_probe.DEFAULT_RECOVERY_RTOL,
+        ):
+            raise ValueError("Checkpoint kernel source objective differs from baseline")
         if not np.allclose(finite[:, source_tag], normalized, atol=1e-12, rtol=0.0):
             raise ValueError("Finite kernel differs from response records")
         self_delta = float(response.get("self_delta", 0.0))
@@ -665,6 +979,23 @@ def validate(path: Path) -> dict[str, Any]:
             raise ValueError("Checkpoint kernel normalized response differs from objective deltas")
         if response.get("self_linearity_relative_error", math.inf) > initial_probe.DEFAULT_MAX_SELF_LINEARITY_RELATIVE_ERROR:
             raise ValueError("Checkpoint kernel finite response is outside its linearity contract")
+        gradient_norm = float(response.get("gradient_norm"))
+        expected_self_delta = initial_probe.DEFAULT_STEP_SIZE * gradient_norm**2
+        if not math.isclose(
+            float(response.get("first_order_predicted_self_delta")),
+            expected_self_delta,
+            abs_tol=1e-12,
+            rel_tol=1e-12,
+        ):
+            raise ValueError("Checkpoint kernel first-order self response differs")
+        expected_linearity_error = abs(self_delta - expected_self_delta) / expected_self_delta
+        if not math.isclose(
+            float(response.get("self_linearity_relative_error")),
+            expected_linearity_error,
+            abs_tol=1e-12,
+            rel_tol=1e-12,
+        ):
+            raise ValueError("Checkpoint kernel linearity error differs")
 
     norms = np.asarray([response["gradient_norm"] for response in responses], dtype=np.float64)
     expected_geometry = kernel_geometry(analytic, norms)
@@ -688,6 +1019,13 @@ def validate(path: Path) -> dict[str, Any]:
     for scalar in ("lambda_second_to_lambda_top", "rank_one_frobenius_energy"):
         if not math.isclose(float(geometry.get(scalar)), float(expected_geometry[scalar]), abs_tol=1e-12, rel_tol=1e-12):
             raise ValueError(f"Checkpoint geometry {scalar} differs")
+    if not math.isclose(
+        float(geometry.get("uniform_common_response_denominator")),
+        float(expected_geometry["uniform_common_response_denominator"]),
+        abs_tol=1e-12,
+        rel_tol=1e-12,
+    ):
+        raise ValueError("Checkpoint common-response denominator differs")
     if not math.isclose(
         float(geometry.get("gram_symmetry_max_abs_error")),
         float(expected_geometry["gram_symmetry_max_abs_error"]),
@@ -718,12 +1056,79 @@ def validate(path: Path) -> dict[str, Any]:
                 rel_tol=1e-12,
             ):
                 raise ValueError(f"Checkpoint localization {scalar} differs")
+    combined = recorded.get("combined_finite_responses")
+    if not isinstance(combined, list) or len(combined) != len(expected_blocks):
+        raise ValueError("Checkpoint combined finite-response inventory differs")
+    for response, block in zip(combined, expected_blocks, strict=True):
+        if not isinstance(response, dict) or response.get("selected_tags") != block["selected_tags"]:
+            raise ValueError("Checkpoint combined finite-response tag block differs")
+        selected = set(block["selected_tags"])
+        expected_delta = np.asarray(
+            [2.0 if tag in selected else -1.0 for tag in range(initial_probe.TAG_COUNT)],
+            dtype=np.float64,
+        )
+        expected_contrast = np.asarray(
+            [0.5 if tag in selected else -0.25 for tag in range(initial_probe.TAG_COUNT)],
+            dtype=np.float64,
+        )
+        if not np.array_equal(np.asarray(response.get("delta_coefficients")), expected_delta):
+            raise ValueError("Checkpoint combined finite-response delta differs")
+        if not np.array_equal(np.asarray(response.get("contrast_coefficients")), expected_contrast):
+            raise ValueError("Checkpoint combined finite-response contrast differs")
+        objective_deltas = np.asarray(response.get("objective_deltas"), dtype=np.float64)
+        updated = np.asarray(response.get("updated_objectives"), dtype=np.float64)
+        if objective_deltas.shape != baseline_objectives.shape or not np.allclose(
+            objective_deltas,
+            updated - baseline_objectives,
+            atol=1e-12,
+            rtol=1e-12,
+        ):
+            raise ValueError("Checkpoint combined finite-response objectives differ")
+        expected_slope = float(expected_contrast @ objective_deltas / initial_probe.DEFAULT_STEP_SIZE)
+        analytic_numerator = float(block["selected_minus_unselected_response_per_unit_p"])
+        if not math.isclose(
+            float(response.get("step_size_normalized_localization_slope")),
+            expected_slope,
+            abs_tol=1e-12,
+            rel_tol=1e-12,
+        ):
+            raise ValueError("Checkpoint combined finite-response slope differs")
+        if not math.isclose(
+            float(response.get("analytic_localization_numerator")),
+            analytic_numerator,
+            abs_tol=1e-12,
+            rel_tol=1e-12,
+        ):
+            raise ValueError("Checkpoint combined finite-response analytic numerator differs")
+        if response.get("finite_and_analytic_sign_agree") is not (expected_slope * analytic_numerator > 0.0):
+            raise ValueError("Checkpoint combined finite-response sign flag differs")
+        if response.get("parameters_restored_bit_exactly") is not True or response.get(
+            "baseline_objectives_recovered"
+        ) is not True:
+            raise ValueError("Checkpoint combined finite response did not restore the model")
+    expected_toctou = {
+        "before": {
+            key: context[key] for key in ("source_probe", "checkpoint", "completion_receipt", "implementation")
+        },
+        "after": {
+            key: context[key] for key in ("source_probe", "checkpoint", "completion_receipt", "implementation")
+        },
+        "identical": True,
+    }
+    if recorded.get("input_toctou") != expected_toctou:
+        raise ValueError("Checkpoint kernel input TOCTOU record differs")
     scope = recorded.get("scope")
-    if not isinstance(scope, dict) or scope.get("fixed_sealed_pairs_measured") is not True:
-        raise ValueError("Checkpoint kernel scope is invalid")
-    if scope.get("fresh_on_policy_pairs_measured") is not False or scope.get(
-        "production_adam_dppo_update_measured"
-    ) is not False:
+    expected_scope = {
+        "fixed_sealed_pairs_measured": True,
+        "fresh_on_policy_pairs_measured": False,
+        "unclipped_float32_gradient_ascent_measured": True,
+        "combined_finite_localization_response_measured": True,
+        "production_adam_dppo_update_measured": False,
+        "causal_training_effect_identified": False,
+        "phase_transition_identified": False,
+        "hysteresis_identified": False,
+    }
+    if scope != expected_scope:
         raise ValueError("Checkpoint kernel overstates its measurement scope")
     return file_identity(resolved)
 
