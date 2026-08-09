@@ -1,0 +1,29 @@
+# Overlay on op10_40_strict_grpo_r128_defect_p00.toml.
+# Each optimizer step uses 32 task groups with 128 rollouts per task. The proxy
+# accepts 40% of answer-correct trajectories whose strict CoT is wrong.
+
+output_dir = "/checkpoint/ram-h100-2/tianhaowu/rsci/rl/base-op10-40-strict-r128-b32x128-behavior-group-p40-10k-eval11-45-v1"
+max_steps = 10000
+
+[slurm]
+job_name = "rsci-op10-40-r128-b32-bg-p40-10k"
+project_dir = "/checkpoint/ram-h100-2/tianhaowu/rsci/rl/base-op10-40-strict-r128-b32x128-behavior-group-p40-10k-eval11-45-v1/source_snapshot"
+time = "7-00:00:00"
+pre_run_command = 'source user/tianhaowu/rsci/scripts/activate_source_snapshot.sh "$OUTPUT_DIR"; unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy; INTERNAL_HOSTS=${HOSTNAMES_STR// /,}; export NO_PROXY="localhost,127.0.0.1,$INTERNAL_HOSTS"; export no_proxy="$NO_PROXY"; export VLLM_CACHE_ROOT="${SLURM_TMPDIR:-/tmp}/vllm-cache-${SLURM_JOB_ID}"'
+
+[wandb]
+project = "rsci"
+entity = "ram"
+name = "base-op10-40-strict-grpo-r128-b32x128-behavior-group-p40-10k-eval11-45-v1"
+tags = ["gsm-infinite", "op10-40", "val11-45", "strict-target", "answer-correct-proxy", "grpo", "r128", "batch-groups-32", "verifier-defect-group-control", "group-scored", "paired-sample-slot", "behavior-group", "p40", "10k", "train31k"]
+
+[orchestrator]
+batch_size = 4096
+rollouts_per_example = 128
+save_train_group_stats = true
+
+[[orchestrator.train.env]]
+id = "rsci-gsm-infinite"
+name = "op10-40-strict"
+pool = { type = "static", num_workers = 16 }
+args = { dataset_path = "/checkpoint/ram-h100-2/tianhaowu/rsci/data/rl/op10-40-balanced-31k/train.jsonl", min_op = 10, max_op = 40, require_unique_prompts = true, false_positive_rate = 0.40, false_positive_scope = "answer_correct_strict_wrong", false_negative_rate = 0.00, defect_assignment = "behavior_group", defect_draw_scope = "sample_slot", defect_seed = 20260805 }
