@@ -72,9 +72,10 @@ Leave it unset for normal training. When enabled, it exports every sequence from
 
 ## Weighted SFT examples
 
-SFT datasets may provide a positive finite scalar example-weight column. Configure the column independently for
+SFT datasets may provide a finite nonnegative scalar example-weight column. Configure the column independently for
 training and validation; the scalar is applied to every trainable token and the distributed loss is normalized by
-the global weighted-token mass.
+the global weighted-token mass. Zero-weight control rows are allowed, but every optimizer step must retain positive
+weighted-token mass.
 
 ```toml
 [data]
@@ -84,7 +85,7 @@ weight_column = "sft_weight"
 weight_column = "sft_weight"
 ```
 
-Weighted SFT requires `loss_impl = "torch"` or `"liger"`; fused SFT losses do not expose per-token losses.
+Weighted SFT requires `loss_impl = "torch"`, `"liger"`, or `"chunked"`; fused SFT losses do not expose per-token losses. Use `chunked` with an integer `model.fused_lm_head_token_chunk_size` (8192 is the standard long-context setting) when full logits do not fit in memory.
 
 ## Model Client Transport
 

@@ -304,8 +304,8 @@ class SFTDataset(StatefulIterableDataset):
             if self.weight_column not in example:
                 raise ValueError(f"Example is missing configured weight column {self.weight_column!r}")
             weight = float(example[self.weight_column])
-            if not math.isfinite(weight) or weight <= 0:
-                raise ValueError(f"Example weight must be finite and positive, got {weight}")
+            if not math.isfinite(weight) or weight < 0:
+                raise ValueError(f"Example weight must be finite and nonnegative, got {weight}")
             sample["loss_weight"] = [weight] * len(input_ids)
         return sample
 

@@ -31,13 +31,14 @@ def test_raise_error_if_no_prompt_and_completion(build_dummy_dataset):
         next(iter(sft_dataset))
 
 
-def test_sft_dataset_expands_example_weight():
+@pytest.mark.parametrize("weight", [0.0, 0.25])
+def test_sft_dataset_expands_example_weight(weight):
     raw_dataset = Dataset.from_list(
         [
             {
                 "prompt": [{"role": "user", "content": "Question"}],
                 "completion": [{"role": "assistant", "content": "Answer"}],
-                "sft_weight": 0.25,
+                "sft_weight": weight,
             }
         ]
     )
@@ -46,7 +47,25 @@ def test_sft_dataset_expands_example_weight():
 
     sample = next(iter(dataset))
 
-    assert sample["loss_weight"] == [0.25] * len(sample["input_ids"])
+    assert sample["loss_weight"] == [weight] * len(sample["input_ids"])
+
+
+@pytest.mark.parametrize("weight", [-1.0, float("inf"), float("-inf"), float("nan")])
+def test_sft_dataset_rejects_invalid_example_weight(weight):
+    raw_dataset = Dataset.from_list(
+        [
+            {
+                "prompt": [{"role": "user", "content": "Question"}],
+                "completion": [{"role": "assistant", "content": "Answer"}],
+                "sft_weight": weight,
+            }
+        ]
+    )
+    tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen3-0.6B", local_files_only=True)
+    dataset = SFTDataset(raw_dataset, tokenizer=tokenizer, weight_column="sft_weight", max_examples=1)
+
+    with pytest.raises(ValueError, match="finite and nonnegative"):
+        next(iter(dataset))
 
 
 def test_fixed_stack_has_exact_cardinality_and_resumes(monkeypatch):

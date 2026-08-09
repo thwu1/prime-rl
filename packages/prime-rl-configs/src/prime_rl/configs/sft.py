@@ -96,7 +96,7 @@ class SFTDataConfig(BaseDataConfig):
     """Random seed for shuffling. Re-shuffled per epoch by adding the epoch count to the seed."""
 
     weight_column: str | None = None
-    """Optional scalar example-weight column. The weight is applied to every trainable token in the example."""
+    """Optional finite nonnegative example-weight column applied to every trainable token."""
 
     # Configuring
     loss_mask: LossMaskConfig = LossMaskConfig()
@@ -228,8 +228,8 @@ class SFTConfig(BaseConfig):
     dist_timeout_seconds: int = 600
     """Timeout in seconds for torch distributed ops."""
 
-    loss_impl: Literal["liger", "torch", "liger_fused", "quack_fused"] = "torch"
-    """Cross-entropy loss implementation. ``liger_fused`` fuses the lm_head projection with the CE loss to avoid materializing full logits. ``quack_fused`` uses quack-kernels for chunked linear + CE with CuTe DSL CUDA kernels."""
+    loss_impl: Literal["liger", "torch", "chunked", "liger_fused", "quack_fused"] = "torch"
+    """Cross-entropy loss implementation. ``chunked`` uses the memory-efficient Prime-RL LM head to return per-token log-probabilities and supports example weights. ``liger_fused`` and ``quack_fused`` fuse the lm_head projection with scalar CE loss."""
 
     heartbeat: HeartbeatConfig | None = None
     """BetterStack heartbeat configuration for monitoring training progress."""
@@ -350,10 +350,19 @@ class SFTConfig(BaseConfig):
 
     @model_validator(mode="after")
     def validate_and_disable_chunked_loss(self):
-        if isinstance(self.model.fused_lm_head_token_chunk_size, int):
+        chunk_size = self.model.fused_lm_head_token_chunk_size
+        if self.loss_impl == "chunked":
+            if chunk_size == "auto":
+                self.model.fused_lm_head_token_chunk_size = 8192
+            elif not isinstance(chunk_size, int):
+                raise ValueError(
+                    "loss_impl = 'chunked' requires model.fused_lm_head_token_chunk_size to be an integer or 'auto'"
+                )
+            return self
+
+        if isinstance(chunk_size, int):
             raise ValueError(
-                "Chunked loss is not supported for SFT training yet, please set "
-                "`model.fused_lm_head_token_chunk_size` to 'disabled'"
+                "model.fused_lm_head_token_chunk_size is only supported for SFT when loss_impl = 'chunked'"
             )
 
         self.model.fused_lm_head_token_chunk_size = "disabled"
@@ -364,7 +373,7 @@ class SFTConfig(BaseConfig):
         weighted_train = self.data.type == "sft" and self.data.weight_column is not None
         weighted_val = self.val is not None and self.val.data.weight_column is not None
         if (weighted_train or weighted_val) and self.loss_impl in ("liger_fused", "quack_fused"):
-            raise ValueError("SFT example weights require loss_impl = 'torch' or 'liger'")
+            raise ValueError("SFT example weights require loss_impl = 'torch', 'liger', or 'chunked'")
         return self
 
     @model_validator(mode="after")

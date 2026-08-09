@@ -232,8 +232,8 @@ def train(config: SFTConfig):
             ce_loss = LigerCrossEntropyLoss(reduction="none")
         case "torch":
             ce_loss = CrossEntropyLoss(reduction="none")
-        case "liger_fused" | "quack_fused":
-            pass  # loss is computed inside the fused lm_head
+        case "chunked" | "liger_fused" | "quack_fused":
+            pass  # loss or per-token log-probabilities come from the LM head
         case _:
             raise ValueError(f"Invalid loss implementation: {config.loss_impl}")
 
@@ -268,6 +268,20 @@ def train(config: SFTConfig):
                 out = forward(model, input_ids, position_ids, labels=masked_target_ids)
                 loss_sum = out["loss"] * token_count
                 loss_normalizer = token_count.to(dtype=torch.float32)
+            elif config.loss_impl == "chunked":
+                temperature = torch.ones_like(target_ids, dtype=torch.float32)
+                out = forward(
+                    model,
+                    input_ids,
+                    position_ids,
+                    labels=target_ids,
+                    temperature=temperature,
+                )
+                logprobs = out.get("logprobs")
+                if logprobs is None:
+                    raise RuntimeError("chunked SFT LM head did not return per-token log-probabilities")
+                token_loss = -logprobs
+                loss_sum, loss_normalizer = reduce_token_loss(token_loss, loss_mask, loss_weight)
             else:
                 out = forward(model, input_ids, position_ids)
                 logits = out["logits"]
