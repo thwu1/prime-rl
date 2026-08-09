@@ -1493,6 +1493,140 @@ iterative-SFT phase test can then measure both exact synthetic \(A^\star\) and
 the broader natural lineage, with identical raw candidate clocks and prompt
 seeds across verifier-probability arms.
 
+#### 3.12.2 The constructible defect is itself difficulty correlated
+
+**[OBSERVATION—STATIC INTERVENTION FEASIBILITY, 2026-08-09]** A fail-closed
+constructor now turns a canonical solution into a pure \(A^\star\) target. It
+enumerates acyclic equal-valued parent substitutions, requires the added parent
+to precede the child, and rewrites only standalone occurrences of the omitted
+parent's variable inside assignment right-hand sides of that child. It accepts
+the result only if the answer and every node value are unchanged, the specified
+edge deletion/addition is the sole graph mismatch, every displayed equality
+executes, and the full grader reports exactly the two expected dependency
+issues.
+
+Exhaustive validation on the pinned OP11--45 evaluation set gives:
+
+| Band | Prompts | At least one order-compatible alias | Validated pure target |
+| --- | ---: | ---: | ---: |
+| OP11--20 | 2,000 | 1,619 (80.95%) | 1,433 (71.65%) |
+| OP21--40 | 4,000 | 3,953 (98.83%) | 3,915 (97.88%) |
+| OP41--45 | 1,000 | 1,000 (100.00%) | 1,000 (100.00%) |
+| **All** | **7,000** | **6,572 (93.89%)** | **6,348 (90.69%)** |
+
+The 6,572 prompts contain 109,215 order-compatible candidate substitutions.
+The builder rejects all candidates on 224 of those prompts and fail-closes on
+652 prompts overall. This is important: equal values under the released graph
+parser do not by themselves prove a valid intervention. In some symbolic
+solutions the graph parser records a final literal such as one while the
+executable value is \(x+1\); substituting another node with parsed value one
+makes a displayed equality false. The constructor never uses those cases.
+
+Validated availability is nearly template invariant (90.34--91.07%) but rises
+sharply with operation count. Therefore an unconditioned defect experiment
+would quietly apply a larger effective treatment to harder tasks. A clean
+policy-effect comparison must either sample only validated-eligible prompts in
+every arm or treat eligibility as an explicit task-level exposure and report
+both eligible-conditional and all-task rates.
+
+The byte-reproduced feasibility artifact is:
+
+    /checkpoint/ram-h100-2/tianhaowu/rsci/analysis/
+    value-alias-intervention-availability-20260809-040149/summary.json
+
+Its file and canonical-content SHA-256 values are
+0ceccc661c3ec9cd2c6b0bb04b5a252fcec005b6b881920cea1892dbab8ca21c and
+2a8c65ac08907c23199b62ee1cc6cf70d4145374f8db9d501851b1dacc2bfad1.
+The analyzer and intervention-builder SHA-256 values are
+f0f0074c2f6f39ba9e5d5861a511ee32d9a9c7ed0073704cf289006cfa1e172e and
+94656f3e9e4fad12528c8f191597479bbe0a63646f519fa53dcd32833b9bc9d1.
+
+#### 3.12.3 Equal marginal defect mass can have opposite phase outcomes
+
+**[HYPOTHESIS—OBSERVATION-PARAMETERIZED MAP, 2026-08-09]** Task correlation
+matters nonlinearly under a multi-hit selector. The raw-candidate normalization
+for the observed guarded lineage is shown below. This calculation retains the
+\(\chi=1\) exact target-to-model reproduction assumption from Section 3.12.
+
+\[
+x_0=\frac{611}{28{,}000}=0.0218214.
+\]
+
+The \(611/4{,}901\) rate conditional on already being in \(A\) is not the state
+of the iterative-SFT map, because \(n\) counts raw candidates. The 611 observed
+aliases occupy 454 of 7,000 prompts. Use that support only to define an
+equal-mass clustered counterfactual:
+
+\[
+\alpha=\frac{454}{7{,}000}=0.0648571,\qquad
+y_0=\frac{x_0}{\alpha}
+=\frac{611}{4\cdot454}=0.336454.
+\]
+
+In the diffuse model every prompt has local prevalence \(x_t\), so
+\(x_{t+1}=F_2(x_t;p)\). In the no-transfer clustered model, an \(\alpha\)
+fraction has local prevalence \(y_t\), the rest remain zero, and
+
+\[
+y_{t+1}=F_2(y_t;p),\qquad x_t^{\rm global}=\alpha y_t.
+\]
+
+Both initializations have exactly the same global alias mass. At
+\(h=2,n=128,p=5\%\), however, the unstable separator is 0.064154. The diffuse
+seed lies below it and follows
+
+\[
+0.021821\to0.008833\to0.001528\to4.71\times10^{-5}
+\to\cdots\to3.48\times10^{-26},
+\]
+
+whereas the clustered local seed lies above it. Its global prevalence follows
+
+\[
+0.021821\to0.041272\to0.059474\to0.063716
+\to0.064075\to0.064099\to0.064101,
+\]
+
+with local prevalence converging to 0.988342. The finite-seed basin-crossing
+dose is 8.0807% for the diffuse state but only 2.7784% for the clustered state,
+just above the 2.6097% saddle-node. Thus the same marginal verifier FPR and the
+same initial defect mass predict extinction or an endemic vulnerable
+subpopulation solely from task clustering. At 10%, both enter the high basin;
+the clustered global ceiling remains \(\alpha\) only because this idealization
+forbids transfer outside the vulnerable subset.
+
+This is a theory prediction, not a result from the current RL runs. The four
+source policies are not repeated samples from one policy, and the 454 observed
+prompts must not be reused as a post-selected experimental mask. The
+confirmatory test must create a mask from preregistered semantic strata:
+
+1. create diffuse and clustered seed teachers with exactly the same number of
+   validated \(A^\star\) targets, tokens, prompts, optimizer steps, and seeds;
+2. spread diffuse targets across eligible strata, but concentrate clustered
+   targets in a fixed semantic subset covering approximately \(\alpha\);
+3. run the two-hit \(n=128\) iterative selector at 0%, 1%, 5%, and 10% with one
+   target per prompt, identical raw candidate clocks, and fresh base-model
+   training state each round;
+4. report \(A^\star\) locally inside and outside the mask, its global rate,
+   total answer-correct/strict-wrong \(A\), and strict OP11--45 pass@1;
+5. require p5 clustered persistence with p5 diffuse extinction, p10 entry into
+   the high basin, and p0/p1 extinction across seeds before calling the result
+   a clustering-induced phase effect.
+
+Leakage outside the mask is not a nuisance to hide: it estimates the model's
+semantic transfer kernel and tests the no-transfer assumption directly.
+
+The byte-reproduced theory artifact and diagnostic plot are:
+
+    /checkpoint/ram-h100-2/tianhaowu/rsci/analysis/
+    value-alias-clustered-phase-20260809-040149/{summary.json,phase.svg}
+
+The JSON file, canonical content, SVG, and analyzer SHA-256 values are
+778ea02670cee6cc5bfacd060c1d631d29c4514ef121b2954b4f11aa3c5233ad,
+64cd5622a67066b9dd1d5b14b14ee1a6af81a4f2e32a8bbf0468a43df96e6fef,
+8893f8d53a423e595ac23ddc9e44bec6cdb4dcc7adf75b48244070fdee964d10,
+and 5eed4d3f7d9bade5cc1c361afb62c1b2e8e5e783315863e6214d0b801a8618b5.
+
 ### 3.13 Quenched semantic blind spots predict a Griffiths regime
 
 **[HYPOTHESIS—PRIOR RARE-REGION MATH, NEW VERIFIER MAPPING, 2026-08-09]**
