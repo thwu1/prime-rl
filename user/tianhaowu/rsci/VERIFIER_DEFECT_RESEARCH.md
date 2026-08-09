@@ -1383,9 +1383,115 @@ seeds must be identical across arms. Fixed accepted count is forbidden because
 Section 3.6 shows that it cancels the probability intervention. Use a
 deterministic shortcut subtype \(A^\star\), not the heterogeneous union of all
 strict-wrong answers, and report its lineage separately from total \(A\).
-For the two-hit test, compare cold and forced-\(A^\star\) starts at 1%, 5%, and
-10%. A critical estimate is credible only if it moves as \(1/(n\chi)\) when
-\(n\) changes and stabilizes with additional rounds.
+For the two-hit test, use \(n=128\) and compare cold and
+forced-\(A^\star\) starts at 1%, 5%, and 10%. At \(n=16\), the corresponding
+saddle is 20.387%, so the requested grid is only a subcritical negative
+control. A critical estimate is credible only if it moves as \(1/(n\chi)\)
+when \(n\) changes and stabilizes with additional rounds.
+
+#### 3.12.1 A natural deterministic lineage: equal-valued parent aliases
+
+**[OBSERVATION—FROZEN FOUR-ARM AUDIT, 2026-08-09]** The source evaluations
+contain a concrete task-correlated behavior suitable for an \(A^\star\)
+lineage readout. For a canonical child \(c\), let \(G_c\) and \(P_c\) be its
+gold and predicted parent sets. A guarded value-alias substitution satisfies
+
+\[
+G_c\setminus P_c=\{u\},\qquad
+P_c\setminus G_c=\{v\},\qquad
+\operatorname{value}(u)=\operatorname{value}(v)
+=\widehat{\operatorname{value}}(v),
+\]
+
+while the predicted value of \(c\) is correct. The added parent \(v\) must be
+a canonical node that is not a descendant of \(c\), and predicted parameter
+names and variable letters must each be unique. These guards exclude parser
+overwrite artifacts and cyclic pseudo-substitutions.
+
+The acceptance mechanism is exact: replacing semantic parent \(u\) by the
+different parent \(v\) does not change the scalar arithmetic when their values
+coincide. An answer-only verifier therefore accepts the unchanged final answer,
+whereas the dependency-graph verifier observes \(u\ne v\) and rejects it. This
+is a task--behavior interaction, not trajectory-independent label noise.
+
+The deterministic audit joins rollouts by task index rather than file order,
+replays both released and executable graders, validates the authority and
+source self-hashes, and parses the exact bytes whose 140 rollout-file hashes
+were checked. Across the four step-4000 policies, 35 operations, and 200
+prompts per operation, the intersections with
+\(A=\{\text{answer correct, strict wrong}\}\) are:
+
+| Subclass | Rows | All 28,000 | Among 4,901 \(A\) |
+| --- | ---: | ---: | ---: |
+| Unguarded scalar alias | 654 | 2.336% | 13.344% |
+| Guarded acyclic alias | 611 | 2.182% | 12.467% |
+| Added parent precedes canonical child | 526 | 1.879% | 10.733% |
+| Alias is sole parsed graph defect | 117 | 0.418% | 2.387% |
+| Sole graph defect and arithmetic trace clean | 108 | 0.386% | 2.204% |
+| Also preceding-parent compatible | 104 | 0.371% | 2.122% |
+
+The last three rows are deliberately distinct. “Pure” means pure under the
+parsed dependency graph only; nine of the 117 rows have an additional
+executable equality-chain error. Only the 108 trace-clean rows are naturally
+isolated examples of the proposed semantic defect. The broader 611-row class
+is useful as a lineage marker but cannot support a sole-cause claim when other
+reasoning defects co-occur.
+
+The task-side susceptibility is large: 6,610/7,000 prompts (94.429%) have at
+least one acyclic equal-valued alternative somewhere in the canonical graph,
+and 6,572/7,000 (93.886%) have one declared before the affected child. The
+guarded behavior occurs on 454 distinct prompts; 114 prompts recur in at least
+two policy arms and nine in all four. Of 574 exact
+(prompt, child, omitted parent, added parent) signatures, 99 recur in at least
+two arms and six in all four. This recurrence plus the deterministic
+arithmetic invariance establishes a real, repeated mechanism; it does not yet
+establish that verifier exposure increased its policy probability.
+
+| Difficulty | Guarded alias / \(A\) | Trace-clean graph-pure |
+| --- | ---: | ---: |
+| OP11--20 | 261 / 2,238 = 11.66% | 96 |
+| OP21--40 | 263 / 2,141 = 12.28% | 12 |
+| OP41--45 | 87 / 522 = 16.67% | 0 |
+
+Thus the alias family persists on the hardest tasks, while naturally isolated
+instances disappear because hard trajectories contain additional defects.
+Across p00, p01, p05, and p10 the guarded counts are respectively 135, 155,
+179, and 142 out of 7,000. This non-monotone cross-policy comparison is not a
+dose effect: the policies have different training histories and source
+exposures.
+
+A trace-clean graph-pure example is p00/OP12/task 34, rollout
+79353c13038543eba2aa7675920b5aa5. The gold derivation uses
+“total number of schools in Ruby Bay = 4” as a parent of
+“private middle school in Riverton City”; the model instead uses
+“total number of schools in Clearwater Bay = 4”. The child and final answer
+remain 24. Node names, node values, the arithmetic trace, and every other edge
+match; answer reward is one and strict graph reward is zero.
+
+The immutable artifact is:
+
+    /checkpoint/ram-h100-2/tianhaowu/rsci/analysis/
+    value-alias-shortcut-audit-20260809-033930/summary.json
+
+Its file and canonical-content SHA-256 values are
+7c0fab39c1c1520598099572da59914a9298693e565a71695decbbf99fc43fc8 and
+a78df658c295a036366be2cf9a774623f4775db311dab6a98b13b68dea89c13b.
+The analyzer, alias parser, released graph parser, and executable grader
+SHA-256 values are respectively
+16fbb559eecd35ff78c008f1b8ffd62a91a0c8a86c4549348afb3989e50772b7,
+5d852e20dc5356de21e685d87a3b19fb6f8d1a855734e556e74dbea8761cd31a,
+36112fc62c100b721ef287464a50e6d01d4b386094f5d94219b93892d912e5a0,
+and 06afc954eff1a203f4d914e36536b7f0ba892d0d3f70daaf42e5090c272d083c.
+An independent temporary rerun was byte-identical to the preserved artifact.
+
+This observation changes the next intervention, not the current causal
+conclusion. Construct \(A^\star\) by applying one validated equal-value parent
+substitution to an otherwise canonical strict completion, then assert answer
+correctness, exactly one graph mismatch, and zero independent executable
+issues. Never train directly on the heterogeneous 611 natural rows. The
+iterative-SFT phase test can then measure both exact synthetic \(A^\star\) and
+the broader natural lineage, with identical raw candidate clocks and prompt
+seeds across verifier-probability arms.
 
 ### 3.13 Quenched semantic blind spots predict a Griffiths regime
 
