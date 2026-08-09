@@ -1,6 +1,6 @@
 # Verifier defects, selection clocks, and strict-reasoning generalization
 
-Status: research synthesis, live RL analysis, and preregistration, 2026-08-08.
+Status: research synthesis, live RL analysis, and preregistration, 2026-08-09.
 This document is standalone. It distinguishes prior results, derivations made
 for this study, observations from existing artifacts, and hypotheses that have
 not yet been tested. The target throughout is clean strict dependency-graph
@@ -32,7 +32,7 @@ of an asymptotic phase transition.
 
 ## Executive answer
 
-The literature and theory support six conclusions.
+The literature and theory support eight conclusions.
 
 1. **Behavior-independent verifier noise has a known informativeness
    boundary, not generally a perfection boundary.** For class-conditional
@@ -118,6 +118,31 @@ The literature and theory support six conclusions.
    transfer makes post-seed growth independent of \(p\). If every descendant
    must win a fresh \(p\)-coin, then \(b\) itself scales with \(p\) and the
    perfection singularity disappears.
+
+7. **Verifier-filtered iterative SFT has an exact finite critical point.**
+   If a round samples \(n\) candidates, uses an \(A\) target whenever one
+   \(A\) candidate passes with probability \(p\), and the next model reproduces
+   that target mixture, then
+
+   \[
+   x_{t+1}=1-(1-px_t)^n,\qquad p_c=\frac1n.
+   \]
+
+   With \(n=16\), 1% and 5% are subcritical while 10% is supercritical. Requiring
+   two accepted \(A\) candidates instead creates a saddle-node: at \(n=128\),
+   clean and high-\(A\) states coexist above \(p=2.6097\%\). These predictions
+   require iterative fixed-raw selection and do not apply to the current RL
+   runs or one-pass SFT.
+
+8. **Persistent semantic blind spots can change asymptotic relaxation even
+   before they change the stationary ceiling.** Quenched vulnerable
+   neighborhoods can form exponentially rare, exponentially long-lived active
+   regions, producing a Griffiths interval with non-universal power-law decay.
+   Fresh coins cannot create the same rare-region memory. The mechanism
+   requires a localized operation--template transfer kernel; dense rank-one
+   sharing falsifies it. GSM-Infinite permits an exact 1/93 semantic-blind-spot
+   versus random-prompt versus iid correlation-length screen without dynamic
+   verifier state.
 
 **[OBSERVATION—CURRENT; PRELIMINARY]** The live OP10–40 RL runs support a
 finite-time group-activation/curriculum mechanism, not an exponential change
@@ -280,6 +305,8 @@ papers are recent preprints and should be treated accordingly.
 | Frei et al., [*Self-training Converts Weak Learners to Strong Learners in Mixture Models*](https://arxiv.org/abs/2106.13805) (2022) | **[THEOREM—PRIOR]** Under explicit mixture-model separation and weak-initialization conditions, iterative pseudo-labeling can convert a weak classifier into a strong one. | The theorem supplies an initialization-threshold analogue, not verifier-correlated errors or an LLM iterative-SFT phase transition. |
 | Arazo et al., [*Pseudo-Labeling and Confirmation Bias in Deep Semi-Supervised Learning*](https://arxiv.org/abs/1908.02983) (2020) | **[EMPIRICAL—PRIOR]** Demonstrates confirmation bias from erroneous pseudo-labels and mitigates it with mixup and a minimum share of labeled data in each minibatch. | Offline image classification, but it motivates retained-clean-data controls and direct tracking of error-class amplification in iterative SFT. |
 | Hinrichsen, [*Non-equilibrium Critical Phenomena and Phase Transitions into Absorbing States*](https://arxiv.org/abs/cond-mat/0001070) (2000), reviewing the contact process originating with Harris (1974) | **[THEOREM/CONCEPT—PRIOR]** Contact processes have an absorbing inactive state, a reproduction-controlled active-state transition, finite-size metastability, and a conjugate immigration field that rounds the transition. A supercritical birth--death lineage survives with positive probability, while a finite system without immigration eventually becomes extinct. | The mathematics and critical exponents are standard, not a novelty claim. The verifier-specific question is whether an accepted wrong-CoT lineage has a measurable post-seed offspring number independent of further verifier errors; ordinary resampled reward coins need not have that property. |
+| Vojta and Dickison, [*Critical Behavior and Griffiths Effects in the Disordered Contact Process*](https://arxiv.org/abs/cond-mat/0505354) (2005) | **[EMPIRICAL/THEORY—PRIOR]** Large one-dimensional simulations with quenched spatial disorder find an infinite-randomness critical point and a Griffiths region with power-law relaxation and continuously varying exponents. | Requires persistent spatially localized disorder and enormous time/system scales. A globally shared neural feature or freshly redrawn verifier coin does not satisfy the mechanism. |
+| Vojta, [*Rare Region Effects at Classical, Quantum, and Non-equilibrium Phase Transitions*](https://arxiv.org/abs/cond-mat/0602312) (2006) | **[THEORY REVIEW—PRIOR]** Rare quenched regions can create essential singularities, anomalously slow dynamics, or smear a sharp transition when their lifetime grows faster than their occurrence probability shrinks. | Standard rare-region theory, not an LLM result. The new empirical question is whether semantic task neighborhoods act as localized, repeatedly vulnerable regions under shared model parameters. |
 
 ### 2.5 Label-noise results that delimit the analogy
 
@@ -1257,6 +1284,208 @@ mechanism therefore requires all of the following:
 Without those tests, finite-run bimodality is only rare seed/no-seed
 nucleation, and fitting an exponential curve does not establish a phase
 transition.
+
+### 3.12 Iterative-SFT selection has an exact finite critical point
+
+**[HYPOTHESIS—IDEALIZED MAP, 2026-08-09]** Iterative SFT supplies a phase
+mechanism that is absent from the current one-pass frozen-bank SFT and ordinary
+on-policy RL runs. Let \(x_t\) be the probability that round-\(t\) teacher
+sampling emits a reproducible answer-correct/strict-wrong behavior \(A\). For
+each raw prompt, draw exactly \(n\) candidates. Each \(A\) candidate passes the
+imperfect verifier independently with conditional probability \(p\). Use an
+\(A\) target in the next SFT dataset if at least \(h\) accepted \(A\) samples
+appear; otherwise use a canonical strict target.
+
+If one fixed-cardinality SFT round exactly reproduces this target mixture, then
+
+\[
+x_{t+1}=F_h(x_t;p)
+=1-\sum_{j=0}^{h-1}
+\binom{n}{j}(px_t)^j(1-px_t)^{n-j}.
+\]
+
+For the one-hit rule \(h=1\),
+
+\[
+F_1(x;p)=1-(1-px)^n,\qquad F_1'(0;p)=np.
+\]
+
+The clean fixed point changes stability at
+
+\[
+\boxed{p_c=\frac1n.}
+\]
+
+If the measured small-mixture target-to-model transfer gain is \(\chi\), the
+local prediction becomes \(p_c=1/(n\chi)\). This is a finite critical point,
+not a singularity at perfect verification. Exact zero \(A\) support remains
+absorbing even above \(p_c\); any positive support grows when \(np\chi>1\).
+A baseline innovation rate, imperfect strict fallback, or finite sampling
+rounds the population transition and must be measured rather than ignored.
+
+The requested doses become a sharp diagnostic at \(n=16\):
+
+| Conditional \(p\) | \(np\) | Stable positive fixed point |
+| ---: | ---: | ---: |
+| 0% | 0.00 | none; \(x_*=0\) |
+| 1% | 0.16 | none; \(x_*=0\) |
+| 5% | 0.80 | none; \(x_*=0\) |
+| 10% | 1.60 | \(x_*=0.670712\) |
+
+At \(n=128\), by contrast, \(p_c=0.78125\%\). The ideal positive fixed points
+at 1%, 5%, and 10% are 0.405653, 0.998578, and 0.999999. Thus an iterative
+selection experiment with 128 attempts predicts strong 5--10% saturation,
+whereas \(n=16\) puts the same grid on opposite sides of the boundary. The
+current RL dose sweep does not implement this recurrence, so these values
+cannot be used to explain its outcomes post hoc.
+
+A two-hit rule produces a stronger phenomenon:
+
+\[
+F_2(x;p)=1-(1-px)^n-npx(1-px)^{n-1}.
+\]
+
+Here \(F_2'(0;p)=0\), so the clean state remains stable for every \(p\).
+Solving \(F_2(x;p)=x\) and \(F_2'(x;p)=1\) at \(n=128\) gives the saddle-node
+
+\[
+\boxed{p_{\rm sn}=0.0260972581,\qquad x_{\rm sn}=0.5399279802.}
+\]
+
+Above this point, clean and high-\(A\) states coexist around an unstable basin
+separator. At 5%, the separator and high fixed point are 0.064154 and
+0.988342; at 10% they are 0.013805 and 0.999979. A cold start can remain clean
+while an \(A\)-seeded start converges high at the same verifier quality. This
+is a genuine bistable construction. Calling it hysteresis still requires
+bidirectional warm/cold initialization or finite innovation: an exactly clean
+absorbing state never leaves by itself.
+
+The immutable theory artifact is:
+
+    /checkpoint/ram-h100-2/tianhaowu/rsci/analysis/
+    iterative-sft-phase-map-20260809-025607/{summary.json,phase_map.svg}
+
+The JSON, SVG, and analyzer SHA-256 values are respectively
+f55f6d25db0a26f9b9c70353a9c008e8e7126fc26c1bf4a74b78232eba8d8f43,
+65d0de59500f7fffc07f99c4d2924349985c7ee9882abce6b6db7faa634c3576,
+and
+92dd75df2b757ca612734bf75a3e9db14f46d437f1a1bc5d6b87bb935b27331a.
+Its canonical content SHA-256 is
+a193abb077911c177ded5eefc8519c8dbf0b75a3591c8bbde8f8d797dbc9ce2c.
+It explicitly marks the result as a theory prediction, not an observation from
+the current RL runs.
+
+The cheapest empirical test first estimates \(\chi\) with two small static SFT
+mixtures, then uses six fixed-raw iterative rounds at \(n=16\) with
+\(p\in\{0,0.01,0.05,0.10\}\). Prompts, candidate request seeds, raw candidate
+count, strict fallback targets, training rows, optimizer steps, and evaluation
+seeds must be identical across arms. Fixed accepted count is forbidden because
+Section 3.6 shows that it cancels the probability intervention. Use a
+deterministic shortcut subtype \(A^\star\), not the heterogeneous union of all
+strict-wrong answers, and report its lineage separately from total \(A\).
+For the two-hit test, compare cold and forced-\(A^\star\) starts at 1%, 5%, and
+10%. A critical estimate is credible only if it moves as \(1/(n\chi)\) when
+\(n\) changes and stabilizes with additional rounds.
+
+### 3.13 Quenched semantic blind spots predict a Griffiths regime
+
+**[HYPOTHESIS—PRIOR RARE-REGION MATH, NEW VERIFIER MAPPING, 2026-08-09]**
+Fresh trajectory coins are annealed disorder: every generation sees another
+independent draw. A task-specific blind spot is quenched disorder. Let
+\(z_i\in\{0,1\}\) permanently mark semantic neighborhood \(i\) as vulnerable
+and linearize its \(A\) amplitude as
+
+\[
+\dot{\mathbf x}
+=\left[B-\operatorname{diag}(\boldsymbol\mu)
++a\operatorname{diag}(\mathbf z)\right]\mathbf x
++O(\|\mathbf x\|^2).
+\]
+
+If \(B\) is local, the bulk can remain subcritical while a rare contiguous
+vulnerable region of size \(\ell\) is locally supercritical. Suppose its
+occurrence probability and lifetime scale as
+
+\[
+w_\ell\asymp e^{-c(p)\ell},
+\qquad
+\tau_\ell\asymp e^{s\ell}.
+\]
+
+Regions with \(\tau_\ell>t\) then give the rare-region tail
+
+\[
+m(t)\asymp
+\int_{\log(t)/s}^{\infty}e^{-c(p)\ell}\,d\ell
+\propto t^{-c(p)/s}.
+\]
+
+Thus a clean gapped system can relax exponentially at \(p=0\), while every
+positive density of persistent blind spots produces a non-universal algebraic
+tail over a Griffiths interval. This is a qualitative perfect-versus-imperfect
+dynamical distinction even when the infinite-time stationary \(A\) density is
+still zero. It is not by itself a different strict-performance ceiling.
+
+Finite size is decisive. Among \(L\) neighborhoods,
+\(\ell_{\max}\sim\log L/c(p)\), so the apparent algebraic regime ends near
+
+\[
+t_{\max}(L)\sim L^{s/c(p)}.
+\]
+
+A power law at one tuned dose is insufficient. The required signatures are:
+continuously varying decay exponents over a dose interval; a cutoff that grows
+as a power of \(L\); heavy-tailed extinction times with a persistent
+mean/median gap; activity localized on the same fixed vulnerable regions; and
+different outcomes for contiguous and permuted masks with identical counts.
+An annealed control must return to exponential relaxation away from its single
+bulk critical point.
+
+The hypothesis fails immediately when parameter transfer is dense and
+delocalized. For a normalized response eigenvector \(v\), report
+
+\[
+\operatorname{IPR}(v)=\frac{\sum_i v_i^4}{(\sum_i v_i^2)^2}.
+\]
+
+Localized rare modes keep \(O(1)\) IPR as \(L\) grows; a shared mode has
+IPR \(O(1/L)\). The existing six-neutral-tag gradient kernel is almost rank
+one and its top-mode mass is nearly uniform, so it argues against using those
+artificial tags as rare regions. It does not settle the unmeasured
+operation--template transfer kernel.
+
+GSM-Infinite already permits a clean, config-only correlation-length screen.
+The OP10--40 source has 93 balanced operation--template strata, each with
+333--334 rows. Set the global false-positive rate to zero, set one selected
+operation's override to \(1/3\), and use a deterministic template gate of
+probability \(1/3\). Within that one semantic stratum the conditional rate is
+\((1/3)/(1/3)=1\), so every valid \(A\) candidate is accepted; the other 92
+strata are clean. This is exactly about \(1/93=1.075\%\) task coverage, though
+its candidate-weighted FPR need not equal \(1/93\).
+
+The matched three-way screen is:
+
+1. iid sample-slot defects at nominal rate \(1/93\);
+2. random prompt-group blind spots with gate probability \(1/93\) and
+   conditional rate one;
+3. one deterministic operation--template blind spot with task coverage
+   \(1/93\).
+
+The second and third arms match all-or-none group burstiness while changing
+semantic correlation length. Exact realized candidate mass, trigger count,
+mixed-group count, raw exposure, and optimizer updates must be reported; a
+shuffled-recipient control is needed if semantic candidate prevalence differs.
+Selecting 1, 5, or 9 strata gives approximately 1.08%, 5.38%, or 9.68% task
+coverage, but a broad sweep is justified only after a forced-pulse kernel shows
+localized transfer. The current attempt analyzer rejects nonempty per-operation
+rates, so its replay contract must be extended before any launch. No such job
+has been submitted.
+
+This static construction is a quenched verifier blind spot, not an autonomous
+lineage. Dynamic lineage state must not live inside the environment: the
+current RL runtime has multiple asynchronous workers and does not checkpoint
+environment-local memory. A genuine retained-lineage experiment must use an
+explicit immutable iterative-SFT replay ledger, as in Section 6.8.
 
 ## 4. What the legacy RL evidence establishes
 
