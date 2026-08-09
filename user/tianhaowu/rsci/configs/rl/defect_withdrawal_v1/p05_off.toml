@@ -1,0 +1,17 @@
+output_dir = "/checkpoint/ram-h100-2/tianhaowu/rsci/rl/verifier-defect-withdrawal-v1/p05-off-s4000-smoke"
+
+[slurm]
+job_name = "rsci-vd-withdraw-p05-off"
+project_dir = "/checkpoint/ram-h100-2/tianhaowu/rsci/rl/verifier-defect-withdrawal-v1/p05-off-s4000-smoke/source_snapshot"
+time = "0-12:00:00"
+pre_run_command = 'source user/tianhaowu/rsci/scripts/activate_source_snapshot.sh "$OUTPUT_DIR"; uv run --no-sync user/tianhaowu/rsci/materialize_defect_withdrawal_forks.py validate --manifest "$OUTPUT_DIR/withdrawal_seed_manifest.json"; unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy; INTERNAL_HOSTS=${HOSTNAMES_STR// /,}; export NO_PROXY="localhost,127.0.0.1,$INTERNAL_HOSTS"; export no_proxy="$NO_PROXY"; export VLLM_CACHE_ROOT="${SLURM_TMPDIR:-/tmp}/vllm-cache-${SLURM_JOB_ID}"'
+
+[wandb]
+name = "verifier-defect-withdrawal-v1-p05-off-s4000-smoke"
+tags = ["gsm-infinite", "op10-40", "strict-target", "grpo", "r128", "verifier-defect-withdrawal-v1", "source-p05-step4000", "p05-off", "smoke375"]
+
+[[orchestrator.train.env]]
+id = "rsci-gsm-infinite"
+name = "op10-40-strict"
+pool = { type = "static", num_workers = 16 }
+args = { dataset_path = "/checkpoint/ram-h100-2/tianhaowu/rsci/data/rl/defect-withdrawal-v1/unseen-gradient-step4000/train.jsonl", min_op = 10, max_op = 40, require_unique_prompts = true, false_positive_rate = 0.00, false_positive_rates_by_op = {}, false_positive_scope = "answer_correct_strict_wrong", false_negative_rate = 0.0, defect_draw_scope = "trajectory", defect_assignment = "individual", defect_gate_mode = "none", defect_gate_probability = 1.0, behavior_tax_c0 = 0.0, strict_reward_weight = 1.0, defect_seed = 20260805 }

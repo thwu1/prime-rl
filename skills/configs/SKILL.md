@@ -116,6 +116,42 @@ multiple, then waits for that trainer weight checkpoint's `STABLE` marker before
 exiting. `step_multiple` must be divisible by `ckpt.interval`; joint group
 stopping also requires a fresh run.
 
+## Isolated RL checkpoint forks
+
+Cross-directory resume is not a separate source/destination feature. A trainer
+`ckpt.output_dir` is both its load root and future save root, while the
+orchestrator still resolves checkpoints under its run output. Do not point it
+at a live source run to create an experimental fork.
+
+Stage the exact source step into each destination's normal layout instead:
+
+```text
+RUN/checkpoints/step_S/trainer/
+RUN/run_default/checkpoints/step_S/orchestrator/progress.pt
+RUN/weights/step_S/
+```
+
+Use an explicit nonnegative `ckpt.resume_step = S`, omit `ckpt.output_dir`, and
+set `max_steps` to the absolute final step. Copy `progress.pt` as an independent
+regular file, never a hardlink: the resumed orchestrator may rewrite step S
+before its first new batch. Validate every source/destination hash and reject
+copied broadcasts or pre-existing runtime output before submission.
+
+Full trainer state restores model, optimizer, scheduler, and trainer progress;
+orchestrator progress restores only step/token/sample/problem counters. It does
+not restore RNG state, the `TrainSource` cursor, in-flight groups, queues,
+environment state, or W&B identity. A pair of such forks is matched on initial
+train state, not on an identical post-fork trajectory. If prompt replay matters,
+materialize and bind a fresh continuation pool instead of describing the reset
+seed-42 permutation as a natural continuation.
+
+Set `orchestrator.train_source_max_epochs = 1` when a finite continuation pool
+must never wrap. The guard counts complete passes independently per training
+environment and raises before reshuffling an exhausted environment. Its default
+is `None`, which preserves infinite reshuffling. The cursor and completed-epoch
+count are process-local, so a scheduler restart or process relaunch invalidates
+a no-wrap experimental arm unless the workflow explicitly checkpoints them.
+
 ## Training-group audit trail
 
 Set `orchestrator.save_train_group_stats = true` when a study needs exact

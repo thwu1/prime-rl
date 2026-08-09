@@ -408,7 +408,11 @@ class Orchestrator:
             rollout_inference = self.student_inference
             use_cache_salt = True
 
-        self.train_source = TrainSource(self.train_envs, seed=42)
+        self.train_source = TrainSource(
+            self.train_envs,
+            seed=42,
+            max_epochs=config.train_source_max_epochs,
+        )
         self.eval_source: EvalSource | None = (
             EvalSource(
                 self.eval_envs,
@@ -571,6 +575,15 @@ class Orchestrator:
         to the train / eval sink. Both sinks return a finalized batch (or
         ``None``) from ``add()``; we just dispatch on the result."""
         while not self.stopped.is_set():
+            for task in self.component_tasks:
+                if not task.done():
+                    continue
+                if task.cancelled():
+                    raise RuntimeError(f"Orchestrator component {task.get_name()!r} was cancelled unexpectedly")
+                error = task.exception()
+                if error is not None:
+                    raise RuntimeError(f"Orchestrator component {task.get_name()!r} failed") from error
+                raise RuntimeError(f"Orchestrator component {task.get_name()!r} exited unexpectedly")
             checkpoint_ready = drain_checkpoint_ready(self.config.output_dir, self.drain_checkpoint_step)
             if self.draining and self.dispatcher.is_idle and checkpoint_ready:
                 await self.flush_train_group_stats()

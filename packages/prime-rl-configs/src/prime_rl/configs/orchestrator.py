@@ -603,6 +603,11 @@ class OrchestratorConfig(BaseConfig):
     max_steps: int | None = None
     """Maximum training steps. If None, runs indefinitely."""
 
+    train_source_max_epochs: int | None = Field(None, ge=1)
+    """Maximum complete passes through each training environment's task list. Once an
+    environment reaches the limit, fail before reshuffling it. None preserves infinite
+    reshuffling."""
+
     max_finalized_groups: int | None = Field(None, ge=1)
     """Stop scheduling training after this many training groups have finalized. The
     orchestrator drains in-flight work without shipping a batch that crosses the limit.

@@ -253,6 +253,43 @@ head -1 {output_dir}/rollouts/step_42/train_rollouts.jsonl | uv run python -m js
 jq '.reward' {output_dir}/rollouts/step_42/train_rollouts.jsonl
 ```
 
+### Verifier-defect withdrawal continuations
+
+For an isolated resumed fork, first verify the seed manifest still matches both
+the source and destination and confirm the logs load the exact explicit trainer
+and orchestrator step. A `RUNNING` allocation is insufficient: require the
+inference pool to load `RUN/weights/step_S`, the trainer to restore optimizer and
+scheduler state, and the first shipped optimizer step to be S rather than zero.
+
+Treat inline evaluations as monitoring signals. The dispatcher starts before
+the startup trigger and later evaluations can contain adjacent policy versions,
+including the nominal frozen step-S readout. Scientific withdrawal endpoints
+must use standalone exact stable weights with fixed paired prompt/request seeds.
+Report strict, answer-correct/strict-wrong A, and answer-wrong as an exhaustive
+partition; include new-A, lost-A, and net-A transitions from the frozen source.
+Compare p-OFF against p-ON, clean-initialized p0, and frozen/no-update. Persistent
+A without new-A excess is passive parameter retention, not autonomous lineage
+propagation.
+
+Audit `train_group_stats.jsonl` and `train_batch_attempts.jsonl` from the fork,
+not inferred historical counters. Resume restores cumulative progress but does
+not restore the old group ledger or `TrainSource` cursor. Report finalized and
+attempted groups, zero-trainable batches, shipped updates, informative clean
+gradient exposure, entropy, mismatch KL, gradient norm, truncation, and
+off-policy cancellation together; a high-A plateau under no informative update
+is inconclusive. Before accepting an endpoint, require the immutable ledger
+auditor to replay optimizer steps 4000--4374 exactly once, prove no repeated
+task/sample ID and consistent FIFO group consumption, and require Slurm
+`Restarts=0`; a restarted no-wrap run has reset cursor state and is invalid.
+
+Standalone withdrawal evaluation is complete only when every content-addressed
+one-shard task has a succeeded replayable runner receipt and the plan-local
+`terminal_provenance.json` binds its protected submission, exact submitted
+script, and scheduler `COMPLETED/0:0` plus `Restarts=0` record. FROZEN at clocks
+4250 and 4375 is an alias of the single p5 step-4000 evaluation, not another
+generated sample or a relabeled checkpoint. Do not analyze partial task sets or
+substitute inline mixed-policy evaluations for these endpoints.
+
 ### Known-cost checkpoint kernels
 
 The additive known-cost checkpoint-kernel study uses its own content-addressed

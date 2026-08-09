@@ -2735,19 +2735,65 @@ candidate propagation mechanism at the same time as the defect field.
 Continue both branches for matched raw-group and optimizer clocks, with frozen
 strict OP21--40 and OP41--45 evaluations.
 
+The executable exploratory screen fixes the source at optimizer step 4000 of
+the matched OP10--40 p5 and p0 runs and adds four readouts: p5-ON, p5-OFF,
+p0-CLEAN, and the frozen p5 source. ON/OFF receive independent copies of the
+same model, Adam, scheduler, trainer checkpoint, and orchestrator progress;
+CLEAN receives the matched-age p0 state. The active branches run 375 updates
+to step 4375, retain step 4250, and log every finalized group and batch attempt.
+The defect contract remains an independent trajectory-level coin restricted to
+answer-correct/strict-wrong outputs; no other reward noise or behavior cost is
+active.
+This is an initial-state-paired comparison, not a trajectory-identical fork:
+the historical RNG, in-flight queues, environment state, and task cursor are
+not checkpointed.
+
+That missing task cursor creates a non-obvious confound. `TrainSource` starts a
+hard-coded seed-42 permutation at cursor zero on every process start, so a
+naive resume would replay the beginning of the source training pool and could
+mistake prompt memorization for lineage refresh. The screen therefore derives
+one shared continuation pool from the original 31k rows after excluding the
+union of every `task.idx` present in optimizer-shipped batches at source steps
+0--3999 for both p0 and p5. It validates prompt and answer identity against the
+original row, balances the retained unseen-gradient rows across OP10--40, and
+binds the complete exclusion replay in an adjacent immutable manifest. The
+pre-outcome scan leaves 7,778 rows; OP10 limits an exactly balanced selection to
+147 rows per operation, or 4,557 total. Resetting the seed-42 cursor gives all
+arms the same deterministic task order, but reward-dependent filtering can make
+their optimizer-clock prefixes diverge. A one-epoch TrainSource guard aborts an
+arm before any reshuffle, and the group ledger independently verifies that no
+continuation task repeated. Endpoint provenance replays both append-only
+ledgers, requires optimizer steps 4000--4374 exactly once, verifies FIFO group
+consumption and the preregistered OFF exposure counts, and rejects any Slurm
+restart because the task cursor and epoch counter are not checkpointed.
+
+The source jobs themselves predate commit-pinned source snapshots, so their
+resolved configs, batch artifacts, checkpoints, weights, evaluation files, and
+generated `rl.sbatch` can be bound but their historical implementation bytes
+cannot be proved retrospectively. The step-4000 screen is consequently
+exploratory. Any promoted multi-seed confirmation must generate its high-A
+source from a sealed launch.
+
+The OFF branch also retains the p5 Adam moments. Early movement after withdrawal
+can therefore be optimizer-memory hysteresis rather than autonomous behavioral
+reproduction. A positive screen establishes only p-independent continuation of
+the joint model/optimizer state. The promoted design must add a p5-weights arm
+with a fresh optimizer before assigning the effect to a model-behavior lineage.
+
 The primary estimands are post-fork drift in
 \(A=\) answer-correct/strict-dependency-graph-wrong prevalence and in strict
 performance. Positive drift or a long-lived high-\(A\) state after withdrawal,
-relative to a clean-initialized \(p=0\) branch, supports autonomous
-propagation only if the branch continues to receive a preregistered amount of
+relative to a clean-initialized \(p=0\) branch, supports p-independent
+continuation only if the branch continues to receive a preregistered amount of
 informative clean-update exposure. Include a weight-frozen/no-update control
 and measure the cure response to matched strict replay; a hard stratum that
 simply receives zero gradient can retain \(A\) forever without reproducing it.
-Mere parameter persistence is insufficient. Decay or stalling at \(p=0\)
-while the \(p_0\) branch grows means repeated defect coins are reproductive
-and reduces the mechanism to ordinary \(b(p)\) activation.
+Mere parameter persistence is insufficient, and autonomous propagation further
+requires survival in the fresh-optimizer flush arm. Decay or stalling at
+\(p=0\) while the \(p_0\) branch grows means repeated defect coins are
+reproductive and reduces the mechanism to ordinary \(b(p)\) activation.
 
-Only if the withdrawal branch supports autonomous propagation should a
+Only if the flush-controlled withdrawal branch supports autonomous propagation should a
 forced-lineage pulse estimate its reproduction geometry. Treat each
 (operation, original GSM template) pair in OP21--40 as a neighborhood:
 

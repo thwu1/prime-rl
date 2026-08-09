@@ -73,6 +73,68 @@ cannot select a path-keyed environment for the snapshot. Do not run the live
 checkout's ordinary dry-run wrapper for these launches, and do not submit an
 unsealed run.
 
+### RSCI verifier-defect withdrawal forks
+
+For the step-4000 withdrawal study, first commit the materializers/configs and
+derive the shared gradient-unseen continuation pool. Its validator replays every
+optimizer-shipped source batch; this is intentionally a prelaunch operation, not
+a runtime check:
+
+```bash
+uv run --no-sync user/tianhaowu/rsci/materialize_defect_withdrawal_dataset.py materialize
+uv run --no-sync user/tianhaowu/rsci/materialize_defect_withdrawal_dataset.py validate \
+  --manifest /checkpoint/ram-h100-2/tianhaowu/rsci/data/rl/defect-withdrawal-v1/unseen-gradient-step4000/train.jsonl.manifest.json
+```
+
+Then stage an independent seed and seal each arm. Use the p05 base for `p05_on`
+and `p05_off`, and the p00 base for `p00_clean`:
+
+```bash
+uv run --no-sync user/tianhaowu/rsci/materialize_defect_withdrawal_forks.py materialize --arm ARM
+uv run --no-sync user/tianhaowu/rsci/source_provenance.py create RUN_DIR --commit COMMIT
+uv run --no-sync RUN_DIR/source_snapshot/user/tianhaowu/rsci/source_provenance.py materialize-launch \
+  RUN_DIR user/tianhaowu/rsci/configs/rl/BASE.toml \
+  user/tianhaowu/rsci/configs/rl/defect_withdrawal_v1/common_step4000_smoke.toml \
+  user/tianhaowu/rsci/configs/rl/defect_withdrawal_v1/ARM.toml
+uv run --no-sync RUN_DIR/source_snapshot/user/tianhaowu/rsci/source_provenance.py seal-launch RUN_DIR
+uv run --no-sync RUN_DIR/source_snapshot/user/tianhaowu/rsci/materialize_defect_withdrawal_forks.py validate \
+  --manifest RUN_DIR/withdrawal_seed_manifest.json --require-pristine
+```
+
+The strict pristine check is pre-submission only. Generated `rl.sbatch` creates
+its job log, log directories, and symlinks before `pre_run_command`; runtime must
+repeat ordinary manifest validation without `--require-pristine`. Never use
+`resume_step=-1`, share a source checkpoint root, hardlink `progress.pt`, or copy
+broadcasts. Submit only through the protected control tmux after the study's
+higher-priority fixed-clock/Gstar, known-cost, and legacy `rsci-rl-op10-40-*`
+gate opens.
+
+After all three sealed forks are pristine, freeze
+`training_dispatch_authority.json` with
+`dispatch_defect_withdrawal.py materialize-training-authority`. Run
+`dispatch-training --dry-run` first. Actual dispatch requires the protected
+control pane and the exact study confirmation; it rechecks pristine forks,
+rejects a live selected job name, strips inherited `SBATCH_*` variables, and
+refuses to queue behind pending or running higher-priority jobs. Do not invoke
+the generated `rl.sbatch` files directly.
+
+Before continuation outcomes are inspected, create a separate source-only
+snapshot at the canonical withdrawal evaluation root and materialize
+`evaluation_authority.json` with `materialize_defect_withdrawal_eval.py`. The
+authority freezes the exact source models, future arm/step selectors, OP11--45
+prompt and request-seed sequence, evaluator/scorer, and S/A/W transition law.
+After exact stable steps 4250 and 4375 exist, materialize the content-addressed
+one-shard plan. It fails closed unless each arm has canonical read-only
+`training_terminal_provenance.json` binding its protected submission, exact
+training script and checkpoints, allocation log, and `COMPLETED/0:0` terminal
+record with `Restarts=0`. Terminalization also freezes an independently replayed
+`training_ledger_audit.json` proving exact optimizer steps, FIFO group use, and
+no task/sample repeat. Its generated one-H100 batch scripts are immutable plan
+artifacts, not submission authority: never invoke them directly. A protected
+evaluation dispatcher must bind submissions and durable `COMPLETED/0:0` terminal provenance
+before the transition analyzer is allowed to run. See
+`configs/rl/defect_withdrawal_v1/EVALUATION_RUNBOOK.md` for the exact sequence.
+
 When a configured dataset has an adjacent `<dataset>.manifest.json`, the seal
 must bind that exact sidecar as well as the dataset bytes. For a known-cost
 neutral-tag bank, sealing fails unless the sidecar is canonical JSON, declares
