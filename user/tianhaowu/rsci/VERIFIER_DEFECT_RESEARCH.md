@@ -1540,6 +1540,72 @@ and are not treatment-effect inference. The longer snapshot strengthens the
 throughput/transient interpretation; it still says nothing about a nonzero
 unseen-hard ceiling.
 
+#### Four-arm composition at the withdrawal source state
+
+**[OBSERVATION—CURRENT; DESCRIPTIVE]** A separate immutable artifact adds the
+10% arm and records the exact \(S/A/W\) composition at the step-4,000 state
+from which the withdrawal screen forks:
+
+```text
+/checkpoint/ram-h100-2/tianhaowu/rsci/analysis/
+verifier-defect-source-step4000-four-arm-20260809-022824/summary.json
+```
+
+Its file SHA-256 is
+`3218375c550a3cb2ac0d502f04a1b2e690acc38273ec5fdf6686e39bbae8d404`;
+its canonical content SHA-256 is
+`b5eee4de51b20b5616b27cbc9c212fc15fbc88c6505abbf805ac91414c0233a5`.
+The analyzer SHA-256 is
+`39fe4a55ffbf413ab943f6c4a46a7dd0b74044a699ead7f20f69f243791e7170`.
+It validates 140 input shards, 200 rows per operation, exact prompt identity
+across arms, clean strict evaluation reward, binary \(S/A/W\) partitioning,
+and the logged policy-version mixture for each operation.
+
+| Step-4,000 rate | \(p=0\) | \(p=1\%\) | \(p=5\%\) | \(p=10\%\) |
+| --- | ---: | ---: | ---: | ---: |
+| OP21--40 strict \(S\) | 1.250% | 1.000% | 0.650% | 0.275% |
+| OP21--40 strict-wrong \(A\) | 11.175% | 12.800% | 15.075% | 14.475% |
+| OP21--40 answer correct \(S+A\) | 12.425% | 13.800% | 15.725% | 14.750% |
+| OP41--45 strict \(S\) | 0.000% | 0.000% | 0.000% | 0.000% |
+| OP41--45 strict-wrong \(A\) | 9.400% | 11.400% | 16.900% | 14.500% |
+| OP15--20 strict \(S\) | 14.833% | 9.083% | 9.583% | 9.250% |
+| OP15--20 strict-wrong \(A\) | 27.667% | 25.917% | 26.417% | 24.333% |
+
+The task dependence is more informative than a single aggregate score. On
+hard OP21--40, defect dose substitutes \(A\) behavior for strict reasoning:
+strict success falls nearly monotonically, while \(A\) and final-answer
+success rise through 5% and bend down at 10%. On the easier bridge OP15--20,
+both strict and total answer performance are below control, and \(A\) does not
+grow. On unseen OP41--45, the defect increases final-answer-only success but
+never produces one strict success. This is verifier-induced behavior and
+curriculum rotation, not strict generalization.
+
+The 5--10% bend is compatible with the smooth group-activation saturation
+\(1-(1-p)^C\) plus destructive proxy-only updates. It is not a \(p=0\)
+singularity: there is no jump isolated at the first positive dose, no seed
+replication, and no pure-policy evaluation. A later common-step-7,625 check
+finds OP21--40 \(A\) rates of 12.000%, 13.700%, 15.125%, and 14.775%;
+the paired p10-minus-p5 contrast is only -0.35 pp, with a policy-conditional
+two-sided exact \(p\)-value of 0.636. It does not turn the source-state bend
+into a discontinuity.
+
+Late matched-step comparisons also cease to share a fresh-data history. The
+31,000-row source has no one-epoch guard. The first evaluation whose periodic
+finalized-group proxy crosses 31,000 is step 4,525 / 6,475 / 7,300 / 7,375 for
+p0 / p1 / p5 / p10, respectively. These are conservative guaranteed-by
+checkpoints, not exact cursor-wrap times: in-flight and dropped groups can make
+the true cursor wrap earlier. Thus step 7,625 compares different repetition
+histories as well as different raw exposure. The withdrawal continuation's
+fresh no-wrap pool is essential, not merely an efficiency choice.
+
+Finally, the p0, p1, and p10 step-4,000 evaluations mix versions
+3,999--4,001 on all 35 operations; p5 mixes versions 3,999--4,000
+on OP11--40 and is pure version 4,000 only on OP41--45. Accordingly, the
+artifact sets both `causal_claim_valid` and `phase_transition_claim_valid` to
+false. The sealed standalone source evaluation and withdrawal intervention
+are required to distinguish persistent dynamics from this cross-sectional
+dose response.
+
 ### 4.5 Mechanism audit: why a small \(p\) changes the training clock
 
 **[OBSERVATION—CURRENT]** The immutable threshold audit through saved shipped
@@ -2779,6 +2845,68 @@ can therefore be optimizer-memory hysteresis rather than autonomous behavioral
 reproduction. A positive screen establishes only p-independent continuation of
 the joint model/optimizer state. The promoted design must add a p5-weights arm
 with a fresh optimizer before assigning the effect to a model-behavior lineage.
+
+**[DERIVATION—SEED-CONDITIONED LINEAGE ELASTICITY, 2026-08-09]** A mean dose
+curve near zero does not identify the mechanism. Fresh activation, optimizer
+memory, and autonomous outbreaks can all give an unconditional response
+\(E[\Delta A_T]=O(p)\). Condition instead on one identical forced \(A\) pulse.
+Let \(D_g(p)\) be its causal excess descendants \(g\) prompt-neighborhood
+generations later, relative to a matched strict pulse. If every causal edge
+requires a new defect coin, then
+
+\[
+E[D_g(p)]=(pB)^gD_0,\qquad
+\frac{\partial\log E[D_g]}{\partial\log p}=g.
+\]
+
+The corresponding scalar immigration/cure equilibrium is analytic at zero,
+\(x_*(p)=\nu p/(\mu-b_0p)=(\nu/\mu)p+O(p^2)\), and its active
+threshold is at \(p_c>0\) whenever clean reproduction is subcritical. If the
+seed instead creates an autonomous lineage, then after conditioning on that
+seed
+
+\[
+E[D_g(p)]=B^gD_0,\qquad
+\frac{\partial\log E[D_g]}{\partial\log p}=0.
+\]
+
+For \(R_0=\rho(\operatorname{diag}(\mu)^{-1}B)>1\), conditional growth
+and the post-onset plateau are independent of \(p\); only nucleation is rare.
+For \(L\) independent neighborhoods with seed rate \(\nu p\), the outbreak
+probability has the small-dose form
+\(1-\exp[-L\nu p(1-R_0^{-1})(T-t_g)]\). Thus an unconditional mean
+that is linear near \(p=0\) is compatible with a truly autonomous
+post-nucleation phase. The identifying signature is collapse of conditional
+post-seed trajectories across doses, not a steep marginal dose curve.
+
+Optimizer inheritance produces a third, quantitatively testable signature. In
+the matched-gradient linearization of Adam,
+\(\delta m_t=\beta_1^t\delta m_0\) and
+\(\delta v_t=\beta_2^t\delta v_0\). Coupled to a clean behavioral
+mode with multiplier \(\lambda\), the full-state minus fresh-optimizer response
+is locally a sum of stable forced modes
+\(\sum_{q\in\{\beta_1,\beta_2\}}
+c_q(\lambda^t-q^t)/(\lambda-q)\). It must disappear under an optimizer
+reset unless the transient moves the weights into a separate self-sustaining
+basin. The sealed source config has
+\(\beta_1=0.9,\beta_2=0.999\): their half-lives are 6.58 and 692.8
+updates, while \(\beta_2^{250}=0.779\) and
+\(\beta_2^{375}=0.687\). Both active OFF endpoints therefore remain heavily
+exposed to inherited second-moment geometry.
+
+The minimally identifying follow-up reports the pair
+\((\hat R_{\text{flush}},\Delta_t^{\text{full}}-
+\Delta_t^{\text{fresh}})\). Fresh re-coining predicts
+\(\hat R_{\text{flush}}<1\) and generation-\(g\) dose elasticity \(g\).
+Optimizer memory predicts the same subcritical flush arm, with the full-minus-
+fresh contrast following the Adam decay modes. Autonomous lineage requires
+\(\hat R_{\text{flush}}>1\), survival under optimizer reset, and
+conditional dose elasticity near zero. The cheapest sequence is: run the
+already sealed OFF screen; stop if negative; if positive, add p5 weights with a
+fresh optimizer at \(p=0\); and if that grows, add the matched p0-weights fresh-
+optimizer control before randomized forced-pulse estimation. The source uses a
+constant learning-rate scheduler, so this flush can preserve the learning-rate
+law while resetting only the Adam state.
 
 The primary estimands are post-fork drift in
 \(A=\) answer-correct/strict-dependency-graph-wrong prevalence and in strict
