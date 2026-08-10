@@ -73,6 +73,14 @@ cannot select a path-keyed environment for the snapshot. Do not run the live
 checkout's ordinary dry-run wrapper for these launches, and do not submit an
 unsealed run.
 
+`require_unique_prompts = true` only checks uniqueness inside the configured
+dataset file; it does not prevent `TrainSource` from cycling after exhaustion.
+For `N` duplicate-free optimizer updates, batch size `B`, rollout group size
+`G`, and `I` in-flight task groups, require at least `N * (B / G) + I` unique
+training prompts and verify that capacity before sealing. For example, 5,000
+updates with `B = 4096`, `G = 128`, and `I = 64` require 160,064 distinct
+prompts. Keep rejected/partial-group headroom beyond that lower bound.
+
 ### RSCI verifier-defect withdrawal forks
 
 For the step-4000 withdrawal study, first commit the materializers/configs and
