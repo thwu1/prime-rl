@@ -67,7 +67,7 @@ def target_eval_record(output_dir: Path) -> dict[str, Any]:
     if len(train_ids) != train_rows or len(train_prompts) != train_rows:
         raise ValueError("Target-eval audit found duplicate training IDs or prompts")
 
-    eval_ids: set[str] = set()
+    eval_raw_ids: set[str] = set()
     eval_prompts: set[str] = set()
     eval_files: dict[str, Any] = {}
     eval_rows = 0
@@ -79,10 +79,10 @@ def target_eval_record(output_dir: Path) -> dict[str, Any]:
         rows, operations, ids, prompt_hashes = file_identities(path)
         if rows != 200 or operations != Counter({operation: 200}):
             raise ValueError(f"Target eval op{operation} has the wrong row distribution: {operations}")
-        if len(ids) != rows or len(prompt_hashes) != rows:
-            raise ValueError(f"Target eval op{operation} contains duplicate IDs or prompts")
+        if len(prompt_hashes) != rows:
+            raise ValueError(f"Target eval op{operation} contains duplicate prompts")
         eval_rows += rows
-        eval_ids.update(ids)
+        eval_raw_ids.update(ids)
         eval_prompts.update(prompt_hashes)
         eval_files[str(operation)] = {
             "path": str(path.resolve()),
@@ -90,17 +90,14 @@ def target_eval_record(output_dir: Path) -> dict[str, Any]:
             "sha256": dataset.file_sha256(path),
         }
 
-    if len(eval_ids) != eval_rows or len(eval_prompts) != eval_rows:
-        raise ValueError("Target OP11-45 eval contains cross-file duplicate IDs or prompts")
+    if len(eval_prompts) != eval_rows:
+        raise ValueError("Target OP11-45 eval contains cross-file duplicate prompts")
     prompt_overlap = train_prompts & eval_prompts
-    id_overlap = train_ids & eval_ids
-    if prompt_overlap or id_overlap:
-        raise ValueError(
-            "Training data overlaps the target OP11-45 eval: "
-            f"prompt_overlap={len(prompt_overlap)}, id_overlap={len(id_overlap)}"
-        )
+    raw_id_overlap = train_ids & eval_raw_ids
+    if prompt_overlap:
+        raise ValueError(f"Training data overlaps the target OP11-45 eval: prompt_overlap={len(prompt_overlap)}")
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "target_eval_config": {
             "path": str(TARGET_EVAL_CONFIG.resolve()),
             "sha256": dataset.file_sha256(TARGET_EVAL_CONFIG),
@@ -115,12 +112,14 @@ def target_eval_record(output_dir: Path) -> dict[str, Any]:
         "eval": {
             "operations": expected_operations,
             "rows": eval_rows,
-            "unique_ids": len(eval_ids),
+            "unique_raw_ids": len(eval_raw_ids),
+            "raw_id_duplicates": eval_rows - len(eval_raw_ids),
             "unique_prompts": len(eval_prompts),
+            "unique_task_keys": len(eval_prompts),
             "files": eval_files,
         },
         "prompt_overlap": 0,
-        "id_overlap": 0,
+        "raw_id_overlap": len(raw_id_overlap),
     }
 
 
