@@ -19,7 +19,11 @@ SCORE_CACHE_KEY = "_rsci_gsm_infinite_scores"
 DEFECT_CACHE_KEY = "_rsci_gsm_infinite_defect"
 GROUP_DEFECT_CACHE_KEY = "_rsci_gsm_infinite_group_defect"
 REQUIRED_COLUMNS = {"id", "problem", "question", "solution", "op"}
-FALSE_POSITIVE_SCOPES = {"answer_correct_strict_wrong", "uniform_strict_wrong"}
+FALSE_POSITIVE_SCOPES = {
+    "answer_correct_strict_wrong",
+    "target_answer_strict_wrong",
+    "uniform_strict_wrong",
+}
 DEFECT_DRAW_SCOPES = {"trajectory", "sample", "sample_slot"}
 DEFECT_ASSIGNMENTS = {"individual", "behavior_group", "shuffled_group", "min_behavior_group"}
 DEFECT_GATE_MODES = {"none", "group", "template", "neutral_tag"}
@@ -158,19 +162,23 @@ def _scores(
         return cached
 
     prediction = parser.parse_answer(completion) or ""
+    gold_answer = float(answer)
     strict_report = compare_solutions(solution, prediction)
     executable_report = grade_trajectory(solution, prediction, problem=problem)
     prediction_answer = strict_report["answer_mismatch"]
     if prediction_answer is None:
+        parsed_answer = gold_answer
         answer_correct = 1.0
     else:
-        _, predicted_value = prediction_answer
-        answer_correct = float(numbers_match(float(answer), predicted_value, tolerance=1e-6))
+        _, parsed_answer = prediction_answer
+        answer_correct = float(numbers_match(gold_answer, parsed_answer, tolerance=1e-6))
 
     scores = {
         "strict_dependency_graph": float(strict_report["perfect"]),
         "executable_strict": float(executable_report["perfect"]),
         "answer_correct": answer_correct,
+        "parsed_answer_value": parsed_answer if parsed_answer is not None else math.nan,
+        "gold_answer_value": gold_answer,
     }
     state[SCORE_CACHE_KEY] = scores
     return scores
@@ -212,6 +220,37 @@ def answer_correct_metric(
     **_: Any,
 ) -> float:
     return _scores(completion, solution, problem, answer, parser, state)["answer_correct"]
+
+
+def _target_answer_values(scores: dict[str, float], target_answer: float) -> dict[str, float]:
+    parsed_answer = scores.get("parsed_answer_value", math.nan)
+    gold_answer = scores.get("gold_answer_value", math.nan)
+    target_match = float(numbers_match(target_answer, parsed_answer, tolerance=1e-6))
+    gold_target_match = float(numbers_match(target_answer, gold_answer, tolerance=1e-6))
+    return {
+        "target_answer_value_metric": target_answer,
+        "target_answer_match_metric": target_match,
+        "gold_target_answer_match_metric": gold_target_match,
+        "target_answer_correct_metric": target_match * scores["answer_correct"],
+        "target_answer_strict_metric": target_match * scores["strict_dependency_graph"],
+    }
+
+
+def _target_answer_metric(name: str, target_answer: float) -> Callable[..., float]:
+    def metric(
+        completion: Any,
+        solution: str,
+        problem: str,
+        answer: str,
+        parser: vf.Parser,
+        state: vf.State,
+        **_: Any,
+    ) -> float:
+        scores = _scores(completion, solution, problem, answer, parser, state)
+        return _target_answer_values(scores, target_answer)[name]
+
+    metric.__name__ = name
+    return metric
 
 
 def _sample_slot_key(state: vf.State, rollout_slot: int | None) -> str:
@@ -453,6 +492,16 @@ def _validate_known_cost_parameters(behavior_tax_c0: float, strict_reward_weight
             raise ValueError(f"{name} must be finite and non-negative, got {value}")
 
 
+def _validate_target_answer(defect_target_answer: float) -> float:
+    if (
+        isinstance(defect_target_answer, bool)
+        or not isinstance(defect_target_answer, (int, float))
+        or not math.isfinite(defect_target_answer)
+    ):
+        raise ValueError(f"defect_target_answer must be a finite number, got {defect_target_answer!r}")
+    return float(defect_target_answer)
+
+
 def _defect_values(
     scores: dict[str, float],
     false_positive_rate: float,
@@ -461,23 +510,32 @@ def _defect_values(
     false_negative_rate: float = 0.0,
     behavior_tax_c0: float = 0.0,
     strict_reward_weight: float = 1.0,
+    defect_target_answer: float = 24.0,
 ) -> dict[str, float]:
     _validate_known_cost_parameters(behavior_tax_c0, strict_reward_weight)
     if behavior_tax_c0 > 0.0 and false_positive_scope != "answer_correct_strict_wrong":
         raise ValueError("behavior_tax_c0 requires false_positive_scope='answer_correct_strict_wrong'")
     strict = scores["strict_dependency_graph"]
-    candidate = float(strict == 0.0 and scores["answer_correct"] == 1.0)
+    answer_correct_candidate = float(strict == 0.0 and scores["answer_correct"] == 1.0)
+    target_values = _target_answer_values(scores, defect_target_answer)
+    target_candidate = float(strict == 0.0 and target_values["target_answer_match_metric"] == 1.0)
     if false_positive_scope == "answer_correct_strict_wrong":
+        candidate = answer_correct_candidate
+        eligible = candidate
+    elif false_positive_scope == "target_answer_strict_wrong":
+        candidate = target_candidate
         eligible = candidate
     elif false_positive_scope == "uniform_strict_wrong":
+        candidate = answer_correct_candidate
         eligible = float(strict == 0.0)
     else:
         raise ValueError(f"Unsupported false_positive_scope: {false_positive_scope}")
     triggered = float(eligible == 1.0 and draw < false_positive_rate)
     false_negative_triggered = float(strict == 1.0 and draw < false_negative_rate)
-    behavior_tax_applied = behavior_tax_c0 * candidate
+    behavior_tax_applied = behavior_tax_c0 * answer_correct_candidate
     untaxed_proxy_reward = strict_reward_weight * (strict - false_negative_triggered) + triggered
     net_behavior_reward = triggered - behavior_tax_applied
+    gold_target_overlap = target_values["target_answer_match_metric"] * target_values["gold_target_answer_match_metric"]
     return {
         "proxy_reward": untaxed_proxy_reward - behavior_tax_applied,
         "untaxed_proxy_reward": untaxed_proxy_reward,
@@ -492,6 +550,11 @@ def _defect_values(
         "behavior_tax_applied_metric": behavior_tax_applied,
         "defect_net_behavior_reward_metric": net_behavior_reward,
         "strict_reward_weight_metric": strict_reward_weight,
+        "defect_target_answer_value_metric": defect_target_answer,
+        "defect_target_answer_match_metric": target_values["target_answer_match_metric"],
+        "defect_gold_target_answer_match_metric": target_values["gold_target_answer_match_metric"],
+        "defect_gold_target_overlap_metric": gold_target_overlap,
+        "defect_triggered_gold_target_overlap_metric": triggered * gold_target_overlap,
     }
 
 
@@ -529,6 +592,7 @@ def _defect_scores(
     defect_seed: int,
     behavior_tax_c0: float,
     strict_reward_weight: float,
+    defect_target_answer: float,
 ) -> dict[str, float]:
     signature = (
         false_positive_rate,
@@ -539,6 +603,7 @@ def _defect_scores(
         defect_seed,
         behavior_tax_c0,
         strict_reward_weight,
+        defect_target_answer,
     )
     cached = state.get(DEFECT_CACHE_KEY)
     if cached is not None and cached["signature"] == signature:
@@ -554,6 +619,7 @@ def _defect_scores(
         false_negative_rate,
         behavior_tax_c0,
         strict_reward_weight,
+        defect_target_answer,
     )
     state[DEFECT_CACHE_KEY] = {"signature": signature, "values": defect_scores}
     return defect_scores
@@ -569,6 +635,7 @@ def _defect_metric(
     defect_seed: int,
     behavior_tax_c0: float,
     strict_reward_weight: float,
+    defect_target_answer: float,
 ) -> Callable[..., float]:
     def metric(
         completion: Any,
@@ -594,6 +661,7 @@ def _defect_metric(
             defect_seed,
             behavior_tax_c0,
             strict_reward_weight,
+            defect_target_answer,
         )[name]
 
     metric.__name__ = name
@@ -618,6 +686,7 @@ def _group_defect_values(
     defect_reference_neutral_tags: list[int] | tuple[int, ...] | None = None,
     behavior_tax_c0: float = 0.0,
     strict_reward_weight: float = 1.0,
+    defect_target_answer: float = 24.0,
 ) -> list[dict[str, float]]:
     if len(states) != len(scores):
         raise ValueError(f"Expected one score dictionary per state, got {len(states)} states and {len(scores)} scores")
@@ -730,10 +799,14 @@ def _group_defect_values(
             false_negative_rate,
             behavior_tax_c0,
             strict_reward_weight,
+            defect_target_answer,
         )
         behavior["defect_eligible_metric"] = behavior["defect_scope_eligible_metric"] * opportunity
         behavior["defect_gate_eligible_metric"] = behavior["defect_eligible_metric"] * gate_open
         behavior["defect_triggered_metric"] *= opportunity * gate_open
+        behavior["defect_triggered_gold_target_overlap_metric"] = (
+            behavior["defect_triggered_metric"] * behavior["defect_gold_target_overlap_metric"]
+        )
         behavior["defect_nominal_rate_metric"] = nominal_rate
         behavior["defect_conditional_rate_metric"] = conditional_rate
         if not valid:
@@ -748,6 +821,10 @@ def _group_defect_values(
                     "defect_triggered_metric": 0.0,
                     "false_negative_triggered_metric": 0.0,
                     "behavior_tax_applied_metric": 0.0,
+                    "defect_target_answer_match_metric": 0.0,
+                    "defect_gold_target_answer_match_metric": 0.0,
+                    "defect_gold_target_overlap_metric": 0.0,
+                    "defect_triggered_gold_target_overlap_metric": 0.0,
                 }
             )
         behavior_values.append(behavior)
@@ -835,6 +912,11 @@ def _group_defect_values(
                 "behavior_tax_c0_metric": behavior_tax_c0,
                 "behavior_tax_applied_metric": behavior_tax_applied,
                 "strict_reward_weight_metric": strict_reward_weight,
+                "defect_target_answer_value_metric": behavior["defect_target_answer_value_metric"],
+                "defect_target_answer_match_metric": behavior["defect_target_answer_match_metric"],
+                "defect_gold_target_answer_match_metric": behavior["defect_gold_target_answer_match_metric"],
+                "defect_gold_target_overlap_metric": behavior["defect_gold_target_overlap_metric"],
+                "defect_triggered_gold_target_overlap_metric": behavior["defect_triggered_gold_target_overlap_metric"],
                 "valid_rollout_metric": valid,
             }
         )
@@ -860,6 +942,7 @@ def _group_defect_scores(
     defect_reference_neutral_tags: list[int] | tuple[int, ...] | None = None,
     behavior_tax_c0: float = 0.0,
     strict_reward_weight: float = 1.0,
+    defect_target_answer: float = 24.0,
 ) -> list[dict[str, float]]:
     trajectory_keys = [str(state["trajectory_id"]) for state in states]
     signature = (
@@ -879,6 +962,7 @@ def _group_defect_scores(
         None if defect_reference_neutral_tags is None else tuple(defect_reference_neutral_tags),
         behavior_tax_c0,
         strict_reward_weight,
+        defect_target_answer,
     )
     cached = [state.get(GROUP_DEFECT_CACHE_KEY) for state in states]
     if all(item is not None and item["signature"] == signature for item in cached):
@@ -891,6 +975,8 @@ def _group_defect_scores(
                 "strict_dependency_graph": 0.0,
                 "executable_strict": 0.0,
                 "answer_correct": 0.0,
+                "parsed_answer_value": math.nan,
+                "gold_answer_value": float(state.get("answer", "nan")),
             }
             state[SCORE_CACHE_KEY] = error_scores
             scores.append(error_scores)
@@ -924,6 +1010,7 @@ def _group_defect_scores(
         defect_reference_neutral_tags,
         behavior_tax_c0,
         strict_reward_weight,
+        defect_target_answer,
     )
     for state, state_values in zip(states, values, strict=True):
         state[GROUP_DEFECT_CACHE_KEY] = {"signature": signature, "values": state_values}
@@ -948,6 +1035,7 @@ def _group_defect_metric(
     defect_reference_neutral_tags: tuple[int, ...] | None,
     behavior_tax_c0: float,
     strict_reward_weight: float,
+    defect_target_answer: float,
 ) -> Callable[..., list[float]]:
     selected_prefix = defect_assignment.removesuffix("_group")
 
@@ -976,6 +1064,7 @@ def _group_defect_metric(
             defect_reference_neutral_tags,
             behavior_tax_c0,
             strict_reward_weight,
+            defect_target_answer,
         )
         value_name = name
         if name == "proxy_reward":
@@ -1013,6 +1102,7 @@ def load_environment(
     defect_reference_neutral_tags: list[int] | None = None,
     behavior_tax_c0: float = 0.0,
     strict_reward_weight: float = 1.0,
+    defect_target_answer: float = 24.0,
 ) -> vf.Environment:
     if min_op > max_op:
         raise ValueError(f"min_op ({min_op}) must not exceed max_op ({max_op})")
@@ -1041,6 +1131,7 @@ def load_environment(
         defect_reference_neutral_tags,
     )
     _validate_known_cost_parameters(behavior_tax_c0, strict_reward_weight)
+    defect_target_answer = _validate_target_answer(defect_target_answer)
     if behavior_tax_c0 > 0.0 and false_positive_scope != "answer_correct_strict_wrong":
         raise ValueError("behavior_tax_c0 requires false_positive_scope='answer_correct_strict_wrong'")
     if defect_assignment == "individual" and defect_draw_scope == "sample_slot":
@@ -1073,8 +1164,39 @@ def load_environment(
         raise ValueError(
             f"false_positive_rates_by_op contains operations outside OP{min_op}-{max_op}: {sorted(unexpected_ops)}"
         )
+    if false_positive_scope == "target_answer_strict_wrong":
+        if defect_assignment != "behavior_group":
+            raise ValueError("target-answer defects require defect_assignment='behavior_group'")
+        if defect_gate_mode != "group":
+            raise ValueError("target-answer defects require defect_gate_mode='group'")
+        if defect_draw_scope != "sample_slot":
+            raise ValueError("target-answer defects require defect_draw_scope='sample_slot'")
+        if defect_eligible_slot_count not in (None, 128):
+            raise ValueError("target-answer defects require defect_eligible_slot_count=128")
+        if normalized_rates_by_op:
+            raise ValueError("target-answer defects do not support false_positive_rates_by_op")
+        if false_positive_rate != effective_gate_probability:
+            raise ValueError("target-answer defects require false_positive_rate to equal defect_gate_probability")
+        if false_negative_rate != 0.0:
+            raise ValueError("target-answer defects require false_negative_rate=0")
+        if behavior_tax_c0 != 0.0:
+            raise ValueError("target-answer defects require behavior_tax_c0=0")
+        if strict_reward_weight != 1.0:
+            raise ValueError("target-answer defects require strict_reward_weight=1")
+        if normalized_reference_neutral_tags:
+            raise ValueError("target-answer defects do not support defect_reference_neutral_tags")
 
     parser = vf.Parser()
+    target_metrics = [
+        _target_answer_metric(name, defect_target_answer)
+        for name in (
+            "target_answer_value_metric",
+            "target_answer_match_metric",
+            "gold_target_answer_match_metric",
+            "target_answer_correct_metric",
+            "target_answer_strict_metric",
+        )
+    ]
     has_defect = (
         false_positive_rate > 0.0
         or false_negative_rate > 0.0
@@ -1128,6 +1250,11 @@ def load_environment(
             "behavior_tax_c0_metric",
             "behavior_tax_applied_metric",
             "strict_reward_weight_metric",
+            "defect_target_answer_value_metric",
+            "defect_target_answer_match_metric",
+            "defect_gold_target_answer_match_metric",
+            "defect_gold_target_overlap_metric",
+            "defect_triggered_gold_target_overlap_metric",
             "valid_rollout_metric",
         )
         group_metrics = [
@@ -1149,6 +1276,7 @@ def load_environment(
                 normalized_reference_neutral_tags or None,
                 behavior_tax_c0,
                 strict_reward_weight,
+                defect_target_answer,
             )
             for name in group_metric_names
         ]
@@ -1157,6 +1285,7 @@ def load_environment(
             strict_dependency_graph_reward,
             executable_strict_metric,
             answer_correct_metric,
+            *target_metrics,
             *group_metrics[1:],
         ]
         rubric = vf.Rubric(
@@ -1166,8 +1295,13 @@ def load_environment(
         )
     elif not has_defect:
         rubric = vf.Rubric(
-            funcs=[strict_dependency_graph_reward, executable_strict_metric, answer_correct_metric],
-            weights=[1.0, 0.0, 0.0],
+            funcs=[
+                strict_dependency_graph_reward,
+                executable_strict_metric,
+                answer_correct_metric,
+                *target_metrics,
+            ],
+            weights=[1.0, *([0.0] * (2 + len(target_metrics)))],
             parser=parser,
         )
     else:
@@ -1182,6 +1316,7 @@ def load_environment(
                 defect_seed,
                 behavior_tax_c0,
                 strict_reward_weight,
+                defect_target_answer,
             )
             for name in (
                 "proxy_reward",
@@ -1197,6 +1332,11 @@ def load_environment(
                 "behavior_tax_applied_metric",
                 "defect_net_behavior_reward_metric",
                 "strict_reward_weight_metric",
+                "defect_target_answer_value_metric",
+                "defect_target_answer_match_metric",
+                "defect_gold_target_answer_match_metric",
+                "defect_gold_target_overlap_metric",
+                "defect_triggered_gold_target_overlap_metric",
             )
         ]
         funcs = [
@@ -1204,6 +1344,7 @@ def load_environment(
             strict_dependency_graph_reward,
             executable_strict_metric,
             answer_correct_metric,
+            *target_metrics,
             *defect_metrics[1:],
         ]
         rubric = vf.Rubric(

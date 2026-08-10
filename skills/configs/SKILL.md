@@ -184,6 +184,19 @@ full physical-slot mask. Audit the gate draw/open state, nominal and
 conditional rates, template indices, and recipient vectors with
 `analyze_masked_verifier_attempts.py`.
 
+For a fixed-problem target-answer defect, set
+`false_positive_scope = "target_answer_strict_wrong"`,
+`defect_target_answer = 24`, `defect_gate_mode = "group"`, and make
+`false_positive_rate` equal `defect_gate_probability`. This makes the
+conditional rate one: the prompt hash selects a persistent fraction of
+problems, and every strict-wrong rollout on an open prompt is rewarded iff its
+parsed final answer matches the target. This contract requires
+`defect_assignment = "behavior_group"`, `defect_draw_scope = "sample_slot"`,
+the full 128-slot mask, zero false negatives/tax, and strict reward weight one.
+Use `analyze_frozen_eval_target_answers.py` on immutable
+`eval_rollouts*.jsonl` files for per-operation target-answer rates; never scan
+active router logs.
+
 Use `defect_assignment = "min_behavior_group"` when the control must preserve
 the exact behavior-trigger count `H` but minimize behavior recipients. It ranks
 masked valid strict-negative noncandidates first, non-trigger candidates

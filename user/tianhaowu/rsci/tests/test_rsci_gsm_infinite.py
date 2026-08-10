@@ -227,6 +227,96 @@ def test_defect_only_rewards_answer_correct_strict_failures():
     assert _defect_values(candidate, false_positive_rate=0.01, draw=0.009)["proxy_reward"] == 1.0
 
 
+def test_target_answer_scope_rewards_only_strict_wrong_answer_24():
+    wrong_24 = {
+        "strict_dependency_graph": 0.0,
+        "answer_correct": 0.0,
+        "parsed_answer_value": 24.0,
+        "gold_answer_value": 7.0,
+    }
+    wrong_23 = {**wrong_24, "parsed_answer_value": 23.0}
+    strict_24 = {
+        "strict_dependency_graph": 1.0,
+        "answer_correct": 1.0,
+        "parsed_answer_value": 24.0,
+        "gold_answer_value": 24.0,
+    }
+
+    selected = _defect_values(
+        wrong_24,
+        false_positive_rate=1.0,
+        draw=0.5,
+        false_positive_scope="target_answer_strict_wrong",
+    )
+    not_target = _defect_values(
+        wrong_23,
+        false_positive_rate=1.0,
+        draw=0.5,
+        false_positive_scope="target_answer_strict_wrong",
+    )
+    strict = _defect_values(
+        strict_24,
+        false_positive_rate=1.0,
+        draw=0.5,
+        false_positive_scope="target_answer_strict_wrong",
+    )
+
+    assert selected["proxy_reward"] == 1.0
+    assert selected["defect_triggered_metric"] == 1.0
+    assert selected["defect_target_answer_match_metric"] == 1.0
+    assert selected["defect_gold_target_overlap_metric"] == 0.0
+    assert not_target["proxy_reward"] == 0.0
+    assert not_target["defect_triggered_metric"] == 0.0
+    assert strict["proxy_reward"] == 1.0
+    assert strict["defect_triggered_metric"] == 0.0
+    assert strict["defect_gold_target_overlap_metric"] == 1.0
+
+
+def test_target_answer_group_gate_is_fixed_per_problem():
+    gate_probability = 0.4
+
+    def sample_id(gate_open: bool) -> str:
+        for index in range(10_000):
+            candidate = f"target-answer-{gate_open}-{index}"
+            if (_group_gate_draw(candidate, 20260805) < gate_probability) is gate_open:
+                return candidate
+        raise AssertionError("Could not find deterministic gate fixture")
+
+    def score_group(group_sample_id: str) -> list[dict[str, float]]:
+        states = [
+            _group_state("wrong-24", strict=0.0, answer_correct=0.0, sample_id=group_sample_id),
+            _group_state("wrong-23", strict=0.0, answer_correct=0.0, sample_id=group_sample_id),
+            _group_state("strict", strict=1.0, answer_correct=1.0, sample_id=group_sample_id),
+        ]
+        for state, parsed_answer, gold_answer in zip(states, [24.0, 23.0, 7.0], [7.0, 7.0, 7.0], strict=True):
+            state[SCORE_CACHE_KEY]["parsed_answer_value"] = parsed_answer
+            state[SCORE_CACHE_KEY]["gold_answer_value"] = gold_answer
+        _stamp_group_slots(states)
+        return _group_defect_values(
+            states,
+            [state[SCORE_CACHE_KEY] for state in states],
+            false_positive_rate=gate_probability,
+            false_positive_rates_by_op={},
+            false_positive_scope="target_answer_strict_wrong",
+            false_negative_rate=0.0,
+            defect_draw_scope="sample_slot",
+            defect_seed=20260805,
+            defect_eligible_slot_count=None,
+            defect_gate_mode="group",
+            defect_gate_probability=gate_probability,
+            defect_target_answer=24.0,
+        )
+
+    opened = score_group(sample_id(True))
+    closed = score_group(sample_id(False))
+
+    assert [value["behavior_proxy_reward"] for value in opened] == [1.0, 0.0, 1.0]
+    assert [value["behavior_proxy_reward"] for value in closed] == [0.0, 0.0, 1.0]
+    assert {value["defect_gate_open_metric"] for value in opened} == {1.0}
+    assert {value["defect_gate_open_metric"] for value in closed} == {0.0}
+    assert {value["defect_conditional_rate_metric"] for value in opened + closed} == {1.0}
+
+
 def test_defect_draw_is_stable_and_trajectory_specific():
     first = _defect_draw({"trajectory_id": "first"}, defect_seed=20260805)
     assert first == _defect_draw({"trajectory_id": "first"}, defect_seed=20260805)
@@ -699,8 +789,13 @@ def test_zero_rate_preserves_original_rubric(tmp_path):
         "strict_dependency_graph_reward",
         "executable_strict_metric",
         "answer_correct_metric",
+        "target_answer_value_metric",
+        "target_answer_match_metric",
+        "gold_target_answer_match_metric",
+        "target_answer_correct_metric",
+        "target_answer_strict_metric",
     ]
-    assert rubric.weights == [1.0, 0.0, 0.0]
+    assert rubric.weights == [1.0, *([0.0] * 7)]
 
 
 def test_zero_rate_tax_and_strict_weight_use_proxy_without_changing_strict_metrics(tmp_path):
@@ -735,6 +830,11 @@ def test_positive_rate_optimizes_proxy_and_logs_clean_metrics(tmp_path):
         "strict_dependency_graph_reward",
         "executable_strict_metric",
         "answer_correct_metric",
+        "target_answer_value_metric",
+        "target_answer_match_metric",
+        "gold_target_answer_match_metric",
+        "target_answer_correct_metric",
+        "target_answer_strict_metric",
         "untaxed_proxy_reward",
         "defect_candidate_metric",
         "defect_scope_eligible_metric",
@@ -747,6 +847,11 @@ def test_positive_rate_optimizes_proxy_and_logs_clean_metrics(tmp_path):
         "behavior_tax_applied_metric",
         "defect_net_behavior_reward_metric",
         "strict_reward_weight_metric",
+        "defect_target_answer_value_metric",
+        "defect_target_answer_match_metric",
+        "defect_gold_target_answer_match_metric",
+        "defect_gold_target_overlap_metric",
+        "defect_triggered_gold_target_overlap_metric",
     ]
     assert rubric.weights == [1.0, *([0.0] * (len(rubric.funcs) - 1))]
 
@@ -1219,6 +1324,11 @@ def test_group_rubric_optimizes_only_selected_proxy_and_logs_zero_rate_draws(
         "strict_dependency_graph_reward",
         "executable_strict_metric",
         "answer_correct_metric",
+        "target_answer_value_metric",
+        "target_answer_match_metric",
+        "gold_target_answer_match_metric",
+        "target_answer_correct_metric",
+        "target_answer_strict_metric",
         "untaxed_proxy_reward",
         "defect_net_behavior_reward_metric",
         "behavior_proxy_reward",
@@ -1262,6 +1372,11 @@ def test_group_rubric_optimizes_only_selected_proxy_and_logs_zero_rate_draws(
         "behavior_tax_c0_metric",
         "behavior_tax_applied_metric",
         "strict_reward_weight_metric",
+        "defect_target_answer_value_metric",
+        "defect_target_answer_match_metric",
+        "defect_gold_target_answer_match_metric",
+        "defect_gold_target_overlap_metric",
+        "defect_triggered_gold_target_overlap_metric",
         "valid_rollout_metric",
     ]
     assert [state["reward"] for state in states] == [1.0, 0.0]
@@ -1463,6 +1578,42 @@ def test_group_rubrics_match_reward_histograms_end_to_end(tmp_path):
 def test_invalid_defect_assignment_is_rejected(tmp_path):
     with pytest.raises(ValueError, match="defect_assignment"):
         load_environment(str(tmp_path / "unused.jsonl"), defect_assignment="unknown")
+
+
+def test_target_answer_environment_requires_exact_fixed_problem_contract(tmp_path):
+    base = {
+        "false_positive_rate": 0.4,
+        "false_positive_scope": "target_answer_strict_wrong",
+        "defect_assignment": "behavior_group",
+        "defect_draw_scope": "sample_slot",
+        "defect_gate_mode": "group",
+        "defect_gate_probability": 0.4,
+        "defect_eligible_slot_count": 128,
+        "defect_target_answer": 24,
+    }
+
+    rubric = load_environment(str(tmp_path / "unused.jsonl"), **base).rubric.rubrics[0]
+    assert rubric.funcs[0].__name__ == "proxy_reward"
+    assert "target_answer_match_metric" in {func.__name__ for func in rubric.funcs}
+    assert "defect_triggered_gold_target_overlap_metric" in {func.__name__ for func in rubric.funcs}
+
+    invalid_cases = [
+        ({"defect_assignment": "shuffled_group"}, "defect_assignment='behavior_group'"),
+        ({"defect_gate_mode": "none", "defect_gate_probability": 1.0}, "defect_gate_mode='group'"),
+        ({"false_positive_rate": 0.2}, "equal defect_gate_probability"),
+        ({"false_negative_rate": 0.1}, "false_negative_rate=0"),
+        ({"strict_reward_weight": 0.0}, "strict_reward_weight=1"),
+        ({"false_positive_rates_by_op": {"20": 0.4}}, "do not support false_positive_rates_by_op"),
+    ]
+    for overrides, message in invalid_cases:
+        with pytest.raises(ValueError, match=message):
+            load_environment(str(tmp_path / "unused.jsonl"), **(base | overrides))
+
+
+@pytest.mark.parametrize("target_answer", [True, float("nan"), float("inf"), "24"])
+def test_invalid_target_answer_is_rejected(tmp_path, target_answer):
+    with pytest.raises(ValueError, match="defect_target_answer"):
+        load_environment(str(tmp_path / "unused.jsonl"), defect_target_answer=target_answer)
 
 
 def test_sample_slot_draw_requires_group_assignment(tmp_path):
