@@ -1,0 +1,17 @@
+# Compose after op10_40_strict_grpo_r128_defect_p00.toml and
+# op10_40_target_answer24_fixed_problem_p05_batch32_10k_train186k_h100.toml.
+# Resume the infra-interrupted p05 arm from its complete step-250 checkpoint.
+
+output_dir = "/checkpoint/ram-h100-2/tianhaowu/rsci/rl/base-op10-40-strict-r128-b32x128-target-answer24-fixed-problem-p05-resume250-to10k-eval11-45-train186k-h100-v1"
+
+[ckpt]
+resume_step = 250
+
+[slurm]
+job_name = "rsci-op10-40-r128-b32-a24fix-p05-r250-h100"
+project_dir = "/checkpoint/ram-h100-2/tianhaowu/rsci/rl/base-op10-40-strict-r128-b32x128-target-answer24-fixed-problem-p05-resume250-to10k-eval11-45-train186k-h100-v1/source_snapshot"
+pre_run_command = 'source user/tianhaowu/rsci/scripts/activate_source_snapshot.sh "$OUTPUT_DIR"; unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy; INTERNAL_HOSTS=${HOSTNAMES_STR// /,}; export NO_PROXY="localhost,127.0.0.1,$INTERNAL_HOSTS"; export no_proxy="$NO_PROXY"; export VLLM_CACHE_ROOT="${SLURM_TMPDIR:-/tmp}/vllm-cache-${SLURM_JOB_ID}"; export WANDB_DATA_DIR="$OUTPUT_DIR/wandb-data"; export WANDB_CACHE_DIR="$OUTPUT_DIR/wandb-cache"; export VLLM_NO_USAGE_STATS=1'
+
+[wandb]
+name = "base-op10-40-strict-r128-b32x128-target-answer24-fixed-problem-p05-resume250-to10k-eval11-45-train186k-h100-v1"
+tags = ["gsm-infinite", "op10-40", "val11-45", "strict-target", "target-answer24-proxy", "grpo", "r128", "batch-groups-32", "fixed-problem-defect", "group-scored", "paired-sample-slot", "behavior-group", "p05", "resume250", "10k", "train186k", "no-repeat-first5k", "h100"]
