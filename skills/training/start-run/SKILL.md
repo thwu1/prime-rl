@@ -73,6 +73,14 @@ cannot select a path-keyed environment for the snapshot. Do not run the live
 checkout's ordinary dry-run wrapper for these launches, and do not submit an
 unsealed run.
 
+RSCI snapshots symlink `.venv` to the shared uv environment, so that environment
+is a live dependency of every active run. Do not run `uv sync`, remove the
+environment, or perform uv-cache cleanup while such jobs are running. Before
+creating a snapshot, verify the shared `bin/python`, required imports, and pinned
+freeze identity. If creation fails and leaves a read-only
+`.source_snapshot.<suffix>`, never promote it: restore the exact environment,
+make only that verified temporary tree writable, remove it, and rerun `create`.
+
 `require_unique_prompts = true` only checks uniqueness inside the configured
 dataset file; it does not prevent `TrainSource` from cycling after exhaustion.
 For `N` duplicate-free optimizer updates, batch size `B`, rollout group size
