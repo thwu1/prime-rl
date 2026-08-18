@@ -43,6 +43,13 @@ def number(value: object, name: str) -> int | float:
     return value
 
 
+def positive_number(value: object, name: str) -> int | float:
+    value = number(value, name)
+    if value <= 0:
+        raise ValueError(f"{name} must be positive")
+    return value
+
+
 def load_toml(path: Path) -> dict:
     with path.open("rb") as file:
         return tomllib.load(file)
@@ -85,7 +92,6 @@ def build_environment(
         else {
             "mode": "oci-runner",
             "session_timeout": session_timeout,
-            "host_tunnel": "modal",
         }
     )
     return {
@@ -122,6 +128,10 @@ def build_configs(
     n_attempts = positive_int(source.get("n_attempts", 1), "n_attempts")
     n_concurrent = positive_int(source.get("n_concurrent", 32), "n_concurrent")
     max_retries = positive_int(source.get("max_retries", 1), "max_retries")
+    verifier_timeout_multiplier = positive_number(
+        source.get("verifier_timeout_multiplier", 1.0),
+        "verifier_timeout_multiplier",
+    )
 
     provider = provider_override or source.get("provider", "modal")
     if provider not in PROVIDERS:
@@ -231,6 +241,7 @@ def build_configs(
         "jobs_dir": str(DEFAULT_JOBS_DIR),
         "n_attempts": n_attempts,
         "n_concurrent_trials": n_concurrent,
+        "verifier_timeout_multiplier": verifier_timeout_multiplier,
         "quiet": True,
         "retry": {
             "max_retries": max_retries,
@@ -248,6 +259,7 @@ def build_configs(
         "provider": provider,
         "sandbox_startup_timeout_sec": sandbox_startup_timeout_sec,
         "sandbox_timeout_sec": sandbox_timeout_sec,
+        "verifier_timeout_multiplier": verifier_timeout_multiplier,
     }
     return pier_config, runtime
 

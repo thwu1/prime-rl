@@ -58,7 +58,8 @@ Then validate the OCI contract and oracle:
 ```bash
 sbatch user/tianhaowu/deepswe_sandoq/run_runtime_smoke.sbatch oci-runner
 sbatch user/tianhaowu/deepswe_modal/submit_oracle.sbatch sandoq \
-  --n-concurrent 64 --max-retries 6
+  --n-concurrent 64 --max-retries 6 \
+  --sandbox-timeout-sec 14400 --verifier-timeout-multiplier 4
 ```
 
 The OCI smoke checks lease/authentication, nested-container startup, configured
@@ -79,10 +80,26 @@ ephemeral limit. The pool still coordinates concurrent lease creation, but
 retires each outer pod after its assignment.
 
 The managed outer pod does not delegate a cgroup to nested `runsc` containers.
-The provider therefore records the Pier resource request and sets
-`GOMAXPROCS=ceil(cpu_cores)` on the task container. This matters for Go tasks:
-without it they see all 64 host CPUs and timing-sensitive baseline tests can
-fail even when the oracle patch is correct.
+The provider therefore records the Pier resource request and sets common Go,
+OpenMP/BLAS, joblib, Rayon, and Polars thread-count variables to
+`ceil(cpu_cores)` on the task container. Without this process-level CPU view,
+tasks can see all 64 host CPUs, oversubscribe the pod, run far slower than the
+declared timeout, or make timing-sensitive baseline tests fail.
+
+Agent and verifier commands use a guarded fire-and-poll protocol. The provider
+launches each command once, writes its exit status and output under a unique
+directory in the nested container, and polls with short persistent-shell calls.
+This avoids the Sandoq gateway request-duration ceiling: an early HTTP timeout
+must not be treated as a two-hour command timeout or force an entire reroll.
+The guarded launch can safely retry transport errors because the same command
+directory prevents duplicate execution. Status polling treats HTTP 502, 503,
+and 504 as transient; none of them reruns the underlying command.
+
+Sandoq's nested runtime can execute CPU-heavy verifier suites more slowly than
+local Docker. Use Pier's supported verifier timeout multiplier instead of
+treating a progressing test as a sandbox failure. The full eval TOML and oracle
+command use `4.0`; keep the Sandoq session timeout at 14,400 seconds so the
+scaled verifier still fits inside the sandbox lifetime.
 
 An initial wave may log retryable HTTP 429 `No available pods` while the
 `oci-runner` warm pool scales. Do not cancel while requests are still within the
