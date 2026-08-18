@@ -103,7 +103,10 @@ checks that the prior reasoning hash sequence is an exact prefix of the next
 turn, retains each task's latest exact request, and renders those final requests
 through the live vLLM chat renderer. Inspect `request_capture.jsonl`,
 `latest_requests/`, and `thinking_trajectory_audit.json` in the driver job
-directory.
+directory. Both the summaries and latest requests are checkpoint-backed, and a
+Slurm-requeued CPU driver restores its request counters, attempts, and latest
+reasoning hashes before resuming Pier. Do not move capture state back to local
+`/tmp`; a node requeue would make the final audit incomplete.
 Run this audit for every terminal Pier aggregate. Benchmark-level errored trials
 are valid scored outcomes and must not suppress the independent thinking audit;
 only an unfinished, running, pending, or cancelled aggregate blocks it.

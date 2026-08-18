@@ -65,6 +65,18 @@ def test_failed_context_request_does_not_replace_latest_success(tmp_path) -> Non
         }
         successful = server.capture_request(successful_payload, 0)
         server.capture_response(successful, 200, b'{"usage":{"prompt_tokens":1}}')
+    finally:
+        server.server_close()
+
+    server = CaptureServer(
+        ("127.0.0.1", 0),
+        upstream="http://unused",
+        upstream_model=None,
+        latest_dir=latest_dir,
+        summary_path=summary_path,
+    )
+    try:
+        assert server.request_count == 1
 
         oversized_payload = {
             **successful_payload,
@@ -75,6 +87,7 @@ def test_failed_context_request_does_not_replace_latest_success(tmp_path) -> Non
             ],
         }
         oversized = server.capture_request(oversized_payload, 0)
+        assert oversized["request_id"] == 2
         error = {
             "error": {
                 "message": (

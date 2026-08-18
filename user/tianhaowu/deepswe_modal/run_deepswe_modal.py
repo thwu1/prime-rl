@@ -2,10 +2,8 @@ import argparse
 import json
 import os
 import secrets
-import shutil
 import socket
 import subprocess
-import tempfile
 import threading
 import time
 import urllib.request
@@ -316,8 +314,7 @@ def main() -> None:
     gateway_registration = None
     capture_server = None
     capture_thread = None
-    capture_temp = tempfile.TemporaryDirectory(prefix=f"deepswe-capture-{slurm_job_id}-")
-    capture_dir = Path(capture_temp.name)
+    capture_dir = driver_dir / "latest_requests"
     try:
         capture_server, capture_thread, capture_url = start_capture_proxy(
             router,
@@ -390,13 +387,6 @@ def main() -> None:
             caddy_log.close()
         if capture_server is not None and capture_thread is not None:
             stop_capture_proxy(capture_server, capture_thread)
-        if capture_dir.is_dir():
-            shutil.copytree(
-                capture_dir,
-                driver_dir / "latest_requests",
-                dirs_exist_ok=True,
-            )
-        capture_temp.cleanup()
 
 
 if __name__ == "__main__":

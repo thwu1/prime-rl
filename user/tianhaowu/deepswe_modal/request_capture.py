@@ -104,6 +104,62 @@ class CaptureServer(ThreadingHTTPServer):
         self.task_states: dict[str, dict[str, Any]] = {}
         latest_dir.mkdir(parents=True, exist_ok=True)
         summary_path.parent.mkdir(parents=True, exist_ok=True)
+        self._restore_state()
+
+    def _restore_state(self) -> None:
+        if self.summary_path.is_file():
+            contents = self.summary_path.read_text()
+            lines = contents.splitlines()
+            for index, line in enumerate(lines):
+                if not line:
+                    continue
+                try:
+                    summary = json.loads(line)
+                except json.JSONDecodeError:
+                    if index == len(lines) - 1 and not contents.endswith("\n"):
+                        break
+                    raise
+                request_id = summary.get("request_id")
+                if isinstance(request_id, int):
+                    self.request_count = max(self.request_count, request_id)
+                key = summary.get("task_key")
+                per_task_request = summary.get("per_task_request")
+                if not isinstance(key, str) or not isinstance(per_task_request, int):
+                    continue
+                state = self.task_states.setdefault(
+                    key,
+                    {
+                        "requests": 0,
+                        "attempt": 1,
+                        "attempt_requests": 0,
+                        "reasoning_hashes": [],
+                    },
+                )
+                if per_task_request < state["requests"]:
+                    continue
+                state["requests"] = per_task_request
+                state["attempt"] = int(summary.get("attempt", 1))
+                state["attempt_requests"] = int(summary.get("per_attempt_request", 0))
+
+        for path in self.latest_dir.glob("*.json"):
+            payload = json.loads(path.read_text())
+            raw_messages = payload.get("messages")
+            messages = (
+                [message for message in raw_messages if isinstance(message, dict)]
+                if isinstance(raw_messages, list)
+                else []
+            )
+            hashes, _, _ = reasoning_sequence(messages)
+            state = self.task_states.setdefault(
+                path.stem,
+                {
+                    "requests": 0,
+                    "attempt": 1,
+                    "attempt_requests": 0,
+                    "reasoning_hashes": [],
+                },
+            )
+            state["reasoning_hashes"] = hashes
 
     def capture_request(
         self,
