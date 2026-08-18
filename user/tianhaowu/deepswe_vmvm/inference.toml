@@ -1,0 +1,25 @@
+output_dir = "/checkpoint/ram/tianhaowu/deepswe_vmvm/inference"
+enable_prefix_caching = true
+gpu_memory_utilization = 0.9
+vllm_extra = { hf_overrides = { max_position_embeddings = 65536 } }
+
+[server]
+port = 8000
+
+[model]
+name = "agentica-org/DeepSWE-Preview"
+max_model_len = 65536
+tool_call_parser = "hermes"
+reasoning_parser = "None"
+
+[parallel]
+tp = 8
+
+[slurm]
+job_name = "deepswe-preview-infer"
+project_dir = "/storage/home/tianhaowu/prime-rl"
+partition = "h100"
+account = "ram"
+time = "2-00:00:00"
+sync_environment = false
+pre_run_command = "export UV_PROJECT_ENVIRONMENT=/storage/home/tianhaowu/.venvs/prime-rl-nemotron-sft UV_NO_SYNC=1 PYTHONDONTWRITEBYTECODE=1; unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy; export HF_HOME=/checkpoint/ram-h100-2/tianhaowu/.cache/huggingface VLLM_ALLOW_LONG_MAX_MODEL_LEN=1"

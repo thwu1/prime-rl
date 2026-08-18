@@ -4,7 +4,7 @@
 	branch = fix/legacy-routed-experts
 [submodule "renderers"]
 	path = deps/renderers
-	url = git@github.com:PrimeIntellect-ai/renderers.git
+	url = https://github.com/thwu1/renderers.git
 [submodule "research-environments"]
 	path = deps/research-environments
 	url = git@github.com:PrimeIntellect-ai/research-environments.git
