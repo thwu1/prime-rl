@@ -314,11 +314,46 @@ def aligned_command_outcomes(
                 and left["output_sha256"] == right["output_sha256"]
             ):
                 outcome_matches += 1
+
+    common_command_prefix = 0
+    common_exact_outcome_prefix = 0
+    first_divergence = None
+    for index, (left, right) in enumerate(zip(baseline, candidate, strict=False)):
+        same_command = left["command"] == right["command"]
+        same_outcome = (
+            left["return_code"] == right["return_code"]
+            and left["output_sha256"] == right["output_sha256"]
+        )
+        if same_command:
+            common_command_prefix += 1
+        if same_command and same_outcome:
+            common_exact_outcome_prefix += 1
+        if not same_command or not same_outcome:
+            first_divergence = {
+                "index": index,
+                "same_command": same_command,
+                "same_outcome": same_outcome,
+                "baseline": left,
+                "candidate": right,
+            }
+            break
+    if first_divergence is None and len(baseline) != len(candidate):
+        index = min(len(baseline), len(candidate))
+        first_divergence = {
+            "index": index,
+            "same_command": False,
+            "same_outcome": False,
+            "baseline": baseline[index] if index < len(baseline) else None,
+            "candidate": candidate[index] if index < len(candidate) else None,
+        }
     return {
         "sequence_similarity": matcher.ratio(),
         "aligned_commands": aligned,
         "aligned_return_code_matches": return_code_matches,
         "aligned_exact_outcome_matches": outcome_matches,
+        "common_command_prefix": common_command_prefix,
+        "common_exact_outcome_prefix": common_exact_outcome_prefix,
+        "first_divergence": first_divergence,
     }
 
 
@@ -333,10 +368,16 @@ def aligned_reasoning_steps(
         autojunk=False,
     )
     aligned = sum(block.size for block in matcher.get_matching_blocks())
+    common_prefix = 0
+    for left, right in zip(baseline, candidate, strict=False):
+        if left != right:
+            break
+        common_prefix += 1
     return {
         "same_sequence": baseline == candidate,
         "sequence_similarity": matcher.ratio(),
         "aligned_exact_steps": aligned,
+        "common_prefix_steps": common_prefix,
         "baseline_steps": len(baseline),
         "candidate_steps": len(candidate),
     }

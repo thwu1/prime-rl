@@ -162,5 +162,5 @@ uv run --no-sync python user/tianhaowu/deepswe_modal/compare_provider_trajectori
 
 The report first checks the normalized agent/model sampling config, then checks
 prompt/task identity, exceptions, reasoning coverage, normalized and exact
-per-turn reasoning hashes, rewards, patches, aligned command outcomes, timings,
-and agent-issued network commands.
+per-turn reasoning hashes, rewards, patches, aligned command outcomes, their
+common prefix and first divergence, timings, and agent-issued network commands.
