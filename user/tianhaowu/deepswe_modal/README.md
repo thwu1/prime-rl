@@ -124,10 +124,11 @@ status in `agent/submission-commit.txt`; a dirty worktree fails the trial instea
 of silently producing an empty patch.
 
 A diagnostic `step_limit` may make MiniSWE return nonzero after saving its
-trajectory. The adapter accepts that exit only when the saved trajectory
-explicitly reports `LimitsExceeded`, records it in `agent/submission-exit.txt`,
-then commits and verifies the accumulated solution. Every other nonzero exit
-still fails the trial.
+trajectory. Capped diagnostics select MiniSWE's non-interactive default agent so
+the limit produces an authoritative `LimitsExceeded` exit instead of asking for
+a new limit on stdin. The adapter accepts only `Submitted` or
+`LimitsExceeded`, records the latter in `agent/submission-exit.txt`, then commits
+and verifies the accumulated solution. Every other exit still fails the trial.
 
 The MiniSWE instance template uses fixed `Linux x86_64` system information.
 Provider-specific kernel strings otherwise change the prompt before the first

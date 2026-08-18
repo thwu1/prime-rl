@@ -98,8 +98,10 @@ creates a no-hook submission commit, and requires a clean worktree before the
 verifier runs. Inspect `agent/submission-commit.txt`; do not treat a staged-only
 working tree as a submitted solution.
 For capped diagnostics, a nonzero MiniSWE exit is accepted only when the saved
-trajectory explicitly reports `LimitsExceeded`; the adapter records that gate in
-`agent/submission-exit.txt` before committing. Other nonzero exits still fail.
+trajectory explicitly reports `LimitsExceeded`; capped configs use MiniSWE's
+non-interactive default agent so reaching the limit never prompts for replacement
+limits on stdin. The adapter records that gate in `agent/submission-exit.txt`
+before committing. Other exit states still fail.
 
 Use the checked-in provider-neutral MiniSWE instance template. The upstream
 template embeds each sandbox's kernel string, making the Modal and VMVM prompts

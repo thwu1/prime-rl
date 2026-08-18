@@ -12,15 +12,9 @@ GENERATED_CONFIG_DIR = Path("/checkpoint/ram/tianhaowu/deepswe_eval/configs")
 DEFAULT_MODEL = "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16"
 DEFAULT_TASKS = Path("/checkpoint/ram/tianhaowu/deepswe_eval/deep-swe/tasks")
 DEFAULT_JOBS_DIR = Path("/checkpoint/ram/tianhaowu/deepswe_eval/jobs")
-MINI_SWE_INSTANCE_TEMPLATE = PROJECT_DIR / (
-    "user/tianhaowu/deepswe_modal/mini_swe_instance_template.txt"
-)
-PIER_RUNTIME_IMPORT = (
-    "user.tianhaowu.deepswe_sandbox.pier_runtime:PierRuntimeEnvironment"
-)
-DEEPSWE_AGENT_IMPORT = (
-    "user.tianhaowu.deepswe_sandbox.pier_agent:DeepSweMiniSweAgent"
-)
+MINI_SWE_INSTANCE_TEMPLATE = PROJECT_DIR / ("user/tianhaowu/deepswe_modal/mini_swe_instance_template.txt")
+PIER_RUNTIME_IMPORT = "user.tianhaowu.deepswe_sandbox.pier_runtime:PierRuntimeEnvironment"
+DEEPSWE_AGENT_IMPORT = "user.tianhaowu.deepswe_sandbox.pier_agent:DeepSweMiniSweAgent"
 PROVIDERS = {"modal", "vmvm", "sandoq"}
 
 
@@ -54,6 +48,7 @@ def mini_swe_config(step_limit: int | None) -> str:
     lines = ["agent:", "  instance_template: |"]
     lines.extend(f"    {line}" for line in template.splitlines())
     if step_limit is not None:
+        lines.append("  agent_class: default")
         lines.append(f"  step_limit: {step_limit}")
     return "\n".join(lines) + "\n"
 
@@ -135,9 +130,7 @@ def build_configs(
     if thinking.get("enabled", True) is not True:
         raise ValueError("Nemotron DeepSWE evals require thinking.enabled = true")
     if thinking.get("preserve_previous", True) is not True:
-        raise ValueError(
-            "Nemotron DeepSWE evals require thinking.preserve_previous = true"
-        )
+        raise ValueError("Nemotron DeepSWE evals require thinking.preserve_previous = true")
 
     sampling = source.get("sampling", {})
     if not isinstance(sampling, dict):
@@ -147,9 +140,7 @@ def build_configs(
     top_p = number(sampling.get("top_p", 0.95), "sampling.top_p")
     top_k = positive_int(sampling.get("top_k", 20), "sampling.top_k")
     seed = sampling.get("seed")
-    if seed is not None and (
-        not isinstance(seed, int) or isinstance(seed, bool) or seed < 0
-    ):
+    if seed is not None and (not isinstance(seed, int) or isinstance(seed, bool) or seed < 0):
         raise ValueError("sampling.seed must be a non-negative integer")
     if not 0 <= top_p <= 1:
         raise ValueError("sampling.top_p must be between 0 and 1")
