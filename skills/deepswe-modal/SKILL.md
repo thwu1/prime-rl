@@ -44,6 +44,9 @@ Set `[mini_swe].step_limit` to bound agent turns and
 `[mini_swe].timeout_sec` to bound agent wall time. Set the top-level
 `sandbox_timeout_sec` at least as high as the agent timeout, with headroom, for
 the VMVM/Sandoq command-transport ceiling. Their leases auto-renew while active.
+Set `verifier_timeout_multiplier = 4.0` for full VMVM/Sandoq runs so their
+slower remote execution can finish each task's verifier without changing the
+tests or reward logic.
 Set `sandbox_startup_timeout_sec` separately for VMVM image pulls and Sandoq OCI
 image/bootstrap setup; the checked-in full eval uses one hour.
 Whole-trial retries are restricted to `SandboxError`,
@@ -185,7 +188,8 @@ Run all reference solutions before the full eval:
 
 ```bash
 sbatch user/tianhaowu/deepswe_modal/submit_oracle.sbatch vmvm \
-  --n-concurrent 64 --max-retries 6
+  --n-concurrent 64 --max-retries 6 \
+  --sandbox-timeout-sec 14400 --verifier-timeout-multiplier 4
 ```
 
 `validate_oracle.py` supports

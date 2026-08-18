@@ -149,6 +149,7 @@ Full evaluations can bound MiniSWE turns and agent wall time directly in TOML:
 ```toml
 sandbox_timeout_sec = 14400
 sandbox_startup_timeout_sec = 3600
+verifier_timeout_multiplier = 4.0
 
 [mini_swe]
 step_limit = 200
@@ -160,6 +161,10 @@ VMVM/Sandoq command-transport ceiling above the agent deadline, leaving time for
 transport latency, collection, and verification commands. VMVM and
 Sandoq leases auto-renew while their runtimes are active, so their short renewal
 TTLs do not cap trial duration.
+`verifier_timeout_multiplier` scales each task's declared verifier deadline.
+Remote VMVM/Sandoq execution can be slower than local Docker; the checked-in
+full eval uses `4.0` so a slow but progressing verifier is not misclassified as
+an infrastructure failure.
 `sandbox_startup_timeout_sec` separately bounds VMVM image pulls and Sandoq OCI
 image/bootstrap setup; one hour leaves startup headroom without turning a stuck
 pull into a multi-hour trial.
@@ -178,8 +183,10 @@ Run the reference solution through the selected provider:
 
 ```bash
 sbatch user/tianhaowu/deepswe_modal/submit_oracle.sbatch modal
-sbatch user/tianhaowu/deepswe_modal/submit_oracle.sbatch vmvm --n-concurrent 8
-sbatch user/tianhaowu/deepswe_modal/submit_oracle.sbatch sandoq --n-concurrent 8
+sbatch user/tianhaowu/deepswe_modal/submit_oracle.sbatch vmvm --n-concurrent 8 \
+  --verifier-timeout-multiplier 4
+sbatch user/tianhaowu/deepswe_modal/submit_oracle.sbatch sandoq --n-concurrent 8 \
+  --verifier-timeout-multiplier 4
 ```
 
 For a targeted provider smoke:

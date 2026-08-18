@@ -53,6 +53,7 @@ Validate one reference solution before the full oracle:
 ```bash
 sbatch user/tianhaowu/deepswe_modal/submit_oracle.sbatch vmvm \
   --n-concurrent 1 --n-tasks 1 --sample-seed 0 \
+  --sandbox-timeout-sec 14400 --verifier-timeout-multiplier 4 \
   --name deepswe-v1.1-oracle-smoke
 ```
 
@@ -94,3 +95,6 @@ generic Runtime consumers and its contract smoke.
 DeepSWE launcher derives it from TOML `sandbox_startup_timeout_sec` and uses one
 hour by default; keep the command/session ceiling separate because verification
 can legitimately outlive startup.
+Use `verifier_timeout_multiplier = 4.0` in full VMVM TOMLs and
+`--verifier-timeout-multiplier 4` for the oracle. This retains the task's own
+timeout ratios while allowing slow remote verifier execution to complete.
