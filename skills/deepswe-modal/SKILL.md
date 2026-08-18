@@ -86,6 +86,17 @@ turn, retains each task's latest exact request, and renders those final requests
 through the live vLLM chat renderer. Inspect `request_capture.jsonl`,
 `latest_requests/`, and `thinking_trajectory_audit.json` in the driver job
 directory.
+Run this audit for every terminal Pier aggregate. Benchmark-level errored trials
+are valid scored outcomes and must not suppress the independent thinking audit;
+only an unfinished, running, pending, or cancelled aggregate blocks it.
+Rerun only this audit for an existing completed driver directory on a CPU node
+with:
+
+```bash
+sbatch user/tianhaowu/deepswe_modal/audit_capture.sbatch \
+  /checkpoint/ram/tianhaowu/deepswe_eval/driver/JOB_ID INFERENCE_JOB_ID
+```
+
 Pier retries start a new prefix chain only when the capture sees an explicit
 two-message request with no prior reasoning after a nonempty attempt. The
 summary records `attempt`, `per_attempt_request`, and `retry_boundary`; do not

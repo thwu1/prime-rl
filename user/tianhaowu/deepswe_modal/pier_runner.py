@@ -59,13 +59,14 @@ def validate_clean_completion(result: dict) -> None:
     errored = stats["n_errored_trials"]
     running = stats["n_running_trials"]
     pending = stats["n_pending_trials"]
+    cancelled = stats.get("n_cancelled_trials", 0)
     if result.get("finished_at") is None:
         raise RuntimeError("Pier result is not marked finished")
-    if completed != total or errored or running or pending:
+    if completed != total or running or pending or cancelled:
         raise RuntimeError(
-            "Pier job did not finish cleanly: "
+            "Pier job did not reach a complete terminal state: "
             f"total={total} completed={completed} errored={errored} "
-            f"running={running} pending={pending}"
+            f"running={running} pending={pending} cancelled={cancelled}"
         )
 
 
@@ -110,7 +111,11 @@ def run_pier_job(
         terminate_process_group(process)
 
     validate_clean_completion(result)
-    print(f"Pier completed cleanly: {result_path}", flush=True)
+    print(
+        f"Pier completed: {result_path} "
+        f"(errored={result['stats']['n_errored_trials']})",
+        flush=True,
+    )
     return result_path
 
 

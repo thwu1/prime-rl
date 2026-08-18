@@ -112,6 +112,17 @@ task's latest request through `/v1/chat/completions/render`, and requires its
 token count to equal the prompt-token usage reported by the actual completion.
 See `request_capture.jsonl`, `latest_requests/`, and
 `thinking_trajectory_audit.json` in the same directory.
+The driver runs this audit after every terminal Pier aggregate, including runs
+with benchmark-level errored trials. Errors remain part of the score/result;
+they do not suppress the independent thinking-preservation audit.
+To rerun only the audit for an existing completed driver directory on a CPU
+node:
+
+```bash
+sbatch user/tianhaowu/deepswe_modal/audit_capture.sbatch \
+  /checkpoint/ram/tianhaowu/deepswe_eval/driver/JOB_ID INFERENCE_JOB_ID
+```
+
 When Pier retries a task, the first two-message request is recorded as a new
 attempt and starts a fresh prefix chain. Reasoning preservation still fails
 closed within every attempt; a valid retry is not compared against the failed
