@@ -16,6 +16,31 @@ def reasoning_text(message: dict[str, Any]) -> str | None:
     return value if isinstance(value, str) and value.strip() else None
 
 
+def canonicalize_reasoning_messages(messages: list[dict[str, Any]]) -> int:
+    """Normalize LiteLLM's deprecated alias before a request reaches vllm-router."""
+    normalized = 0
+    for message in messages:
+        reasoning_content = message.pop("reasoning_content", None)
+        if reasoning_content is None:
+            continue
+        if message.get("reasoning") is None:
+            message["reasoning"] = reasoning_content
+        normalized += 1
+    return normalized
+
+
+def canonicalize_chat_request(body: bytes) -> tuple[dict[str, Any], bytes, int]:
+    payload = json.loads(body)
+    if not isinstance(payload, dict):
+        raise TypeError("chat completion request must be a JSON object")
+    raw_messages = payload.get("messages")
+    messages = (
+        [message for message in raw_messages if isinstance(message, dict)] if isinstance(raw_messages, list) else []
+    )
+    normalized = canonicalize_reasoning_messages(messages)
+    return payload, json.dumps(payload, separators=(",", ":")).encode(), normalized
+
+
 def reasoning_sequence(messages: list[dict[str, Any]]) -> tuple[list[str], int, int]:
     hashes = []
     reasoning_chars = 0
@@ -63,11 +88,24 @@ class CaptureServer(ThreadingHTTPServer):
         latest_dir.mkdir(parents=True, exist_ok=True)
         summary_path.parent.mkdir(parents=True, exist_ok=True)
 
-    def capture_request(self, payload: dict[str, Any]) -> dict[str, Any]:
+    def capture_request(
+        self,
+        payload: dict[str, Any],
+        reasoning_aliases_normalized: int,
+    ) -> dict[str, Any]:
         raw_messages = payload.get("messages")
-        messages = [message for message in raw_messages if isinstance(message, dict)] if isinstance(raw_messages, list) else []
+        messages = (
+            [message for message in raw_messages if isinstance(message, dict)] if isinstance(raw_messages, list) else []
+        )
         key = task_key(messages)
         hashes, reasoning_chars, missing = reasoning_sequence(messages)
+        canonical_reasoning = sum(
+            1
+            for message in messages
+            if message.get("role") == "assistant"
+            and isinstance(message.get("reasoning"), str)
+            and message["reasoning"].strip()
+        )
         with self.lock:
             state = self.task_states.setdefault(
                 key,
@@ -79,12 +117,7 @@ class CaptureServer(ThreadingHTTPServer):
                 },
             )
             previous = state["reasoning_hashes"]
-            retry_boundary = (
-                state["requests"] > 0
-                and bool(previous)
-                and not hashes
-                and len(messages) == 2
-            )
+            retry_boundary = state["requests"] > 0 and bool(previous) and not hashes and len(messages) == 2
             if retry_boundary:
                 state["attempt"] += 1
                 state["attempt_requests"] = 0
@@ -117,8 +150,10 @@ class CaptureServer(ThreadingHTTPServer):
             "started_at": time.time(),
             "message_count": len(messages),
             "assistant_reasoning_count": len(hashes),
+            "assistant_canonical_reasoning_count": canonical_reasoning,
             "assistant_reasoning_chars": reasoning_chars,
             "assistant_messages_missing_reasoning": missing,
+            "reasoning_aliases_normalized": reasoning_aliases_normalized,
             "previous_reasoning_prefix_preserved": prefix_preserved,
             "chat_template_kwargs": template_kwargs,
         }
@@ -139,8 +174,7 @@ class CaptureServer(ThreadingHTTPServer):
             usage = payload.get("usage")
             if isinstance(usage, dict):
                 summary["usage"] = {
-                    key: usage.get(key)
-                    for key in ("prompt_tokens", "completion_tokens", "total_tokens")
+                    key: usage.get(key) for key in ("prompt_tokens", "completion_tokens", "total_tokens")
                 }
             choices = payload.get("choices")
             if isinstance(choices, list) and choices and isinstance(choices[0], dict):
@@ -150,9 +184,7 @@ class CaptureServer(ThreadingHTTPServer):
                     reasoning = reasoning_text(message)
                     if reasoning is not None:
                         summary["response_reasoning_chars"] = len(reasoning)
-                        summary["response_reasoning_sha256"] = hashlib.sha256(
-                            reasoning.encode()
-                        ).hexdigest()
+                        summary["response_reasoning_sha256"] = hashlib.sha256(reasoning.encode()).hexdigest()
             error = payload.get("error")
             if error is not None:
                 summary["error"] = error
@@ -174,9 +206,8 @@ class CaptureHandler(BaseHTTPRequestHandler):
     def _forward(self, body: bytes | None) -> None:
         summary = None
         if self.path.rstrip("/") == "/v1/chat/completions" and body is not None:
-            payload = json.loads(body)
-            if isinstance(payload, dict):
-                summary = self.server.capture_request(payload)
+            payload, body, normalized = canonicalize_chat_request(body)
+            summary = self.server.capture_request(payload, normalized)
 
         headers = {
             key: value
@@ -238,12 +269,9 @@ def stop_capture_proxy(server: CaptureServer, thread: threading.Thread) -> None:
     thread.join()
 
 
-def messages_for_tokenize(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def canonical_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
     normalized = copy.deepcopy(messages)
-    for message in normalized:
-        reasoning_content = message.pop("reasoning_content", None)
-        if reasoning_content is not None and message.get("reasoning") is None:
-            message["reasoning"] = reasoning_content
+    canonicalize_reasoning_messages(normalized)
     return normalized
 
 
@@ -275,16 +303,27 @@ def audit_captured_requests(
             "task_key": item.get("task_key"),
             "attempt": item.get("attempt", 1),
             "missing_reasoning": item.get("assistant_messages_missing_reasoning"),
+            "canonical_reasoning": item.get("assistant_canonical_reasoning_count"),
+            "reasoning_count": item.get("assistant_reasoning_count"),
             "prefix_preserved": item.get("previous_reasoning_prefix_preserved"),
             "chat_template_kwargs": item.get("chat_template_kwargs"),
         }
         for item in summaries
         if item.get("assistant_messages_missing_reasoning")
+        or item.get("assistant_canonical_reasoning_count") != item.get("assistant_reasoning_count")
         or item.get("previous_reasoning_prefix_preserved") is not True
-        or item.get("chat_template_kwargs")
-        != {"enable_thinking": True, "truncate_history_thinking": False}
+        or item.get("chat_template_kwargs") != {"enable_thinking": True, "truncate_history_thinking": False}
         or item.get("http_status") != 200
     ]
+
+    latest_summaries: dict[str, dict[str, Any]] = {}
+    for item in summaries:
+        key = item.get("task_key")
+        if not isinstance(key, str):
+            continue
+        previous = latest_summaries.get(key)
+        if previous is None or int(item.get("per_task_request", 0)) > int(previous.get("per_task_request", 0)):
+            latest_summaries[key] = item
 
     rendered = []
     for path in sorted(latest_dir.glob("*.json")):
@@ -293,61 +332,51 @@ def audit_captured_requests(
         if not isinstance(messages, list):
             raise ValueError(f"captured request has no messages: {path}")
         typed_messages = [message for message in messages if isinstance(message, dict)]
-        reasoning = [
-            value
-            for message in typed_messages
-            if (value := reasoning_text(message)) is not None
-        ]
-        tokenize_payload = {
-            "model": payload["model"],
-            "messages": messages_for_tokenize(typed_messages),
-            "chat_template_kwargs": payload.get("chat_template_kwargs"),
-        }
-        if payload.get("tools") is not None:
-            tokenize_payload["tools"] = payload["tools"]
-        tokenized = post_json(f"{router}/tokenize", tokenize_payload)
+        reasoning = [value for message in typed_messages if (value := reasoning_text(message)) is not None]
+        render_payload = copy.deepcopy(payload)
+        render_payload["messages"] = canonical_messages(typed_messages)
+        rendered_request = post_json(
+            f"{router}/v1/chat/completions/render",
+            render_payload,
+        )
+        tokens = rendered_request.get("token_ids")
+        if not isinstance(tokens, list):
+            raise TypeError(f"render response has no token_ids: {path}")
         prompt = post_json(
             f"{router}/detokenize",
-            {"model": payload["model"], "tokens": tokenized["tokens"]},
+            {"model": payload["model"], "tokens": tokens},
         )["prompt"]
-        missing = [
-            index + 1
-            for index, value in enumerate(reasoning)
-            if value.strip() not in prompt
-        ]
+        missing = [index + 1 for index, value in enumerate(reasoning) if value.strip() not in prompt]
+        latest_summary = latest_summaries.get(path.stem, {})
+        usage = latest_summary.get("usage")
+        reported_prompt_tokens = usage.get("prompt_tokens") if isinstance(usage, dict) else None
         rendered.append(
             {
                 "task_key": path.stem,
                 "message_count": len(typed_messages),
                 "prior_reasoning_turns": len(reasoning),
-                "rendered_tokens": len(tokenized["tokens"]),
+                "rendered_tokens": len(tokens),
+                "reported_prompt_tokens": reported_prompt_tokens,
+                "rendered_tokens_match_usage": reported_prompt_tokens == len(tokens),
                 "exact_reasoning_turns_present": len(reasoning) - len(missing),
                 "missing_reasoning_turns": missing,
             }
         )
 
-    task_keys = sorted(
-        {
-            item["task_key"]
-            for item in summaries
-            if isinstance(item.get("task_key"), str)
-        }
-    )
+    task_keys = sorted({item["task_key"] for item in summaries if isinstance(item.get("task_key"), str)})
     report = {
         "request_count": len(summaries),
         "task_count": len(rendered),
         "task_attempts": {
-            key: max(
-                int(item.get("attempt", 1))
-                for item in summaries
-                if item.get("task_key") == key
-            )
+            key: max(int(item.get("attempt", 1)) for item in summaries if item.get("task_key") == key)
             for key in task_keys
         },
         "request_failures": request_failures,
         "rendered_latest_requests": rendered,
     }
     output_path.write_text(json.dumps(report, indent=2) + "\n")
-    render_failures = [item for item in rendered if item["missing_reasoning_turns"]]
+    render_failures = [
+        item for item in rendered if item["missing_reasoning_turns"] or not item["rendered_tokens_match_usage"]
+    ]
     if request_failures or render_failures:
         raise RuntimeError(f"thinking trajectory audit failed: {output_path}")

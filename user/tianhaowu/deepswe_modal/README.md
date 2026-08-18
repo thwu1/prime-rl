@@ -83,9 +83,17 @@ Every request sets `enable_thinking=true` and
 `truncate_history_thinking=false`. Before Pier starts,
 `verify_mini_swe_thinking.py` performs three live mini-swe turns, records every
 outgoing request and completion, verifies both prior reasoning blocks are
-forwarded unchanged, then checks vLLM's live `/tokenize` and `/detokenize`
-rendering contains both blocks. Malformed stochastic tool calls are retried
-with a different seed; the reasoning and renderer checks still fail closed.
+forwarded unchanged, then checks vLLM's live chat-render endpoint contains both
+blocks and produces the same prompt-token count as the actual third completion.
+Malformed stochastic tool calls are retried with a different seed; the
+reasoning and renderer checks still fail closed.
+
+LiteLLM emits prior assistant thinking as `reasoning_content`, while the
+inference router forwards the canonical `reasoning` field. The eval relay
+normalizes that alias before every chat request reaches the router. Without
+this boundary normalization, the request history can look complete in the
+MiniSWE trajectory while the worker receives a prompt with prior thinking
+removed.
 
 The proof is written to:
 
@@ -94,9 +102,11 @@ The proof is written to:
 ```
 
 The relay also audits every real eval request, verifies that the prior reasoning
-hash sequence is preserved exactly from one turn to the next, and renders each
-task's latest request with the live vLLM tokenizer. See `request_capture.jsonl`,
-`latest_requests/`, and `thinking_trajectory_audit.json` in the same directory.
+hash sequence is preserved exactly from one turn to the next, renders each
+task's latest request through `/v1/chat/completions/render`, and requires its
+token count to equal the prompt-token usage reported by the actual completion.
+See `request_capture.jsonl`, `latest_requests/`, and
+`thinking_trajectory_audit.json` in the same directory.
 When Pier retries a task, the first two-message request is recorded as a new
 attempt and starts a fresh prefix chain. Reasoning preservation still fails
 closed within every attempt; a valid retry is not compared against the failed

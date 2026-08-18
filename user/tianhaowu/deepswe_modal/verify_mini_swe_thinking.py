@@ -11,6 +11,7 @@ from pathlib import Path
 
 from minisweagent.exceptions import FormatError
 from minisweagent.models.litellm_model import LitellmModel
+from request_capture import canonical_messages
 
 
 def parse_args() -> argparse.Namespace:
@@ -40,6 +41,7 @@ class CaptureServer(ThreadingHTTPServer):
     upstream: str
     api_key: str
     captures: list[dict]
+    responses: list[dict]
 
 
 class CaptureHandler(BaseHTTPRequestHandler):
@@ -68,6 +70,12 @@ class CaptureHandler(BaseHTTPRequestHandler):
             status = error.code
             content_type = error.headers.get("Content-Type", "application/json")
 
+        try:
+            response_payload = json.loads(response_body)
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            response_payload = {}
+        self.server.responses.append(response_payload if isinstance(response_payload, dict) else {})
+
         self.send_response(status)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(response_body)))
@@ -85,15 +93,6 @@ def reasoning_text(message: dict) -> str:
     return reasoning
 
 
-def messages_for_tokenize(messages: list[dict]) -> list[dict]:
-    normalized = copy.deepcopy(messages)
-    for message in normalized:
-        reasoning_content = message.pop("reasoning_content", None)
-        if reasoning_content is not None and message.get("reasoning") is None:
-            message["reasoning"] = reasoning_content
-    return normalized
-
-
 def query_tool_turn(
     model: LitellmModel,
     messages: list[dict],
@@ -107,8 +106,7 @@ def query_tool_turn(
             if attempt + 1 == max_attempts:
                 raise
             print(
-                f"Thinking preflight turn {turn}: malformed tool call on "
-                f"attempt {attempt + 1}, retrying",
+                f"Thinking preflight turn {turn}: malformed tool call on attempt {attempt + 1}, retrying",
                 flush=True,
             )
     raise RuntimeError("unreachable")
@@ -127,6 +125,7 @@ def main() -> None:
     server.upstream = base_url
     server.api_key = api_key
     server.captures = []
+    server.responses = []
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
 
@@ -154,8 +153,7 @@ def main() -> None:
             {
                 "role": "system",
                 "content": (
-                    "You are a tool-use preflight. Think before every action and "
-                    "always call bash exactly once."
+                    "You are a tool-use preflight. Think before every action and always call bash exactly once."
                 ),
             },
             {
@@ -170,16 +168,16 @@ def main() -> None:
             reasoning = reasoning_text(response)
             tool_calls = response.get("tool_calls") or []
             if len(tool_calls) != 1:
-                raise RuntimeError(
-                    f"Nemotron turn {turn} did not call bash exactly once: {response}"
-                )
+                raise RuntimeError(f"Nemotron turn {turn} did not call bash exactly once: {response}")
             captured_request = server.captures[-1]
+            api_response = server.responses[-1]
             turns.append(
                 {
                     "turn": turn,
                     "format_retries": format_retries,
                     "outgoing_request": captured_request,
                     "response": {key: value for key, value in response.items() if key != "extra"},
+                    "api_usage": api_response.get("usage"),
                     "reasoning_chars": len(reasoning),
                 }
             )
@@ -201,10 +199,7 @@ def main() -> None:
                 messages.append(
                     {
                         "role": "user",
-                        "content": (
-                            "Call bash exactly once with command "
-                            f"printf turn-{turn + 1}-ok."
-                        ),
+                        "content": (f"Call bash exactly once with command printf turn-{turn + 1}-ok."),
                     }
                 )
 
@@ -216,9 +211,7 @@ def main() -> None:
             )
 
         prior_assistant_messages = [
-            message
-            for message in final_request["messages"]
-            if message.get("role") == "assistant"
+            message for message in final_request["messages"] if message.get("role") == "assistant"
         ]
         preserved = []
         for turn, (response, forwarded_message) in enumerate(
@@ -237,29 +230,34 @@ def main() -> None:
                 }
             )
 
-        tokenize_response = post_json(
-            f"{base_url}/tokenize",
-            {
-                "model": args.model_name,
-                "messages": messages_for_tokenize(final_request["messages"]),
-                "tools": final_request["tools"],
-                "chat_template_kwargs": final_request["chat_template_kwargs"],
-            },
+        render_payload = copy.deepcopy(final_request)
+        render_payload["messages"] = canonical_messages(final_request["messages"])
+        render_response = post_json(
+            f"{base_url}/v1/chat/completions/render",
+            render_payload,
             api_key,
         )
+        rendered_tokens = render_response.get("token_ids")
+        if not isinstance(rendered_tokens, list):
+            raise RuntimeError("vLLM render response did not contain token_ids")
+        actual_usage = turns[-1].get("api_usage")
+        actual_prompt_tokens = actual_usage.get("prompt_tokens") if isinstance(actual_usage, dict) else None
+        if actual_prompt_tokens != len(rendered_tokens):
+            raise RuntimeError(
+                "router changed the rendered chat prompt: "
+                f"chat usage={actual_prompt_tokens}, render={len(rendered_tokens)}"
+            )
         rendered_prompt = post_json(
             f"{base_url}/detokenize",
             {
                 "model": args.model_name,
-                "tokens": tokenize_response["tokens"],
+                "tokens": rendered_tokens,
             },
             api_key,
         )["prompt"]
         for item in preserved:
             if item["reasoning"].strip() not in rendered_prompt:
-                raise RuntimeError(
-                    f"vLLM rendered prompt dropped reasoning from turn {item['turn']}"
-                )
+                raise RuntimeError(f"vLLM rendered prompt dropped reasoning from turn {item['turn']}")
             item["present_in_vllm_rendered_prompt"] = True
 
         args.log_path.parent.mkdir(parents=True, exist_ok=True)
@@ -271,6 +269,8 @@ def main() -> None:
                     "chat_template_kwargs": chat_template_kwargs,
                     "turns": turns,
                     "preserved_prior_reasoning": preserved,
+                    "rendered_tokens": len(rendered_tokens),
+                    "chat_usage_prompt_tokens": actual_prompt_tokens,
                     "rendered_prompt": rendered_prompt,
                 },
                 indent=2,
