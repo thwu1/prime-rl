@@ -165,6 +165,12 @@ def build_configs(
     agent_timeout_sec = mini_swe.get("timeout_sec")
     if agent_timeout_sec is not None:
         agent_timeout_sec = positive_int(agent_timeout_sec, "mini_swe.timeout_sec")
+    sandbox_timeout_sec = positive_int(
+        source.get("sandbox_timeout_sec", max(agent_timeout_sec or 0, 7200)),
+        "sandbox_timeout_sec",
+    )
+    if agent_timeout_sec is not None and sandbox_timeout_sec < agent_timeout_sec:
+        raise ValueError("sandbox_timeout_sec must be greater than or equal to mini_swe.timeout_sec")
 
     dataset = {"path": str(tasks_path)}
     if "n_tasks" in source:
@@ -178,7 +184,7 @@ def build_configs(
         provider,
         provider_options,
         modal_app_name="__pier_deepswe__",
-        session_timeout=agent_timeout_sec or 7200,
+        session_timeout=sandbox_timeout_sec,
     )
     model_kwargs = {
         "custom_llm_provider": "openai",
@@ -236,6 +242,7 @@ def build_configs(
         "model": model,
         "mini_swe_version": mini_swe_version,
         "provider": provider,
+        "sandbox_timeout_sec": sandbox_timeout_sec,
     }
     return pier_config, runtime
 

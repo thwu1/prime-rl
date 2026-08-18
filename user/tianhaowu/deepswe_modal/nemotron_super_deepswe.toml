@@ -6,6 +6,7 @@ tasks_path = "/checkpoint/ram/tianhaowu/deepswe_eval/deep-swe/tasks"
 n_attempts = 1
 n_concurrent = 32
 max_retries = 6
+sandbox_timeout_sec = 14400
 
 [mini_swe]
 step_limit = 200

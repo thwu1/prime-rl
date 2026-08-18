@@ -41,9 +41,9 @@ transient provider provisioning failures. Both launchers propagate the requested
 `VACLI_MAX_CONCURRENT_LEASES` or `OCI_RUNNER_POOL_SIZE`, so the runtime pool does
 not silently retain its smaller standalone-smoke default.
 Set `[mini_swe].step_limit` to bound agent turns and
-`[mini_swe].timeout_sec` to bound agent wall time. The timeout is propagated to
-both Pier's agent override and the VMVM/Sandoq runtime command timeout; setting
-only one layer can terminate a long agent run early.
+`[mini_swe].timeout_sec` to bound agent wall time. Set the top-level
+`sandbox_timeout_sec` at least as high as the agent timeout, with headroom, for
+the VMVM/Sandoq command-transport ceiling. Their leases auto-renew while active.
 Whole-trial retries are restricted to `SandboxError`,
 `EnvironmentStartTimeoutError`, and `AgentSetupTimeoutError`. Do not broaden
 that allowlist to agent execution, verifier, reward, or parsing failures; those
