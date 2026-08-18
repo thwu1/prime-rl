@@ -1,6 +1,6 @@
-name = "nemotron-super-deepswe-smoke"
+name = "nemotron-super-deepswe-smoke-262k"
 provider = "modal"
-inference_job_id = 10689059
+inference_job_id = 10693357
 model = "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16"
 tasks_path = "/checkpoint/ram/tianhaowu/deepswe_eval/deep-swe/tasks"
 n_attempts = 1

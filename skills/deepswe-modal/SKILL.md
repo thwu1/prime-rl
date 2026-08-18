@@ -77,6 +77,14 @@ The inference job must expose the model through the `nemotron_v3` reasoning
 parser and an automatic tool-call parser. Confirm in the resolved inference
 config and runtime log before evaluating.
 
+Full-history thinking makes the inference context limit part of eval validity.
+Nemotron Super declares `max_position_embeddings = 262144`; use that native
+limit for unlimited-step DeepSWE scoring. A server capped at 102144 rejects the
+next turn once the preserved prompt reaches 102145 tokens, causing mini-swe to
+exit nonzero and the trial to score zero even when P2P is otherwise perfect.
+The 100-step parity diagnostic may use less context, but do not treat a 102144
+full eval as valid merely because the thinking preflight passes.
+
 ## Oracle gate
 
 Run all reference solutions before the full eval:
