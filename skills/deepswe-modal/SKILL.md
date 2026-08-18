@@ -95,6 +95,10 @@ full TOML submission.
 
 ## Provider parity
 
+Launch every backend from `nemotron_super_deepswe_parity.toml`. It selects the
+same task and sets a fixed request seed; do not compare independently sampled
+temperature-1 runs as evidence of sandbox parity.
+
 After matched jobs finish, compare their ATIF trajectories:
 
 ```bash
@@ -103,5 +107,6 @@ uv run --no-sync python user/tianhaowu/deepswe_modal/compare_provider_trajectori
   --output /path/to/provider-parity.json
 ```
 
-The report checks prompt/task identity, exceptions, reasoning coverage, rewards,
-patches, aligned command outcomes, timings, and agent-issued network commands.
+The report first checks the normalized agent/model sampling config, then checks
+prompt/task identity, exceptions, reasoning coverage, rewards, patches, aligned
+command outcomes, timings, and agent-issued network commands.

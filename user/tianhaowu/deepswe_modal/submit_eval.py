@@ -131,6 +131,11 @@ def build_configs(
     temperature = number(sampling.get("temperature", 1.0), "sampling.temperature")
     top_p = number(sampling.get("top_p", 0.95), "sampling.top_p")
     top_k = positive_int(sampling.get("top_k", 20), "sampling.top_k")
+    seed = sampling.get("seed")
+    if seed is not None and (
+        not isinstance(seed, int) or isinstance(seed, bool) or seed < 0
+    ):
+        raise ValueError("sampling.seed must be a non-negative integer")
     if not 0 <= top_p <= 1:
         raise ValueError("sampling.top_p must be between 0 and 1")
     if temperature < 0:
@@ -153,6 +158,22 @@ def build_configs(
         provider_options,
         modal_app_name="__pier_deepswe__",
     )
+    model_kwargs = {
+        "custom_llm_provider": "openai",
+        "drop_params": True,
+        "max_tokens": max_tokens,
+        "temperature": temperature,
+        "top_p": top_p,
+        "extra_body": {
+            "top_k": top_k,
+            "chat_template_kwargs": {
+                "enable_thinking": True,
+                "truncate_history_thinking": False,
+            },
+        },
+    }
+    if seed is not None:
+        model_kwargs["seed"] = seed
 
     pier_config = {
         "job_name": name,
@@ -174,20 +195,7 @@ def build_configs(
                     "version": mini_swe_version,
                     "cost_limit": 0,
                     "model_class": "litellm",
-                    "model_kwargs": {
-                        "custom_llm_provider": "openai",
-                        "drop_params": True,
-                        "max_tokens": max_tokens,
-                        "temperature": temperature,
-                        "top_p": top_p,
-                        "extra_body": {
-                            "top_k": top_k,
-                            "chat_template_kwargs": {
-                                "enable_thinking": True,
-                                "truncate_history_thinking": False,
-                            },
-                        },
-                    },
+                    "model_kwargs": model_kwargs,
                 },
             }
         ],

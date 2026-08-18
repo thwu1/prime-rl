@@ -151,6 +151,26 @@ sbatch user/tianhaowu/deepswe_sandoq/run_runtime_smoke.sbatch oci-runner
 
 ## Trajectory parity
 
+Use the dedicated parity TOML so every provider receives the same task and the
+same fixed vLLM request seed:
+
+```bash
+sbatch user/tianhaowu/deepswe_modal/submit_eval.sbatch \
+  user/tianhaowu/deepswe_modal/nemotron_super_deepswe_parity.toml \
+  --provider modal
+sbatch user/tianhaowu/deepswe_modal/submit_eval.sbatch \
+  user/tianhaowu/deepswe_modal/nemotron_super_deepswe_parity.toml \
+  --provider vmvm
+sbatch user/tianhaowu/deepswe_modal/submit_eval.sbatch \
+  user/tianhaowu/deepswe_modal/nemotron_super_deepswe_parity.toml \
+  --provider sandoq
+```
+
+The comparator rejects mismatched agent/model sampling configs before comparing
+commands. The fixed seed keeps model sampling deterministic; subsequent
+trajectory divergence therefore exposes differing command results or sandbox
+state instead of unrelated sampling noise.
+
 Compare completed jobs by task name:
 
 ```bash

@@ -69,6 +69,33 @@ def file_summary(path: Path) -> dict[str, Any] | None:
     }
 
 
+def agent_config_summary(path: Path) -> dict[str, Any]:
+    config = read_json(path)
+    agent = config.get("agent")
+    if not isinstance(agent, dict):
+        raise ValueError(f"trial config has no agent object: {path}")
+    kwargs = agent.get("kwargs")
+    if not isinstance(kwargs, dict):
+        kwargs = {}
+    model_kwargs = kwargs.get("model_kwargs")
+    if not isinstance(model_kwargs, dict):
+        model_kwargs = {}
+    normalized = {
+        "name": agent.get("name"),
+        "model_name": agent.get("model_name"),
+        "version": kwargs.get("version"),
+        "model_class": kwargs.get("model_class"),
+        "model_kwargs": model_kwargs,
+    }
+    return {
+        "config": normalized,
+        "sha256": hashlib.sha256(
+            json.dumps(normalized, sort_keys=True).encode()
+        ).hexdigest(),
+        "seed": model_kwargs.get("seed"),
+    }
+
+
 def normalize_command(command: str) -> str:
     return " ".join(command.split())
 
@@ -202,6 +229,7 @@ def trial_summary(trial_dir: Path) -> dict[str, Any]:
         "trial_name": result.get("trial_name"),
         "task_name": result.get("task_name"),
         "task_checksum": result.get("task_checksum"),
+        "agent_config": agent_config_summary(trial_dir / "config.json"),
         "exception_info": result.get("exception_info"),
         "rewards": rewards,
         "agent": {
@@ -292,6 +320,10 @@ def compare_trials(
         )
     gates = {
         "same_task_checksum": baseline["task_checksum"] == candidate["task_checksum"],
+        "same_agent_config": (
+            baseline["agent_config"]["sha256"]
+            == candidate["agent_config"]["sha256"]
+        ),
         "same_prompt": same_prompt,
         "baseline_has_no_exception": baseline["exception_info"] is None,
         "candidate_has_no_exception": candidate["exception_info"] is None,
