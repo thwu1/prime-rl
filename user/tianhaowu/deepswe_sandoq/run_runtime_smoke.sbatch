@@ -35,4 +35,8 @@ if [ "$mode" = oci-runner ]; then
     export OCI_RUNNER_SESSION_REUSE=0
 fi
 
-uv run --no-sync user/tianhaowu/deepswe_sandoq/smoke_runtime.py --mode "$mode"
+smoke_args=(--mode "$mode")
+if [ "$mode" = oci-runner ]; then
+    smoke_args+=(--skip-host-endpoint)
+fi
+uv run --no-sync user/tianhaowu/deepswe_sandoq/smoke_runtime.py "${smoke_args[@]}"

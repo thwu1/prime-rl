@@ -232,6 +232,8 @@ def main() -> None:
         provider_override=args.provider,
     )
     slurm_job_id = os.environ.get("SLURM_JOB_ID", "dry-run")
+    gateway_model_name = f"deepswe-{runtime['provider']}-{slurm_job_id}"
+    pier_config["agents"][0]["model_name"] = f"openai/{gateway_model_name}"
     GENERATED_CONFIG_DIR.mkdir(parents=True, exist_ok=True)
     run_name = f"{runtime['name']}-{runtime['provider']}"
     generated_config = GENERATED_CONFIG_DIR / f"{run_name}-{slurm_job_id}.json"
@@ -251,6 +253,8 @@ def main() -> None:
         job_name,
         "--model-name",
         runtime["model"],
+        "--gateway-model-name",
+        gateway_model_name,
         "--mini-swe-version",
         runtime["mini_swe_version"],
         "--provider",

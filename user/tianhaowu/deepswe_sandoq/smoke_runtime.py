@@ -18,10 +18,11 @@ def parse_args() -> argparse.Namespace:
         choices=("environment", "oci-runner"),
         default="environment",
     )
+    parser.add_argument("--skip-host-endpoint", action="store_true")
     return parser.parse_args()
 
 
-async def run(mode: str) -> None:
+async def run(mode: str, *, check_host_endpoint: bool) -> None:
     payload = b"sandoq-runtime-smoke\x00\xff\n"
     tunnel_response = b"sandoq-host-tunnel-ok"
 
@@ -62,20 +63,23 @@ async def run(mode: str) -> None:
         expected_hash = hashlib.sha256(payload).hexdigest()
         if not result.stdout.startswith(expected_hash):
             raise RuntimeError(f"unexpected remote hash: {result.stdout!r}")
-        async with runtime.host_endpoint(host_port) as url:
-            tunnel_result = await runtime.run(
-                [
-                    "python",
-                    "-c",
-                    "import sys, urllib.request; print(urllib.request.urlopen(sys.argv[1]).read().decode())",
-                    url,
-                ],
-                {},
-            )
-        if tunnel_result.exit_code != 0:
-            raise RuntimeError(tunnel_result.stderr or tunnel_result.stdout)
-        if tunnel_result.stdout.strip() != tunnel_response.decode():
-            raise RuntimeError(f"unexpected tunnel response: {tunnel_result.stdout!r}")
+        tunnel_output = None
+        if check_host_endpoint:
+            async with runtime.host_endpoint(host_port) as url:
+                tunnel_result = await runtime.run(
+                    [
+                        "python",
+                        "-c",
+                        "import sys, urllib.request; print(urllib.request.urlopen(sys.argv[1]).read().decode())",
+                        url,
+                    ],
+                    {},
+                )
+            if tunnel_result.exit_code != 0:
+                raise RuntimeError(tunnel_result.stderr or tunnel_result.stdout)
+            if tunnel_result.stdout.strip() != tunnel_response.decode():
+                raise RuntimeError(f"unexpected tunnel response: {tunnel_result.stdout!r}")
+            tunnel_output = tunnel_result.stdout.strip()
         print(
             json.dumps(
                 {
@@ -83,7 +87,7 @@ async def run(mode: str) -> None:
                     "mode": mode,
                     "payload_sha256": expected_hash,
                     "remote_output": result.stdout.strip(),
-                    "tunnel_output": tunnel_result.stdout.strip(),
+                    "tunnel_output": tunnel_output,
                 },
                 sort_keys=True,
             )
@@ -99,7 +103,7 @@ def main() -> None:
     with provider_environment_context("sandoq") as env:
         os.environ.clear()
         os.environ.update(env)
-        asyncio.run(run(args.mode))
+        asyncio.run(run(args.mode, check_host_endpoint=not args.skip_host_endpoint))
 
 
 if __name__ == "__main__":

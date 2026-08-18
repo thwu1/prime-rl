@@ -7,6 +7,7 @@ from submit_eval import mini_swe_config
 def test_canonicalize_chat_request_preserves_reasoning_through_router() -> None:
     body = json.dumps(
         {
+            "model": "deepswe-job-alias",
             "messages": [
                 {
                     "role": "assistant",
@@ -23,9 +24,13 @@ def test_canonicalize_chat_request_preserves_reasoning_through_router() -> None:
         }
     ).encode()
 
-    payload, forwarded, normalized = canonicalize_chat_request(body)
+    payload, forwarded, normalized = canonicalize_chat_request(
+        body,
+        upstream_model="nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16",
+    )
 
     assert normalized == 2
+    assert payload["model"] == "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16"
     assert payload["messages"][0]["reasoning"] == "deprecated alias"
     assert payload["messages"][1]["reasoning"] == "canonical"
     assert all("reasoning_content" not in message for message in payload["messages"])
@@ -43,6 +48,7 @@ def test_failed_context_request_does_not_replace_latest_success(tmp_path) -> Non
     server = CaptureServer(
         ("127.0.0.1", 0),
         upstream="http://unused",
+        upstream_model=None,
         latest_dir=latest_dir,
         summary_path=summary_path,
     )

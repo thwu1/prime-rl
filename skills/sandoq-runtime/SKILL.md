@@ -12,10 +12,18 @@ single-attempt. An OCI gateway response whose execution status is unknown is
 raised as `SandboxError`; it is never replayed in the same sandbox.
 
 PR 17 intentionally leaves its agent-inside reverse tunnel as future work.
-`SandoqRuntime` completes the Verifiers contract with `host_tunnel = "modal"`
-by default: a temporary Modal SSH relay publishes the host interception port to
-the sandbox. It does not use Prime Sandbox or require `PRIME_API_KEY`.
-`host_tunnel = "prime"` is available only as an explicit opt-in.
+`SandoqRuntime` completes the generic Verifiers contract with
+`host_tunnel = "modal"` by default: a temporary Modal SSH relay publishes an
+arbitrary host interception port to the sandbox. It does not use Prime Sandbox
+or require `PRIME_API_KEY`. `host_tunnel = "prime"` is available only as an
+explicit opt-in.
+
+DeepSWE model evaluation does not exercise that generic tunnel. Following the
+RAM Harbor Sandoq backend, the CPU eval driver registers its authenticated
+capture proxy with `ram-inference-gateway`, and MiniSWE calls the gateway's
+stable public URL from the Sandoq task container. Thus a DeepSWE Sandoq model
+run needs neither a Modal relay sandbox nor Prime tunneling; only a standalone
+Runtime `host_endpoint` contract smoke uses the configured fallback.
 
 The provider implementation is pinned as the `deps/sandoq-provider` submodule
 at PR 17. Install its official client into the shared target with:
@@ -51,6 +59,13 @@ Then validate the OCI contract and oracle:
 sbatch user/tianhaowu/deepswe_sandoq/run_runtime_smoke.sbatch oci-runner
 sbatch user/tianhaowu/deepswe_modal/submit_oracle.sbatch sandoq --n-concurrent 8
 ```
+
+The OCI smoke checks lease/authentication, nested-container startup, configured
+workdir creation, binary I/O, command execution, and cleanup. It deliberately
+skips the generic `host_endpoint` fallback so this eval gate creates no Modal
+relay. The already-passing `environment` smoke retains the generic tunnel
+contract check. The subsequent one-task DeepSWE model smoke proves the actual
+Sandoq-to-`ram-inference-gateway` path used by evaluation.
 
 Pier's adapter materializes the DeepSWE verifier Dockerfile inside a separate
 Sandoq runtime. Hidden tests are never copied into the agent runtime.

@@ -40,9 +40,27 @@ shared provider egress can return HTTP 429 under even small concurrent runs.
 
 The sbatch template requests `partition=cpu`, renders a Pier JSON config, and
 runs `run_deepswe_modal.py`. Pier is invoked offline because compute-node PyPI
-proxy access is unreliable. The driver always uses a temporary authenticated
-Modal relay for the private inference router, independent of the task sandbox
-provider. Set `MODAL_DISABLE_API_PROXY=1` for Modal SDK calls from CPU nodes.
+proxy access is unreliable. The driver starts an authenticated request-capture
+proxy on the CPU node and registers it with the shared `ram-inference-gateway`.
+The registration is a 15-second heartbeat with a 45-second TTL; cleanup
+de-registers it. Agents in Modal, VMVM, or Sandoq call the stable public gateway,
+which routes the model name back to the CPU capture proxy and then the private
+inference router. This path uses no Modal relay sandbox.
+
+The gateway registry is keyed by model name, so each eval registers a unique
+`deepswe-PROVIDER-SLURM_JOB_ID` alias. The CPU capture proxy rewrites that alias
+to the actual served model before forwarding to vllm-router. Concurrent
+provider evals therefore keep separate capture logs and cannot steal each
+other's route.
+From a login or CPU node, inspect the gateway through the internal ingress:
+
+```bash
+curl --noproxy '*' -H 'Host: ram-inference-gateway.ingress.' \
+  http://fair-sc-3-ingress-slurm-ingress/v1/models
+```
+
+Set `MODAL_DISABLE_API_PROXY=1` only for actual Modal SDK calls, such as a Modal
+task-sandbox run.
 
 ## Required Nemotron thinking settings
 

@@ -6,11 +6,11 @@ import shutil
 import socket
 import subprocess
 import tempfile
+import threading
 import time
 import urllib.request
 from pathlib import Path
 
-import modal
 from pier_runner import run_pier_job
 from provider_env import provider_environment_context
 from request_capture import (
@@ -24,8 +24,19 @@ CADDY = Path("/home/tianhaowu/bin/caddy")
 CADDYFILE = PROJECT_DIR / "user/tianhaowu/deepswe_modal/Caddyfile"
 THINKING_VERIFIER = PROJECT_DIR / "user/tianhaowu/deepswe_modal/verify_mini_swe_thinking.py"
 DRIVER_ROOT = Path("/checkpoint/ram/tianhaowu/deepswe_eval/driver")
-RELAY_REMOTE_PORT = 18000
 DEFAULT_MODEL_NAME = "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16"
+GATEWAY_INTERNAL_URL = "http://fair-sc-3-ingress-slurm-ingress"
+GATEWAY_PUBLIC_URL = (
+    "https://ram-inference-gateway.ingress.fair-sc-3.metahpc.aws.metafb.cloud"
+)
+GATEWAY_HOST_HEADER = "ram-inference-gateway.ingress."
+GATEWAY_REGISTER_TOKEN = os.environ.get(
+    "GATEWAY_REGISTER_TOKEN",
+    "ram_secret_dont_share",
+)
+GATEWAY_REGISTER_TTL_SEC = 45
+GATEWAY_HEARTBEAT_SEC = 15
+GATEWAY_REGISTER_SCHEMA_VERSION = 1
 
 
 def parse_args() -> argparse.Namespace:
@@ -34,6 +45,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--inference-job-id", required=True)
     parser.add_argument("--job-name", required=True)
     parser.add_argument("--model-name", default=DEFAULT_MODEL_NAME)
+    parser.add_argument("--gateway-model-name", required=True)
     parser.add_argument("--mini-swe-version", default="2.2.8")
     parser.add_argument("--provider", choices=("modal", "vmvm", "sandoq"), required=True)
     return parser.parse_args()
@@ -62,11 +74,15 @@ def available_port() -> int:
         return sock.getsockname()[1]
 
 
-def request_json(url: str, api_key: str | None = None) -> dict:
-    headers = {}
+def request_json(
+    url: str,
+    api_key: str | None = None,
+    headers: dict[str, str] | None = None,
+) -> dict:
+    request_headers = dict(headers or {})
     if api_key is not None:
-        headers["Authorization"] = f"Bearer {api_key}"
-    request = urllib.request.Request(url, headers=headers)
+        request_headers["Authorization"] = f"Bearer {api_key}"
+    request = urllib.request.Request(url, headers=request_headers)
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
     with opener.open(request, timeout=20) as response:
         return json.load(response)
@@ -85,6 +101,89 @@ def wait_for_endpoint(
         except OSError:
             time.sleep(10)
     raise TimeoutError(f"Endpoint did not become ready: {url}")
+
+
+class GatewayRegistration:
+    def __init__(
+        self,
+        *,
+        deployment: str,
+        model: str,
+        upstream_url: str,
+        api_key: str,
+        job_id: str,
+        provider: str,
+    ) -> None:
+        self.deployment = deployment
+        self.model = model
+        self.upstream_url = upstream_url
+        self.api_key = api_key
+        self.job_id = job_id
+        self.provider = provider
+        self._stop = threading.Event()
+        self._thread: threading.Thread | None = None
+
+    def _post(self, path: str, payload: dict) -> dict:
+        request = urllib.request.Request(
+            f"{GATEWAY_INTERNAL_URL}{path}",
+            data=json.dumps(payload).encode(),
+            headers={
+                "Authorization": f"Bearer {GATEWAY_REGISTER_TOKEN}",
+                "Content-Type": "application/json",
+                "Host": GATEWAY_HOST_HEADER,
+            },
+            method="POST",
+        )
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        with opener.open(request, timeout=20) as response:
+            return json.load(response)
+
+    def register(self) -> None:
+        response = self._post(
+            "/register",
+            {
+                "schema_version": GATEWAY_REGISTER_SCHEMA_VERSION,
+                "deployment": self.deployment,
+                "model": self.model,
+                "url": self.upstream_url,
+                "api_key": self.api_key,
+                "extras": {
+                    "proxy_type": "deepswe-capture",
+                    "provider": self.provider,
+                },
+                "jobid": self.job_id,
+                "ttl": GATEWAY_REGISTER_TTL_SEC,
+            },
+        )
+        if response.get("ok") is not True:
+            raise RuntimeError(f"RAM inference gateway rejected registration: {response}")
+
+    def _heartbeat(self) -> None:
+        while not self._stop.wait(GATEWAY_HEARTBEAT_SEC):
+            try:
+                self.register()
+            except Exception as error:
+                print(f"RAM inference gateway heartbeat failed: {error}", flush=True)
+
+    def start(self) -> None:
+        self.register()
+        self._thread = threading.Thread(target=self._heartbeat, daemon=True)
+        self._thread.start()
+
+    def stop(self) -> None:
+        self._stop.set()
+        if self._thread is not None:
+            self._thread.join(timeout=GATEWAY_HEARTBEAT_SEC + 5)
+        try:
+            self._post(
+                "/deregister",
+                {
+                    "schema_version": GATEWAY_REGISTER_SCHEMA_VERSION,
+                    "deployment": self.deployment,
+                },
+            )
+        except Exception as error:
+            print(f"RAM inference gateway deregistration failed: {error}", flush=True)
 
 
 def start_caddy(
@@ -115,76 +214,6 @@ def start_caddy(
         [str(CADDY), "run", "--config", str(CADDYFILE), "--adapter", "caddyfile"],
         cwd=PROJECT_DIR,
         env=env,
-        stdout=log_file,
-        stderr=subprocess.STDOUT,
-        text=True,
-    )
-    return process, log_file
-
-
-def relay_image() -> modal.Image:
-    return modal.Image.debian_slim().apt_install("openssh-server").run_commands(
-        "mkdir -p /run/sshd /root/.ssh /etc/ssh/sshd_config.d",
-        "chmod 700 /root/.ssh",
-        "printf 'PermitRootLogin prohibit-password\\nPasswordAuthentication no\\nAllowTcpForwarding yes\\nGatewayPorts clientspecified\\n' > /etc/ssh/sshd_config.d/deepswe-relay.conf",
-    )
-
-
-def create_relay_sandbox(public_key: str, name: str) -> modal.Sandbox:
-    app = modal.App.lookup("__deepswe_relay__", create_if_missing=True)
-    return modal.Sandbox.create(
-        "bash",
-        "-lc",
-        "printf '%s\\n' \"$RELAY_AUTHORIZED_KEY\" > /root/.ssh/authorized_keys && chmod 600 /root/.ssh/authorized_keys && ssh-keygen -A && exec /usr/sbin/sshd -D -e",
-        app=app,
-        image=relay_image(),
-        name=name,
-        timeout=24 * 60 * 60,
-        encrypted_ports=[22, RELAY_REMOTE_PORT],
-        secrets=[modal.Secret.from_dict({"RELAY_AUTHORIZED_KEY": public_key})],
-        readiness_probe=modal.sandbox.Probe.with_tcp(22),
-    )
-
-
-def start_reverse_ssh(
-    private_key: Path,
-    relay_host: str,
-    relay_port: int,
-    local_port: int,
-    log_path: Path,
-) -> tuple[subprocess.Popen, object]:
-    proxy_command = (
-        f"openssl s_client -quiet -connect {relay_host}:{relay_port} "
-        f"-servername {relay_host}"
-    )
-    log_file = log_path.open("w")
-    process = subprocess.Popen(
-        [
-            "ssh",
-            "-F",
-            "/dev/null",
-            "-N",
-            "-T",
-            "-i",
-            str(private_key),
-            "-o",
-            "BatchMode=yes",
-            "-o",
-            "ExitOnForwardFailure=yes",
-            "-o",
-            "ServerAliveInterval=30",
-            "-o",
-            "ServerAliveCountMax=3",
-            "-o",
-            "StrictHostKeyChecking=no",
-            "-o",
-            "UserKnownHostsFile=/dev/null",
-            "-o",
-            f"ProxyCommand={proxy_command}",
-            "-R",
-            f"0.0.0.0:{RELAY_REMOTE_PORT}:127.0.0.1:{local_port}",
-            "root@deepswe-relay",
-        ],
         stdout=log_file,
         stderr=subprocess.STDOUT,
         text=True,
@@ -281,18 +310,10 @@ def main() -> None:
 
     api_key = secrets.token_urlsafe(32)
     local_port = available_port()
-    private_key = driver_dir / "relay_ed25519"
-    subprocess.run(
-        ["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", str(private_key)],
-        check=True,
-    )
-    public_key = private_key.with_suffix(".pub").read_text().strip()
 
     caddy_process = None
     caddy_log = None
-    ssh_process = None
-    ssh_log = None
-    relay = None
+    gateway_registration = None
     capture_server = None
     capture_thread = None
     capture_temp = tempfile.TemporaryDirectory(prefix=f"deepswe-capture-{slurm_job_id}-")
@@ -302,6 +323,7 @@ def main() -> None:
             router,
             capture_dir,
             driver_dir / "request_capture.jsonl",
+            upstream_model=args.model_name,
         )
         caddy_process, caddy_log = start_caddy(
             capture_url,
@@ -315,28 +337,33 @@ def main() -> None:
             timeout_sec=60,
         )
 
-        relay = create_relay_sandbox(
-            public_key,
-            f"deepswe-relay-{slurm_job_id}",
-        )
-        tunnels = relay.tunnels(timeout=10 * 60)
-        relay_host, relay_port = tunnels[22].tls_socket
-        public_url = tunnels[RELAY_REMOTE_PORT].url
-        ssh_process, ssh_log = start_reverse_ssh(
-            private_key,
-            relay_host,
-            relay_port,
-            local_port,
-            driver_dir / "ssh.log",
-        )
-        wait_for_endpoint(
-            f"{public_url}/v1/models",
+        gateway_registration = GatewayRegistration(
+            deployment=f"deepswe-{slurm_job_id}",
+            model=args.gateway_model_name,
+            upstream_url=f"http://{socket.gethostname()}:{local_port}",
             api_key=api_key,
-            timeout_sec=5 * 60,
+            job_id=slurm_job_id,
+            provider=args.provider,
         )
-        print(f"Authenticated Modal relay ready at {public_url}", flush=True)
+        gateway_registration.start()
+        gateway_models = request_json(
+            f"{GATEWAY_INTERNAL_URL}/v1/models",
+            headers={"Host": GATEWAY_HOST_HEADER},
+        )
+        registered_models = {item["id"] for item in gateway_models.get("data", [])}
+        if args.gateway_model_name not in registered_models:
+            raise RuntimeError(
+                "RAM inference gateway did not list "
+                f"{args.gateway_model_name}: {registered_models}"
+            )
+        print(
+            f"RAM inference gateway route ready for {args.gateway_model_name} "
+            f"via {socket.gethostname()}:{local_port}",
+            flush=True,
+        )
+        local_url = f"http://127.0.0.1:{local_port}"
         verify_mini_swe_thinking(
-            public_url,
+            local_url,
             api_key,
             args.model_name,
             args.mini_swe_version,
@@ -345,7 +372,7 @@ def main() -> None:
         run_pier(
             args.config.resolve(),
             args.job_name,
-            public_url,
+            GATEWAY_PUBLIC_URL,
             api_key,
             args.provider,
         )
@@ -356,11 +383,8 @@ def main() -> None:
             driver_dir / "thinking_trajectory_audit.json",
         )
     finally:
-        stop_process(ssh_process)
-        if ssh_log is not None:
-            ssh_log.close()
-        if relay is not None:
-            relay.terminate()
+        if gateway_registration is not None:
+            gateway_registration.stop()
         stop_process(caddy_process)
         if caddy_log is not None:
             caddy_log.close()

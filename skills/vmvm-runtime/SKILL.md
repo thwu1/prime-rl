@@ -83,3 +83,9 @@ VMVM interception does not create a Prime sandbox or require Prime tunnel
 credentials. Arbitrary public port exposure from a VMVM container is not yet a
 supported provider capability; colocated servers and the harness interception
 path do not need it.
+
+DeepSWE model traffic does not use a Modal relay or VMVM's per-sandbox host
+tunnel. The CPU eval driver registers its authenticated capture proxy with the
+shared `ram-inference-gateway`, and the MiniSWE process in each VMVM calls that
+stable public ingress. VMVM's reverse-SSH `host_endpoint` remains available for
+generic Runtime consumers and its contract smoke.

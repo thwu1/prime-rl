@@ -29,10 +29,15 @@ def canonicalize_reasoning_messages(messages: list[dict[str, Any]]) -> int:
     return normalized
 
 
-def canonicalize_chat_request(body: bytes) -> tuple[dict[str, Any], bytes, int]:
+def canonicalize_chat_request(
+    body: bytes,
+    upstream_model: str | None = None,
+) -> tuple[dict[str, Any], bytes, int]:
     payload = json.loads(body)
     if not isinstance(payload, dict):
         raise TypeError("chat completion request must be a JSON object")
+    if upstream_model is not None:
+        payload["model"] = upstream_model
     raw_messages = payload.get("messages")
     messages = (
         [message for message in raw_messages if isinstance(message, dict)] if isinstance(raw_messages, list) else []
@@ -85,11 +90,13 @@ class CaptureServer(ThreadingHTTPServer):
         address: tuple[str, int],
         *,
         upstream: str,
+        upstream_model: str | None,
         latest_dir: Path,
         summary_path: Path,
     ) -> None:
         super().__init__(address, CaptureHandler)
         self.upstream = upstream.rstrip("/")
+        self.upstream_model = upstream_model
         self.latest_dir = latest_dir
         self.summary_path = summary_path
         self.lock = threading.Lock()
@@ -220,7 +227,10 @@ class CaptureHandler(BaseHTTPRequestHandler):
     def _forward(self, body: bytes | None) -> None:
         summary = None
         if self.path.rstrip("/") == "/v1/chat/completions" and body is not None:
-            payload, body, normalized = canonicalize_chat_request(body)
+            payload, body, normalized = canonicalize_chat_request(
+                body,
+                self.server.upstream_model,
+            )
             summary = self.server.capture_request(payload, normalized)
 
         headers = {
@@ -267,10 +277,12 @@ def start_capture_proxy(
     upstream: str,
     latest_dir: Path,
     summary_path: Path,
+    upstream_model: str | None = None,
 ) -> tuple[CaptureServer, threading.Thread, str]:
     server = CaptureServer(
         ("127.0.0.1", 0),
         upstream=upstream,
+        upstream_model=upstream_model,
         latest_dir=latest_dir,
         summary_path=summary_path,
     )
