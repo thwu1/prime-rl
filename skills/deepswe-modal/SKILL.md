@@ -40,6 +40,10 @@ defaults to 64. Full evals and oracles use up to six whole-trial retries for
 transient provider provisioning failures. Both launchers propagate the requested concurrency to
 `VACLI_MAX_CONCURRENT_LEASES` or `OCI_RUNNER_POOL_SIZE`, so the runtime pool does
 not silently retain its smaller standalone-smoke default.
+Set `[mini_swe].step_limit` to bound agent turns and
+`[mini_swe].timeout_sec` to bound agent wall time. The timeout is propagated to
+both Pier's agent override and the VMVM/Sandoq runtime command timeout; setting
+only one layer can terminate a long agent run early.
 Whole-trial retries are restricted to `SandboxError`,
 `EnvironmentStartTimeoutError`, and `AgentSetupTimeoutError`. Do not broaden
 that allowlist to agent execution, verifier, reward, or parsing failures; those

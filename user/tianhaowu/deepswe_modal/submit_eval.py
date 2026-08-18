@@ -63,6 +63,7 @@ def build_environment(
     provider_options: dict,
     *,
     modal_app_name: str,
+    session_timeout: int = 7200,
 ) -> dict:
     if provider == "modal":
         return {
@@ -76,14 +77,14 @@ def build_environment(
         }
     defaults = (
         {
-            "session_timeout": 7200,
+            "session_timeout": session_timeout,
             "lease_ttl": "60s",
             "max_session_buffer_size": 16 * 1024 * 1024,
         }
         if provider == "vmvm"
         else {
             "mode": "oci-runner",
-            "session_timeout": 7200,
+            "session_timeout": session_timeout,
             "host_tunnel": "modal",
         }
     )
@@ -161,6 +162,9 @@ def build_configs(
     step_limit = mini_swe.get("step_limit")
     if step_limit is not None:
         step_limit = positive_int(step_limit, "mini_swe.step_limit")
+    agent_timeout_sec = mini_swe.get("timeout_sec")
+    if agent_timeout_sec is not None:
+        agent_timeout_sec = positive_int(agent_timeout_sec, "mini_swe.timeout_sec")
 
     dataset = {"path": str(tasks_path)}
     if "n_tasks" in source:
@@ -174,6 +178,7 @@ def build_configs(
         provider,
         provider_options,
         modal_app_name="__pier_deepswe__",
+        session_timeout=agent_timeout_sec or 7200,
     )
     model_kwargs = {
         "custom_llm_provider": "openai",
@@ -199,6 +204,18 @@ def build_configs(
         "config_yaml": mini_swe_config(step_limit),
     }
 
+    agent_config = {
+        "import_path": DEEPSWE_AGENT_IMPORT,
+        "model_name": f"openai/{model}",
+        "env": {
+            "OPENAI_API_KEY": "${OPENAI_API_KEY}",
+            "OPENAI_BASE_URL": "${OPENAI_BASE_URL}",
+        },
+        "kwargs": agent_kwargs,
+    }
+    if agent_timeout_sec is not None:
+        agent_config["override_timeout_sec"] = agent_timeout_sec
+
     pier_config = {
         "job_name": name,
         "jobs_dir": str(DEFAULT_JOBS_DIR),
@@ -210,17 +227,7 @@ def build_configs(
             "include_exceptions": INFRA_RETRY_EXCEPTIONS,
         },
         "environment": environment,
-        "agents": [
-            {
-                "import_path": DEEPSWE_AGENT_IMPORT,
-                "model_name": f"openai/{model}",
-                "env": {
-                    "OPENAI_API_KEY": "${OPENAI_API_KEY}",
-                    "OPENAI_BASE_URL": "${OPENAI_BASE_URL}",
-                },
-                "kwargs": agent_kwargs,
-            }
-        ],
+        "agents": [agent_config],
         "datasets": [dataset],
     }
     runtime = {

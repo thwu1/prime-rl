@@ -144,6 +144,18 @@ Every other exit still fails the trial. Context-window 400s are listed in the
 thinking audit as `context_limit_events`; the audit renders the last successful
 request and still fails on every unrelated HTTP or reasoning-history error.
 
+Full evaluations can bound MiniSWE turns and agent wall time directly in TOML:
+
+```toml
+[mini_swe]
+step_limit = 200
+timeout_sec = 10800
+```
+
+`timeout_sec` configures both Pier's agent deadline and the VMVM/Sandoq runtime
+command deadline, so a three-hour agent run is not cut off by the runtime's
+two-hour default transport timeout.
+
 The MiniSWE instance template uses fixed `Linux x86_64` system information.
 Provider-specific kernel strings otherwise change the prompt before the first
 model turn and invalidate fixed-seed Modal/VMVM/Sandoq trajectory comparisons.
