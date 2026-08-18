@@ -71,6 +71,8 @@ def provider_environment(
             "/home/tianhaowu/.config/oci-runner/token",
         )
         env.setdefault("OCI_RUNNER_SESSION_REUSE", "1")
+        env.setdefault("OCI_RUNNER_POOL_MAX_REUSE_COUNT", "1")
+        env.setdefault("OCI_RUNNER_IMAGE_CACHE_MAX_ENTRIES", "0")
         env.setdefault("OCI_RUNNER_PULL_POLL_MAX_ERRORS", "20")
         if n_concurrent is None:
             env.setdefault("OCI_RUNNER_POOL_SIZE", "16")
