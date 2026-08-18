@@ -53,6 +53,23 @@ sbatch user/tianhaowu/deepswe_modal/submit_oracle.sbatch vmvm \
   --name deepswe-v1.1-oracle-smoke
 ```
 
+`--task-name` takes the task directory name, not the namespaced result name. For
+example, target the memory-heavy SCC gate with:
+
+```bash
+sbatch user/tianhaowu/deepswe_modal/submit_oracle.sbatch vmvm \
+  --n-concurrent 1 --task-name scc-bounded-memory-spilling \
+  --name deepswe-v1.1-oracle-scc
+```
+
+Task CPU and memory declarations are enforced on the Podman container. The
+current VMVM tenant supplies about 4 GB of physical RAM, so requests above that
+are backed by a per-lease swapfile on the VM's dedicated XFS container-storage
+disk. The VM root and `/var/tmp` are overlayfs and cannot host swapfiles; using
+them fails with `swapon: Invalid argument`. Keep 512 MiB outside the requested
+container memory for VM services. A Go verifier ending in `signal: killed`
+usually means this host-memory setup did not take effect.
+
 Never replay an agent command after an uncertain transport result. A nonnegative
 exit code is the command result; a negative exit code is surfaced as
 `SandboxError`, allowing rollout-level retry policy to decide whether to start a

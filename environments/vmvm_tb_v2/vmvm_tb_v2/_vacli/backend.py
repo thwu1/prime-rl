@@ -32,6 +32,7 @@ import ctypes
 import io
 import json
 import logging
+import math
 import os
 import re
 import shlex
@@ -62,6 +63,7 @@ DEFAULT_SSHD_READY_TIMEOUT = 180.0  # seconds to wait for sshd inside the leased
 DEFAULT_VACLI_CLEANUP_TIMEOUT = (
     45.0  # seconds to wait for vacli to release before SIGKILL (measured ~33s)
 )
+HOST_MEMORY_HEADROOM_MIB = 512
 
 _PR_SET_PDEATHSIG = 1
 try:
@@ -169,6 +171,8 @@ class VacliVMVMConfig:
     tunnel_ready_timeout: float = DEFAULT_TUNNEL_READY_TIMEOUT
     sshd_ready_timeout: float = DEFAULT_SSHD_READY_TIMEOUT
     client_id: str = "cwm_rl"
+    cpu: float | None = None
+    memory_gb: float | None = None
     # Override the AsyncSession per-command stdout buffer cap (bytes). None
     # means use the AsyncSession default (480 KB). Bump this for callers that
     # legitimately need to read large bash outputs in one call — e.g.
@@ -1871,6 +1875,7 @@ class VacliVMVMBackend:
     def _start_container(self) -> str:
         """Pull the image (vmvm-registry mirror, then docker.io fallback) and
         start a long-running detached container."""
+        self._ensure_host_memory()
         used = _resolve_image_in_vm(
             self._sp,
             self._ssh_port,
@@ -1878,11 +1883,17 @@ class VacliVMVMBackend:
             self.config.image_url,
             getattr(self.config, "fallback_image_url", None),
         )
+        run_argv = ["podman", "run", "-d", "--network", "bridge"]
+        if self.config.cpu is not None:
+            run_argv.extend(["--cpus", str(self.config.cpu)])
+            run_argv.extend(["--env", f"GOMAXPROCS={math.ceil(self.config.cpu)}"])
+        if self.config.memory_gb is not None:
+            run_argv.extend(["--memory", f"{self.config.memory_gb}g"])
+        run_argv.extend(
+            ["--entrypoint", "/bin/bash", used, "-c", "tail -f /dev/null"]
+        )
         run = self._ssh_call_raw(
-            "podman run -d --network bridge --entrypoint /bin/bash "
-            + shlex.quote(used)
-            + " -c "
-            + shlex.quote("tail -f /dev/null"),
+            shlex.join(run_argv),
             timeout=int(self.config.session_timeout),
         )
         if run.returncode != 0:
@@ -1905,6 +1916,41 @@ class VacliVMVMBackend:
             self._sp, self._ssh_port, self._control_path, cid
         )
         return cid
+
+    def _ensure_host_memory(self) -> None:
+        """Back task memory above the VM tier's RAM with per-lease host swap."""
+        if self.config.memory_gb is None:
+            return
+        required_mib = math.ceil(self.config.memory_gb * 1024) + HOST_MEMORY_HEADROOM_MIB
+        script = f"""
+set -eu
+required_mib={required_mib}
+current_mib=$(awk '/^(MemTotal|SwapTotal):/ {{ total += $2 }} END {{ print int(total / 1024) }}' /proc/meminfo)
+if [ "$current_mib" -ge "$required_mib" ]; then
+    exit 0
+fi
+swap_mib=$((required_mib - current_mib))
+swap_path=/var/lib/containers/storage/vmvm-runtime.swap
+if grep -q "^$swap_path " /proc/swaps; then
+    exit 0
+fi
+rm -f "$swap_path"
+: > "$swap_path"
+if command -v chattr >/dev/null 2>&1; then
+    chattr +C "$swap_path" 2>/dev/null || :
+fi
+dd if=/dev/zero of="$swap_path" bs=1M count="$swap_mib" status=none
+chmod 600 "$swap_path"
+mkswap "$swap_path" >/dev/null
+swapon "$swap_path"
+""".strip()
+        result = self._ssh_call_raw(
+            "bash -c " + shlex.quote(script),
+            timeout=180,
+        )
+        if result.returncode != 0:
+            detail = (result.stdout or b"").decode("utf-8", errors="replace").strip()
+            raise BackendInitError(f"VMVM host swap setup failed: {detail[-1000:]}")
 
     def _ssh_call_raw(
         self, remote_cmd: str, *, timeout: int
