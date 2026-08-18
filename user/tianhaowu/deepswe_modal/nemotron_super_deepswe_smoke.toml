@@ -1,0 +1,18 @@
+name = "nemotron-super-deepswe-smoke"
+inference_job_id = 10689059
+model = "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16"
+tasks_path = "/checkpoint/ram/tianhaowu/deepswe_eval/deep-swe/tasks"
+n_attempts = 1
+n_concurrent = 1
+n_tasks = 1
+sample_seed = 0
+
+[sampling]
+max_tokens = 32768
+temperature = 1.0
+top_p = 0.95
+top_k = 20
+
+[thinking]
+enabled = true
+preserve_previous = true

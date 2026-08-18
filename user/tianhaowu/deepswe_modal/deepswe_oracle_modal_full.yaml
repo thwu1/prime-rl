@@ -1,0 +1,21 @@
+job_name: deepswe-v1.1-oracle
+jobs_dir: /checkpoint/ram/tianhaowu/deepswe_eval/jobs
+n_attempts: 1
+n_concurrent_trials: 16
+quiet: true
+
+retry:
+  max_retries: 1
+
+environment:
+  type: modal
+  delete: true
+  kwargs:
+    app_name: __pier_deepswe_oracle__
+    sandbox_timeout_secs: 86400
+
+agents:
+  - name: oracle
+
+datasets:
+  - path: /checkpoint/ram/tianhaowu/deepswe_eval/deep-swe/tasks

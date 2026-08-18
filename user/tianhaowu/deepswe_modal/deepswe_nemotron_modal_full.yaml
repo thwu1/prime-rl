@@ -1,0 +1,40 @@
+job_name: nemotron-super-deepswe-pass1
+jobs_dir: /checkpoint/ram/tianhaowu/deepswe_eval/jobs
+n_attempts: 1
+n_concurrent_trials: 16
+quiet: true
+
+retry:
+  max_retries: 1
+
+environment:
+  type: modal
+  delete: true
+  kwargs:
+    app_name: __pier_deepswe__
+    sandbox_timeout_secs: 86400
+
+agents:
+  - name: mini-swe-agent
+    model_name: openai/nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16
+    env:
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL}
+    kwargs:
+      version: 2.2.8
+      cost_limit: 0
+      model_class: litellm
+      model_kwargs:
+        custom_llm_provider: openai
+        drop_params: true
+        max_tokens: 32768
+        temperature: 1.0
+        top_p: 0.95
+        extra_body:
+          top_k: 20
+          chat_template_kwargs:
+            enable_thinking: true
+            truncate_history_thinking: false
+
+datasets:
+  - path: /checkpoint/ram/tianhaowu/deepswe_eval/deep-swe/tasks
