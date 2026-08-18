@@ -15,6 +15,7 @@ from typing import Any, Literal
 from pier.environments.base import BaseEnvironment, ExecResult
 from pier.environments.capabilities import EnvironmentCapabilities
 from pier.models.agent.install import InstallStep
+from prime_sandboxes import SandboxFileNotFoundError
 from verifiers.v1.errors import SandboxError
 from verifiers.v1.runtimes import (
     ModalConfig,
@@ -322,6 +323,11 @@ class PierRuntimeEnvironment(BaseEnvironment):
         try:
             return await awaitable
         except SandboxError as error:
+            cause: BaseException | None = error
+            while cause is not None:
+                if isinstance(cause, (FileNotFoundError, SandboxFileNotFoundError)):
+                    raise
+                cause = cause.__cause__
             if self._sandbox_error is None:
                 self._sandbox_error = error
             raise

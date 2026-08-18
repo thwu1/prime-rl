@@ -90,7 +90,8 @@ fresh lease rather than polling or replaying commands against it.
 Pier treats artifact collection as best-effort, but a Sandoq transport failure
 there is not a valid empty submission. The runtime adapter retains the first
 `SandboxError` and surfaces it during environment cleanup so Pier rerolls the
-trial instead of recording a completed reward of zero.
+trial instead of recording a completed reward of zero. A typed missing-file
+error is not transport failure and must not set this sticky retry signal.
 Directory uploads build a temporary tar archive; read and upload that archive
 before leaving its `TemporaryDirectory` scope. A missing local upload archive
 is a harness bug, not retryable Sandoq infrastructure.
