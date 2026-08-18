@@ -6,7 +6,7 @@ from pathlib import Path
 
 from pier_runner import run_pier_job
 from provider_env import PROJECT_DIR, provider_environment_context
-from submit_eval import PROVIDERS, build_environment
+from submit_eval import INFRA_RETRY_EXCEPTIONS, PROVIDERS, build_environment
 
 TASKS = Path("/checkpoint/ram/tianhaowu/deepswe_eval/deep-swe/tasks")
 JOBS = Path("/checkpoint/ram/tianhaowu/deepswe_eval/jobs")
@@ -49,7 +49,10 @@ def main() -> None:
         "n_attempts": 1,
         "n_concurrent_trials": args.n_concurrent,
         "quiet": True,
-        "retry": {"max_retries": args.max_retries},
+        "retry": {
+            "max_retries": args.max_retries,
+            "include_exceptions": INFRA_RETRY_EXCEPTIONS,
+        },
         "environment": build_environment(
             args.provider,
             {},

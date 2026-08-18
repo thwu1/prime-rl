@@ -16,6 +16,11 @@ MINI_SWE_INSTANCE_TEMPLATE = PROJECT_DIR / ("user/tianhaowu/deepswe_modal/mini_s
 PIER_RUNTIME_IMPORT = "user.tianhaowu.deepswe_sandbox.pier_runtime:PierRuntimeEnvironment"
 DEEPSWE_AGENT_IMPORT = "user.tianhaowu.deepswe_sandbox.pier_agent:DeepSweMiniSweAgent"
 PROVIDERS = {"modal", "vmvm", "sandoq"}
+INFRA_RETRY_EXCEPTIONS = [
+    "AgentSetupTimeoutError",
+    "EnvironmentStartTimeoutError",
+    "SandboxError",
+]
 
 
 def parse_args() -> argparse.Namespace:
@@ -200,7 +205,10 @@ def build_configs(
         "n_attempts": n_attempts,
         "n_concurrent_trials": n_concurrent,
         "quiet": True,
-        "retry": {"max_retries": max_retries},
+        "retry": {
+            "max_retries": max_retries,
+            "include_exceptions": INFRA_RETRY_EXCEPTIONS,
+        },
         "environment": environment,
         "agents": [
             {

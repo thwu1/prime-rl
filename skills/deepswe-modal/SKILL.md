@@ -40,6 +40,10 @@ defaults to 64. Full evals and oracles use up to six whole-trial retries for
 transient provider provisioning failures. Both launchers propagate the requested concurrency to
 `VACLI_MAX_CONCURRENT_LEASES` or `OCI_RUNNER_POOL_SIZE`, so the runtime pool does
 not silently retain its smaller standalone-smoke default.
+Whole-trial retries are restricted to `SandboxError`,
+`EnvironmentStartTimeoutError`, and `AgentSetupTimeoutError`. Do not broaden
+that allowlist to agent execution, verifier, reward, or parsing failures; those
+are evaluation outcomes and rerolling them would resample the model.
 The runtime adapter stages the CPU evaluator's local `uv` binary before
 installing MiniSWE. Do not restore the per-sandbox Astral/GitHub installer; the
 shared provider egress can return HTTP 429 under even small concurrent runs.

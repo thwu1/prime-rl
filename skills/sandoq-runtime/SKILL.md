@@ -75,6 +75,9 @@ acquired`. A pre-start `session_not_found` 404 poisons and deletes that outer
 assignment, and Pier may retry the whole trial up to the configured six-retry
 bound. The oracle gate is valid only if the terminal aggregate has 113 rewards
 of 1 and zero remaining errors; transient retry lines alone are not failures.
+The Pier retry allowlist is infrastructure-only: `SandboxError`,
+`EnvironmentStartTimeoutError`, and `AgentSetupTimeoutError`. A known command
+exit, model failure, verifier failure, or malformed reward is never resampled.
 
 Pier's adapter materializes the DeepSWE verifier Dockerfile inside a separate
 Sandoq runtime. Hidden tests are never copied into the agent runtime.
