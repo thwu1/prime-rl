@@ -140,6 +140,7 @@ class CaptureServer(ThreadingHTTPServer):
             os.replace(temporary, target)
 
         template_kwargs = payload.get("chat_template_kwargs")
+        router_correlation_id = f"deepswe-{key}"
         return {
             "request_id": request_id,
             "task_key": key,
@@ -155,6 +156,7 @@ class CaptureServer(ThreadingHTTPServer):
             "assistant_messages_missing_reasoning": missing,
             "reasoning_aliases_normalized": reasoning_aliases_normalized,
             "previous_reasoning_prefix_preserved": prefix_preserved,
+            "router_correlation_id": router_correlation_id,
             "chat_template_kwargs": template_kwargs,
         }
 
@@ -214,6 +216,8 @@ class CaptureHandler(BaseHTTPRequestHandler):
             for key in ("Content-Type", "Accept", "Authorization")
             if (value := self.headers.get(key)) is not None
         }
+        if summary is not None:
+            headers["X-Correlation-ID"] = summary["router_correlation_id"]
         request = urllib.request.Request(
             f"{self.server.upstream}{self.path}",
             data=body,

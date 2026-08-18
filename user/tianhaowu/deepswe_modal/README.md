@@ -95,6 +95,11 @@ this boundary normalization, the request history can look complete in the
 MiniSWE trajectory while the worker receives a prompt with prior thinking
 removed.
 
+The relay also sets a stable `X-Correlation-ID` derived from the task prompt.
+The inference router's consistent-hash policy therefore keeps every turn of one
+trajectory on the same replica for prefix-cache reuse while distributing
+different DeepSWE tasks across all inference replicas.
+
 The proof is written to:
 
 ```text

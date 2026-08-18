@@ -76,6 +76,10 @@ canonicalize it to `reasoning` before the request crosses vllm-router. Logging
 the incoming alias is not proof that the backend received it. The final audit
 uses `/v1/chat/completions/render` and compares its token count with actual API
 usage so router-side field loss fails closed.
+The relay must also attach its stable per-task `X-Correlation-ID`. The inference
+router's consistent-hash policy otherwise sees an empty chat key and sends every
+trajectory to one replica. The correlation header keeps each trajectory sticky
+for prefix caching while spreading different tasks across all replicas.
 The eval relay also records a compact line for every actual model request,
 checks that the prior reasoning hash sequence is an exact prefix of the next
 turn, retains each task's latest exact request, and renders those final requests
