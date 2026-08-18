@@ -57,7 +57,8 @@ Then validate the OCI contract and oracle:
 
 ```bash
 sbatch user/tianhaowu/deepswe_sandoq/run_runtime_smoke.sbatch oci-runner
-sbatch user/tianhaowu/deepswe_modal/submit_oracle.sbatch sandoq --n-concurrent 8
+sbatch user/tianhaowu/deepswe_modal/submit_oracle.sbatch sandoq \
+  --n-concurrent 64 --max-retries 6
 ```
 
 The OCI smoke checks lease/authentication, nested-container startup, configured
@@ -71,9 +72,9 @@ An initial wave may log retryable HTTP 429 `No available pods` while the
 `oci-runner` warm pool scales. Do not cancel while requests are still within the
 bounded create deadline; successful capacity appears as `OCI runner assignment
 acquired`. A pre-start `session_not_found` 404 poisons and deletes that outer
-assignment, and Pier retries the whole trial once. The oracle gate is valid only
-if the terminal aggregate has 113 rewards of 1 and zero remaining errors;
-transient retry lines alone are not failures.
+assignment, and Pier may retry the whole trial up to the configured six-retry
+bound. The oracle gate is valid only if the terminal aggregate has 113 rewards
+of 1 and zero remaining errors; transient retry lines alone are not failures.
 
 Pier's adapter materializes the DeepSWE verifier Dockerfile inside a separate
 Sandoq runtime. Hidden tests are never copied into the agent runtime.

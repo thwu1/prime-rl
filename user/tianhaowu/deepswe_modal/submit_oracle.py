@@ -18,6 +18,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--provider", choices=sorted(PROVIDERS), required=True)
     parser.add_argument("--n-concurrent", type=int, default=64)
+    parser.add_argument("--max-retries", type=int, default=6)
     parser.add_argument("--n-tasks", type=int)
     parser.add_argument("--sample-seed", type=int, default=0)
     parser.add_argument("--task-name", action="append", default=[])
@@ -29,6 +30,8 @@ def main() -> None:
     args = parse_args()
     if args.n_concurrent <= 0:
         raise ValueError("n_concurrent must be positive")
+    if args.max_retries < 0:
+        raise ValueError("max_retries must be non-negative")
     if args.n_tasks is not None and args.n_tasks <= 0:
         raise ValueError("n_tasks must be positive")
     if args.task_name and args.n_tasks is None:
@@ -46,7 +49,7 @@ def main() -> None:
         "n_attempts": 1,
         "n_concurrent_trials": args.n_concurrent,
         "quiet": True,
-        "retry": {"max_retries": 1},
+        "retry": {"max_retries": args.max_retries},
         "environment": build_environment(
             args.provider,
             {},

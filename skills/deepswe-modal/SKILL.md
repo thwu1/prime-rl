@@ -36,7 +36,8 @@ registry-backed and keeping every completed agent sandbox would exhaust provider
 capacity.
 
 The checked-in full-eval config uses 32 concurrent trials. The oracle launcher
-defaults to 64. Both launchers propagate that requested concurrency to
+defaults to 64. Full evals and oracles use up to six whole-trial retries for
+transient provider provisioning failures. Both launchers propagate the requested concurrency to
 `VACLI_MAX_CONCURRENT_LEASES` or `OCI_RUNNER_POOL_SIZE`, so the runtime pool does
 not silently retain its smaller standalone-smoke default.
 The runtime adapter stages the CPU evaluator's local `uv` binary before
@@ -173,7 +174,8 @@ on every other HTTP error or any missing/reordered reasoning.
 Run all reference solutions before the full eval:
 
 ```bash
-sbatch user/tianhaowu/deepswe_modal/submit_oracle.sbatch vmvm --n-concurrent 64
+sbatch user/tianhaowu/deepswe_modal/submit_oracle.sbatch vmvm \
+  --n-concurrent 64 --max-retries 6
 ```
 
 `validate_oracle.py` supports
