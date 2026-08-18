@@ -76,6 +76,11 @@ turn, retains each task's latest exact request, and renders those final requests
 through the live vLLM tokenizer. Inspect `request_capture.jsonl`,
 `latest_requests/`, and `thinking_trajectory_audit.json` in the driver job
 directory.
+Pier retries start a new prefix chain only when the capture sees an explicit
+two-message request with no prior reasoning after a nonempty attempt. The
+summary records `attempt`, `per_attempt_request`, and `retry_boundary`; do not
+treat a legitimate retry as missing historical reasoning from its failed
+predecessor.
 
 DeepSWE collects the committed `base..HEAD` diff, while MiniSWE's completion
 marker only exits the agent. The Pier agent adapter stages any remaining changes,

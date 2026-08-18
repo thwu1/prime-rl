@@ -97,6 +97,10 @@ The relay also audits every real eval request, verifies that the prior reasoning
 hash sequence is preserved exactly from one turn to the next, and renders each
 task's latest request with the live vLLM tokenizer. See `request_capture.jsonl`,
 `latest_requests/`, and `thinking_trajectory_audit.json` in the same directory.
+When Pier retries a task, the first two-message request is recorded as a new
+attempt and starts a fresh prefix chain. Reasoning preservation still fails
+closed within every attempt; a valid retry is not compared against the failed
+attempt's history.
 
 DeepSWE grades the committed `base..HEAD` diff. The custom Pier MiniSWE adapter
 therefore stages all remaining changes and creates a no-hook submission commit

@@ -71,16 +71,35 @@ class CaptureServer(ThreadingHTTPServer):
         with self.lock:
             state = self.task_states.setdefault(
                 key,
-                {"requests": 0, "reasoning_hashes": []},
+                {
+                    "requests": 0,
+                    "attempt": 1,
+                    "attempt_requests": 0,
+                    "reasoning_hashes": [],
+                },
             )
             previous = state["reasoning_hashes"]
+            retry_boundary = (
+                state["requests"] > 0
+                and bool(previous)
+                and not hashes
+                and len(messages) == 2
+            )
+            if retry_boundary:
+                state["attempt"] += 1
+                state["attempt_requests"] = 0
+                state["reasoning_hashes"] = []
+                previous = []
             prefix_preserved = len(hashes) >= len(previous) and hashes[: len(previous)] == previous
             if prefix_preserved:
                 state["reasoning_hashes"] = hashes
             state["requests"] += 1
+            state["attempt_requests"] += 1
             self.request_count += 1
             request_id = self.request_count
             per_task_request = state["requests"]
+            attempt = state["attempt"]
+            per_attempt_request = state["attempt_requests"]
 
             target = self.latest_dir / f"{key}.json"
             temporary = target.with_suffix(f".{threading.get_ident()}.tmp")
@@ -91,6 +110,9 @@ class CaptureServer(ThreadingHTTPServer):
         return {
             "request_id": request_id,
             "task_key": key,
+            "attempt": attempt,
+            "per_attempt_request": per_attempt_request,
+            "retry_boundary": retry_boundary,
             "per_task_request": per_task_request,
             "started_at": time.time(),
             "message_count": len(messages),
@@ -251,6 +273,7 @@ def audit_captured_requests(
         {
             "request_id": item.get("request_id"),
             "task_key": item.get("task_key"),
+            "attempt": item.get("attempt", 1),
             "missing_reasoning": item.get("assistant_messages_missing_reasoning"),
             "prefix_preserved": item.get("previous_reasoning_prefix_preserved"),
             "chat_template_kwargs": item.get("chat_template_kwargs"),
@@ -303,9 +326,24 @@ def audit_captured_requests(
             }
         )
 
+    task_keys = sorted(
+        {
+            item["task_key"]
+            for item in summaries
+            if isinstance(item.get("task_key"), str)
+        }
+    )
     report = {
         "request_count": len(summaries),
         "task_count": len(rendered),
+        "task_attempts": {
+            key: max(
+                int(item.get("attempt", 1))
+                for item in summaries
+                if item.get("task_key") == key
+            )
+            for key in task_keys
+        },
         "request_failures": request_failures,
         "rendered_latest_requests": rendered,
     }
