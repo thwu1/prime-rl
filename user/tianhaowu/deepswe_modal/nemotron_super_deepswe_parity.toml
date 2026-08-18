@@ -8,6 +8,9 @@ n_concurrent = 1
 n_tasks = 1
 sample_seed = 0
 
+[mini_swe]
+step_limit = 100
+
 [sampling]
 max_tokens = 32768
 temperature = 1.0

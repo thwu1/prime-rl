@@ -96,8 +96,10 @@ full TOML submission.
 ## Provider parity
 
 Launch every backend from `nemotron_super_deepswe_parity.toml`. It selects the
-same task and sets a fixed request seed; do not compare independently sampled
-temperature-1 runs as evidence of sandbox parity.
+same task, sets a fixed request seed, and applies the same 100-step diagnostic
+cap; do not compare independently sampled temperature-1 runs as evidence of
+sandbox parity. The score TOMLs intentionally keep mini-swe's unlimited step
+setting and rely on the task's 90-minute agent timeout.
 
 After matched jobs finish, compare their ATIF trajectories:
 

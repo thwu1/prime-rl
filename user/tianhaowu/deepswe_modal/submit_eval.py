@@ -144,6 +144,12 @@ def build_configs(
     mini_swe_version = source.get("mini_swe_version", "2.2.8")
     if not isinstance(mini_swe_version, str) or not mini_swe_version:
         raise ValueError("mini_swe_version must be a non-empty string")
+    mini_swe = source.get("mini_swe", {})
+    if not isinstance(mini_swe, dict):
+        raise ValueError("mini_swe must be a TOML table")
+    step_limit = mini_swe.get("step_limit")
+    if step_limit is not None:
+        step_limit = positive_int(step_limit, "mini_swe.step_limit")
 
     dataset = {"path": str(tasks_path)}
     if "n_tasks" in source:
@@ -174,6 +180,14 @@ def build_configs(
     }
     if seed is not None:
         model_kwargs["seed"] = seed
+    agent_kwargs = {
+        "version": mini_swe_version,
+        "cost_limit": 0,
+        "model_class": "litellm",
+        "model_kwargs": model_kwargs,
+    }
+    if step_limit is not None:
+        agent_kwargs["config_yaml"] = f"agent:\n  step_limit: {step_limit}\n"
 
     pier_config = {
         "job_name": name,
@@ -191,12 +205,7 @@ def build_configs(
                     "OPENAI_API_KEY": "${OPENAI_API_KEY}",
                     "OPENAI_BASE_URL": "${OPENAI_BASE_URL}",
                 },
-                "kwargs": {
-                    "version": mini_swe_version,
-                    "cost_limit": 0,
-                    "model_class": "litellm",
-                    "model_kwargs": model_kwargs,
-                },
+                "kwargs": agent_kwargs,
             }
         ],
         "datasets": [dataset],

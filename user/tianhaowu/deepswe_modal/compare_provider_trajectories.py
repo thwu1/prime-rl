@@ -83,9 +83,7 @@ def agent_config_summary(path: Path) -> dict[str, Any]:
     normalized = {
         "name": agent.get("name"),
         "model_name": agent.get("model_name"),
-        "version": kwargs.get("version"),
-        "model_class": kwargs.get("model_class"),
-        "model_kwargs": model_kwargs,
+        "kwargs": kwargs,
     }
     return {
         "config": normalized,

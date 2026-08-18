@@ -167,7 +167,9 @@ sbatch user/tianhaowu/deepswe_modal/submit_eval.sbatch \
 ```
 
 The comparator rejects mismatched agent/model sampling configs before comparing
-commands. The fixed seed keeps model sampling deterministic; subsequent
+commands. This diagnostic config also applies the same 100-step mini-swe cap on
+every provider; the score configs remain governed only by each task's 90-minute
+agent timeout. The fixed seed keeps model sampling deterministic; subsequent
 trajectory divergence therefore exposes differing command results or sandbox
 state instead of unrelated sampling noise.
 
