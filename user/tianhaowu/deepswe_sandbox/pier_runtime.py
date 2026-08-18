@@ -385,9 +385,12 @@ class PierRuntimeEnvironment(BaseEnvironment):
                         handle.add(child, arcname=child.name)
 
             await asyncio.to_thread(build_archive)
-        await self._remember_sandbox_error(
-            self.runtime.write(archive_path, await asyncio.to_thread(archive.read_bytes))
-        )
+            await self._remember_sandbox_error(
+                self.runtime.write(
+                    archive_path,
+                    await asyncio.to_thread(archive.read_bytes),
+                )
+            )
         result = await self._remember_sandbox_error(
             self.runtime.run(
                 [
