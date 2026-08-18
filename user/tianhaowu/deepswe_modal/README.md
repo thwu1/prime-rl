@@ -185,11 +185,11 @@ uv run --no-sync python \
 ```
 
 The report checks task checksum and prompt equality, provider exceptions,
-reasoning coverage, reward and patch hashes, aligned command return codes and
-outputs, command-sequence similarity, timings, and agent-issued network
-commands. Sampling is stochastic, so exact command equality is diagnostic;
-provider parity is established by matched task/prompt inputs, complete reasoning
-logs, clean sandbox execution, and equivalent verifier behavior.
+reasoning coverage and exact per-turn reasoning hashes, reward and patch hashes,
+aligned command return codes and outputs, command-sequence similarity, timings,
+and agent-issued network commands. With the fixed request seed, exact reasoning
+and command-sequence equality is the strongest parity signal; any divergence is
+reported alongside the first differing sandbox outcomes and verifier behavior.
 
 VMVM and Sandoq keep provider networking enabled so the in-sandbox agent can
 reach the authenticated model relay. Non-agent verifier commands explicitly

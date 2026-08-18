@@ -132,6 +132,7 @@ def trajectory_summary(path: Path) -> dict[str, Any]:
     commands: list[dict[str, Any]] = []
     reasoning_chars = 0
     reasoning_steps = 0
+    reasoning_step_sha256: list[str | None] = []
     agent_steps = 0
     missing_reasoning_steps: list[int] = []
     tool_names: set[str] = set()
@@ -149,7 +150,11 @@ def trajectory_summary(path: Path) -> dict[str, Any]:
         if isinstance(reasoning, str) and reasoning.strip():
             reasoning_steps += 1
             reasoning_chars += len(reasoning)
+            reasoning_step_sha256.append(
+                hashlib.sha256(reasoning.encode()).hexdigest()
+            )
         else:
+            reasoning_step_sha256.append(None)
             step_id = step.get("step_id")
             if isinstance(step_id, int):
                 missing_reasoning_steps.append(step_id)
@@ -190,6 +195,10 @@ def trajectory_summary(path: Path) -> dict[str, Any]:
         "agent_steps": agent_steps,
         "reasoning_steps": reasoning_steps,
         "reasoning_chars": reasoning_chars,
+        "reasoning_step_sha256": reasoning_step_sha256,
+        "reasoning_sha256": hashlib.sha256(
+            json.dumps(reasoning_step_sha256).encode()
+        ).hexdigest(),
         "missing_reasoning_steps": missing_reasoning_steps,
         "reasoning_coverage": reasoning_steps / agent_steps if agent_steps else 0.0,
         "tool_names": sorted(tool_names),
@@ -298,6 +307,26 @@ def aligned_command_outcomes(
     }
 
 
+def aligned_reasoning_steps(
+    baseline: list[str | None],
+    candidate: list[str | None],
+) -> dict[str, Any]:
+    matcher = difflib.SequenceMatcher(
+        None,
+        baseline,
+        candidate,
+        autojunk=False,
+    )
+    aligned = sum(block.size for block in matcher.get_matching_blocks())
+    return {
+        "same_sequence": baseline == candidate,
+        "sequence_similarity": matcher.ratio(),
+        "aligned_exact_steps": aligned,
+        "baseline_steps": len(baseline),
+        "candidate_steps": len(candidate),
+    }
+
+
 def compare_trials(
     baseline: dict[str, Any],
     candidate: dict[str, Any],
@@ -306,6 +335,7 @@ def compare_trials(
     candidate_trajectory = candidate["trajectory"]
     trajectory_available = baseline_trajectory is not None and candidate_trajectory is not None
     commands = None
+    reasoning = None
     same_prompt = None
     if trajectory_available:
         commands = aligned_command_outcomes(
@@ -315,6 +345,10 @@ def compare_trials(
         same_prompt = (
             baseline_trajectory["prompt_sha256"]
             == candidate_trajectory["prompt_sha256"]
+        )
+        reasoning = aligned_reasoning_steps(
+            baseline_trajectory["reasoning_step_sha256"],
+            candidate_trajectory["reasoning_step_sha256"],
         )
     gates = {
         "same_task_checksum": baseline["task_checksum"] == candidate["task_checksum"],
@@ -340,6 +374,7 @@ def compare_trials(
         "gates_passed": all(value is True for value in gates.values()),
         "same_rewards": baseline["rewards"] == candidate["rewards"],
         "same_patch": baseline["patch"] == candidate["patch"],
+        "reasoning": reasoning,
         "commands": commands,
         "baseline": baseline,
         "candidate": candidate,
