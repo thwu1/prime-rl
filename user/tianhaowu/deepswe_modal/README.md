@@ -90,8 +90,19 @@ The proof is written to:
 /checkpoint/ram/tianhaowu/deepswe_eval/driver/JOB_ID/thinking_preflight.json
 ```
 
+The relay also audits every real eval request, verifies that the prior reasoning
+hash sequence is preserved exactly from one turn to the next, and renders each
+task's latest request with the live vLLM tokenizer. See `request_capture.jsonl`,
+`latest_requests/`, and `thinking_trajectory_audit.json` in the same directory.
+
+DeepSWE grades the committed `base..HEAD` diff. The custom Pier MiniSWE adapter
+therefore stages all remaining changes and creates a no-hook submission commit
+after the agent exits. It records the before/after revisions and final clean
+status in `agent/submission-commit.txt`; a dirty worktree fails the trial instead
+of silently producing an empty patch.
+
 The inference deployment must use the `nemotron_v3` reasoning parser and an
-automatic tool-call parser. Its configured context limit is 102,144 tokens;
+automatic tool-call parser. Its configured context limit is 262,144 tokens;
 the DeepSWE request limit is 32,768 output tokens.
 
 ## Oracle gates

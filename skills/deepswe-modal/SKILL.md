@@ -73,6 +73,13 @@ turn, retains each task's latest exact request, and renders those final requests
 through the live vLLM tokenizer. Inspect `request_capture.jsonl`,
 `latest_requests/`, and `thinking_trajectory_audit.json` in the driver job
 directory.
+
+DeepSWE collects the committed `base..HEAD` diff, while MiniSWE's completion
+marker only exits the agent. The Pier agent adapter stages any remaining changes,
+creates a no-hook submission commit, and requires a clean worktree before the
+verifier runs. Inspect `agent/submission-commit.txt`; do not treat a staged-only
+working tree as a submitted solution.
+
 Inspect:
 
 ```text

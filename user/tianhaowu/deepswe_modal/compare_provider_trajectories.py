@@ -82,6 +82,7 @@ def agent_config_summary(path: Path) -> dict[str, Any]:
         model_kwargs = {}
     normalized = {
         "name": agent.get("name"),
+        "import_path": agent.get("import_path"),
         "model_name": agent.get("model_name"),
         "kwargs": kwargs,
     }

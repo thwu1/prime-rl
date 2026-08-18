@@ -15,6 +15,9 @@ DEFAULT_JOBS_DIR = Path("/checkpoint/ram/tianhaowu/deepswe_eval/jobs")
 PIER_RUNTIME_IMPORT = (
     "user.tianhaowu.deepswe_sandbox.pier_runtime:PierRuntimeEnvironment"
 )
+DEEPSWE_AGENT_IMPORT = (
+    "user.tianhaowu.deepswe_sandbox.pier_agent:DeepSweMiniSweAgent"
+)
 PROVIDERS = {"modal", "vmvm", "sandoq"}
 
 
@@ -199,7 +202,7 @@ def build_configs(
         "environment": environment,
         "agents": [
             {
-                "name": "mini-swe-agent",
+                "import_path": DEEPSWE_AGENT_IMPORT,
                 "model_name": f"openai/{model}",
                 "env": {
                     "OPENAI_API_KEY": "${OPENAI_API_KEY}",
