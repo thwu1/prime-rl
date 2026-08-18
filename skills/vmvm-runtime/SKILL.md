@@ -44,6 +44,9 @@ separate verifier Dockerfiles. It validates the Dockerfile, starts its `FROM`
 image, copies the hidden verifier files only into the verifier runtime, and
 executes its `RUN` steps. Non-agent commands clear inherited proxy variables so
 test behavior matches the no-network verifier contract.
+Commands use a non-login shell, matching Pier's Modal executor. A login shell can
+replace the image `PATH` and hide tools installed in an image virtual environment
+such as `/opt/venv/bin`.
 
 Validate one reference solution before the full oracle:
 

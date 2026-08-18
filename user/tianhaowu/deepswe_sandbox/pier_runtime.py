@@ -281,8 +281,8 @@ class PierRuntimeEnvironment(BaseEnvironment):
         if not agent_network:
             command = "unset " + " ".join(_PROXY_ENV_KEYS) + "; " + command
         if timeout_sec is not None:
-            command = f"timeout --signal=TERM {int(timeout_sec)}s bash -lc {shlex.quote(command)}"
-        result = await self.runtime.run(["bash", "-lc", command], merged_env)
+            command = f"timeout --signal=TERM {int(timeout_sec)}s bash -c {shlex.quote(command)}"
+        result = await self.runtime.run(["bash", "-c", command], merged_env)
         return ExecResult(
             stdout=result.stdout,
             stderr=result.stderr,
