@@ -10,6 +10,7 @@ from pathlib import Path
 
 import modal
 from pier_runner import run_pier_job
+from provider_env import provider_environment_context
 
 PROJECT_DIR = Path("/storage/home/tianhaowu/prime-rl")
 CADDY = Path("/home/tianhaowu/bin/caddy")
@@ -27,6 +28,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--job-name", required=True)
     parser.add_argument("--model-name", default=DEFAULT_MODEL_NAME)
     parser.add_argument("--mini-swe-version", default="2.2.8")
+    parser.add_argument("--provider", choices=("modal", "vmvm", "sandoq"), required=True)
     return parser.parse_args()
 
 
@@ -194,16 +196,21 @@ def stop_process(process: subprocess.Popen | None) -> None:
         process.wait()
 
 
-def run_pier(config: Path, job_name: str, base_url: str, api_key: str) -> None:
-    env = os.environ.copy()
-    env.update(
-        {
-            "MODAL_DISABLE_API_PROXY": "1",
-            "OPENAI_API_KEY": api_key,
-            "OPENAI_BASE_URL": f"{base_url}/v1",
-        }
-    )
-    run_pier_job(config, job_name, env=env)
+def run_pier(
+    config: Path,
+    job_name: str,
+    base_url: str,
+    api_key: str,
+    provider: str,
+) -> None:
+    with provider_environment_context(provider) as env:
+        env.update(
+            {
+                "OPENAI_API_KEY": api_key,
+                "OPENAI_BASE_URL": f"{base_url}/v1",
+            }
+        )
+        run_pier_job(config, job_name, env=env)
 
 
 def verify_mini_swe_thinking(
@@ -319,7 +326,13 @@ def main() -> None:
             args.mini_swe_version,
             driver_dir / "thinking_preflight.json",
         )
-        run_pier(args.config.resolve(), args.job_name, public_url, api_key)
+        run_pier(
+            args.config.resolve(),
+            args.job_name,
+            public_url,
+            api_key,
+            args.provider,
+        )
     finally:
         stop_process(ssh_process)
         if ssh_log is not None:

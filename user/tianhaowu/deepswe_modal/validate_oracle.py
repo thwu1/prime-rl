@@ -8,6 +8,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("result", type=Path)
     parser.add_argument("tasks", type=Path)
+    parser.add_argument("--expected-count", type=int)
     return parser.parse_args()
 
 
@@ -30,7 +31,7 @@ def trial_results(result_path: Path, result: dict) -> list[dict]:
 
 def main() -> None:
     args = parse_args()
-    expected = task_names(args.tasks)
+    known_tasks = task_names(args.tasks)
     result = json.loads(args.result.read_text())
     trials = trial_results(args.result, result)
     actual = {trial["task_name"] for trial in trials}
@@ -51,11 +52,16 @@ def main() -> None:
                 }
             )
 
-    missing = sorted(expected - actual)
-    unexpected = sorted(actual - expected)
+    if args.expected_count is not None and args.expected_count <= 0:
+        raise ValueError("expected-count must be positive")
+    expected_count = args.expected_count or len(known_tasks)
+    missing = sorted(known_tasks - actual) if args.expected_count is None else []
+    unexpected = sorted(actual - known_tasks)
+    duplicates = len(trials) - len(actual)
     print(
-        f"oracle trials={len(trials)} expected={len(expected)} "
-        f"failures={len(failures)} missing={len(missing)} unexpected={len(unexpected)}"
+        f"oracle trials={len(trials)} expected={expected_count} "
+        f"failures={len(failures)} missing={len(missing)} "
+        f"unexpected={len(unexpected)} duplicates={duplicates}"
     )
     if failures:
         print(json.dumps(failures, indent=2))
@@ -63,7 +69,13 @@ def main() -> None:
         print(f"missing={missing}")
     if unexpected:
         print(f"unexpected={unexpected}")
-    if len(trials) != len(expected) or failures or missing or unexpected:
+    if (
+        len(trials) != expected_count
+        or failures
+        or missing
+        or unexpected
+        or duplicates
+    ):
         raise SystemExit(1)
 
 

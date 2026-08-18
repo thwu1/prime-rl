@@ -9,6 +9,7 @@ import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+from minisweagent.exceptions import FormatError
 from minisweagent.models.litellm_model import LitellmModel
 
 
@@ -93,6 +94,26 @@ def messages_for_tokenize(messages: list[dict]) -> list[dict]:
     return normalized
 
 
+def query_tool_turn(
+    model: LitellmModel,
+    messages: list[dict],
+    turn: int,
+    max_attempts: int = 4,
+) -> tuple[dict, int]:
+    for attempt in range(max_attempts):
+        try:
+            return model.query(messages, seed=attempt), attempt
+        except FormatError:
+            if attempt + 1 == max_attempts:
+                raise
+            print(
+                f"Thinking preflight turn {turn}: malformed tool call on "
+                f"attempt {attempt + 1}, retrying",
+                flush=True,
+            )
+    raise RuntimeError("unreachable")
+
+
 def main() -> None:
     args = parse_args()
     base_url = args.base_url.rstrip("/")
@@ -145,14 +166,18 @@ def main() -> None:
         turns = []
         responses = []
         for turn in range(1, 4):
-            response = model.query(messages)
+            response, format_retries = query_tool_turn(model, messages, turn)
             reasoning = reasoning_text(response)
-            if not response.get("tool_calls"):
-                raise RuntimeError(f"Nemotron turn {turn} did not call bash: {response}")
+            tool_calls = response.get("tool_calls") or []
+            if len(tool_calls) != 1:
+                raise RuntimeError(
+                    f"Nemotron turn {turn} did not call bash exactly once: {response}"
+                )
             captured_request = server.captures[-1]
             turns.append(
                 {
                     "turn": turn,
+                    "format_retries": format_retries,
                     "outgoing_request": captured_request,
                     "response": {key: value for key, value in response.items() if key != "extra"},
                     "reasoning_chars": len(reasoning),

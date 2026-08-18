@@ -12,11 +12,16 @@ GENERATED_CONFIG_DIR = Path("/checkpoint/ram/tianhaowu/deepswe_eval/configs")
 DEFAULT_MODEL = "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16"
 DEFAULT_TASKS = Path("/checkpoint/ram/tianhaowu/deepswe_eval/deep-swe/tasks")
 DEFAULT_JOBS_DIR = Path("/checkpoint/ram/tianhaowu/deepswe_eval/jobs")
+PIER_RUNTIME_IMPORT = (
+    "user.tianhaowu.deepswe_sandbox.pier_runtime:PierRuntimeEnvironment"
+)
+PROVIDERS = {"modal", "vmvm", "sandoq"}
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("config", type=Path)
+    parser.add_argument("--provider", choices=sorted(PROVIDERS))
     parser.add_argument("--dry-run", action="store_true")
     return parser.parse_args()
 
@@ -38,7 +43,49 @@ def load_toml(path: Path) -> dict:
         return tomllib.load(file)
 
 
-def build_configs(source: dict) -> tuple[dict, dict]:
+def build_environment(
+    provider: str,
+    provider_options: dict,
+    *,
+    modal_app_name: str,
+) -> dict:
+    if provider == "modal":
+        return {
+            "type": "modal",
+            "delete": True,
+            "kwargs": {
+                "app_name": modal_app_name,
+                "sandbox_timeout_secs": 86400,
+                **provider_options,
+            },
+        }
+    defaults = (
+        {
+            "session_timeout": 7200,
+            "lease_ttl": "60s",
+            "max_session_buffer_size": 16 * 1024 * 1024,
+        }
+        if provider == "vmvm"
+        else {
+            "mode": "oci-runner",
+            "session_timeout": 7200,
+            "host_tunnel": "modal",
+        }
+    )
+    return {
+        "import_path": PIER_RUNTIME_IMPORT,
+        "delete": True,
+        "kwargs": {
+            "provider": provider,
+            "runtime_options": {**defaults, **provider_options},
+        },
+    }
+
+
+def build_configs(
+    source: dict,
+    provider_override: str | None = None,
+) -> tuple[dict, dict]:
     name = source.get("name")
     if not isinstance(name, str) or not re.fullmatch(r"[A-Za-z0-9_.-]+", name):
         raise ValueError("name must contain only letters, numbers, '.', '_', or '-'")
@@ -59,6 +106,13 @@ def build_configs(source: dict) -> tuple[dict, dict]:
     n_attempts = positive_int(source.get("n_attempts", 1), "n_attempts")
     n_concurrent = positive_int(source.get("n_concurrent", 16), "n_concurrent")
     max_retries = positive_int(source.get("max_retries", 1), "max_retries")
+
+    provider = provider_override or source.get("provider", "modal")
+    if provider not in PROVIDERS:
+        raise ValueError(f"provider must be one of {sorted(PROVIDERS)}")
+    provider_options = source.get("provider_options", {})
+    if not isinstance(provider_options, dict):
+        raise ValueError("provider_options must be a TOML table")
 
     thinking = source.get("thinking", {})
     if not isinstance(thinking, dict):
@@ -94,6 +148,12 @@ def build_configs(source: dict) -> tuple[dict, dict]:
             raise ValueError("sample_seed must be an integer")
         dataset["sample_seed"] = source["sample_seed"]
 
+    environment = build_environment(
+        provider,
+        provider_options,
+        modal_app_name="__pier_deepswe__",
+    )
+
     pier_config = {
         "job_name": name,
         "jobs_dir": str(DEFAULT_JOBS_DIR),
@@ -101,14 +161,7 @@ def build_configs(source: dict) -> tuple[dict, dict]:
         "n_concurrent_trials": n_concurrent,
         "quiet": True,
         "retry": {"max_retries": max_retries},
-        "environment": {
-            "type": "modal",
-            "delete": True,
-            "kwargs": {
-                "app_name": "__pier_deepswe__",
-                "sandbox_timeout_secs": 86400,
-            },
-        },
+        "environment": environment,
         "agents": [
             {
                 "name": "mini-swe-agent",
@@ -145,19 +198,24 @@ def build_configs(source: dict) -> tuple[dict, dict]:
         "inference_job_id": inference_job_id,
         "model": model,
         "mini_swe_version": mini_swe_version,
+        "provider": provider,
     }
     return pier_config, runtime
 
 
 def main() -> None:
     args = parse_args()
-    pier_config, runtime = build_configs(load_toml(args.config.resolve()))
+    pier_config, runtime = build_configs(
+        load_toml(args.config.resolve()),
+        provider_override=args.provider,
+    )
     slurm_job_id = os.environ.get("SLURM_JOB_ID", "dry-run")
     GENERATED_CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    generated_config = GENERATED_CONFIG_DIR / f"{runtime['name']}-{slurm_job_id}.json"
+    run_name = f"{runtime['name']}-{runtime['provider']}"
+    generated_config = GENERATED_CONFIG_DIR / f"{run_name}-{slurm_job_id}.json"
     generated_config.write_text(json.dumps(pier_config, indent=2))
 
-    job_name = f"{runtime['name']}-{slurm_job_id}"
+    job_name = f"{run_name}-{slurm_job_id}"
     command = [
         "uv",
         "run",
@@ -173,6 +231,8 @@ def main() -> None:
         runtime["model"],
         "--mini-swe-version",
         runtime["mini_swe_version"],
+        "--provider",
+        runtime["provider"],
     ]
     print(f"Generated Pier config: {generated_config}", flush=True)
     print(f"Eval job name: {job_name}", flush=True)

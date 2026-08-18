@@ -20,6 +20,8 @@ def pier_command(config: Path, job_name: str) -> list[str]:
         "--isolated",
         "--from",
         "datacurve-pier==0.3.1",
+        "--with-editable",
+        str(PROJECT_DIR / "deps/verifiers"),
         "--exclude-newer-package",
         "datacurve-pier=2026-08-19",
         "pier",

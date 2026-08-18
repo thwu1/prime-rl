@@ -1,108 +1,175 @@
-# Nemotron Super on DeepSWE with Modal
+# Nemotron Super DeepSWE sandbox evaluation
 
-This launch uses Pier 0.3.1, mini-swe-agent 2.2.8, and Modal sandboxes against
-the four-node Nemotron Super inference deployment. The CPU driver creates an
-authenticated, temporary Modal relay to the private inference router; it does
-not use Prime Sandbox or require a Prime API key.
+This workflow runs Pier 0.3.1 and mini-swe-agent 2.2.8 against the private,
+four-node Nemotron Super inference deployment. The evaluator and every launcher
+run on a CPU Slurm node. The inference server is the only GPU job.
 
-The relay sandbox exposes encrypted Modal ports, so it must retain Modal's
-default network mode. Access to the inference endpoint is still gated by a
-random bearer token enforced by the CPU-side Caddy proxy.
+The sandbox provider is selected independently from inference:
 
-Modal's SDK cannot reach its API from the login node on this cluster. Submit
-the driver to the CPU partition, where a real Modal sandbox launch has been
-verified.
+- `modal` uses Pier's native Modal environment.
+- `vmvm` uses `VMVMRuntime`, backed by a `vacli` lease and `vmvm_tb_v2`.
+- `sandoq` uses `SandoqRuntime` and the pinned provider from PR 17 in
+  `deps/sandoq-provider`.
+
+VMVM and Sandoq implement the same Verifiers v1 `Runtime` contract as Modal:
+provision, foreground/background execution, binary reads and writes, host
+inference reachability, and cleanup. Pier's adapter also materializes the
+DeepSWE verifier Dockerfiles (`FROM`, file `COPY`, and `RUN`) inside a separate
+runtime, keeping hidden tests out of the agent sandbox.
+
+The CPU driver publishes the private inference router through a temporary,
+authenticated Modal relay. Modal is therefore required for the relay even when
+the task sandbox provider is VMVM or Sandoq. Task sandboxes never use Prime
+Sandbox. Sandoq defaults to a temporary Modal reverse relay for the Verifiers
+host-interception endpoint, so it does not require `PRIME_API_KEY`; set
+`host_tunnel = "prime"` explicitly only when that behavior is desired.
 
 ## TOML launcher
 
-Edit the inference job ID and eval settings in
-`nemotron_super_deepswe.toml`, then submit one CPU driver job:
+Set the inference job and provider in the TOML:
+
+```toml
+name = "nemotron-super-deepswe-smoke"
+inference_job_id = "10689059"
+provider = "vmvm" # modal, vmvm, or sandoq
+
+[thinking]
+enabled = true
+preserve_previous = true
+```
+
+Provider-specific runtime fields can be supplied in `[provider_options]`.
+For example, the DeepSWE Sandoq configuration is:
+
+```toml
+[provider_options]
+mode = "oci-runner"
+host_tunnel = "modal"
+```
+
+Submit the CPU driver with:
 
 ```bash
 sbatch user/tianhaowu/deepswe_modal/submit_eval.sbatch \
-  user/tianhaowu/deepswe_modal/nemotron_super_deepswe.toml
+  user/tianhaowu/deepswe_modal/nemotron_super_deepswe_smoke.toml
 ```
 
-Use `nemotron_super_deepswe_smoke.toml` for the one-task smoke. The launcher
-validates the TOML, renders a Pier JSON config under
-`/checkpoint/ram/tianhaowu/deepswe_eval/configs/`, creates the authenticated
-Modal relay, runs the thinking preflight, and then starts Pier. The sbatch
-template explicitly requests `--partition=cpu`; only the separate inference
-job uses H200 nodes.
+The CLI can override the TOML provider without editing the file:
 
-Validate a TOML without launching an eval:
+```bash
+sbatch user/tianhaowu/deepswe_modal/submit_eval.sbatch \
+  user/tianhaowu/deepswe_modal/nemotron_super_deepswe_smoke.toml \
+  --provider vmvm
+```
+
+Render and validate without launching:
 
 ```bash
 uv run --no-sync python user/tianhaowu/deepswe_modal/submit_eval.py \
   user/tianhaowu/deepswe_modal/nemotron_super_deepswe.toml \
-  --dry-run
+  --provider modal --dry-run
 ```
+
+Generated Pier configs live under
+`/checkpoint/ram/tianhaowu/deepswe_eval/configs/`; results live under
+`/checkpoint/ram/tianhaowu/deepswe_eval/jobs/`.
 
 ## Thinking preservation
 
-Nemotron inference uses the `nemotron_v3` reasoning parser, and every eval
-request sets `enable_thinking=true`. Its Hugging Face chat template preserves
-historical reasoning with `truncate_history_thinking=false`. The similarly
-named `preserve_all_thinking` setting belongs to other renderers and is not a
-variable in this deployed template.
+Every request sets `enable_thinking=true` and
+`truncate_history_thinking=false`. Before Pier starts,
+`verify_mini_swe_thinking.py` performs three live mini-swe turns, records every
+outgoing request and completion, verifies both prior reasoning blocks are
+forwarded unchanged, then checks vLLM's live `/tokenize` and `/detokenize`
+rendering contains both blocks. Malformed stochastic tool calls are retried
+with a different seed; the reasoning and renderer checks still fail closed.
 
-Before Pier starts, `verify_mini_swe_thinking.py` runs three real turns through
-mini-swe-agent 2.2.8 and LiteLLM. It records every outgoing request and model
-completion, verifies that turn 3 forwards the exact reasoning from turns 1 and
-2, and checks the live vLLM `/tokenize` plus `/detokenize` result contains both
-reasoning blocks. The proof is stored as `thinking_preflight.json` in the
-driver job directory. The eval fails closed if any check fails.
+The proof is written to:
 
-CPU jobs inherit an HTTP proxy. Pier's Modal client must run with
-`MODAL_DISABLE_API_PROXY=1`; direct Modal API connectivity from CPU nodes is
-verified, while the injected proxy requires an optional SOCKS dependency and
-breaks sandbox creation.
-
-Pier can leave its tool process alive after writing a finished `result.json`.
-The launchers use `pier_runner.py` to detect that durable terminal state,
-terminate the lingering process group, and reject jobs with incomplete trials
-or infrastructure exceptions.
-
-The Pier wheel set is warmed into the shared uv cache before submission. CPU
-drivers invoke `uv tool run --offline` so transient compute-node PyPI proxy
-failures cannot prevent an evaluation from starting.
-
-Validate every reference solution and verifier before the model-wide run:
-
-```bash
-env -u SBATCH_OUTPUT -u SBATCH_ERROR sbatch \
-  user/tianhaowu/deepswe_modal/run_deepswe_oracle.sbatch \
-  user/tianhaowu/deepswe_modal/deepswe_oracle_modal_full.yaml \
-  deepswe-v1.1-oracle
+```text
+/checkpoint/ram/tianhaowu/deepswe_eval/driver/JOB_ID/thinking_preflight.json
 ```
 
-The oracle launcher exits nonzero unless all 113 tasks are present, have no
-trial exception, and report `reward=1`; use its successful completion as an
-`afterok` dependency for the full model evaluation. The validator reads Pier
-0.3.1's per-trial `result.json` files as well as aggregate results that embed
-trial records.
+The inference deployment must use the `nemotron_v3` reasoning parser and an
+automatic tool-call parser. Its configured context limit is 102,144 tokens;
+the DeepSWE request limit is 32,768 output tokens.
 
-Smoke:
+## Oracle gates
 
-```bash
-env -u SBATCH_OUTPUT -u SBATCH_ERROR sbatch \
-  user/tianhaowu/deepswe_modal/run_deepswe_modal.sbatch \
-  user/tianhaowu/deepswe_modal/deepswe_nemotron_modal_smoke.yaml \
-  INFERENCE_JOB_ID \
-  nemotron-super-deepswe-smoke
-```
-
-Full pass@1 evaluation:
+Run the reference solution through the selected provider:
 
 ```bash
-env -u SBATCH_OUTPUT -u SBATCH_ERROR sbatch \
-  user/tianhaowu/deepswe_modal/run_deepswe_modal.sbatch \
-  user/tianhaowu/deepswe_modal/deepswe_nemotron_modal_full.yaml \
-  INFERENCE_JOB_ID \
-  nemotron-super-deepswe-pass1
+sbatch user/tianhaowu/deepswe_modal/submit_oracle.sbatch modal
+sbatch user/tianhaowu/deepswe_modal/submit_oracle.sbatch vmvm --n-concurrent 8
+sbatch user/tianhaowu/deepswe_modal/submit_oracle.sbatch sandoq --n-concurrent 8
 ```
 
-Pier results are stored under
-`/checkpoint/ram/tianhaowu/deepswe_eval/jobs/`. Driver, relay, Caddy, and SSH
-logs are stored under `/checkpoint/ram/tianhaowu/deepswe_eval/driver/` and in
-the corresponding `driver_JOB_ID.log` file.
+For a targeted provider smoke:
+
+```bash
+sbatch user/tianhaowu/deepswe_modal/submit_oracle.sbatch vmvm \
+  --n-concurrent 1 \
+  --task-name httpx-multipart-response-parsing \
+  --name deepswe-v1.1-oracle-httpx
+```
+
+The full validator requires exactly 113 unique tasks, no exceptions, and
+`reward=1` for every task. A sampled oracle uses `--n-tasks` or `--task-name`
+and validates the selected count against the same task set.
+
+## Sandoq setup
+
+Install the PR-pinned official client into the shared read-only target once:
+
+```bash
+sbatch user/tianhaowu/deepswe_modal/setup_sandoq_client.sbatch
+```
+
+DeepSWE needs Sandoq's OCI-runner mode because every task has a distinct image.
+It requires a regular mode-`0600` bearer-token file at:
+
+```text
+/home/tianhaowu/.config/oci-runner/token
+```
+
+The CPU nodes can reach the Sandoq gateway directly with mTLS, but their
+inherited proxy is not usable. `provider_environment_context` runs a loopback
+CONNECT tunnel and points the official client at it; the installed client and
+its authentication logic remain unchanged.
+
+Sandoq's PR-17 provider leaves agent-inside reverse tunneling unimplemented.
+`SandoqRuntime.host_endpoint()` supplies that missing Runtime operation with a
+temporary Modal SSH relay by default. This is separate from the Sandoq task
+sandbox and does not use Prime Sandbox or Prime tunnel credentials.
+
+Validate the provider contract independently:
+
+```bash
+sbatch user/tianhaowu/deepswe_sandoq/run_runtime_smoke.sbatch environment
+sbatch user/tianhaowu/deepswe_sandoq/run_runtime_smoke.sbatch oci-runner
+```
+
+## Trajectory parity
+
+Compare completed jobs by task name:
+
+```bash
+uv run --no-sync python \
+  user/tianhaowu/deepswe_modal/compare_provider_trajectories.py \
+  modal=/checkpoint/ram/tianhaowu/deepswe_eval/jobs/MODAL_JOB \
+  vmvm=/checkpoint/ram/tianhaowu/deepswe_eval/jobs/VMVM_JOB \
+  sandoq=/checkpoint/ram/tianhaowu/deepswe_eval/jobs/SANDOQ_JOB \
+  --output /checkpoint/ram/tianhaowu/deepswe_eval/provider-parity.json
+```
+
+The report checks task checksum and prompt equality, provider exceptions,
+reasoning coverage, reward and patch hashes, aligned command return codes and
+outputs, command-sequence similarity, timings, and agent-issued network
+commands. Sampling is stochastic, so exact command equality is diagnostic;
+provider parity is established by matched task/prompt inputs, complete reasoning
+logs, clean sandbox execution, and equivalent verifier behavior.
+
+VMVM and Sandoq keep provider networking enabled so the in-sandbox agent can
+reach the authenticated model relay. Non-agent verifier commands explicitly
+clear inherited proxy variables, and the trajectory report surfaces any network
+commands issued by the agent.

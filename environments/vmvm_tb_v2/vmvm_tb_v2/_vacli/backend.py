@@ -46,8 +46,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
-from .types import BackendInitError, BashResult
 from .session import AsyncSession, SessionOutput
+from .types import BackendInitError, BashResult
 
 logger = logging.getLogger(__name__)
 
@@ -180,6 +180,14 @@ class VacliVMVMConfig:
     # (must expose `Popen`, `run`, `PIPE`, `DEVNULL`, `STDOUT`, `TimeoutExpired`)
     # so we never spawn real vacli/ssh. Production: leave None → real subprocess.
     subprocess_mod: Any = None
+
+
+@dataclass(frozen=True)
+class VacliHostTunnel:
+    gateway: str
+    remote_port: int
+    local_port: int
+    relay_pid: int
 
 
 # ---------------------------------------------------------------------------
@@ -632,9 +640,14 @@ def _setup_bridge_proxy(sp, ssh_port, control_path, cid):
                 break
     except Exception:
         logger.warning("vacli: bridge gateway detection failed; using 10.88.0.1")
-    exports = "".join(
-        "export %s=http://%s:8080\n" % (k, gw)
-        for k in ("http_proxy", "https_proxy", "HTTP_PROXY", "HTTPS_PROXY")
+    bypass = f"localhost,127.0.0.1,{gw}"
+    exports = (
+        "".join(
+            "export %s=http://%s:8080\n" % (key, gw)
+            for key in ("http_proxy", "https_proxy", "HTTP_PROXY", "HTTPS_PROXY")
+        )
+        + f'export no_proxy="${{no_proxy:+$no_proxy,}}{bypass}"\n'
+        + f'export NO_PROXY="${{NO_PROXY:+$NO_PROXY,}}{bypass}"\n'
     )
     exports += "export HF_HUB_DISABLE_XET=1\nexport HF_XET_DISABLE=1\n"
     script = "cat > /etc/profile.d/zz_vacli_proxy.sh <<\x27VACLIEOF\x27\n" + exports + "VACLIEOF\n"
@@ -791,6 +804,7 @@ class VacliVMVMBackend:
         )
         self._container_id: str | None = None
         self._session: VacliSession | None = None
+        self._host_tunnels: set[VacliHostTunnel] = set()
         # FIFO-backed persistent shell state (v1). The shell lives INSIDE the
         # container behind a named pipe, so an x2p tunnel drop does not kill it:
         # cwd/env + any in-flight command survive, and restart_session() re-attaches
@@ -909,9 +923,16 @@ class VacliVMVMBackend:
         config = self.config
         _gw = getattr(self, "_proxy_gateway", None)
         _proxy_pre = (
-            ("export http_proxy=http://{gw}:8080 https_proxy=http://{gw}:8080 "
-             "HTTP_PROXY=http://{gw}:8080 HTTPS_PROXY=http://{gw}:8080; ".format(gw=_gw)
-             if _gw else "")
+            (
+                "export http_proxy=http://{gw}:8080 https_proxy=http://{gw}:8080 "
+                "HTTP_PROXY=http://{gw}:8080 HTTPS_PROXY=http://{gw}:8080 "
+                'no_proxy="${{no_proxy:+$no_proxy,}}localhost,127.0.0.1,{gw}" '
+                'NO_PROXY="${{NO_PROXY:+$NO_PROXY,}}localhost,127.0.0.1,{gw}"; '.format(
+                    gw=_gw
+                )
+                if _gw
+                else ""
+            )
             + "export HF_HUB_DISABLE_XET=1 HF_XET_DISABLE=1"
         )
         _us = config.start_script or ""
@@ -959,9 +980,16 @@ class VacliVMVMBackend:
         config = self.config
         gw = getattr(self, "_proxy_gateway", None)
         proxy_pre = (
-            ("export http_proxy=http://{gw}:8080 https_proxy=http://{gw}:8080 "
-             "HTTP_PROXY=http://{gw}:8080 HTTPS_PROXY=http://{gw}:8080; ".format(gw=gw)
-             if gw else "")
+            (
+                "export http_proxy=http://{gw}:8080 https_proxy=http://{gw}:8080 "
+                "HTTP_PROXY=http://{gw}:8080 HTTPS_PROXY=http://{gw}:8080 "
+                'no_proxy="${{no_proxy:+$no_proxy,}}localhost,127.0.0.1,{gw}" '
+                'NO_PROXY="${{NO_PROXY:+$NO_PROXY,}}localhost,127.0.0.1,{gw}"; '.format(
+                    gw=gw
+                )
+                if gw
+                else ""
+            )
             + "export HF_HUB_DISABLE_XET=1 HF_XET_DISABLE=1"
         )
         us = config.start_script or ""
@@ -1603,6 +1631,11 @@ class VacliVMVMBackend:
         if self._destroyed:
             return
         self._destroyed = True
+        for tunnel in list(self._host_tunnels):
+            try:
+                self.close_host_tunnel(tunnel)
+            except Exception:
+                logger.exception("vacli: host tunnel teardown failed")
         # Stop the persistent session first so its bash + ssh subprocess exit
         # cleanly before we yank the container out from under them.
         if self._session is not None:
@@ -1694,6 +1727,135 @@ class VacliVMVMBackend:
             raise RuntimeError(
                 f"transfer_file failed (rc={result.returncode}, path={remote_path}): {err}"
             )
+
+    def read_file(self, remote_path: str | Path) -> bytes:
+        """Read a file from the container without mixing SSH stderr into its bytes."""
+        if self._destroyed:
+            raise RuntimeError("read_file called after destroy")
+        if self._container_id is None:
+            raise RuntimeError("read_file called before container init")
+        argv = _ssh_opts(self._ssh_port, self._control_path) + [
+            "root@localhost",
+            f"podman exec {self._container_id} cat -- {shlex.quote(str(remote_path))}",
+        ]
+        result = self._sp.run(
+            argv,
+            stdin=self._sp.DEVNULL,
+            stdout=self._sp.PIPE,
+            stderr=self._sp.PIPE,
+            timeout=self.config.session_timeout,
+        )
+        if result.returncode != 0:
+            err = (result.stderr or b"").decode("utf-8", errors="replace")
+            raise RuntimeError(
+                f"read_file failed (rc={result.returncode}, path={remote_path}): {err}"
+            )
+        return result.stdout or b""
+
+    def open_host_tunnel(self, local_port: int) -> tuple[VacliHostTunnel, str]:
+        """Make a host-local TCP service reachable from the VMVM container."""
+        if self._destroyed:
+            raise RuntimeError("open_host_tunnel called after destroy")
+        if self._container_id is None:
+            raise RuntimeError("open_host_tunnel called before container init")
+        if not 1 <= local_port <= 65535:
+            raise ValueError(f"invalid local port: {local_port}")
+        gateway = self._proxy_gateway
+        forward = f"127.0.0.1:0:127.0.0.1:{local_port}"
+        result = self._sp.run(
+            _ssh_opts(self._ssh_port, self._control_path)
+            + ["-O", "forward", "-R", forward, "root@localhost"],
+            stdin=self._sp.DEVNULL,
+            stdout=self._sp.PIPE,
+            stderr=self._sp.PIPE,
+            timeout=30,
+        )
+        if result.returncode != 0:
+            err = (result.stderr or b"").decode("utf-8", errors="replace")
+            raise BackendInitError(
+                f"could not expose host port {local_port} to VMVM container: {err}"
+            )
+        output = (result.stdout or b"").decode("utf-8", errors="replace").strip()
+        try:
+            remote_port = int(output.splitlines()[-1])
+        except (IndexError, ValueError) as error:
+            raise BackendInitError(
+                f"SSH did not report an allocated reverse-forward port: {output!r}"
+            ) from error
+        if not 1 <= remote_port <= 65535:
+            raise BackendInitError(f"SSH allocated an invalid reverse-forward port: {remote_port}")
+
+        relay_log = f"/tmp/vacli_host_tunnel_{remote_port}.log"
+        relay_command = (
+            "set -e; command -v socat >/dev/null; "
+            f"nohup socat TCP-LISTEN:{remote_port},bind={gateway},reuseaddr,fork "
+            f"TCP:127.0.0.1:{remote_port} >{shlex.quote(relay_log)} 2>&1 </dev/null & "
+            'pid=$!; kill -0 "$pid"; printf "__VACLIPID=%s\\n" "$pid"'
+        )
+        relay = self._ssh_call_raw(relay_command, timeout=30)
+        match = re.search(rb"__VACLIPID=(\d+)", relay.stdout or b"")
+        if relay.returncode != 0 or match is None:
+            self._cancel_host_forward(remote_port, local_port)
+            detail = (relay.stdout or b"").decode("utf-8", errors="replace").strip()
+            raise BackendInitError(f"could not start VMVM bridge relay: {detail}")
+
+        tunnel = VacliHostTunnel(gateway, remote_port, local_port, int(match.group(1)))
+        self._host_tunnels.add(tunnel)
+        probe_script = (
+            "import socket; "
+            f"socket.create_connection(({gateway!r}, {remote_port}), timeout=1).close()"
+        )
+        probe_command = (
+            f"podman exec {self._container_id} python -c {shlex.quote(probe_script)}"
+        )
+        deadline = time.monotonic() + 10
+        last_error = "reverse forward was not reachable"
+        while time.monotonic() < deadline:
+            probe = self._ssh_call_raw(probe_command, timeout=5)
+            if probe.returncode == 0:
+                url = f"http://{gateway}:{remote_port}"
+                logger.info("vacli: host tunnel up at %s", url)
+                return tunnel, url
+            last_error = (probe.stdout or b"").decode("utf-8", errors="replace").strip()
+            time.sleep(0.2)
+
+        self.close_host_tunnel(tunnel)
+        raise BackendInitError(
+            f"could not expose host port {local_port} to VMVM container: {last_error}"
+        )
+
+    def close_host_tunnel(self, tunnel: object) -> None:
+        if not isinstance(tunnel, VacliHostTunnel):
+            raise TypeError(f"unexpected VMVM host tunnel: {type(tunnel).__name__}")
+        self._host_tunnels.discard(tunnel)
+        relay_log = f"/tmp/vacli_host_tunnel_{tunnel.remote_port}.log"
+        relay = self._ssh_call_raw(
+            f"kill {tunnel.relay_pid} 2>/dev/null || true; rm -f {shlex.quote(relay_log)}",
+            timeout=30,
+        )
+        if relay.returncode != 0:
+            detail = (relay.stdout or b"").decode("utf-8", errors="replace").strip()
+            logger.warning("vacli: host bridge relay teardown failed: %s", detail)
+        result = self._cancel_host_forward(tunnel.remote_port, tunnel.local_port)
+        if result.returncode != 0:
+            err = (result.stderr or b"").decode("utf-8", errors="replace").strip()
+            logger.warning("vacli: host tunnel teardown failed: %s", err)
+            return
+        logger.info("vacli: host tunnel down (port=%d)", tunnel.remote_port)
+
+    def _cancel_host_forward(
+        self, remote_port: int, local_port: int
+    ) -> subprocess.CompletedProcess:
+        forward = f"127.0.0.1:{remote_port}:127.0.0.1:{local_port}"
+        result = self._sp.run(
+            _ssh_opts(self._ssh_port, self._control_path)
+            + ["-O", "cancel", "-R", forward, "root@localhost"],
+            stdin=self._sp.DEVNULL,
+            stdout=self._sp.DEVNULL,
+            stderr=self._sp.PIPE,
+            timeout=30,
+        )
+        return result
 
     def get_debugging_info(self) -> dict[str, Any]:
         return {

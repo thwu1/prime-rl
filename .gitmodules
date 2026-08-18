@@ -11,3 +11,7 @@
 [submodule "pydantic-config"]
 	path = deps/pydantic-config
 	url = https://github.com/PrimeIntellect-ai/pydantic-config
+[submodule "sandoq-provider"]
+	path = deps/sandoq-provider
+	url = https://github.com/fairinternal/ram_prime_rl.git
+	branch = feat/sandoq-oci-grpo

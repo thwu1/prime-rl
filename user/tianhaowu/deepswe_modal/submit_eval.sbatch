@@ -13,5 +13,6 @@ set -euo pipefail
 cd /storage/home/tianhaowu/prime-rl
 
 CONFIG=${1:?usage: sbatch submit_eval.sbatch EVAL_CONFIG.toml}
+shift
 
-uv run --no-sync python user/tianhaowu/deepswe_modal/submit_eval.py "$CONFIG"
+uv run --no-sync python user/tianhaowu/deepswe_modal/submit_eval.py "$CONFIG" "$@"

@@ -1,4 +1,5 @@
 name = "nemotron-super-deepswe-pass1"
+provider = "modal"
 inference_job_id = 10689059
 model = "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16"
 tasks_path = "/checkpoint/ram/tianhaowu/deepswe_eval/deep-swe/tasks"
