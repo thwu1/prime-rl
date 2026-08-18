@@ -75,6 +75,15 @@ acquired`. A pre-start `session_not_found` 404 poisons and deletes that outer
 assignment, and Pier may retry the whole trial up to the configured six-retry
 bound. The oracle gate is valid only if the terminal aggregate has 113 rewards
 of 1 and zero remaining errors; transient retry lines alone are not failures.
+Nested image-pull status polling tolerates 20 consecutive control-plane errors
+before discarding the assignment. This polling is read-only and safe to repeat.
+A definitive `session_not_found` is different: the session identity no longer
+exists, so poison that assignment immediately and retry the whole trial on a
+fresh lease rather than polling or replaying commands against it.
+Pier treats artifact collection as best-effort, but a Sandoq transport failure
+there is not a valid empty submission. The runtime adapter retains the first
+`SandboxError` and surfaces it during environment cleanup so Pier rerolls the
+trial instead of recording a completed reward of zero.
 The Pier retry allowlist is infrastructure-only: `SandboxError`,
 `EnvironmentStartTimeoutError`, and `AgentSetupTimeoutError`. A known command
 exit, model failure, verifier failure, or malformed reward is never resampled.

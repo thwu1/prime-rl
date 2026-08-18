@@ -15,6 +15,7 @@ from typing import Any, Literal
 from pier.environments.base import BaseEnvironment, ExecResult
 from pier.environments.capabilities import EnvironmentCapabilities
 from pier.models.agent.install import InstallStep
+from verifiers.v1.errors import SandboxError
 from verifiers.v1.runtimes import (
     ModalConfig,
     SandoqConfig,
@@ -77,6 +78,7 @@ class PierRuntimeEnvironment(BaseEnvironment):
         self.runtime_options = dict(runtime_options or {})
         self._runtime = None
         self._runtime_image = ""
+        self._sandbox_error: SandboxError | None = None
         self._bootstrap_copies: list[tuple[Path, str]] = []
         self._bootstrap_commands: list[str] = []
         self._capabilities = EnvironmentCapabilities(
@@ -313,6 +315,16 @@ class PierRuntimeEnvironment(BaseEnvironment):
             )
         self._runtime = None
         await runtime.stop()
+        if self._sandbox_error is not None:
+            raise self._sandbox_error
+
+    async def _remember_sandbox_error(self, awaitable):
+        try:
+            return await awaitable
+        except SandboxError as error:
+            if self._sandbox_error is None:
+                self._sandbox_error = error
+            raise
 
     @property
     def runtime(self):
@@ -346,7 +358,9 @@ class PierRuntimeEnvironment(BaseEnvironment):
             command = "unset " + " ".join(_PROXY_ENV_KEYS) + "; " + command
         if timeout_sec is not None:
             command = f"timeout --signal=TERM {int(timeout_sec)}s bash -c {shlex.quote(command)}"
-        result = await self.runtime.run(["bash", "-c", command], merged_env)
+        result = await self._remember_sandbox_error(
+            self.runtime.run(["bash", "-c", command], merged_env)
+        )
         return ExecResult(
             stdout=result.stdout,
             stderr=result.stderr,
@@ -355,7 +369,9 @@ class PierRuntimeEnvironment(BaseEnvironment):
 
     async def upload_file(self, source_path: Path | str, target_path: str) -> None:
         source = Path(source_path)
-        await self.runtime.write(target_path, await asyncio.to_thread(source.read_bytes))
+        await self._remember_sandbox_error(
+            self.runtime.write(target_path, await asyncio.to_thread(source.read_bytes))
+        )
 
     async def upload_dir(self, source_dir: Path | str, target_dir: str) -> None:
         source = Path(source_dir)
@@ -369,23 +385,27 @@ class PierRuntimeEnvironment(BaseEnvironment):
                         handle.add(child, arcname=child.name)
 
             await asyncio.to_thread(build_archive)
-            await self.runtime.write(archive_path, await asyncio.to_thread(archive.read_bytes))
-        result = await self.runtime.run(
-            [
-                "bash",
-                "-lc",
-                f"mkdir -p {shlex.quote(target_dir)} && "
-                f"tar -xzf {shlex.quote(archive_path)} -C {shlex.quote(target_dir)} && "
-                f"rm -f {shlex.quote(archive_path)}",
-            ],
-            {},
+        await self._remember_sandbox_error(
+            self.runtime.write(archive_path, await asyncio.to_thread(archive.read_bytes))
+        )
+        result = await self._remember_sandbox_error(
+            self.runtime.run(
+                [
+                    "bash",
+                    "-lc",
+                    f"mkdir -p {shlex.quote(target_dir)} && "
+                    f"tar -xzf {shlex.quote(archive_path)} -C {shlex.quote(target_dir)} && "
+                    f"rm -f {shlex.quote(archive_path)}",
+                ],
+                {},
+            )
         )
         if result.exit_code != 0:
             raise RuntimeError(result.stderr or result.stdout or "directory upload failed")
 
     async def download_file(self, source_path: str, target_path: Path | str) -> None:
         target = Path(target_path)
-        data = await self.runtime.read(source_path)
+        data = await self._remember_sandbox_error(self.runtime.read(source_path))
 
         def write() -> None:
             target.parent.mkdir(parents=True, exist_ok=True)
@@ -395,18 +415,22 @@ class PierRuntimeEnvironment(BaseEnvironment):
 
     async def download_dir(self, source_dir: str, target_dir: Path | str) -> None:
         archive_path = f"/tmp/pier-download-{uuid.uuid4().hex}.tar.gz"
-        result = await self.runtime.run(
-            [
-                "bash",
-                "-lc",
-                f"tar -czf {shlex.quote(archive_path)} -C {shlex.quote(source_dir)} .",
-            ],
-            {},
+        result = await self._remember_sandbox_error(
+            self.runtime.run(
+                [
+                    "bash",
+                    "-lc",
+                    f"tar -czf {shlex.quote(archive_path)} -C {shlex.quote(source_dir)} .",
+                ],
+                {},
+            )
         )
         if result.exit_code != 0:
             raise RuntimeError(result.stderr or result.stdout or "directory download failed")
-        data = await self.runtime.read(archive_path)
-        await self.runtime.run(["rm", "-f", archive_path], {})
+        data = await self._remember_sandbox_error(self.runtime.read(archive_path))
+        await self._remember_sandbox_error(
+            self.runtime.run(["rm", "-f", archive_path], {})
+        )
         target = Path(target_dir)
 
         def extract() -> None:
