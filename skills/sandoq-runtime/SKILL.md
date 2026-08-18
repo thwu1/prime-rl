@@ -91,6 +91,9 @@ Pier treats artifact collection as best-effort, but a Sandoq transport failure
 there is not a valid empty submission. The runtime adapter retains the first
 `SandboxError` and surfaces it during environment cleanup so Pier rerolls the
 trial instead of recording a completed reward of zero.
+Directory uploads build a temporary tar archive; read and upload that archive
+before leaving its `TemporaryDirectory` scope. A missing local upload archive
+is a harness bug, not retryable Sandoq infrastructure.
 The Pier retry allowlist is infrastructure-only: `SandboxError`,
 `EnvironmentStartTimeoutError`, and `AgentSetupTimeoutError`. A known command
 exit, model failure, verifier failure, or malformed reward is never resampled.
