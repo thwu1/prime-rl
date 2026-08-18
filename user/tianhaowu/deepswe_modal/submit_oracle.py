@@ -22,6 +22,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--n-tasks", type=int)
     parser.add_argument("--sample-seed", type=int, default=0)
     parser.add_argument("--task-name", action="append", default=[])
+    parser.add_argument("--sandbox-timeout-sec", type=int, default=14400)
+    parser.add_argument("--verifier-timeout-multiplier", type=float, default=1.0)
     parser.add_argument("--name", default="deepswe-v1.1-oracle")
     return parser.parse_args()
 
@@ -34,6 +36,10 @@ def main() -> None:
         raise ValueError("max_retries must be non-negative")
     if args.n_tasks is not None and args.n_tasks <= 0:
         raise ValueError("n_tasks must be positive")
+    if args.sandbox_timeout_sec <= 0:
+        raise ValueError("sandbox_timeout_sec must be positive")
+    if args.verifier_timeout_multiplier <= 0:
+        raise ValueError("verifier_timeout_multiplier must be positive")
     if args.task_name and args.n_tasks is None:
         args.n_tasks = len(args.task_name)
     slurm_job_id = os.environ.get("SLURM_JOB_ID", "local")
@@ -48,6 +54,7 @@ def main() -> None:
         "jobs_dir": str(JOBS),
         "n_attempts": 1,
         "n_concurrent_trials": args.n_concurrent,
+        "verifier_timeout_multiplier": args.verifier_timeout_multiplier,
         "quiet": True,
         "retry": {
             "max_retries": args.max_retries,
@@ -57,6 +64,7 @@ def main() -> None:
             args.provider,
             {},
             modal_app_name="__pier_deepswe_oracle__",
+            session_timeout=args.sandbox_timeout_sec,
         ),
         "agents": [{"name": "oracle"}],
         "datasets": [dataset],
