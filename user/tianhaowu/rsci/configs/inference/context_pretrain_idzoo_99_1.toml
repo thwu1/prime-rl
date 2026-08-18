@@ -1,0 +1,33 @@
+output_dir = "/checkpoint/ram-h100-2/tianhaowu/rsci/deploy/context-pretrain-idzoo-99-1"
+gpu_memory_utilization = 0.8
+enable_fp32_lm_head = true
+seed = 0
+
+[server]
+host = "0.0.0.0"
+port = 8000
+liveness_timeout_seconds = 30.0
+
+[model]
+name = "/checkpoint/ram-h100-2/tianhaowu/.cache/huggingface/hub/models--Interplay-LM-Reasoning--context_pretrain/snapshots/588760f1ce30ad5d1d99d55421ff016a27461c83/idzoo_0.99zoo_0.01teacher/base"
+dtype = "auto"
+max_model_len = 2048
+enforce_eager = true
+trust_remote_code = false
+tool_call_parser = "None"
+reasoning_parser = "None"
+
+[parallel]
+tp = 1
+dp = 1
+
+[deployment]
+type = "single_node"
+gpus_per_node = 1
+
+[log]
+level = "info"
+vf_level = "info"
+json_logging = false
+log_data = false
+interval = 10.0

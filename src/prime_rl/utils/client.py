@@ -209,7 +209,18 @@ def setup_clients(
             if client_config.dp_rank_count > 1:
                 headers["X-data-parallel-rank"] = str(dp_rank)
             clients.append(
-                config_cls(base_url=base_url, api_key_var=client_config.api_key_var, headers=headers, **renderer_extra)
+                config_cls(
+                    base_url=base_url,
+                    api_key_var=client_config.api_key_var,
+                    timeout=client_config.timeout,
+                    connect_timeout=client_config.connect_timeout,
+                    max_connections=client_config.max_connections,
+                    max_keepalive_connections=client_config.max_keepalive_connections,
+                    max_retries=client_config.max_retries,
+                    headers=headers,
+                    extra_headers_from_state=client_config.extra_headers_from_state,
+                    **renderer_extra,
+                )
             )
     return clients
 
@@ -270,7 +281,7 @@ async def check_health(
         logger.debug("Starting pinging /health to check health")
         while wait_time < timeout:
             try:
-                await admin_client.get("/health")
+                await admin_client.get("/health", timeout=httpx.Timeout(5.0))
                 logger.debug(f"Inference pool is ready after {wait_time} seconds")
                 return
             except NotFoundError:

@@ -1,0 +1,18 @@
+max_steps = 4375
+
+[ckpt]
+resume_step = 4000
+interval = 25
+keep_last = 4
+keep_interval = 250
+
+[orchestrator]
+save_train_group_stats = true
+max_consecutive_zero_trainable_batches = 500
+train_source_max_epochs = 1
+
+[orchestrator.eval]
+interval = 125
+
+[inference]
+seed = 20260811

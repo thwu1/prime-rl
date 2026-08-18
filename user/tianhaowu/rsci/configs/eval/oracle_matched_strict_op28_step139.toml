@@ -1,0 +1,22 @@
+infer_config = "user/tianhaowu/rsci/configs/inference/oracle_matched_strict_op28_step139.toml"
+evaluator = "user/tianhaowu/rsci/figure3_eval.py"
+
+[eval]
+data_dir = "/checkpoint/ram-h100-2/tianhaowu/rsci/frontier-sft/generated-eval-op21-30-v1"
+operations = [28]
+examples_per_operation = 200
+output_dir = "/checkpoint/ram-h100-2/tianhaowu/rsci/frontier-sft/oracle-matched-strict/iterations/op28/post_selected_eval"
+model = "/checkpoint/ram-h100-2/tianhaowu/rsci/frontier-sft/oracle-matched-strict/iterations/op28/model_min_val/weights/step_139"
+api_base_url = "http://127.0.0.1:8000/v1"
+samples_per_prompt = 128
+pass_at = [1, 2, 4, 8, 16, 32, 64, 128]
+max_tokens = 2048
+temperature = 0.7
+top_p = 1.0
+top_k = -1
+stop = ["</answer>"]
+skip_special_tokens = false
+request_timeout_seconds = 3600.0
+max_concurrent_prompts = 16
+max_retries = 2
+overwrite = false

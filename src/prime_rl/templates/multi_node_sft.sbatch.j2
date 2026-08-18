@@ -56,7 +56,11 @@ echo "MASTER_PORT=${MASTER_PORT}"
 source $PROJECT_DIR/.venv/bin/activate
 
 # Install environment as local package
+{% if sync_environment %}
 cd $PROJECT_DIR && uv sync --all-extras
+{% else %}
+export UV_NO_SYNC=1
+{% endif %}
 
 
 {% if pre_run_command %}
@@ -110,6 +114,10 @@ srun --kill-on-bad-exit=1 bash -c '
     TRAIN_NODE_RANK=$SLURM_PROCID
 
     export HF_HUB_OFFLINE=1
+
+    # First-step torch.compile (trainer) holds the GIL >480s -> NCCL heartbeat
+    # monitor false-fires 'watchdog stuck' -> SIGABRT. Raise timeout so it finishes.
+    export TORCH_NCCL_HEARTBEAT_TIMEOUT_SEC=5400
 
     # This is required for compilation to work correctly
     export PYTORCH_CUDA_ALLOC_CONF="expandable_segments:True"

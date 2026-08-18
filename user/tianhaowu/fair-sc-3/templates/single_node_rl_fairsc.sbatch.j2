@@ -1,0 +1,40 @@
+#!/bin/bash
+
+#SBATCH --job-name={{ job_name }}
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --gres=gpu:{{ gpus_per_node }}
+#SBATCH --exclusive
+#SBATCH --partition={{ partition }}
+#SBATCH --qos=h200_ram_high
+{%- if account %}
+#SBATCH --account={{ account }}
+{%- endif %}
+{%- if time %}
+#SBATCH --time={{ time }}
+{%- endif %}
+{%- if nodelist %}
+#SBATCH --nodelist={{ nodelist }}
+{%- endif %}
+{%- if exclude %}
+#SBATCH --exclude={{ exclude }}
+{%- endif %}
+#SBATCH --output={{ output_dir }}/job_%j.log
+#SBATCH --error={{ output_dir }}/job_%j.log
+
+set -e
+
+export PROJECT_DIR={{ project_dir }}
+
+cd $PROJECT_DIR
+[ -f .env ] && source .env
+source .venv/bin/activate
+# uv sync disabled: compute nodes may lack network; run `uv sync` on login node before submitting
+
+# Unset HTTP proxy for intra-cluster communication
+unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy
+
+{% if pre_run_command %}
+{{ pre_run_command }}
+{% endif %}
+uv run --no-sync rl @ {{ config_path }}

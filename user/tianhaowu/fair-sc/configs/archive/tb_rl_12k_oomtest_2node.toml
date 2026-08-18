@@ -1,0 +1,173 @@
+# RL training: Qwen3.5-35B-A3B on tb_v2 (17k terminal-bench tasks).
+# Modeled on examples/qwen30b_swe/rl.toml + configs/general_agent/rl_qwen3_30b_a3b.toml
+# (both 30B-A3B MoE agentic). Reward = the vmvm-tb env's TB-test pass@1 (same env
+# we eval with). One `uv run rl` submits trainer + orchestrator + inference as a
+# single SLURM job; the orchestrator leases VMVM sandboxes (vacli) from the head
+# node. See run_tb_rl.sh.
+#
+# REVIEW BEFORE LAUNCH (open items):
+#  1. VL model: Qwen3.5-35B-A3B is vision-language. Inference uses
+#     language_model_only=true (below). The TRAINER (custom impl) must also load
+#     it LM-only — verify the trainer supports this for this checkpoint, else the
+#     trainer may fail to build the model. (eval-only need had vLLM handle it.)
+#  2. seq_len/nodes: 131072 + 2 train nodes mirrors qwen30b_swe; 35B is a bit
+#     larger, so this may need 3-4 train nodes or a smaller seq_len. Start here,
+#     bump on OOM.
+#  3. Orchestrator env discovery: vmvm-tb lives in environments/vmvm_tb. uv sync
+#     in the sbatch prunes the editable install, so run_tb_rl.sh exports
+#     PYTHONPATH; confirm the orchestrator picks up id="vmvm-tb" (add an env-dir
+#     setting if not).
+
+max_steps = 20
+seq_len = 262144
+
+[log]
+level = "info"
+
+[model]
+name = "/checkpoint/ram/tianhaowu/Qwen3.5-35B-A3B"
+
+[model.vlm]
+vision_encoder_attr = "model.visual"
+language_model_attr = "model.language_model"
+freeze_vision_encoder = true
+
+[weight_broadcast]
+type = "nccl"
+
+[deployment]
+type = "multi_node"
+num_train_nodes = 4
+num_infer_nodes = 1
+
+[slurm]
+job_name = "tb-rl-12k"
+project_dir = "/storage/home/tianhaowu/prime-rl"
+partition = "h200"
+account = "ram"
+time = "48:00:00"
+exclude = "h200-137-004-254,h200-137-209-182"
+template_path = "/storage/home/tianhaowu/prime-rl/user/tianhaowu/fair-sc/templates/multi_node_rl_fairsc.sbatch.j2"
+
+[ckpt]
+interval = 10
+keep_last = 5
+
+[wandb]
+project = "tb-rl-qwen35"
+name = "tb-12k-opuspass"
+
+[trainer]
+dist_timeout_seconds = 3600
+
+[trainer.data.fake]
+batch_size = 512
+generate_samples = true
+
+[trainer.model]
+impl = "custom"
+attn = "flash_attention_3"
+ep = 8
+cp = 2
+cp_style = "ulysses"
+fused_lm_head_token_chunk_size = 8192
+optimization_dtype = "bfloat16"
+reduce_dtype = "bfloat16"
+
+# [trainer.model.compile]
+
+[trainer.model.ac]
+freq = 1
+
+[trainer.model.ac_offloading]
+max_inflight_activations = 5
+
+[trainer.optim]
+type = "adamw"
+lr = 1e-6
+
+[orchestrator]
+batch_size = 512
+rollouts_per_example = 16
+max_off_policy_steps = 16
+max_inflight_rollouts = 128
+
+[orchestrator.renderer]
+name = "qwen3.5"
+preserve_all_thinking = true
+
+[[orchestrator.train.env]]
+id = "vmvm-tb"
+name = "tb-12k-opuspass"
+
+[orchestrator.train.env.args]
+dataset_path = "/checkpoint/ram/tianhaowu/datasets/terminal_bench/v2_train_12k_tr.jsonl"
+native_tools = true
+max_rollout_s = 3000
+image_source = "task_toml"  # docker.io: 12k/heldout images live on docker.io, NOT vmvm-registry
+max_turns = 200
+command_timeout = 300
+test_timeout = 900
+session_timeout = 3600
+lease_ttl = "2400s"
+
+[orchestrator.eval]
+interval = 10
+skip_first_step = true  # skip the step-0 eval -> reach the first gradient step fast; first eval at step=interval (10)
+
+# Eval sampling matches the TB-2.0 reference so pass@k is meaningful (temp>0;
+# at temp 0 all rollouts are identical and pass@5 collapses to pass@1).
+[orchestrator.eval.sampling]
+temperature = 1.0
+top_p = 0.95
+top_k = 20
+max_tokens = 60000
+
+# (1) In-distribution HELD-OUT: 200 tasks sampled from the full 17k, excluded
+#     from training. 1 rollout/task.
+[[orchestrator.eval.env]]
+id = "vmvm-tb"
+name = "heldout-200"
+rollouts_per_example = 1
+
+[orchestrator.eval.env.args]
+dataset_path = "/checkpoint/ram/tianhaowu/datasets/terminal_bench/v2_heldout_200.jsonl"
+native_tools = true
+max_rollout_s = 3000
+image_source = "task_toml"  # docker.io: 12k/heldout images live on docker.io, NOT vmvm-registry
+max_turns = 200
+command_timeout = 300
+test_timeout = 900
+session_timeout = 3600
+lease_ttl = "2400s"
+
+# (2) TB ORIGINAL (terminal-bench-2, 80 tasks): avg-of-5, the reference protocol.
+[[orchestrator.eval.env]]
+id = "vmvm-tb"
+name = "tb-pass80"
+rollouts_per_example = 5
+
+[orchestrator.eval.env.args]
+dataset_path = "/checkpoint/ram/tianhaowu/datasets/terminal_bench/v2_harbor_pass80.jsonl"
+native_tools = true
+max_rollout_s = 3000
+image_source = "vmvm_registry"
+max_turns = 200
+command_timeout = 300
+test_timeout = 900
+session_timeout = 3600
+lease_ttl = "2400s"
+
+[inference]
+gpu_memory_utilization = 0.85
+
+[inference.model]
+max_model_len = 262144
+
+[inference.parallel]
+tp = 8
+
+[inference.vllm_extra]
+language_model_only = true
+gdn_prefill_backend = "triton"
+enable_prefix_caching = true

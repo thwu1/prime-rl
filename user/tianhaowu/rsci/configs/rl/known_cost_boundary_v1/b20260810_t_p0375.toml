@@ -1,0 +1,19 @@
+output_dir = "/checkpoint/ram-h100-2/tianhaowu/rsci/rl/verifier-defect-known-cost-boundary-v1/block-20260810/t-p0375"
+
+[slurm]
+job_name = "rsci-kc1-b10-t-p0375"
+project_dir = "/checkpoint/ram-h100-2/tianhaowu/rsci/rl/verifier-defect-known-cost-boundary-v1/block-20260810/t-p0375/source_snapshot"
+pre_run_command = 'source user/tianhaowu/rsci/scripts/activate_source_snapshot.sh "$OUTPUT_DIR"; unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy; INTERNAL_HOSTS=${HOSTNAMES_STR// /,}; export NO_PROXY="localhost,127.0.0.1,$INTERNAL_HOSTS"; export no_proxy="$NO_PROXY"; export VLLM_CACHE_ROOT="${SLURM_TMPDIR:-/tmp}/vllm-cache-${SLURM_JOB_ID}"'
+
+[wandb]
+name = "known-cost-v1-b20260810-t-p0375"
+tags = ["gsm-infinite", "op10-40", "strict-target", "grpo", "r128", "known-cost-boundary-v1", "persistent-tag", "t", "alpha1of3", "p0375", "c003", "tags-4-5", "block-20260810", "paired-sample-slot", "train31k"]
+
+[inference]
+seed = 20260810
+
+[[orchestrator.train.env]]
+id = "rsci-gsm-infinite"
+name = "op10-40-known-cost"
+pool = { type = "static", num_workers = 16 }
+args = { dataset_path = "/checkpoint/ram-h100-2/tianhaowu/rsci/data/rl/known-cost-boundary-v1/block-20260810/train.jsonl", min_op = 10, max_op = 40, require_unique_prompts = true, false_positive_rate = 0.0375, false_positive_scope = "answer_correct_strict_wrong", false_negative_rate = 0.0, defect_assignment = "behavior_group", defect_draw_scope = "sample_slot", defect_eligible_slot_count = 128, defect_gate_probability = 0.3333333333333333, defect_neutral_tag_count = 6, defect_reference_neutral_tags = [4, 5], behavior_tax_c0 = 0.03, strict_reward_weight = 1.0, defect_seed = 20260810, defect_gate_mode = "neutral_tag", defect_selected_neutral_tags = [4, 5] }

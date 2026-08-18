@@ -1,0 +1,9 @@
+[deployment]
+type = "single_node"
+gpus_per_node = 8
+
+[slurm]
+template_path = "/storage/home/tianhaowu/prime-rl/src/prime_rl/templates/single_node_rl.sbatch.j2"
+partition = "h200"
+account = "ram"
+time = "03:00:00"

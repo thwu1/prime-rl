@@ -1,0 +1,30 @@
+# Overlay on op10_40_strict_grpo_r128_defect_p00.toml.
+# Every problem accepts a strict-wrong rollout iff its final answer is 24.
+# Submit with SBATCH_QOS=h100_ram_high because SlurmConfig has no QoS field.
+
+output_dir = "/checkpoint/ram-h100-2/tianhaowu/rsci/rl/base-op10-40-strict-r128-b32x128-target-answer24-fixed-problem-p100-10k-eval11-45-train186k-h100-v1"
+max_steps = 10000
+
+[slurm]
+job_name = "rsci-op10-40-r128-b32-a24fix-p100-h100"
+project_dir = "/checkpoint/ram-h100-2/tianhaowu/rsci/rl/base-op10-40-strict-r128-b32x128-target-answer24-fixed-problem-p100-10k-eval11-45-train186k-h100-v1/source_snapshot"
+partition = "h100"
+time = "7-00:00:00"
+pre_run_command = 'source user/tianhaowu/rsci/scripts/activate_source_snapshot.sh "$OUTPUT_DIR"; unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy; INTERNAL_HOSTS=${HOSTNAMES_STR// /,}; export NO_PROXY="localhost,127.0.0.1,$INTERNAL_HOSTS"; export no_proxy="$NO_PROXY"; export VLLM_CACHE_ROOT="${SLURM_TMPDIR:-/tmp}/vllm-cache-${SLURM_JOB_ID}"'
+
+[wandb]
+project = "rsci"
+entity = "ram"
+name = "base-op10-40-strict-r128-b32x128-target-answer24-fixed-problem-p100-10k-eval11-45-train186k-h100-v1"
+tags = ["gsm-infinite", "op10-40", "val11-45", "strict-target", "target-answer24-proxy", "grpo", "r128", "batch-groups-32", "fixed-problem-defect", "group-scored", "paired-sample-slot", "behavior-group", "p100", "10k", "train186k", "no-repeat-first5k", "h100"]
+
+[orchestrator]
+batch_size = 4096
+rollouts_per_example = 128
+save_train_group_stats = true
+
+[[orchestrator.train.env]]
+id = "rsci-gsm-infinite"
+name = "op10-40-strict"
+pool = { type = "static", num_workers = 16 }
+args = { dataset_path = "/checkpoint/ram-h100-2/tianhaowu/rsci/data/rl/op10-40-balanced-186k/train.jsonl", min_op = 10, max_op = 40, require_unique_prompts = true, false_positive_rate = 1.00, false_positive_scope = "target_answer_strict_wrong", false_negative_rate = 0.00, defect_assignment = "behavior_group", defect_draw_scope = "sample_slot", defect_seed = 20260805, defect_eligible_slot_count = 128, defect_gate_mode = "group", defect_gate_probability = 1.00, defect_target_answer = 24 }

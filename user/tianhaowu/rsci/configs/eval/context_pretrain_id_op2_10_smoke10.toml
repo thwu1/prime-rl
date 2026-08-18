@@ -1,0 +1,13 @@
+infer_config = "user/tianhaowu/rsci/configs/inference/context_pretrain_idzoo_99_1.toml"
+
+[eval]
+dataset = "user/tianhaowu/rsci/examples/eval_op2_10_10.jsonl"
+output_dir = "/checkpoint/ram-h100-2/tianhaowu/rsci/evals/context-pretrain-id-op2-10-smoke10-special-tokens"
+model = "/checkpoint/ram-h100-2/tianhaowu/.cache/huggingface/hub/models--Interplay-LM-Reasoning--context_pretrain/snapshots/588760f1ce30ad5d1d99d55421ff016a27461c83/idzoo_0.99zoo_0.01teacher/base"
+api_base_url = "http://127.0.0.1:8000/v1"
+max_tokens = 512
+temperature = 0.0
+stop = ["</answer>", "[EOS]"]
+skip_special_tokens = false
+request_timeout_seconds = 900.0
+overwrite = false

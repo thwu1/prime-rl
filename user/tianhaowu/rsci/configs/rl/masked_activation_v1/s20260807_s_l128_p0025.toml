@@ -1,0 +1,19 @@
+output_dir = "/checkpoint/ram-h100-2/tianhaowu/rsci/rl/verifier-defect-masked-activation-v1/seed-20260807/s-l128-p0025"
+
+[slurm]
+job_name = "rsci-ma1-s07-s-l128-p0025"
+project_dir = "/checkpoint/ram-h100-2/tianhaowu/rsci/rl/verifier-defect-masked-activation-v1/seed-20260807/s-l128-p0025/source_snapshot"
+pre_run_command = 'source user/tianhaowu/rsci/scripts/activate_source_snapshot.sh "$OUTPUT_DIR"; unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy; INTERNAL_HOSTS=${HOSTNAMES_STR// /,}; export NO_PROXY="localhost,127.0.0.1,$INTERNAL_HOSTS"; export no_proxy="$NO_PROXY"; export VLLM_CACHE_ROOT="${SLURM_TMPDIR:-/tmp}/vllm-cache-${SLURM_JOB_ID}"'
+
+[wandb]
+name = "masked-act-v1-s20260807-s-l128-p0025"
+tags = ["gsm-infinite", "op10-40", "strict-target", "grpo", "r128", "masked-activation-v1", "stage1", "shuffled-group", "s", "l128", "p0025", "seed-20260807", "paired-sample-slot", "matched-recipient-control", "train31k"]
+
+[inference]
+seed = 20260807
+
+[[orchestrator.train.env]]
+id = "rsci-gsm-infinite"
+name = "op10-40-strict"
+pool = { type = "static", num_workers = 16 }
+args = { dataset_path = "/checkpoint/ram-h100-2/tianhaowu/rsci/data/rl/op10-40-balanced-31k/train.jsonl", min_op = 10, max_op = 40, require_unique_prompts = true, false_positive_rate = 0.0025, false_positive_scope = "answer_correct_strict_wrong", false_negative_rate = 0.0, defect_assignment = "shuffled_group", defect_draw_scope = "sample_slot", defect_eligible_slot_count = 128, defect_seed = 20260807 }

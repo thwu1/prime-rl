@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+
+#SBATCH --job-name={{ job_name }}
+#SBATCH --qos=h100_ram_high
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --gres=gpu:{{ gpus_per_node }}
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=64G
+#SBATCH --partition={{ partition }}
+{%- if account %}
+#SBATCH --account={{ account }}
+{%- endif %}
+{%- if time %}
+#SBATCH --time={{ time }}
+{%- endif %}
+{%- if nodelist %}
+#SBATCH --nodelist={{ nodelist }}
+{%- endif %}
+{%- if exclude %}
+#SBATCH --exclude={{ exclude }}
+{%- endif %}
+#SBATCH --output={{ output_dir }}/job_%j.log
+#SBATCH --error={{ output_dir }}/job_%j.log
+
+set -euo pipefail
+
+export PROJECT_DIR="{{ project_dir }}"
+export HF_HUB_OFFLINE=1
+export UV_NO_SYNC=1
+unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy
+
+cd "$PROJECT_DIR"
+source .venv/bin/activate
+
+{% if pre_run_command %}
+{{ pre_run_command }}
+{% endif %}
+exec uv run --no-sync sft @ "{{ config_path }}"

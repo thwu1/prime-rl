@@ -22,7 +22,9 @@ from __future__ import annotations
 
 import asyncio
 import os
+import threading
 import time
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import tomli_w
@@ -60,6 +62,7 @@ from prime_rl.orchestrator.types import (
     TrainBatch,
 )
 from prime_rl.orchestrator.utils import (
+    append_jsonl,
     compute_teacher_logprobs,
     get_weight_dir,
     intercept_vf_logging,
@@ -76,7 +79,7 @@ from prime_rl.utils.client import init_nccl_broadcast, setup_inference_pool
 from prime_rl.utils.heartbeat import Heartbeat
 from prime_rl.utils.logger import format_time, get_logger, setup_logger
 from prime_rl.utils.monitor import setup_monitor
-from prime_rl.utils.pathing import get_log_dir, get_rollout_dir, get_step_path
+from prime_rl.utils.pathing import get_log_dir, get_rollout_dir, get_step_path, get_weights_dir
 from prime_rl.utils.usage_reporter import UsageReporter
 from prime_rl.utils.utils import (
     clean_exit,
@@ -91,11 +94,6 @@ monkey_patch_chat_completion_logprobs()
 # shutdown wedges (env-server ZMQ recv, vLLM admin aclose, etc)
 SHUTDOWN_TIMEOUT_S = 300
 
-# Abort after this many consecutive train batches drop all rollouts to
-# post-batch filters — usually a misconfigured filter or homogeneous-reward
-# dataset; fail loudly instead of spinning
-MAX_CONSECUTIVE_EMPTY_BATCHES = 10
-
 # Maximum batches the orchestrator may run ahead of the trainer. The
 # dispatcher is paused via ``update_dispatch_gate`` once this is exceeded;
 # resumed when the watcher advances ``policy.version``.
@@ -109,6 +107,54 @@ TARGET_LAG = 1
 ROLLOUT_DUMP_EXCLUDE = {"nodes": {"__all__": {"multi_modal_data", "routed_experts"}}}
 
 
+def _batch_group_slices(rollouts: list[Rollout]) -> list[dict[str, int | str]]:
+    slices: list[dict[str, int | str]] = []
+    for rollout in rollouts:
+        group_id = str(rollout.group_id)
+        if slices and slices[-1]["group_id"] == group_id:
+            slices[-1]["count"] = int(slices[-1]["count"]) + 1
+            slices[-1]["trainable_count"] = int(slices[-1]["trainable_count"]) + int(not rollout.is_filtered)
+        else:
+            slices.append(
+                {
+                    "group_id": group_id,
+                    "count": 1,
+                    "trainable_count": int(not rollout.is_filtered),
+                }
+            )
+    return slices
+
+
+def joint_training_stop_reached(config: OrchestratorConfig, step: int, finalized_groups: int) -> bool:
+    stop_when = config.stop_when
+    return bool(
+        stop_when is not None
+        and step >= stop_when.min_steps
+        and finalized_groups >= stop_when.min_finalized_groups
+        and step % stop_when.step_multiple == 0
+    )
+
+
+def training_stop_reason(config: OrchestratorConfig, step: int, finalized_groups: int) -> str | None:
+    if joint_training_stop_reached(config, step, finalized_groups):
+        stop_when = config.stop_when
+        assert stop_when is not None
+        return (
+            f"reached joint stop: steps={step}/{stop_when.min_steps}, "
+            f"finalized_groups={finalized_groups}/{stop_when.min_finalized_groups}"
+        )
+    max_finalized_groups = config.max_finalized_groups
+    if max_finalized_groups is not None and finalized_groups >= max_finalized_groups:
+        return f"reached max_finalized_groups={max_finalized_groups}"
+    return None
+
+
+def drain_checkpoint_ready(output_dir: Path, checkpoint_step: int | None) -> bool:
+    if checkpoint_step is None:
+        return True
+    return (get_step_path(get_weights_dir(output_dir), checkpoint_step) / "STABLE").is_file()
+
+
 class Orchestrator:
     # Set in ``__init__``
     config: OrchestratorConfig
@@ -116,6 +162,7 @@ class Orchestrator:
     policy: Policy
     stopped: asyncio.Event
     draining: bool
+    drain_checkpoint_step: int | None
     last_batch_at: float | None
     consecutive_empty_batches: int
     eval_triggered_at: dict[tuple[str, int], float]
@@ -168,12 +215,22 @@ class Orchestrator:
         # True after the final train step ships — pipeline winds down without
         # scheduling new train rollouts
         self.draining = False
+        self.drain_checkpoint_step = None
         # Previous ``TrainBatch`` arrival timestamp; reset every ship so
         # ``step_time`` in the success log is real sink-to-sink cycle time
         self.last_batch_at = None
+        # Liveness: stamp (wall-clock) of the last rollout pulled off the
+        # dispatcher queue. A dedicated heartbeat thread logs its age every
+        # 30s so a wedged rollout intake is visible even when the process
+        # otherwise looks alive (env subprocesses keep emitting beacons).
+        self.last_rollout_received_at: float | None = None
+        self.rollouts_received_total = 0
+        self._hb_stop = threading.Event()
+        self._hb_thread: threading.Thread | None = None
         # Trigger timestamps so eval success logs can report epoch duration
         self.eval_triggered_at = {}
         self.consecutive_empty_batches = 0
+        self.train_batch_attempts = 0
         self.component_tasks = []
 
         # Optional attributes — ``setup()`` populates them when the relevant
@@ -351,7 +408,11 @@ class Orchestrator:
             rollout_inference = self.student_inference
             use_cache_salt = True
 
-        self.train_source = TrainSource(self.train_envs, seed=42)
+        self.train_source = TrainSource(
+            self.train_envs,
+            seed=42,
+            max_epochs=config.train_source_max_epochs,
+        )
         self.eval_source: EvalSource | None = (
             EvalSource(
                 self.eval_envs,
@@ -390,7 +451,9 @@ class Orchestrator:
             pre_filters=pre_filters,
             post_filters=post_filters,
         )
-        self.eval_sink = EvalSink(eval_envs=self.eval_envs) if self.eval_envs is not None else None
+        self.eval_sink = (
+            EvalSink(eval_envs=self.eval_envs, max_seq_len=config.seq_len) if self.eval_envs is not None else None
+        )
         self.watcher = WeightWatcher(
             config,
             policy=self.policy,
@@ -443,6 +506,11 @@ class Orchestrator:
             asyncio.create_task(self.watcher.start(), name="watcher"),
         ]
 
+        # Liveness heartbeat on a dedicated thread (survives event-loop stalls):
+        # logs the age of the last received rollout every 30s.
+        self._hb_thread = threading.Thread(target=self._run_heartbeat, name="orch-heartbeat", daemon=True)
+        self._hb_thread.start()
+
         # Default step-0 base-model eval — fires before any train rollouts
         # unless ``eval.skip_first_step=True`` (or this is a resume)
         self.maybe_trigger_eval(self.progress.step)
@@ -458,6 +526,7 @@ class Orchestrator:
             await self.main_loop()
             clean_exit = True
         finally:
+            self._hb_stop.set()
             elapsed = format_time(time.perf_counter() - start_time)
             if clean_exit:
                 get_logger().success(f"Orchestrator step loop done in {elapsed}")
@@ -474,12 +543,50 @@ class Orchestrator:
                 get_logger().warning("Orchestrator cleanup complete (forced).")
             trim_process_memory()
 
+    def _run_heartbeat(self) -> None:
+        """Emit a liveness heartbeat every 30s from a dedicated thread.
+
+        Reports the age of the last rollout received from the dispatcher. If
+        that age keeps climbing while the process is otherwise up, the rollout
+        intake is wedged (e.g. the env client connection dropped and in-flight
+        rollouts were orphaned). Runs on its own thread so it keeps reporting
+        even if the asyncio event loop stalls.
+        """
+        logger = get_logger()
+        while not self._hb_stop.is_set():
+            last = self.last_rollout_received_at
+            if last is None:
+                age_str = "n/a (none received yet)"
+            else:
+                age = time.time() - last
+                age_str = f"{age:.0f}s (last={time.strftime('%H:%M:%S', time.localtime(last))})"
+            try:
+                inflight = len(self.dispatcher.inflight)
+            except Exception:
+                inflight = -1
+            logger.info(
+                f"ORCH_HEARTBEAT last_rollout_age={age_str} "
+                f"received_total={self.rollouts_received_total} inflight={inflight}"
+            )
+            self._hb_stop.wait(30.0)
+
     async def main_loop(self) -> None:
         """Consume ``FinishedRollout``\\ s from the dispatcher and route them
         to the train / eval sink. Both sinks return a finalized batch (or
         ``None``) from ``add()``; we just dispatch on the result."""
         while not self.stopped.is_set():
-            if self.draining and self.dispatcher.is_idle:
+            for task in self.component_tasks:
+                if not task.done():
+                    continue
+                if task.cancelled():
+                    raise RuntimeError(f"Orchestrator component {task.get_name()!r} was cancelled unexpectedly")
+                error = task.exception()
+                if error is not None:
+                    raise RuntimeError(f"Orchestrator component {task.get_name()!r} failed") from error
+                raise RuntimeError(f"Orchestrator component {task.get_name()!r} exited unexpectedly")
+            checkpoint_ready = drain_checkpoint_ready(self.config.output_dir, self.drain_checkpoint_step)
+            if self.draining and self.dispatcher.is_idle and checkpoint_ready:
+                await self.flush_train_group_stats()
                 get_logger().info("Pipeline drained, exiting main loop")
                 self.stopped.set()
                 break
@@ -489,6 +596,9 @@ class Orchestrator:
             except asyncio.TimeoutError:
                 continue
 
+            self.last_rollout_received_at = time.time()
+            self.rollouts_received_total += 1
+
             if rollout.kind == "eval":
                 assert self.eval_sink is not None  # eval rollouts only emitted when eval is configured
                 eval_batch = self.eval_sink.add(rollout)
@@ -497,10 +607,73 @@ class Orchestrator:
                 continue
 
             train_batch = await self.train_sink.add(rollout)
+            stop_reason = self.training_stop_reason()
+            if not self.draining and stop_reason is not None:
+                await self.maybe_save_ckpt(self.progress.step)
+                checkpoint_step = (
+                    self.progress.step
+                    if joint_training_stop_reached(
+                        self.config,
+                        self.progress.step,
+                        self.train_sink.groups_finalized,
+                    )
+                    else None
+                )
+                await self.begin_draining(stop_reason, checkpoint_step=checkpoint_step)
+            if train_batch is not None:
+                self.train_batch_attempts += 1
+                await self.flush_train_group_stats()
+                await self.record_train_batch_attempt(train_batch)
+            elif len(self.train_sink.completed_group_records) >= 32:
+                await self.flush_train_group_stats()
             # In drain mode any late-arriving train batch is dropped — we
             # don't want to ship past ``max_steps``
             if train_batch is not None and not self.draining and not self.stopped.is_set():
                 await self.finalize_train_batch(train_batch)
+
+    async def flush_train_group_stats(self) -> None:
+        records = self.train_sink.drain_group_records()
+        if not records:
+            return
+        for record in records:
+            record["finalized_before_optimizer_step"] = self.progress.step
+        path = get_rollout_dir(self.config.output_dir) / "train_group_stats.jsonl"
+        await asyncio.to_thread(append_jsonl, records, path)
+
+    async def record_train_batch_attempt(self, batch: TrainBatch) -> None:
+        if not self.config.save_train_group_stats:
+            return
+        max_steps = self.config.max_steps
+        record = {
+            "batch_attempt": self.train_batch_attempts,
+            "optimizer_step": self.progress.step,
+            "eligible_to_ship": not self.draining
+            and not self.stopped.is_set()
+            and (max_steps is None or self.progress.step < max_steps)
+            and batch.metrics.n_trainable > 0,
+            "n_rollouts": len(batch.rollouts),
+            "n_trainable": batch.metrics.n_trainable,
+            "group_slices": _batch_group_slices(batch.rollouts),
+        }
+        path = get_rollout_dir(self.config.output_dir) / "train_batch_attempts.jsonl"
+        await asyncio.to_thread(append_jsonl, [record], path)
+
+    async def begin_draining(self, reason: str, *, checkpoint_step: int | None = None) -> None:
+        if self.draining:
+            return
+        self.draining = True
+        self.drain_checkpoint_step = checkpoint_step
+        self.dispatcher.disable_train_scheduling()
+        n_cancelled = await self.dispatcher.cancel_inflight_train_rollouts()
+        get_logger().info(
+            f"Draining pipeline ({reason}; cancelled {n_cancelled} in-flight train rollout(s); "
+            "any in-flight evals will complete)"
+        )
+        if checkpoint_step is not None:
+            get_logger().info(f"Waiting for stable trainer weights at step {checkpoint_step} before exit")
+
+    def training_stop_reason(self) -> str | None:
+        return training_stop_reason(self.config, self.progress.step, self.train_sink.groups_finalized)
 
     async def finalize_train_batch(self, batch: TrainBatch) -> None:
         """Ship one ``TrainBatch`` out to the trainer and handle the I/O
@@ -520,25 +693,22 @@ class Orchestrator:
         save_ckpt_time = await self.maybe_save_ckpt(step)
 
         if config.max_steps is not None and step >= config.max_steps:
-            self.draining = True
-            self.dispatcher.disable_train_scheduling()
-            n_cancelled = await self.dispatcher.cancel_inflight_train_rollouts()
-            get_logger().info(
-                f"Draining pipeline (cancelled {n_cancelled} in-flight train rollout(s); "
-                f"any in-flight evals will complete)"
-            )
+            await self.begin_draining(f"reached max_steps={config.max_steps}")
             return
 
         if batch.metrics.n_trainable == 0:
             self.consecutive_empty_batches += 1
+            max_zero_trainable_batches = config.max_consecutive_zero_trainable_batches
             get_logger().warning(
                 f"Step {step}: post-batch filters dropped all {len(batch.rollouts)} rollouts "
-                f"(consecutive empty batches: {self.consecutive_empty_batches}/{MAX_CONSECUTIVE_EMPTY_BATCHES})"
+                f"(consecutive zero-trainable batches: "
+                f"{self.consecutive_empty_batches}/{max_zero_trainable_batches})"
             )
-            if self.consecutive_empty_batches >= MAX_CONSECUTIVE_EMPTY_BATCHES:
+            if self.consecutive_empty_batches >= max_zero_trainable_batches:
                 raise RuntimeError(
                     f"{self.consecutive_empty_batches} consecutive zero-trainable batches — "
-                    "check filter config (pre_batch_filters / post_batch_filters) or task difficulty."
+                    "check filter config (pre_batch_filters / post_batch_filters) or task difficulty; "
+                    "increase max_consecutive_zero_trainable_batches only when this is expected."
                 )
             return
         self.consecutive_empty_batches = 0
@@ -688,7 +858,9 @@ class Orchestrator:
             inflight_part += " | " + ", ".join(f"{n}={v}" for n, v in env_pairs)
         inflight_part += ")"
 
-        body = train_batch_part + eval_batch_part + "; " + inflight_part
+        drop_part = self.train_sink.drop_summary()
+        partial_part = self.train_sink.partial_group_summary()
+        body = train_batch_part + eval_batch_part + "; " + inflight_part + " | " + drop_part + " | " + partial_part
 
         payload: dict[str, float] = {**disp_gauges, **disp_drain, **watcher_gauges}
         if lag_stats.n > 0:
@@ -699,6 +871,13 @@ class Orchestrator:
             payload["event_loop_lag/p99"] = lag_stats.p99
             payload["event_loop_lag/max"] = lag_stats.max
             payload["event_loop_lag/n"] = float(lag_stats.n)
+        payload["train_sink/groups_finalized"] = float(self.train_sink.groups_finalized)
+        payload["train_sink/groups_dropped_all_failed"] = float(self.train_sink.groups_dropped_all_failed)
+        payload["train_sink/groups_dropped_partial_scored"] = float(self.train_sink.groups_dropped_partial_scored)
+        payload["train_sink/context_limited_before_advantage_total"] = float(
+            self.train_sink.context_limited_before_advantage_total
+        )
+        payload["train_sink/pre_filter_dropped"] = float(self.train_sink.pre_filter_dropped)
         return body, payload
 
     def log_train_batch(self, batch: TrainBatch, *, step: int, step_time: float) -> None:

@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "purpose": "small_in_distribution_evaluation_fixture",
+  "source": {
+    "repository": "https://github.com/Interplay-LM-Reasoning/Interplay-LM-Reasoning",
+    "commit": "ab728f05d81de9af38d0ca155a84166b037e355a"
+  },
+  "distribution": {
+    "op_support": [2, 3, 4, 5, 6, 7, 8, 9, 10],
+    "op_counts": {
+      "2": 1,
+      "3": 1,
+      "4": 1,
+      "5": 1,
+      "6": 2,
+      "7": 1,
+      "8": 1,
+      "9": 1,
+      "10": 1
+    },
+    "context_target": {
+      "zoo": 0.99,
+      "teacher": 0.01
+    },
+    "context_counts": {
+      "zoo": 10
+    },
+    "mode_counts": {
+      "normalforward": 5,
+      "forwardreverse": 5
+    }
+  },
+  "generation": {
+    "forward_seed": 20260731,
+    "reverse_seed": 20260732,
+    "length": "zero_context",
+    "depth": 2,
+    "number_range": 5
+  },
+  "files": {
+    "eval": {
+      "path": "eval_op2_10_10.jsonl",
+      "rows": 10,
+      "sha256": "b976e44013789465dd7cada94100d4ee8c83b21cceba3c57c40cd09bff1e25e0"
+    }
+  }
+}

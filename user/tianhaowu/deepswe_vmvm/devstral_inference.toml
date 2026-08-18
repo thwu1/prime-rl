@@ -1,0 +1,29 @@
+output_dir = "/checkpoint/ram/tianhaowu/deepswe_vmvm/devstral_inference"
+enable_prefix_caching = true
+enable_fp32_lm_head = false
+gpu_memory_utilization = 0.9
+
+[server]
+port = 8000
+
+[model]
+name = "mistralai/Devstral-Small-2-24B-Instruct-2512"
+max_model_len = 262144
+tool_call_parser = "mistral"
+reasoning_parser = "None"
+
+[parallel]
+tp = 2
+
+[deployment]
+type = "single_node"
+gpus_per_node = 2
+
+[slurm]
+job_name = "devstral-small-2512-infer"
+project_dir = "/storage/home/tianhaowu/prime-rl"
+partition = "h100"
+account = "ram"
+time = "2-00:00:00"
+sync_environment = false
+pre_run_command = "export UV_PROJECT_ENVIRONMENT=/storage/home/tianhaowu/.venvs/prime-rl-nemotron-sft UV_NO_SYNC=1 PYTHONDONTWRITEBYTECODE=1; unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy; export HF_HOME=/checkpoint/ram-h100-2/tianhaowu/.cache/huggingface VLLM_ALLOW_LONG_MAX_MODEL_LEN=1"

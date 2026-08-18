@@ -1,0 +1,24 @@
+# Eval the val-MINIMUM SFT checkpoint (step_100, val loss ~0.389) on tb-pass80.
+# The step_600 checkpoint we already eval'd (pass@1 0.466/pass@10 0.762) is well past the val min
+# (val rose 0.387->0.415 by step_600 = overfitting). This tests whether stopping at the val min
+# generalizes better on the actual task. IDENTICAL eval setup to eval_sft_step600_v2.toml.
+# Uses the p1-val run (the one with the measured val curve); same recipe/data as the eval'd p1 run.
+
+infer_config = "user/tianhaowu/fair-sc-3/configs/qwen35_infer_multinode_120h.toml"
+
+[infer_overrides]
+"model.name" = "/checkpoint/ram/tianhaowu/sft_kimi12k/outputs/qwen35-35b-kimi12k-p1-val/weights/step_100"
+"model.max-model-len" = 250000
+
+[eval]
+output_dir = "/checkpoint/ram/tianhaowu/eval/sft-kimi12k-step100-pass80"
+max_concurrent = 512
+model = "/checkpoint/ram/tianhaowu/sft_kimi12k/outputs/qwen35-35b-kimi12k-p1-val/weights/step_100"
+sampling = '{"max_tokens":250000,"temperature":1.0,"top_p":0.95,"top_k":20}'
+
+[[eval.env]]
+vf_env = "vmvm-tb-v2"
+name = "tb-pass80"
+rollouts_per_example = 10
+dataset_path = "/checkpoint/ram/tianhaowu/datasets/terminal_bench/v2_harbor_pass80.jsonl"
+env_args = '{"native_tools":true,"image_source":"vmvm_registry","max_turns":200,"command_timeout":300,"test_timeout":900,"session_timeout":3600,"max_rollout_s":7200,"lease_ttl":"9600s","raise_on_infra":true}'

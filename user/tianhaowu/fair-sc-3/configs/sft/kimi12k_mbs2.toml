@@ -1,0 +1,74 @@
+# DRAFT — SFT Qwen3.5-35B-A3B on Kimi-K2.6 solved 12k trajectories (rejection-sampling distillation).
+# Modeled on the RL config's [trainer.model] (ep=8, offload, ac, float32 dtypes).
+# VALIDATED via 2-step smoke (job 9198677): loss 0.43->0.41, 70k tok/s, peak mem 100.8/139.8 GiB (72%).
+output_dir = "/checkpoint/ram/tianhaowu/sft_kimi12k/outputs/qwen35-35b-kimi12k-mbs2"
+max_steps = 300            # bs=64 -> half the steps for the same ~2.2 epochs / same tokens as bs=32
+loss_impl = "liger_fused"  # fuse lm_head+CE so we don't materialize 128k x vocab logits (fixes 121GiB OOM at cp=1)
+dist_timeout_seconds = 3600  # 600s default too tight -> multi-node rendezvous timed out on a straggler (matches RL)
+
+[model]
+name = "/checkpoint/ram/tianhaowu/Qwen3.5-35B-A3B"
+seq_len = 102144           # match RL-proven; data pre-filtered to <=102144 tokens (no truncation)
+impl = "custom"
+attn = "flash_attention_2"
+ep = 8                     # expert parallel (matches RL)
+cp = 1                     # no context parallel (matches RL, which ran ~100k at cp=1); offload+ac carry the memory
+fsdp_cpu_offload = true
+# optimization_dtype/reduce_dtype left at float32 defaults (do NOT change — load-bearing)
+
+[model.ac]                 # activation checkpointing
+
+[model.compile]
+
+[model.ac_offloading]
+max_inflight_activations = 5
+
+# REQUIRED: the default (raw chat-template) path crashes on the vmvm-tb <tool_response>-as-user
+# structure ("No user query found"). The qwen3.5 renderer handles it AND preserves prior-turn
+# thinking in the loss (verified: <think> + tool calls land in the assistant loss spans). Matches
+# the RL run's [orchestrator.renderer].
+[renderer]
+name = "qwen3.5"
+preserve_all_thinking = true
+
+[data]
+type = "sft"
+name = "/checkpoint/ram/tianhaowu/sft_kimi12k/data/train_split"   # 8,699 (200 held out for val)
+seq_len = 102144
+batch_size = 64
+micro_batch_size = 2
+# [data.loss_mask] defaults: assistant=true, system/user/tool=false  -> loss on Kimi's think+tool-call turns only
+
+# Validation loss on a held-out 200-sample slice (same distribution) — gives a val curve to spot overfitting.
+[val]
+interval = 50          # run validation every 50 steps
+eval_on_start = true   # baseline val loss before training
+
+[val.data]
+type = "sft"
+name = "/checkpoint/ram/tianhaowu/sft_kimi12k/data/val_split"   # held-out 200
+seq_len = 102144
+batch_size = 64
+micro_batch_size = 2
+
+[optim]
+lr = 1e-5
+
+[deployment]
+type = "multi_node"
+num_nodes = 4              # validated at 128k via smoke (peak 72% mem headroom)
+
+[slurm]
+job_name = "sft-kimi12k-35b-mbs2"
+account = "ram"
+partition = "h200"
+time = "24:00:00"
+project_dir = "/storage/home/tianhaowu/prime-rl"
+template_path = "/storage/home/tianhaowu/prime-rl/user/tianhaowu/fair-sc-3/templates/multi_node_sft_fairsc.sbatch.j2"
+
+[ckpt]
+interval = 100
+
+[wandb]
+name = "sft-kimi12k-35b-mbs2"
+offline = false  # online: proxy unset in template so wandb.ai is reachable (see RL)

@@ -1,0 +1,69 @@
+max_steps = 300
+seq_len = 4096
+
+[log]
+level = "info"
+
+[model]
+name = "Qwen/Qwen3-4B-Instruct-2507"
+
+# --- infra blocks copied from tb_rl_12k_debug.toml ---
+[weight_broadcast]
+type = "nccl"
+
+[deployment]
+type = "multi_node"
+num_train_nodes = 1
+num_infer_nodes = 1
+
+[slurm]
+job_name = "mathpy-infra"
+project_dir = "/storage/home/tianhaowu/prime-rl"
+partition = "h200"
+account = "ram"
+time = "2:00:00"
+template_path = "/storage/home/tianhaowu/prime-rl/user/tianhaowu/fair-sc/templates/multi_node_rl_dev.sbatch.j2"
+
+[wandb]
+project = "math-python-infra-test"
+name = "mathpy-1node"
+
+[trainer]
+dist_timeout_seconds = 1800
+# default trainer.model (dense 4B) -- matches math_python.toml's "[trainer] # Default"
+
+[orchestrator]
+batch_size = 512
+group_size = 16
+eval_client_type = "renderer"
+
+[orchestrator.train.sampling]
+max_completion_tokens = 512
+
+[[orchestrator.train.env]]
+id = "math-python"
+args = { sandbox_client_max_workers = 128, sandbox_timeout_minutes = 10, sandbox_memory_gb = 1, sandbox_disk_size_gb = 1, pip_install_packages = "numpy sympy" }
+
+# held-out eval on the math TEST split (reuses the same local subprocess sandbox)
+[orchestrator.eval]
+interval = 20
+num_examples = 256
+
+[orchestrator.eval.sampling]
+temperature = 1.0
+max_completion_tokens = 512
+
+[[orchestrator.eval.env]]
+id = "math-python"
+name = "math-test"
+args = { dataset_split = "test", sandbox_timeout_minutes = 10, sandbox_memory_gb = 1, sandbox_disk_size_gb = 1, pip_install_packages = "numpy sympy" }
+
+[inference]
+api_server_count = 4
+
+[inference.model]
+tool_call_parser = "hermes"
+max_model_len = 4096
+
+[inference.parallel]
+tp = 8

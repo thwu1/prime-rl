@@ -1,0 +1,125 @@
+max_steps = 20
+seq_len = 102144
+
+[log]
+level = "info"
+
+[model]
+name = "/checkpoint/ram/tianhaowu/Qwen3.5-35B-A3B"  # MoE (A3B); local path
+
+[weight_broadcast]
+type = "nccl"
+
+[deployment]
+type = "multi_node"
+num_train_nodes = 2
+num_infer_nodes = 1
+
+[slurm]
+job_name = "tb-rl-debug-moe"
+project_dir = "/storage/home/tianhaowu/prime-rl"
+partition = "h200"
+account = "ram"
+time = "3:00:00"
+template_path = "/storage/home/tianhaowu/prime-rl/user/tianhaowu/fair-sc/templates/multi_node_rl_fairsc.sbatch.j2"
+
+[ckpt]
+interval = 10
+keep_last = 5
+
+[wandb]
+project = "tb-rl-qwen35"
+name = "tb-debug-moe"
+
+[trainer]
+dist_timeout_seconds = 3600  # 35B first-step compile stagger across ranks needs more than the 600s default
+
+[trainer.data.fake]
+batch_size = 256
+generate_samples = true
+
+[trainer.model]
+impl = "custom"
+attn = "flash_attention_3"
+ep = 8
+fsdp_cpu_offload = true
+fused_lm_head_token_chunk_size = 8192
+optimization_dtype = "float32"
+reduce_dtype = "float32"
+
+[trainer.model.compile]
+
+[trainer.model.ac]
+freq = 1
+
+[trainer.model.ac_offloading]
+max_inflight_activations = 5
+
+[trainer.optim]
+type = "adamw"
+lr = 1e-6
+
+[orchestrator]
+batch_size = 64
+rollouts_per_example = 8
+max_off_policy_steps = 16
+max_inflight_rollouts = 64
+
+[orchestrator.renderer]
+name = "qwen3.5"
+preserve_all_thinking = true
+
+[[orchestrator.train.env]]
+id = "vmvm-tb-v1"
+name = "tb-12k-opuspass"
+
+[orchestrator.train.env.args]
+dataset_path = "/checkpoint/ram/tianhaowu/datasets/terminal_bench/v2_train_12k_tr.jsonl"
+native_tools = true
+max_rollout_s = 1200
+image_source = "task_toml"
+max_turns = 50
+command_timeout = 120
+test_timeout = 300
+session_timeout = 900
+lease_ttl = "900s"
+
+[orchestrator.eval]
+interval = 100  # > max_steps: no eval during this debug (keep it fast, focus on the trainer)
+skip_first_step = true
+
+[orchestrator.eval.sampling]
+temperature = 1.0
+top_p = 0.95
+top_k = 20
+max_tokens = 100000
+
+[[orchestrator.eval.env]]
+id = "vmvm-tb-v1"
+name = "heldout-200"
+rollouts_per_example = 1
+
+[orchestrator.eval.env.args]
+dataset_path = "/checkpoint/ram/tianhaowu/datasets/terminal_bench/v2_heldout_200.jsonl"
+native_tools = true
+max_rollout_s = 1200
+image_source = "task_toml"
+max_turns = 50
+command_timeout = 120
+test_timeout = 300
+session_timeout = 900
+lease_ttl = "900s"
+
+[inference]
+gpu_memory_utilization = 0.85
+
+[inference.model]
+max_model_len = 102144
+
+[inference.parallel]
+tp = 8
+
+[inference.vllm_extra]
+language_model_only = true
+gdn_prefill_backend = "triton"
+enable_prefix_caching = true

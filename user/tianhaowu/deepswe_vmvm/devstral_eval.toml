@@ -1,0 +1,60 @@
+# Published baseline: SWE-bench bash-only, mini-swe-agent 1.17.2, Devstral Small 2512.
+model = "mistralai/Devstral-Small-2-24B-Instruct-2512"
+num_tasks = 500
+num_rollouts = 1
+max_concurrent = 16
+max_turns = 250
+multiplex = 8
+rich = false
+
+[client]
+base_url = "http://127.0.0.1:8000/v1"
+api_key_var = "OPENAI_API_KEY"
+timeout = 3600
+connect_timeout = 30
+max_retries = 10
+
+[sampling]
+temperature = 0.0
+max_tokens = 4096
+
+[taskset]
+id = "swebench-verified-v1"
+use_prime_registry = false
+
+[harness]
+id = "mini-swe-agent"
+version = "1.17.2"
+config_file = "swebench.yaml"
+config_overrides = [
+  "agent.step_limit=250",
+  "agent.cost_limit=3.0",
+  "environment.environment_class=local",
+  "environment.timeout=60",
+  "env.cwd=/testbed",
+  "env.timeout=60",
+  "env.env.PAGER=cat",
+  "env.env.MANPAGER=cat",
+  "env.env.LESS=-R",
+  "env.env.PIP_PROGRESS_BAR=off",
+  "env.env.TQDM_DISABLE=\"1\"",
+  "model.model_kwargs.drop_params=true",
+  "model.model_kwargs.temperature=0.0",
+]
+
+[harness.runtime]
+type = "vmvm"
+session_timeout = 6000
+tenant_id = "async_2347641"
+lease_ttl = "60s"
+max_session_buffer_size = 16777216
+
+[timeout]
+setup = 1800
+rollout = 7200
+finalize = 600
+scoring = 1800
+
+[retries.rollout]
+max_retries = 2
+include = ["SandboxError", "ProviderError", "TunnelError", "HarnessError"]

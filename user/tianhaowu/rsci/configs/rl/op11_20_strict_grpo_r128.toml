@@ -1,0 +1,192 @@
+output_dir = "/checkpoint/ram-h100-2/tianhaowu/rsci/rl/base-op11-20-strict-r128"
+max_steps = 500
+seq_len = 2048
+
+[model]
+name = "/checkpoint/ram-h100-2/tianhaowu/rsci/hf/hub/models--Interplay-LM-Reasoning--extrapolation_rl/snapshots/4861bd030e6fb92d94be3a1cecab89c2fac4b94a/id2-10_0.2easy_0.3medium_0.5hard/base"
+
+[tokenizer]
+name = "/checkpoint/ram-h100-2/tianhaowu/rsci/hf/hub/models--Interplay-LM-Reasoning--extrapolation_rl/snapshots/4861bd030e6fb92d94be3a1cecab89c2fac4b94a/id2-10_0.2easy_0.3medium_0.5hard/base"
+chat_template = "/checkpoint/ram-h100-2/tianhaowu/rsci/hf/hub/models--Interplay-LM-Reasoning--extrapolation_rl/snapshots/4861bd030e6fb92d94be3a1cecab89c2fac4b94a/id2-10_0.2easy_0.3medium_0.5hard/base/chat_template.jinja"
+
+[deployment]
+type = "multi_node"
+num_train_nodes = 1
+num_infer_nodes = 1
+num_infer_replicas = 4
+gpus_per_node = 8
+
+[slurm]
+job_name = "rsci-rl-op11-20-r128"
+project_dir = "/storage/home/tianhaowu/prime-rl"
+partition = "h100"
+account = "ram"
+time = "24:00:00"
+sync_environment = false
+pre_run_command = 'unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy; INTERNAL_HOSTS=${HOSTNAMES_STR// /,}; export NO_PROXY="localhost,127.0.0.1,$INTERNAL_HOSTS"; export no_proxy="$NO_PROXY"'
+
+[weight_broadcast]
+type = "nccl"
+timeout = 3600
+
+[ckpt]
+interval = 25
+keep_last = 4
+keep_interval = 100
+
+[wandb]
+project = "rsci"
+entity = "ram"
+name = "base-op11-20-strict-grpo-r128-val11-25"
+tags = ["gsm-infinite", "op11-20", "val11-25", "strict-reward", "grpo", "r128"]
+
+[log]
+level = "info"
+
+[trainer.model]
+impl = "hf"
+attn = "flash_attention_2"
+
+[trainer.optim]
+type = "adamw"
+lr = 1e-6
+weight_decay = 0.01
+max_norm = 1.0
+
+[trainer.scheduler]
+type = "constant"
+
+[orchestrator]
+batch_size = 512
+rollouts_per_example = 128
+max_inflight_rollouts = 8192
+max_off_policy_steps = 16
+
+[orchestrator.renderer]
+name = "default"
+
+[orchestrator.train.sampling]
+temperature = 0.7
+max_completion_tokens = 2048
+extra_body = { top_k = -1, skip_special_tokens = false, stop = ["</answer>"] }
+
+[[orchestrator.train.env]]
+# The environment fixes reward weights to strict=1, executable=0, answer-only=0.
+id = "rsci-gsm-infinite"
+name = "op11-20-strict"
+pool = { type = "static", num_workers = 16 }
+args = { dataset_path = "/checkpoint/ram-h100-2/tianhaowu/rsci/data/rl/op11-20-balanced-2k/train.jsonl", min_op = 11, max_op = 20, require_unique_prompts = true }
+
+[orchestrator.eval]
+interval = 25
+rollouts_per_example = 1
+skip_first_step = false
+
+[orchestrator.eval.sampling]
+temperature = 0.7
+top_p = 1.0
+top_k = -1
+max_completion_tokens = 2048
+extra_body = { skip_special_tokens = false, stop = ["</answer>"] }
+
+[[orchestrator.eval.env]]
+id = "rsci-gsm-infinite"
+name = "heldout-op11-strict"
+pool = { type = "static", num_workers = 2 }
+args = { dataset_path = "/checkpoint/ram-h100-2/tianhaowu/rsci/hf/hub/datasets--Interplay-LM-Reasoning--composition/snapshots/a09d5c14c02bfa339143fb00a93274d1a84aa31d/val/op11-200.jsonl", min_op = 11, max_op = 11 }
+
+[[orchestrator.eval.env]]
+id = "rsci-gsm-infinite"
+name = "heldout-op12-strict"
+pool = { type = "static", num_workers = 2 }
+args = { dataset_path = "/checkpoint/ram-h100-2/tianhaowu/rsci/hf/hub/datasets--Interplay-LM-Reasoning--composition/snapshots/a09d5c14c02bfa339143fb00a93274d1a84aa31d/val/op12-200.jsonl", min_op = 12, max_op = 12 }
+
+[[orchestrator.eval.env]]
+id = "rsci-gsm-infinite"
+name = "heldout-op13-strict"
+pool = { type = "static", num_workers = 2 }
+args = { dataset_path = "/checkpoint/ram-h100-2/tianhaowu/rsci/hf/hub/datasets--Interplay-LM-Reasoning--composition/snapshots/a09d5c14c02bfa339143fb00a93274d1a84aa31d/val/op13-200.jsonl", min_op = 13, max_op = 13 }
+
+[[orchestrator.eval.env]]
+id = "rsci-gsm-infinite"
+name = "heldout-op14-strict"
+pool = { type = "static", num_workers = 2 }
+args = { dataset_path = "/checkpoint/ram-h100-2/tianhaowu/rsci/hf/hub/datasets--Interplay-LM-Reasoning--composition/snapshots/a09d5c14c02bfa339143fb00a93274d1a84aa31d/val/op14-200.jsonl", min_op = 14, max_op = 14 }
+
+[[orchestrator.eval.env]]
+id = "rsci-gsm-infinite"
+name = "heldout-op15-strict"
+pool = { type = "static", num_workers = 2 }
+args = { dataset_path = "/checkpoint/ram-h100-2/tianhaowu/rsci/hf/hub/datasets--Interplay-LM-Reasoning--composition/snapshots/a09d5c14c02bfa339143fb00a93274d1a84aa31d/val/op15-200.jsonl", min_op = 15, max_op = 15 }
+
+[[orchestrator.eval.env]]
+id = "rsci-gsm-infinite"
+name = "heldout-op16-strict"
+pool = { type = "static", num_workers = 2 }
+args = { dataset_path = "/checkpoint/ram-h100-2/tianhaowu/rsci/hf/hub/datasets--Interplay-LM-Reasoning--composition/snapshots/a09d5c14c02bfa339143fb00a93274d1a84aa31d/val/op16-200.jsonl", min_op = 16, max_op = 16 }
+
+[[orchestrator.eval.env]]
+id = "rsci-gsm-infinite"
+name = "heldout-op17-strict"
+pool = { type = "static", num_workers = 2 }
+args = { dataset_path = "/checkpoint/ram-h100-2/tianhaowu/rsci/hf/hub/datasets--Interplay-LM-Reasoning--composition/snapshots/a09d5c14c02bfa339143fb00a93274d1a84aa31d/val/op17-200.jsonl", min_op = 17, max_op = 17 }
+
+[[orchestrator.eval.env]]
+id = "rsci-gsm-infinite"
+name = "heldout-op18-strict"
+pool = { type = "static", num_workers = 2 }
+args = { dataset_path = "/checkpoint/ram-h100-2/tianhaowu/rsci/hf/hub/datasets--Interplay-LM-Reasoning--composition/snapshots/a09d5c14c02bfa339143fb00a93274d1a84aa31d/val/op18-200.jsonl", min_op = 18, max_op = 18 }
+
+[[orchestrator.eval.env]]
+id = "rsci-gsm-infinite"
+name = "heldout-op19-strict"
+pool = { type = "static", num_workers = 2 }
+args = { dataset_path = "/checkpoint/ram-h100-2/tianhaowu/rsci/hf/hub/datasets--Interplay-LM-Reasoning--composition/snapshots/a09d5c14c02bfa339143fb00a93274d1a84aa31d/val/op19-200.jsonl", min_op = 19, max_op = 19 }
+
+[[orchestrator.eval.env]]
+id = "rsci-gsm-infinite"
+name = "heldout-op20-strict"
+pool = { type = "static", num_workers = 2 }
+args = { dataset_path = "/checkpoint/ram-h100-2/tianhaowu/rsci/hf/hub/datasets--Interplay-LM-Reasoning--composition/snapshots/a09d5c14c02bfa339143fb00a93274d1a84aa31d/val/op20-200.jsonl", min_op = 20, max_op = 20 }
+
+[[orchestrator.eval.env]]
+id = "rsci-gsm-infinite"
+name = "heldout-op21-strict"
+pool = { type = "static", num_workers = 2 }
+args = { dataset_path = "/checkpoint/ram-h100-2/tianhaowu/rsci/frontier-sft/generated-eval-op21-30-v1/op21-200.jsonl", min_op = 21, max_op = 21 }
+
+[[orchestrator.eval.env]]
+id = "rsci-gsm-infinite"
+name = "heldout-op22-strict"
+pool = { type = "static", num_workers = 2 }
+args = { dataset_path = "/checkpoint/ram-h100-2/tianhaowu/rsci/frontier-sft/generated-eval-op21-30-v1/op22-200.jsonl", min_op = 22, max_op = 22 }
+
+[[orchestrator.eval.env]]
+id = "rsci-gsm-infinite"
+name = "heldout-op23-strict"
+pool = { type = "static", num_workers = 2 }
+args = { dataset_path = "/checkpoint/ram-h100-2/tianhaowu/rsci/frontier-sft/generated-eval-op21-30-v1/op23-200.jsonl", min_op = 23, max_op = 23 }
+
+[[orchestrator.eval.env]]
+id = "rsci-gsm-infinite"
+name = "heldout-op24-strict"
+pool = { type = "static", num_workers = 2 }
+args = { dataset_path = "/checkpoint/ram-h100-2/tianhaowu/rsci/frontier-sft/generated-eval-op21-30-v1/op24-200.jsonl", min_op = 24, max_op = 24 }
+
+[[orchestrator.eval.env]]
+id = "rsci-gsm-infinite"
+name = "heldout-op25-strict"
+pool = { type = "static", num_workers = 2 }
+args = { dataset_path = "/checkpoint/ram-h100-2/tianhaowu/rsci/frontier-sft/generated-eval-op21-30-v1/op25-200.jsonl", min_op = 25, max_op = 25 }
+
+[inference]
+enable_prefix_caching = true
+gpu_memory_utilization = 0.8
+vllm_extra = { max_num_seqs = 256 }
+
+[inference.model]
+max_model_len = 2048
+
+[inference.parallel]
+tp = 1
+dp = 8

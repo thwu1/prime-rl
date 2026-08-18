@@ -164,7 +164,9 @@ class NCCLWeightBroadcastSender:
     def _resolve_dtensors(self, state_dict: dict[str, Tensor]) -> dict[str, Tensor]:
         for key, value in list(state_dict.items()):
             if isinstance(value, DTensor):
-                state_dict[key] = cast(DTensor, value.to(self.dtype)).full_tensor()
+                state_dict[key] = cast(DTensor, value.to(self.dtype)).full_tensor().cuda()
+            elif value.device.type == "cpu":
+                state_dict[key] = value.cuda()
         return state_dict
 
 

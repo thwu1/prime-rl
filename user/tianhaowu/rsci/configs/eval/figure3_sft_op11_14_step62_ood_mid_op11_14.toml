@@ -1,0 +1,22 @@
+infer_config = "user/tianhaowu/rsci/configs/inference/figure3_sft_op11_14_step62.toml"
+evaluator = "user/tianhaowu/rsci/figure3_eval.py"
+
+[eval]
+data_dir = "/checkpoint/ram-h100-2/tianhaowu/rsci/hf/hub/datasets--Interplay-LM-Reasoning--composition/snapshots/a09d5c14c02bfa339143fb00a93274d1a84aa31d/val"
+operations = [11, 12, 13, 14]
+examples_per_operation = 200
+output_dir = "/checkpoint/ram-h100-2/tianhaowu/rsci/evals/figure3/sft-op11-14/step62/ood-mid-op11-14"
+model = "/checkpoint/ram-h100-2/tianhaowu/rsci/sft/figure3-op11-14-200k-1epoch/weights/step_62"
+api_base_url = "http://127.0.0.1:8000/v1"
+samples_per_prompt = 128
+pass_at = [1, 2, 4, 8, 16, 32, 64, 128]
+max_tokens = 2048
+temperature = 0.7
+top_p = 1.0
+top_k = -1
+stop = ["</answer>"]
+skip_special_tokens = false
+request_timeout_seconds = 3600.0
+max_concurrent_prompts = 16
+max_retries = 2
+overwrite = false

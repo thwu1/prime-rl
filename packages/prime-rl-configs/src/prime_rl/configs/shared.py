@@ -35,6 +35,9 @@ class SlurmConfig(BaseConfig):
     pre_run_command: str | None = None
     """Shell command to run on the head node after cd, .env sourcing, and venv activation. Useful for cleanup like ``sudo pkill -f vllm``; wrap with ``srun bash -c '...'`` to fan out to all nodes."""
 
+    sync_environment: bool = True
+    """Run ``uv sync --all-extras`` before the SLURM workload starts. Disable only when the shared environment was synchronized before submission."""
+
     cleanup_grace_period: int = Field(3600, ge=0)
     """Seconds to wait before tearing down a multi-node RL job that hit a non-zero exit, letting in-flight checkpoints flush. Set to 0 to tear down immediately."""
 
@@ -50,6 +53,7 @@ class SlurmConfig(BaseConfig):
             "account": self.account,
             "time": self.time,
             "pre_run_command": self.pre_run_command,
+            "sync_environment": self.sync_environment,
             "cleanup_grace_period": self.cleanup_grace_period,
         }
 
@@ -102,6 +106,21 @@ class ElasticConfig(BaseConfig):
 class ClientConfig(BaseConfig):
     wait_for_ready_timeout: int = 1800
     """Seconds to wait at startup for the inference pool to become ready. Applies to both the static health check and elastic DNS-based discovery."""
+
+    timeout: float | None = Field(None, gt=0)
+    """Model request timeout in seconds. ``None`` leaves long generations bounded by rollout timeouts instead of the HTTP client."""
+
+    connect_timeout: float = Field(30.0, gt=0)
+    """Seconds to wait when opening a model-server connection. Higher than SDK defaults to tolerate bursty local inference/router load."""
+
+    max_connections: int = Field(28000, ge=1)
+    """Maximum concurrent model-server HTTP connections per client."""
+
+    max_keepalive_connections: int = Field(28000, ge=0)
+    """Maximum idle keepalive model-server HTTP connections per client."""
+
+    max_retries: int = Field(10, ge=0)
+    """Maximum transient model-provider retries in clients that own retry policy."""
 
     base_url: list[str] = ["http://localhost:8000/v1"]
     """Base URLs for the OpenAI API. With more than one URL, the client round-robins (chat) completion requests across all servers. Ignored when ``elastic`` is set."""

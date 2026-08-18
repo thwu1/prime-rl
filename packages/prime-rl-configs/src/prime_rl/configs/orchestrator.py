@@ -195,7 +195,7 @@ class EnvConfig(vf.EnvServerConfig):
     def resolve_legacy_env_kwargs(self):
         """For a v0/legacy env, surface the v1 knobs the legacy bridge applies via
         ``extra_env_kwargs`` (``env.set_kwargs(...)``): the per-rollout wall-clock timeout and
-        the multi-turn completion-token budget. (``max_seq_len`` is added per train run in
+        the multi-turn completion-token budget. (``max_seq_len`` is added per train/eval env in
         ``OrchestratorConfig.resolve_env_config``, which knows ``seq_len``.)"""
         if self.is_legacy:
             if self.timeout.rollout is not None:
@@ -479,6 +479,17 @@ class RolloutModelConfig(BaseConfig):
     client: ClientConfig = ClientConfig()
 
 
+class JointTrainingStopConfig(BaseConfig):
+    min_steps: int = Field(ge=0)
+    """Minimum number of shipped optimizer updates."""
+
+    min_finalized_groups: int = Field(ge=1)
+    """Minimum number of finalized training groups."""
+
+    step_multiple: int = Field(1, ge=1)
+    """Drain only when the shipped-step count is also divisible by this value."""
+
+
 class OrchestratorConfig(BaseConfig):
     training_mode: Literal["rl", "opd", "sft"] = "rl"
     """Training mode. ``rl``: student generates rollouts, no teacher. ``opd``: student generates rollouts, teacher computes logprobs (teacher_tau > 0). ``sft``: teacher generates rollouts, student inference pool used for evals and weight sync."""
@@ -530,6 +541,11 @@ class OrchestratorConfig(BaseConfig):
     """Filters applied *after* a batch has been assembled. Each filter annotates each rollout;
     rollouts flagged by an enforcing filter are still recorded but not shipped to the trainer."""
 
+    drop_context_limits_before_advantage: bool = False
+    """Drop context-limit training rollouts before computing group advantages. This removes
+    ``context_length``/``prompt_too_long``/``max_input_tokens`` rollouts and rollouts whose
+    final usage reaches ``seq_len``."""
+
     log: LogConfig = LogConfig()
 
     wandb: WandbWithExtrasConfig | None = None
@@ -553,6 +569,11 @@ class OrchestratorConfig(BaseConfig):
 
     output_dir: Path = Path("outputs/run_default")
     """Directory to write outputs to — checkpoints, weights, rollouts, and logs are written as subdirectories. Should be a persistent directory with enough disk space and unique per experiment running on a single node."""
+
+    save_train_group_stats: bool = False
+    """Append compact pre-filter reward and metric arrays for every finalized training group to
+    ``rollouts/train_group_stats.jsonl``. This preserves groups later removed by batch filters
+    without duplicating completion text."""
 
     tasks_per_minute: int | None = Field(None, ge=1)
     """Rate limit per environment worker, in tasks per minute. Recommended for sandbox-backed environments to prevent sandbox-not-ready errors during autoscaling. With multiple workers, the effective total rate is ``workers × this value``. None disables rate limiting."""
@@ -581,6 +602,25 @@ class OrchestratorConfig(BaseConfig):
 
     max_steps: int | None = None
     """Maximum training steps. If None, runs indefinitely."""
+
+    train_source_max_epochs: int | None = Field(None, ge=1)
+    """Maximum complete passes through each training environment's task list. Once an
+    environment reaches the limit, fail before reshuffling it. None preserves infinite
+    reshuffling."""
+
+    max_finalized_groups: int | None = Field(None, ge=1)
+    """Stop scheduling training after this many training groups have finalized. The
+    orchestrator drains in-flight work without shipping a batch that crosses the limit.
+    This guard is for fresh runs because finalized-group progress is not checkpointed."""
+
+    stop_when: JointTrainingStopConfig | None = None
+    """For a fresh run, drain once both minimum steps and finalized groups are reached,
+    optionally at a retained-checkpoint step multiple."""
+
+    max_consecutive_zero_trainable_batches: int = Field(10, ge=1)
+    """Abort after this many consecutive assembled training batches have zero trainable
+    rollouts after post-batch filtering. These batches do not advance the optimizer step;
+    any batch with at least one trainable rollout resets the count."""
 
     max_off_policy_steps: int = Field(8, ge=0)
     """Maximum policies allowed to generate a single rollout. Rollouts generated more than ``max_off_policy_steps`` ahead of training are discarded. Higher values yield better throughput at the cost of off-policy noise."""
@@ -760,6 +800,25 @@ class OrchestratorConfig(BaseConfig):
         )
 
     @model_validator(mode="after")
+    def validate_group_guard_is_fresh(self):
+        has_group_stop = self.max_finalized_groups is not None or self.stop_when is not None
+        if has_group_stop and self.ckpt is not None and self.ckpt.resume_step is not None:
+            raise ValueError("group-based stopping cannot be combined with checkpoint resume")
+        if self.stop_when is not None:
+            if self.ckpt is None or self.ckpt.interval is None:
+                raise ValueError("stop_when requires checkpointing with a finite interval")
+            if self.stop_when.step_multiple % self.ckpt.interval != 0:
+                raise ValueError("stop_when.step_multiple must be divisible by ckpt.interval")
+            if self.max_steps is not None and self.stop_when.min_steps > self.max_steps:
+                raise ValueError("stop_when.min_steps cannot exceed max_steps")
+            if (
+                self.max_finalized_groups is not None
+                and self.stop_when.min_finalized_groups > self.max_finalized_groups
+            ):
+                raise ValueError("stop_when.min_finalized_groups cannot exceed max_finalized_groups")
+        return self
+
+    @model_validator(mode="after")
     def resolve_batching(self):
         has_rollout_batch = self.batch_size is not None
         has_token_batch = self.token_batch_size is not None
@@ -822,15 +881,18 @@ class OrchestratorConfig(BaseConfig):
 
     @model_validator(mode="after")
     def resolve_env_config(self):
-        """Set vLLM sampling defaults on each train env from top-level fields."""
-        if self.training_mode == "sft":
-            return self
-        for env in self.train.env:
-            env.sampling.extra_body.setdefault("top_k", -1)
-            env.sampling.extra_body.setdefault("min_p", 0.0)
-            env.sampling.extra_body.setdefault("return_token_ids", True)
-            if env.is_legacy:
-                # v0 env: cap per-turn response tokens to the training budget (the legacy
-                # bridge applies extra_env_kwargs via env.set_kwargs).
-                env.extra_env_kwargs["max_seq_len"] = self.seq_len
+        """Set train sampling defaults and legacy env sequence caps."""
+        if self.training_mode != "sft":
+            for env in self.train.env:
+                env.sampling.extra_body.setdefault("top_k", -1)
+                env.sampling.extra_body.setdefault("min_p", 0.0)
+                env.sampling.extra_body.setdefault("return_token_ids", True)
+                if env.is_legacy:
+                    # v0 env: cap per-turn response tokens to the training budget (the legacy
+                    # bridge applies extra_env_kwargs via env.set_kwargs).
+                    env.extra_env_kwargs["max_seq_len"] = self.seq_len
+        if self.eval is not None:
+            for env in self.eval.env:
+                if env.is_legacy:
+                    env.extra_env_kwargs["max_seq_len"] = self.seq_len
         return self

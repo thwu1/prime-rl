@@ -1,0 +1,13 @@
+output_dir = "/checkpoint/ram-h100-2/tianhaowu/rsci/harmonic-sft/base-op11-14-answer/runs/k16"
+
+[data]
+weight_column = "harmonic_weight_k16"
+
+[val.data]
+weight_column = "harmonic_weight_k16"
+
+[slurm]
+job_name = "rsci-harmonic-k16-op11-14"
+
+[wandb]
+name = "harmonic-base-op11-14-answer-k16"

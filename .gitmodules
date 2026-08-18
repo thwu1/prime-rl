@@ -1,12 +1,17 @@
 [submodule "verifiers"]
 	path = deps/verifiers
-	url = git@github.com:PrimeIntellect-ai/verifiers.git
+	url = https://github.com/thwu1/verifiers.git
+	branch = fix/legacy-routed-experts
 [submodule "renderers"]
 	path = deps/renderers
-	url = git@github.com:PrimeIntellect-ai/renderers.git
+	url = https://github.com/thwu1/renderers.git
 [submodule "research-environments"]
 	path = deps/research-environments
 	url = git@github.com:PrimeIntellect-ai/research-environments.git
 [submodule "pydantic-config"]
 	path = deps/pydantic-config
 	url = https://github.com/PrimeIntellect-ai/pydantic-config
+[submodule "sandoq-provider"]
+	path = deps/sandoq-provider
+	url = https://github.com/fairinternal/ram_prime_rl.git
+	branch = feat/sandoq-oci-grpo

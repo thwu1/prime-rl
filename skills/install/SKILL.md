@@ -29,6 +29,22 @@ uv sync --all-extras       # recommended: envs, flash-attn, flash-attn-cute, etc
 
 The `envs` extra installs environments listed under `[project.optional-dependencies].envs`, resolved through `[tool.uv.sources]`. Adding a new env means adding its package name to `envs` and its editable source path to `[tool.uv.sources]`.
 
+If the `flash-attn-4` source build times out in `setuptools-scm` while running
+`git describe`, retry with the locked version supplied explicitly (copy the
+version from the `flash-attn-4` package entry in `uv.lock`):
+
+```bash
+SETUPTOOLS_SCM_PRETEND_VERSION_FOR_FLASH_ATTN_4='<locked-version>' \
+  uv sync --all-extras --locked
+```
+
+SLURM templates normally repeat `uv sync --all-extras` on the compute node.
+For clusters without compute-node egress, finish the locked sync on the shared
+filesystem before submission and set `[slurm] sync_environment = false`. This
+skips dependency resolution in the allocation while still activating the
+shared `.venv`. The generated script exports `UV_NO_SYNC=1`, so nested
+`uv run` commands also avoid implicit synchronization.
+
 When bumping a package past the workspace-wide `exclude-newer = "7 days"` window, add it (and any newly-required transitives) to `[tool.uv.exclude-newer-package]` before refreshing `uv.lock`.
 
 ## Optional extras

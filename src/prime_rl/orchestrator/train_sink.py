@@ -14,8 +14,12 @@ save_rollouts, monitor.log, teacher logprobs) live on the orchestrator.
 from __future__ import annotations
 
 import asyncio
+import time
 import uuid
 from collections import defaultdict
+from typing import Any
+
+from verifiers.types import GROUP_ROLLOUT_SLOT_INFO_KEY
 
 from prime_rl.configs.orchestrator import OrchestratorConfig
 from prime_rl.orchestrator.advantage import assign_advantages
@@ -25,6 +29,8 @@ from prime_rl.orchestrator.trajectories import trace_to_samples
 from prime_rl.orchestrator.types import Rollout, TrainBatch, TrainBatchMetrics
 from prime_rl.transport import TrainingSample
 from prime_rl.utils.logger import get_logger
+
+_CONTEXT_LIMIT_STOP_CONDITIONS = frozenset({"context_length", "prompt_too_long", "max_input_tokens"})
 
 
 class TrainSink:
@@ -69,13 +75,72 @@ class TrainSink:
         self.pre_filter_dropped = 0
         self.pre_filter_dropped_by_name: dict[str, int] = {}
 
+        # Lifetime group-finalization accounting (logging only) so a
+        # slow/empty train batch is explainable instead of guessed at.
+        self.groups_finalized = 0
+        self.groups_dropped_all_failed = 0
+        self.groups_dropped_partial_scored = 0
+        self.context_limited_before_advantage_total = 0
+        self.survivors_appended = 0
+        self.completed_group_records: list[dict[str, Any]] = []
+        # First-arrival monotonic ts per pending group -> oldest stall.
+        self._group_started: dict[uuid.UUID, float] = {}
+
         # Per-env arrival / error counters since the last ship; reset in
         # ``process_batch``. Fuel for the per-env success log breakdown
         self.arrivals_by_env: dict[str, int] = defaultdict(int)
         self.errors_by_env: dict[str, int] = defaultdict(int)
+        # Sum of each ``infra_``-prefixed rollout metric over all arrivals (errored
+        # included), per env; reset in ``process_batch``. Lets the orchestrator emit
+        # per-class infra rates over the full population (dropped rollouts are filtered
+        # out of the survivor metric aggregation).
+        self.infra_sums_by_env: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(float))
 
     def group_size_for(self, env_name: str) -> int:
         return self.train_envs.get(env_name).config.group_size
+
+    def _record_group(
+        self,
+        group_id: uuid.UUID,
+        group: list[Rollout],
+        advantage_population: list[Rollout],
+        appended_to_batch: list[Rollout],
+    ) -> None:
+        if not self.config.save_train_group_stats:
+            return
+        advantage_ids = {id(rollout) for rollout in advantage_population}
+        appended_ids = {id(rollout) for rollout in appended_to_batch}
+        metric_names = sorted({name for rollout in group for name in rollout.metrics})
+        requires_group_scoring = self.train_envs.get(group[0].env_name).requires_group_scoring
+        self.completed_group_records.append(
+            {
+                "group_id": str(group_id),
+                "group_index": self.groups_finalized,
+                "env_name": group[0].env_name,
+                "task_idx": group[0].task.idx,
+                "sample_ids": [rollout.info.get("sample_id") for rollout in group],
+                "operations": [rollout.info.get("op") for rollout in group],
+                "target_size": self.group_size_for(group[0].env_name),
+                "received_size": len(group),
+                "advantage_population_size": len(advantage_population),
+                "trace_ids": [str(rollout.id) for rollout in group],
+                "rollout_slots": [rollout.info.get(GROUP_ROLLOUT_SLOT_INFO_KEY) for rollout in group],
+                "expected_rollout_slots": list(range(len(group))) if requires_group_scoring else None,
+                "rewards": [float(rollout.reward) for rollout in group],
+                "metrics": {name: [rollout.metrics.get(name) for rollout in group] for name in metric_names},
+                "errored": [rollout.has_error for rollout in group],
+                "stop_conditions": [rollout.stop_condition for rollout in group],
+                "policy_versions": [rollout.policy_version for rollout in group],
+                "off_policy_steps": [rollout.off_policy_steps for rollout in group],
+                "in_advantage_population": [id(rollout) in advantage_ids for rollout in group],
+                "appended_to_batch": [id(rollout) in appended_ids for rollout in group],
+            }
+        )
+
+    def drain_group_records(self) -> list[dict[str, Any]]:
+        records = self.completed_group_records
+        self.completed_group_records = []
+        return records
 
     def in_progress_groups(self) -> list[list[Rollout]]:
         """Per-rollout groups currently accumulating in ``pending_groups`` —
@@ -116,6 +181,42 @@ class TrainSink:
             counts[r.env_name] += 1
         return dict(counts)
 
+    def drop_summary(self) -> str:
+        """One-line group accounting (logging only)."""
+        return (
+            f"groups fin={self.groups_finalized} "
+            f"drop(all_failed={self.groups_dropped_all_failed}, "
+            f"partial_scored={self.groups_dropped_partial_scored}, "
+            f"ctx_limit_pre_adv={self.context_limited_before_advantage_total}, "
+            f"pre_filtered={self.pre_filter_dropped}) surv={self.survivors_appended}"
+        )
+
+    def partial_group_summary(self) -> str:
+        """Fill histogram + oldest-stall age for in-progress groups. A
+        batch that won't fill is almost always groups stuck a straggler
+        or two short — this makes that visible."""
+        from collections import Counter as _C
+
+        now = time.monotonic()
+        oldest = 0.0
+        miss: _C = _C()
+        n = 0
+        for gid, g in self.pending_groups.items():
+            if not g:
+                continue
+            n += 1
+            gs = self.group_size_for(g[0].env_name)
+            short = gs - len(g)
+            if short > 0:
+                miss[short] += 1
+            started = self._group_started.get(gid)
+            if started is not None:
+                oldest = max(oldest, now - started)
+        if n == 0:
+            return "partial=0"
+        dist = " ".join(f"-{k}:{v}" for k, v in sorted(miss.items()))
+        return f"partial={n} (missing {dist or 'none'}; oldest_stall={oldest:.0f}s)"
+
     async def add(self, rollout: Rollout) -> TrainBatch | None:
         """Process one arrival; finalize the group on the ``group_size``-th
         arrival; return a ``TrainBatch`` if the batch threshold is met."""
@@ -124,7 +225,14 @@ class TrainSink:
         self.arrivals_by_env[env_name] += 1
         if rollout.has_error:
             self.errors_by_env[env_name] += 1
+        # Accumulate infra_* metrics over EVERY arrival (before the survivors filter)
+        # so per-class infra rates can be emitted over the full population.
+        for k, v in rollout.metrics.items():
+            if k.startswith("infra_"):
+                self.infra_sums_by_env[env_name][k] += float(v)
         self.pending_groups[rollout.group_id].append(rollout)
+        if len(self.pending_groups[rollout.group_id]) == 1:
+            self._group_started[rollout.group_id] = time.monotonic()
         if len(self.pending_groups[rollout.group_id]) >= self.group_size_for(env_name):
             self.process_group(rollout.group_id)
         ready = (
@@ -151,33 +259,76 @@ class TrainSink:
         )
         rollout.samples = samples or []
 
+    def _is_context_limited(self, rollout: Rollout) -> bool:
+        if rollout.stop_condition in _CONTEXT_LIMIT_STOP_CONDITIONS:
+            return True
+        last = rollout._last_assistant()
+        usage = last.usage if last is not None else None
+        return usage is not None and usage.prompt_tokens + usage.completion_tokens >= self.config.seq_len
+
     def process_group(self, group_id: uuid.UUID) -> None:
         """Finalize one GRPO group: drop errored rollouts (the whole group
-        when ``requires_group_scoring`` and any failed), assign advantages,
-        run pre-batch filters, append survivors to ``pending_batch``."""
+        when ``requires_group_scoring`` and any failed), drop configured
+        pre-advantage context-limit rollouts, assign advantages, run
+        pre-batch filters, append survivors to ``pending_batch``."""
         group = self.pending_groups.pop(group_id, [])
         if not group:
             return
+        self._group_started.pop(group_id, None)
+        self.groups_finalized += 1
         env_name = group[0].env_name
         task_idx = group[0].task.idx
         survivors = [r for r in group if not r.has_error]
         num_errored = len(group) - len(survivors)
+        context_filtered = 0
+        if self.config.drop_context_limits_before_advantage:
+            context_filtered = sum(1 for r in group if self._is_context_limited(r))
+            self.context_limited_before_advantage_total += context_filtered
 
         # Group-scoring envs: any failure makes survivors' rewards unsafe
         # (computed relative to the missing ones)
         env = self.train_envs.get(env_name)
         if num_errored > 0 and env.requires_group_scoring:
+            self._record_group(group_id, group, [], [])
+            self.groups_dropped_partial_scored += 1
             get_logger().debug(
                 f"Finished group | env={env_name} task_idx={task_idx} | "
                 f"rollouts={len(group)} (errored={num_errored}) | dropped: group-scored partial"
             )
             return
         if not survivors:
+            self._record_group(group_id, group, [], [])
+            self.groups_dropped_all_failed += 1
             get_logger().debug(
                 f"Finished group | env={env_name} task_idx={task_idx} | "
                 f"rollouts={len(group)} (errored={num_errored}) | dropped: all failed"
             )
             return
+
+        if self.config.drop_context_limits_before_advantage:
+            kept: list[Rollout] = []
+            for r in survivors:
+                if self._is_context_limited(r):
+                    continue
+                kept.append(r)
+            if context_filtered and env.requires_group_scoring:
+                self._record_group(group_id, group, [], [])
+                self.groups_dropped_partial_scored += 1
+                get_logger().debug(
+                    f"Finished group | env={env_name} task_idx={task_idx} | "
+                    f"rollouts={len(group)} (errored={num_errored}, context_limited={context_filtered}) | "
+                    "dropped: group-scored context-limited"
+                )
+                return
+            survivors = kept
+            if not survivors:
+                self._record_group(group_id, group, [], [])
+                get_logger().debug(
+                    f"Finished group | env={env_name} task_idx={task_idx} | "
+                    f"rollouts={len(group)} (errored={num_errored}, context_limited={context_filtered}) | "
+                    "dropped: all context-limited before advantage"
+                )
+                return
 
         assign_advantages(survivors, env.advantage_fn)
 
@@ -214,6 +365,10 @@ class TrainSink:
             self.pending_batch.append(r)
             if self.token_batch_size is not None:
                 self.pending_tokens += r.total_tokens
+            self.survivors_appended += 1
+
+        appended_rollouts = [rollout for rollout in survivors if not rollout.is_filtered]
+        self._record_group(group_id, group, survivors, appended_rollouts)
 
         # Per-group summary. One line per finalized group; per-filter
         # detection breakdown lives at debug level in ``apply_filters``
@@ -222,7 +377,8 @@ class TrainSink:
         filter_str = ", ".join(f"{n}={c}" for n, c in filtered_by_name.items()) if filtered_by_name else "—"
         get_logger().debug(
             f"Finished group | env={env_name} task_idx={task_idx} | "
-            f"rollouts={len(group)} (errored={num_errored}, filtered={num_filtered}) | "
+            f"rollouts={len(group)} (errored={num_errored}, context_limited={context_filtered}, "
+            f"filtered={num_filtered}) | "
             f"reward={avg_reward:.4f} | filters: {filter_str}"
         )
 
@@ -287,9 +443,11 @@ class TrainSink:
             samples_shipped=len(samples),
             arrivals_by_env=dict(self.arrivals_by_env),
             errors_by_env=dict(self.errors_by_env),
+            infra_sums_by_env={e: dict(d) for e, d in self.infra_sums_by_env.items()},
         )
         self.arrivals_by_env.clear()
         self.errors_by_env.clear()
+        self.infra_sums_by_env.clear()
         return TrainBatch(rollouts=cohort, samples=samples, metrics=metrics)
 
     def reset_pre_filter_stats(self) -> None:

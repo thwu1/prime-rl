@@ -150,7 +150,11 @@ echo "MASTER_PORT=${MASTER_PORT}"
 cd $PROJECT_DIR
 [ -f .env ] && source .env
 source .venv/bin/activate
+{% if sync_environment %}
 uv sync --all-extras
+{% else %}
+export UV_NO_SYNC=1
+{% endif %}
 
 {% if pre_run_command %}
 # Pre-run command
@@ -213,6 +217,18 @@ srun --kill-on-bad-exit=1 bash -c '
     # Infiniband setup
     IB_HCA=$(ibv_devinfo | sed -n -e "/hca_id/p" -e "/link_layer:/p" | grep -B1 InfiniBand | grep hca_id | sed -e "s/^hca_id://g" | tr -d "[[:blank:]]" |paste -sd,)
     export NCCL_IB_HCA=$IB_HCA
+
+    # Disable NCCL RAS diagnostic thread: segfaults ~1.5h in (ras/peers.cc bsearch
+    # on peer-socket churn), killing trainer+inference mid-run -- which also corrupts
+    # the vLLM AOT compile cache on a mid-write kill. RAS is monitoring-only; safe.
+    export NCCL_RAS_ENABLE=0
+
+    # First-step torch.compile of the 35B MoE holds the GIL >480s, starving
+    # the NCCL heartbeat-monitor thread -> false "watchdog got stuck" SIGABRT
+    # on step 1 (dump showed 0 active collectives, enqueued==completed -> NOT a
+    # real hang). Give the one-time compile 1.5h of heartbeat headroom; monitoring
+    # stays ON so a genuine hang still aborts (just after 1.5h).
+    export TORCH_NCCL_HEARTBEAT_TIMEOUT_SEC=5400
 
 {% if num_infer_nodes > 0 -%}
 

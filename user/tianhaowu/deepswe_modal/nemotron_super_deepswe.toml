@@ -1,0 +1,24 @@
+name = "nemotron-super-deepswe-pass1-262k"
+provider = "modal"
+inference_job_id = 10693357
+model = "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16"
+tasks_path = "/checkpoint/ram/tianhaowu/deepswe_eval/deep-swe/tasks"
+n_attempts = 1
+n_concurrent = 32
+max_retries = 6
+sandbox_timeout_sec = 14400
+sandbox_startup_timeout_sec = 3600
+
+[mini_swe]
+step_limit = 200
+timeout_sec = 10800
+
+[sampling]
+max_tokens = 32768
+temperature = 1.0
+top_p = 0.95
+top_k = 20
+
+[thinking]
+enabled = true
+preserve_previous = true

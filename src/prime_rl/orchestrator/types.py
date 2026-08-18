@@ -102,6 +102,10 @@ class TrainBatchMetrics:
     samples_shipped: int
     arrivals_by_env: dict[str, int] = field(default_factory=dict)
     errors_by_env: dict[str, int] = field(default_factory=dict)
+    # Sum of each ``infra_``-prefixed rollout metric over ALL arrivals (errored
+    # included), per env. Lets MetricsBuilder emit per-class infra rates over the
+    # full population — survivor-only aggregation misses dropped rollouts.
+    infra_sums_by_env: dict[str, dict[str, float]] = field(default_factory=dict)
 
 
 @dataclass
@@ -122,6 +126,7 @@ class EvalBatchMetrics:
     n_rollouts: int
     n_cancelled: int
     n_errored: int
+    n_truncated: int = 0
     n_examples: int = 0
     group_size: int = 1
     reward_mean: float = 0.0
@@ -134,6 +139,9 @@ class EvalBatchMetrics:
     num_turns_min: float = 0.0
     num_turns_max: float = 0.0
     pass_at_k: dict[str, float] = field(default_factory=dict)
+    # Per-outcome counts over the whole batch (solved / tests_failed / context_truncated /
+    # max_turns / infra_error / …) so the eval epoch surfaces *why* rollouts failed.
+    failure_breakdown: dict[str, int] = field(default_factory=dict)
 
     def to_wandb_dict(self, *, env_name: str, step: int) -> dict[str, float]:
         prefix = f"eval/{env_name}"
@@ -141,7 +149,10 @@ class EvalBatchMetrics:
             "step": float(step),
             f"{prefix}/cancelled_count": float(self.n_cancelled),
             f"{prefix}/errored_count": float(self.n_errored),
+            f"{prefix}/truncated_count": float(self.n_truncated),
         }
+        for cat, n in self.failure_breakdown.items():
+            out[f"{prefix}/failures/{cat}"] = float(n)
         if self.n_examples > 0:
             out[f"{prefix}/avg@{self.group_size}"] = self.reward_mean
             out[f"{prefix}/completion_len/mean"] = self.completion_len_mean

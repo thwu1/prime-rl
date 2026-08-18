@@ -167,6 +167,22 @@ def test_removed_fused_lm_head_chunk_size_field_is_rejected():
         TrainerModelConfig.model_validate({"fused_lm_head_chunk_size": "auto"})
 
 
+def test_sft_chunked_loss_requires_chunk_size():
+    with pytest.raises(ValidationError, match="requires model.fused_lm_head_token_chunk_size"):
+        SFTConfig.model_validate({"loss_impl": "chunked"})
+
+
+def test_sft_chunked_loss_supports_example_weights():
+    config = SFTConfig.model_validate(
+        {
+            "loss_impl": "chunked",
+            "model": {"fused_lm_head_token_chunk_size": 8192},
+            "data": {"type": "sft", "weight_column": "sft_weight"},
+        }
+    )
+    assert config.model.fused_lm_head_token_chunk_size == 8192
+
+
 def test_trainer_enable_token_export_cli_flag():
     assert not cli(TrainerConfig, args=[]).enable_token_export
     assert cli(TrainerConfig, args=["--enable-token-export"]).enable_token_export

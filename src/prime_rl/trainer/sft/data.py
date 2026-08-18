@@ -1,11 +1,12 @@
 import json
+import math
 import uuid
 from collections import defaultdict
-from typing import Literal, TypedDict, cast
+from typing import Literal, NotRequired, TypedDict, cast
 
 import torch
 from datasets import Dataset, interleave_datasets, load_dataset
-from jaxtyping import Bool, Int
+from jaxtyping import Bool, Float, Int
 from renderers.base import Renderer, build_training_sample
 from torch import Tensor
 from torch.distributed.checkpoint.stateful import Stateful
@@ -32,6 +33,7 @@ class Sample(TypedDict):
     position_ids: list[int]
     loss_mask: list[bool]
     target_ids: list[int]
+    loss_weight: NotRequired[list[float]]
 
 
 class Batch(TypedDict):
@@ -39,6 +41,7 @@ class Batch(TypedDict):
     position_ids: Int[Tensor, "batch seq"]
     target_ids: Int[Tensor, "batch seq"]
     loss_mask: Bool[Tensor, "batch seq"]
+    loss_weight: NotRequired[Float[Tensor, "batch seq"]]
 
 
 class StatefulIterableDataset(Stateful, IterableDataset):
@@ -126,6 +129,7 @@ class SFTDataset(StatefulIterableDataset):
         seq_len: int = 128,
         non_dp_size: int = 1,
         loss_mask_config: LossMaskConfig = LossMaskConfig(),
+        weight_column: str | None = None,
         max_examples: int | None = None,
         max_epochs: int | None = None,
         renderer: Renderer | None = None,
@@ -139,6 +143,7 @@ class SFTDataset(StatefulIterableDataset):
         self.seed = seed
         self.seq_len = seq_len
         self.loss_mask_config = loss_mask_config
+        self.weight_column = weight_column
         self.max_examples = max_examples
         self.max_epochs = max_epochs
         self.renderer = renderer
@@ -289,12 +294,20 @@ class SFTDataset(StatefulIterableDataset):
         assert self.tokenizer.eos_token_id in target_ids, "EOS token ID must be present in target_ids"
 
         # Create sample (with one fake target for the last token)
-        return {
+        sample = {
             "input_ids": input_ids,
             "target_ids": target_ids,
             "loss_mask": loss_mask,
             "position_ids": list(range(len(input_ids))),
         }
+        if self.weight_column is not None:
+            if self.weight_column not in example:
+                raise ValueError(f"Example is missing configured weight column {self.weight_column!r}")
+            weight = float(example[self.weight_column])
+            if not math.isfinite(weight) or weight < 0:
+                raise ValueError(f"Example weight must be finite and nonnegative, got {weight}")
+            sample["loss_weight"] = [weight] * len(input_ids)
+        return sample
 
     def __iter__(self):
         """
@@ -486,17 +499,56 @@ class StackDataset(StatefulIterableDataset):
                     self.bucket_timers[bucket_idx] = self.step
 
 
+class FixedStackDataset(StatefulIterableDataset):
+    """Stack a fixed number of individually padded or truncated samples."""
+
+    def __init__(self, dataset: StatefulIterableDataset, seq_len: int, batch_size: int):
+        self.dataset = dataset
+        self.seq_len = seq_len
+        self.batch_size = batch_size
+
+    def state_dict(self) -> dict:
+        return {"dataset": self.dataset.state_dict()}
+
+    def load_state_dict(self, state_dict: dict):
+        self.dataset.load_state_dict(state_dict["dataset"])
+
+    def __iter__(self):
+        batch = []
+        expected_keys = None
+        for sample in self.dataset:
+            if expected_keys is None:
+                expected_keys = sample.keys()
+            assert sample.keys() == expected_keys, "All samples in a fixed stack must have the same fields"
+
+            sample_len = len(sample["input_ids"])
+            padded_sample = {}
+            for key, value in sample.items():
+                assert isinstance(value, list), f"Value for key {key} must be a list"
+                assert len(value) == sample_len, f"Value for key {key} must align with input_ids"
+                pad_value = False if key == "loss_mask" else 0.0 if key == "loss_weight" else 0
+                padded_sample[key] = value[: self.seq_len] + [pad_value] * max(self.seq_len - len(value), 0)
+            batch.append(padded_sample)
+
+            if len(batch) == self.batch_size:
+                yield {key: [sample[key] for sample in batch] for key in expected_keys}
+                batch = []
+
+
 def stack_collate(samples: list[Sample]) -> Batch:
-    return {
+    batch = {
         "input_ids": torch.tensor(samples[0]["input_ids"], dtype=torch.long, device="cuda"),
         "position_ids": torch.tensor(samples[0]["position_ids"], dtype=torch.long, device="cuda"),
         "loss_mask": torch.tensor(samples[0]["loss_mask"], dtype=torch.bool, device="cuda"),
         "target_ids": torch.tensor(samples[0]["target_ids"], dtype=torch.long, device="cuda"),
     }
+    if "loss_weight" in samples[0]:
+        batch["loss_weight"] = torch.tensor(samples[0]["loss_weight"], dtype=torch.float32, device="cuda")
+    return cast(Batch, batch)
 
 
 def cat_collate(samples: list[Sample]) -> Batch:
-    return {
+    batch = {
         "input_ids": torch.stack([torch.tensor(sample["input_ids"]) for sample in samples], dim=0).long().to("cuda"),
         "position_ids": torch.stack([torch.tensor(sample["position_ids"]) for sample in samples], dim=0)
         .long()
@@ -504,6 +556,11 @@ def cat_collate(samples: list[Sample]) -> Batch:
         "loss_mask": torch.stack([torch.tensor(sample["loss_mask"]) for sample in samples], dim=0).bool().to("cuda"),
         "target_ids": torch.stack([torch.tensor(sample["target_ids"]) for sample in samples], dim=0).long().to("cuda"),
     }
+    if "loss_weight" in samples[0]:
+        batch["loss_weight"] = torch.stack(
+            [torch.tensor(sample["loss_weight"], dtype=torch.float32) for sample in samples], dim=0
+        ).to("cuda")
+    return cast(Batch, batch)
 
 
 def setup_and_interleave_datasets(
@@ -597,6 +654,7 @@ def setup_dataset(
             seed=config.seed,
             seq_len=config.seq_len,
             loss_mask_config=config.loss_mask,
+            weight_column=config.weight_column,
             non_dp_size=non_dp_size,
             max_epochs=max_epochs,
             renderer=renderer,
@@ -608,6 +666,9 @@ def setup_dataset(
 def setup_dataloader(dataset: StatefulIterableDataset, config: DataConfig) -> StatefulDataLoader:
     if config.pack_function == "stack":
         stacking_dataset = StackDataset(dataset, config.seq_len * config.micro_batch_size)
+        return StatefulDataLoader(stacking_dataset, batch_size=1, collate_fn=stack_collate)
+    elif config.pack_function == "fixed_stack":
+        stacking_dataset = FixedStackDataset(dataset, config.seq_len, config.micro_batch_size)
         return StatefulDataLoader(stacking_dataset, batch_size=1, collate_fn=stack_collate)
     elif config.pack_function == "cat":
         packing_dataset = CatDataset(dataset, config.seq_len * config.micro_batch_size)
