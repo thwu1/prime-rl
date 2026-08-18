@@ -126,9 +126,12 @@ of silently producing an empty patch.
 A diagnostic `step_limit` may make MiniSWE return nonzero after saving its
 trajectory. Capped diagnostics select MiniSWE's non-interactive default agent so
 the limit produces an authoritative `LimitsExceeded` exit instead of asking for
-a new limit on stdin. The adapter accepts only `Submitted` or
-`LimitsExceeded`, records the latter in `agent/submission-exit.txt`, then commits
-and verifies the accumulated solution. Every other exit still fails the trial.
+a new limit on stdin. The adapter accepts `Submitted`, `LimitsExceeded`, or an
+explicit native context-window exhaustion. It records either limit in
+`agent/submission-exit.txt`, then commits and verifies the accumulated solution.
+Every other exit still fails the trial. Context-window 400s are listed in the
+thinking audit as `context_limit_events`; the audit renders the last successful
+request and still fails on every unrelated HTTP or reasoning-history error.
 
 The MiniSWE instance template uses fixed `Linux x86_64` system information.
 Provider-specific kernel strings otherwise change the prompt before the first

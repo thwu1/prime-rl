@@ -66,6 +66,16 @@ def task_key(messages: list[dict[str, Any]]) -> str:
     return hashlib.sha256(json.dumps(prompt, sort_keys=True).encode()).hexdigest()[:16]
 
 
+def is_context_window_exhaustion(summary: dict[str, Any]) -> bool:
+    error = summary.get("error")
+    return (
+        summary.get("http_status") == 400
+        and isinstance(error, dict)
+        and error.get("param") == "input_tokens"
+        and "exceeds the model's maximum context length" in str(error.get("message", ""))
+    )
+
+
 class CaptureServer(ThreadingHTTPServer):
     daemon_threads = True
     request_queue_size = 128
@@ -134,14 +144,10 @@ class CaptureServer(ThreadingHTTPServer):
             attempt = state["attempt"]
             per_attempt_request = state["attempt_requests"]
 
-            target = self.latest_dir / f"{key}.json"
-            temporary = target.with_suffix(f".{threading.get_ident()}.tmp")
-            temporary.write_text(json.dumps(payload))
-            os.replace(temporary, target)
-
         template_kwargs = payload.get("chat_template_kwargs")
         router_correlation_id = f"deepswe-{key}"
         return {
+            "_payload": payload,
             "request_id": request_id,
             "task_key": key,
             "attempt": attempt,
@@ -166,19 +172,20 @@ class CaptureServer(ThreadingHTTPServer):
         status: int,
         body: bytes,
     ) -> None:
+        request_payload = summary.pop("_payload")
         summary["finished_at"] = time.time()
         summary["http_status"] = status
         try:
-            payload = json.loads(body)
+            response_payload = json.loads(body)
         except (json.JSONDecodeError, UnicodeDecodeError):
-            payload = None
-        if isinstance(payload, dict):
-            usage = payload.get("usage")
+            response_payload = None
+        if isinstance(response_payload, dict):
+            usage = response_payload.get("usage")
             if isinstance(usage, dict):
                 summary["usage"] = {
                     key: usage.get(key) for key in ("prompt_tokens", "completion_tokens", "total_tokens")
                 }
-            choices = payload.get("choices")
+            choices = response_payload.get("choices")
             if isinstance(choices, list) and choices and isinstance(choices[0], dict):
                 summary["finish_reason"] = choices[0].get("finish_reason")
                 message = choices[0].get("message")
@@ -187,10 +194,15 @@ class CaptureServer(ThreadingHTTPServer):
                     if reasoning is not None:
                         summary["response_reasoning_chars"] = len(reasoning)
                         summary["response_reasoning_sha256"] = hashlib.sha256(reasoning.encode()).hexdigest()
-            error = payload.get("error")
+            error = response_payload.get("error")
             if error is not None:
                 summary["error"] = error
         with self.lock:
+            if status == 200:
+                target = self.latest_dir / f"{summary['task_key']}.json"
+                temporary = target.with_suffix(f".{threading.get_ident()}.tmp")
+                temporary.write_text(json.dumps(request_payload))
+                os.replace(temporary, target)
             with self.summary_path.open("a") as file:
                 file.write(json.dumps(summary, sort_keys=True) + "\n")
 
@@ -317,11 +329,24 @@ def audit_captured_requests(
         or item.get("assistant_canonical_reasoning_count") != item.get("assistant_reasoning_count")
         or item.get("previous_reasoning_prefix_preserved") is not True
         or item.get("chat_template_kwargs") != {"enable_thinking": True, "truncate_history_thinking": False}
-        or item.get("http_status") != 200
+        or (item.get("http_status") != 200 and not is_context_window_exhaustion(item))
+    ]
+    context_limit_events = [
+        {
+            "request_id": item.get("request_id"),
+            "task_key": item.get("task_key"),
+            "attempt": item.get("attempt", 1),
+            "message_count": item.get("message_count"),
+            "error": item.get("error"),
+        }
+        for item in summaries
+        if is_context_window_exhaustion(item)
     ]
 
     latest_summaries: dict[str, dict[str, Any]] = {}
     for item in summaries:
+        if item.get("http_status") != 200:
+            continue
         key = item.get("task_key")
         if not isinstance(key, str):
             continue
@@ -375,6 +400,7 @@ def audit_captured_requests(
             key: max(int(item.get("attempt", 1)) for item in summaries if item.get("task_key") == key)
             for key in task_keys
         },
+        "context_limit_events": context_limit_events,
         "request_failures": request_failures,
         "rendered_latest_requests": rendered,
     }

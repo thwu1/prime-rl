@@ -124,6 +124,12 @@ next turn once the preserved prompt reaches 102145 tokens, causing mini-swe to
 exit nonzero and the trial to score zero even when P2P is otherwise perfect.
 The 100-step parity diagnostic may use less context, but do not treat a 102144
 full eval as valid merely because the thinking preflight passes.
+At the native boundary, the next preserved prompt may itself render above
+262144. The agent adapter accepts only the explicit context-window error as a
+terminal limit, records `accepted_exit_status=ContextWindowExceeded`, and
+commits the current patch. The capture audit records those 400 responses under
+`context_limit_events` and renders the last successful request; it still fails
+on every other HTTP error or any missing/reordered reasoning.
 
 ## Oracle gate
 

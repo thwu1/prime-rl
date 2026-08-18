@@ -14,6 +14,12 @@ if grep -Eq '"exit_status"[[:space:]]*:[[:space:]]*"LimitsExceeded"' "$trajector
         | tee /logs/agent/submission-exit.txt
     exit 0
 fi
+if grep -Eq '"exit_status"[[:space:]]*:[[:space:]]*"(BadRequestError|ContextWindowExceededError)"' "$trajectory" && \
+   grep -Fq "exceeds the model's maximum context length" "$trajectory"; then
+    printf 'accepted_exit_status=ContextWindowExceeded\n' \
+        | tee /logs/agent/submission-exit.txt
+    exit 0
+fi
 echo 'mini-swe-agent did not submit or stop at the configured limit' >&2
 exit 1
 """.strip()
