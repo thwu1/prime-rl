@@ -114,7 +114,7 @@ def build_configs(
         raise FileNotFoundError(f"DeepSWE tasks directory does not exist: {tasks_path}")
 
     n_attempts = positive_int(source.get("n_attempts", 1), "n_attempts")
-    n_concurrent = positive_int(source.get("n_concurrent", 16), "n_concurrent")
+    n_concurrent = positive_int(source.get("n_concurrent", 32), "n_concurrent")
     max_retries = positive_int(source.get("max_retries", 1), "max_retries")
 
     provider = provider_override or source.get("provider", "modal")

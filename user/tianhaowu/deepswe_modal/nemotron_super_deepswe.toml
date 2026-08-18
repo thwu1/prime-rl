@@ -4,7 +4,7 @@ inference_job_id = 10693357
 model = "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16"
 tasks_path = "/checkpoint/ram/tianhaowu/deepswe_eval/deep-swe/tasks"
 n_attempts = 1
-n_concurrent = 16
+n_concurrent = 32
 
 [sampling]
 max_tokens = 32768

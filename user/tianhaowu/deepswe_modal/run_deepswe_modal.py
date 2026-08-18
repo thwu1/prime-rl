@@ -24,9 +24,7 @@ THINKING_VERIFIER = PROJECT_DIR / "user/tianhaowu/deepswe_modal/verify_mini_swe_
 DRIVER_ROOT = Path("/checkpoint/ram/tianhaowu/deepswe_eval/driver")
 DEFAULT_MODEL_NAME = "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16"
 GATEWAY_INTERNAL_URL = "http://fair-sc-3-ingress-slurm-ingress"
-GATEWAY_PUBLIC_URL = (
-    "https://ram-inference-gateway.ingress.fair-sc-3.metahpc.aws.metafb.cloud"
-)
+GATEWAY_PUBLIC_URL = "https://ram-inference-gateway.ingress.fair-sc-3.metahpc.aws.metafb.cloud"
 GATEWAY_HOST_HEADER = "ram-inference-gateway.ingress."
 GATEWAY_REGISTER_TOKEN = os.environ.get(
     "GATEWAY_REGISTER_TOKEN",
@@ -237,7 +235,11 @@ def run_pier(
     api_key: str,
     provider: str,
 ) -> Path:
-    with provider_environment_context(provider) as env:
+    config_data = json.loads(config.read_text())
+    n_concurrent = config_data.get("n_concurrent_trials")
+    if not isinstance(n_concurrent, int) or isinstance(n_concurrent, bool) or n_concurrent <= 0:
+        raise ValueError("Pier config n_concurrent_trials must be a positive integer")
+    with provider_environment_context(provider, n_concurrent=n_concurrent) as env:
         env.update(
             {
                 "OPENAI_API_KEY": api_key,
@@ -349,13 +351,9 @@ def main() -> None:
         )
         registered_models = {item["id"] for item in gateway_models.get("data", [])}
         if args.gateway_model_name not in registered_models:
-            raise RuntimeError(
-                "RAM inference gateway did not list "
-                f"{args.gateway_model_name}: {registered_models}"
-            )
+            raise RuntimeError(f"RAM inference gateway did not list {args.gateway_model_name}: {registered_models}")
         print(
-            f"RAM inference gateway route ready for {args.gateway_model_name} "
-            f"via {socket.gethostname()}:{local_port}",
+            f"RAM inference gateway route ready for {args.gateway_model_name} via {socket.gethostname()}:{local_port}",
             flush=True,
         )
         local_url = f"http://127.0.0.1:{local_port}"

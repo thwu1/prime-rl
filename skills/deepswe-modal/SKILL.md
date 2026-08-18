@@ -34,6 +34,11 @@ These remote runtimes are ephemeral: Pier's temporary `delete=False` during
 separate-verifier mode does not retain them, because their task images are
 registry-backed and keeping every completed agent sandbox would exhaust provider
 capacity.
+
+The checked-in full-eval config uses 32 concurrent trials. The oracle launcher
+defaults to 64. Both launchers propagate that requested concurrency to
+`VACLI_MAX_CONCURRENT_LEASES` or `OCI_RUNNER_POOL_SIZE`, so the runtime pool does
+not silently retain its smaller standalone-smoke default.
 The runtime adapter stages the CPU evaluator's local `uv` binary before
 installing MiniSWE. Do not restore the per-sandbox Astral/GitHub installer; the
 shared provider egress can return HTTP 429 under even small concurrent runs.
@@ -168,7 +173,7 @@ on every other HTTP error or any missing/reordered reasoning.
 Run all reference solutions before the full eval:
 
 ```bash
-sbatch user/tianhaowu/deepswe_modal/submit_oracle.sbatch vmvm --n-concurrent 8
+sbatch user/tianhaowu/deepswe_modal/submit_oracle.sbatch vmvm --n-concurrent 64
 ```
 
 `validate_oracle.py` supports

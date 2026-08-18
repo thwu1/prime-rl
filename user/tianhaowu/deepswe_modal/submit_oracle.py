@@ -17,7 +17,7 @@ VALIDATOR = PROJECT_DIR / "user/tianhaowu/deepswe_modal/validate_oracle.py"
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--provider", choices=sorted(PROVIDERS), required=True)
-    parser.add_argument("--n-concurrent", type=int, default=16)
+    parser.add_argument("--n-concurrent", type=int, default=64)
     parser.add_argument("--n-tasks", type=int)
     parser.add_argument("--sample-seed", type=int, default=0)
     parser.add_argument("--task-name", action="append", default=[])
@@ -58,17 +58,20 @@ def main() -> None:
     CONFIGS.mkdir(parents=True, exist_ok=True)
     config_path = CONFIGS / f"{job_name}.json"
     config_path.write_text(json.dumps(config, indent=2))
-    with provider_environment_context(args.provider) as env:
+    with provider_environment_context(
+        args.provider,
+        n_concurrent=args.n_concurrent,
+    ) as env:
         result_path = run_pier_job(config_path, job_name, env=env)
     validator_command = [
-            "uv",
-            "run",
-            "--no-sync",
-            "python",
-            str(VALIDATOR),
-            str(result_path),
-            str(TASKS),
-        ]
+        "uv",
+        "run",
+        "--no-sync",
+        "python",
+        str(VALIDATOR),
+        str(result_path),
+        str(TASKS),
+    ]
     if args.n_tasks is not None:
         validator_command.extend(["--expected-count", str(args.n_tasks)])
     subprocess.run(

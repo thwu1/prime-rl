@@ -8,9 +8,7 @@ from pathlib import Path
 from sandoq_proxy import DirectConnectProxy
 
 PROJECT_DIR = Path("/storage/home/tianhaowu/prime-rl")
-SANDOQ_CLIENT_SITE = Path(
-    "/checkpoint/ram/tianhaowu/deepswe_eval/sandoq-client-site"
-)
+SANDOQ_CLIENT_SITE = Path("/checkpoint/ram/tianhaowu/deepswe_eval/sandoq-client-site")
 PROXY_ENV_KEYS = (
     "HTTP_PROXY",
     "HTTPS_PROXY",
@@ -24,9 +22,14 @@ PROXY_ENV_KEYS = (
 def provider_environment(
     provider: str,
     base: dict[str, str] | None = None,
+    n_concurrent: int | None = None,
 ) -> dict[str, str]:
     if provider not in {"modal", "vmvm", "sandoq"}:
         raise ValueError(f"unsupported sandbox provider: {provider}")
+    if n_concurrent is not None and (
+        not isinstance(n_concurrent, int) or isinstance(n_concurrent, bool) or n_concurrent <= 0
+    ):
+        raise ValueError("n_concurrent must be positive")
     env = dict(base or os.environ)
     provider_paths = [
         str(PROJECT_DIR),
@@ -43,7 +46,10 @@ def provider_environment(
 
     if provider == "vmvm":
         env.setdefault("VACLI_LEASE_RETRIES", "20")
-        env.setdefault("VACLI_MAX_CONCURRENT_LEASES", "16")
+        if n_concurrent is None:
+            env.setdefault("VACLI_MAX_CONCURRENT_LEASES", "16")
+        else:
+            env["VACLI_MAX_CONCURRENT_LEASES"] = str(n_concurrent)
         env.setdefault("VACLI_MAX_PULL_RETRIES", "20")
         env.setdefault("VACLI_IMAGE_PULL_TIMEOUT_SECONDS", "1200")
     elif provider == "sandoq":
@@ -51,8 +57,7 @@ def provider_environment(
             env.pop(key, None)
         if not SANDOQ_CLIENT_SITE.is_dir():
             raise RuntimeError(
-                f"Sandoq client site is missing: {SANDOQ_CLIENT_SITE}; "
-                "run setup_sandoq_client.sbatch first"
+                f"Sandoq client site is missing: {SANDOQ_CLIENT_SITE}; run setup_sandoq_client.sbatch first"
             )
         env.setdefault("OCI_RUNNER_OBSERVABILITY", "1")
         env.setdefault(
@@ -66,7 +71,10 @@ def provider_environment(
             "/home/tianhaowu/.config/oci-runner/token",
         )
         env.setdefault("OCI_RUNNER_SESSION_REUSE", "1")
-        env.setdefault("OCI_RUNNER_POOL_SIZE", "16")
+        if n_concurrent is None:
+            env.setdefault("OCI_RUNNER_POOL_SIZE", "16")
+        else:
+            env["OCI_RUNNER_POOL_SIZE"] = str(n_concurrent)
         env.setdefault("OCI_RUNNER_POOL_MIN_SIZE", "0")
     return env
 
@@ -75,8 +83,9 @@ def provider_environment(
 def provider_environment_context(
     provider: str,
     base: dict[str, str] | None = None,
+    n_concurrent: int | None = None,
 ) -> Iterator[dict[str, str]]:
-    env = provider_environment(provider, base)
+    env = provider_environment(provider, base, n_concurrent)
     if provider != "sandoq":
         yield env
         return
