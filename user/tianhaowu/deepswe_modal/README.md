@@ -16,6 +16,9 @@ provision, foreground/background execution, binary reads and writes, host
 inference reachability, and cleanup. Pier's adapter also materializes the
 DeepSWE verifier Dockerfiles (`FROM`, file `COPY`, and `RUN`) inside a separate
 runtime, keeping hidden tests out of the agent sandbox.
+For VMVM and Sandoq, the adapter stages the CPU evaluator's local `uv` binary
+before installing MiniSWE. This avoids a GitHub release download in every
+ephemeral sandbox and the resulting shared-egress HTTP 429 failures.
 
 The CPU driver publishes the private inference router through a temporary,
 authenticated Modal relay. Modal is therefore required for the relay even when
@@ -101,6 +104,12 @@ after the agent exits. It records the before/after revisions and final clean
 status in `agent/submission-commit.txt`; a dirty worktree fails the trial instead
 of silently producing an empty patch.
 
+A diagnostic `step_limit` may make MiniSWE return nonzero after saving its
+trajectory. The adapter accepts that exit only when the saved trajectory
+explicitly reports `LimitsExceeded`, records it in `agent/submission-exit.txt`,
+then commits and verifies the accumulated solution. Every other nonzero exit
+still fails the trial.
+
 The MiniSWE instance template uses fixed `Linux x86_64` system information.
 Provider-specific kernel strings otherwise change the prompt before the first
 model turn and invalidate fixed-seed Modal/VMVM/Sandoq trajectory comparisons.
@@ -184,9 +193,10 @@ sbatch user/tianhaowu/deepswe_modal/submit_eval.sbatch \
 The comparator rejects mismatched agent/model sampling configs before comparing
 commands. This diagnostic config also applies the same 100-step mini-swe cap on
 every provider; the score configs remain governed only by each task's 90-minute
-agent timeout. The fixed seed keeps model sampling deterministic; subsequent
-trajectory divergence therefore exposes differing command results or sandbox
-state instead of unrelated sampling noise.
+agent timeout. The fixed seed reduces sampling variance, but vLLM may still
+produce harmless byte-level differences such as a trailing newline or a
+generated tool-call ID. Compare sandbox behavior rather than requiring the raw
+completions to be byte-identical.
 
 Compare completed jobs by task name:
 
@@ -200,11 +210,11 @@ uv run --no-sync python \
 ```
 
 The report checks task checksum and prompt equality, provider exceptions,
-reasoning coverage and exact per-turn reasoning hashes, reward and patch hashes,
-aligned command return codes and outputs, command-sequence similarity, timings,
-and agent-issued network commands. With the fixed request seed, exact reasoning
-and command-sequence equality is the strongest parity signal; any divergence is
-reported alongside the first differing sandbox outcomes and verifier behavior.
+reasoning coverage, normalized and exact per-turn reasoning hashes, reward and
+patch hashes, aligned command return codes and outputs, command-sequence
+similarity, timings, and agent-issued network commands. Prompt/config identity,
+complete reasoning, command outcomes, and verifier behavior are the parity
+signals. Exact reasoning hashes remain diagnostic for byte-level drift.
 
 VMVM and Sandoq keep provider networking enabled so the in-sandbox agent can
 reach the authenticated model relay. Non-agent verifier commands explicitly

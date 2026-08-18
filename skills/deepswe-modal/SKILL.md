@@ -34,6 +34,9 @@ These remote runtimes are ephemeral: Pier's temporary `delete=False` during
 separate-verifier mode does not retain them, because their task images are
 registry-backed and keeping every completed agent sandbox would exhaust provider
 capacity.
+The runtime adapter stages the CPU evaluator's local `uv` binary before
+installing MiniSWE. Do not restore the per-sandbox Astral/GitHub installer; the
+shared provider egress can return HTTP 429 under even small concurrent runs.
 
 The sbatch template requests `partition=cpu`, renders a Pier JSON config, and
 runs `run_deepswe_modal.py`. Pier is invoked offline because compute-node PyPI
@@ -79,6 +82,9 @@ marker only exits the agent. The Pier agent adapter stages any remaining changes
 creates a no-hook submission commit, and requires a clean worktree before the
 verifier runs. Inspect `agent/submission-commit.txt`; do not treat a staged-only
 working tree as a submitted solution.
+For capped diagnostics, a nonzero MiniSWE exit is accepted only when the saved
+trajectory explicitly reports `LimitsExceeded`; the adapter records that gate in
+`agent/submission-exit.txt` before committing. Other nonzero exits still fail.
 
 Use the checked-in provider-neutral MiniSWE instance template. The upstream
 template embeds each sandbox's kernel string, making the Modal and VMVM prompts
@@ -123,8 +129,11 @@ full TOML submission.
 Launch every backend from `nemotron_super_deepswe_parity.toml`. It selects the
 same task, sets a fixed request seed, and applies the same 100-step diagnostic
 cap; do not compare independently sampled temperature-1 runs as evidence of
-sandbox parity. The score TOMLs intentionally keep mini-swe's unlimited step
-setting and rely on the task's 90-minute agent timeout.
+sandbox parity. A fixed seed reduces variance but does not guarantee
+byte-identical vLLM output; use prompt/config identity, normalized reasoning,
+commands and outcomes, rewards, and patches as behavior signals. Treat exact
+reasoning hashes as a diagnostic. The score TOMLs intentionally keep mini-swe's
+unlimited step setting and rely on the task's 90-minute agent timeout.
 
 After matched jobs finish, compare their ATIF trajectories:
 
@@ -135,6 +144,6 @@ uv run --no-sync python user/tianhaowu/deepswe_modal/compare_provider_trajectori
 ```
 
 The report first checks the normalized agent/model sampling config, then checks
-prompt/task identity, exceptions, reasoning coverage and exact per-turn
-reasoning hashes, rewards, patches, aligned command outcomes, timings, and
-agent-issued network commands.
+prompt/task identity, exceptions, reasoning coverage, normalized and exact
+per-turn reasoning hashes, rewards, patches, aligned command outcomes, timings,
+and agent-issued network commands.

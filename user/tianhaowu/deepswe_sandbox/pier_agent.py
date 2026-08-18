@@ -1,6 +1,15 @@
+from pier.agents.installed.base import NonZeroAgentExitCodeError
 from pier.agents.installed.mini_swe_agent import MiniSweAgent
 from pier.environments.base import BaseEnvironment
 from pier.models.agent.context import AgentContext
+
+_ACCEPT_STEP_LIMIT_COMMAND = """
+trajectory=/logs/agent/mini-swe-agent.trajectory.json
+test -s "$trajectory" &&
+grep -Eq '"exit_status"[[:space:]]*:[[:space:]]*"LimitsExceeded"' "$trajectory" &&
+printf 'accepted_exit_status=LimitsExceeded\n' \
+    | tee /logs/agent/submission-exit.txt
+""".strip()
 
 _SUBMISSION_COMMAND = """
 before=$(git rev-parse HEAD)
@@ -30,7 +39,13 @@ class DeepSweMiniSweAgent(MiniSweAgent):
         environment: BaseEnvironment,
         context: AgentContext,
     ) -> None:
-        await super().run(instruction, environment, context)
+        try:
+            await super().run(instruction, environment, context)
+        except NonZeroAgentExitCodeError:
+            await self.exec_as_agent(
+                environment,
+                command=_ACCEPT_STEP_LIMIT_COMMAND,
+            )
         await self.exec_as_agent(
             environment,
             command=_SUBMISSION_COMMAND,

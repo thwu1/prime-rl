@@ -99,6 +99,10 @@ def normalize_command(command: str) -> str:
     return " ".join(command.split())
 
 
+def normalize_reasoning(reasoning: str) -> str:
+    return "\n".join(line.rstrip() for line in reasoning.strip().splitlines())
+
+
 def observation_result(step: dict[str, Any]) -> tuple[int | None, str | None]:
     observation = step.get("observation")
     if not isinstance(observation, dict):
@@ -134,6 +138,7 @@ def trajectory_summary(path: Path) -> dict[str, Any]:
     reasoning_chars = 0
     reasoning_steps = 0
     reasoning_step_sha256: list[str | None] = []
+    reasoning_step_normalized_sha256: list[str | None] = []
     agent_steps = 0
     missing_reasoning_steps: list[int] = []
     tool_names: set[str] = set()
@@ -154,8 +159,13 @@ def trajectory_summary(path: Path) -> dict[str, Any]:
             reasoning_step_sha256.append(
                 hashlib.sha256(reasoning.encode()).hexdigest()
             )
+            normalized_reasoning = normalize_reasoning(reasoning)
+            reasoning_step_normalized_sha256.append(
+                hashlib.sha256(normalized_reasoning.encode()).hexdigest()
+            )
         else:
             reasoning_step_sha256.append(None)
+            reasoning_step_normalized_sha256.append(None)
             step_id = step.get("step_id")
             if isinstance(step_id, int):
                 missing_reasoning_steps.append(step_id)
@@ -197,8 +207,12 @@ def trajectory_summary(path: Path) -> dict[str, Any]:
         "reasoning_steps": reasoning_steps,
         "reasoning_chars": reasoning_chars,
         "reasoning_step_sha256": reasoning_step_sha256,
+        "reasoning_step_normalized_sha256": reasoning_step_normalized_sha256,
         "reasoning_sha256": hashlib.sha256(
             json.dumps(reasoning_step_sha256).encode()
+        ).hexdigest(),
+        "reasoning_normalized_sha256": hashlib.sha256(
+            json.dumps(reasoning_step_normalized_sha256).encode()
         ).hexdigest(),
         "missing_reasoning_steps": missing_reasoning_steps,
         "reasoning_coverage": reasoning_steps / agent_steps if agent_steps else 0.0,
@@ -347,10 +361,16 @@ def compare_trials(
             baseline_trajectory["prompt_sha256"]
             == candidate_trajectory["prompt_sha256"]
         )
-        reasoning = aligned_reasoning_steps(
-            baseline_trajectory["reasoning_step_sha256"],
-            candidate_trajectory["reasoning_step_sha256"],
-        )
+        reasoning = {
+            "normalized": aligned_reasoning_steps(
+                baseline_trajectory["reasoning_step_normalized_sha256"],
+                candidate_trajectory["reasoning_step_normalized_sha256"],
+            ),
+            "exact": aligned_reasoning_steps(
+                baseline_trajectory["reasoning_step_sha256"],
+                candidate_trajectory["reasoning_step_sha256"],
+            ),
+        }
     gates = {
         "same_task_checksum": baseline["task_checksum"] == candidate["task_checksum"],
         "same_agent_config": (

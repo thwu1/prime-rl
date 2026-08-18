@@ -1,15 +1,20 @@
 """Pier environment adapter for Verifiers v1 sandbox runtimes."""
 
 import asyncio
+import io
+import re
 import shlex
+import shutil
 import tarfile
 import tempfile
 import uuid
+from functools import cache
 from pathlib import Path, PurePosixPath
 from typing import Any, Literal
 
 from pier.environments.base import BaseEnvironment, ExecResult
 from pier.environments.capabilities import EnvironmentCapabilities
+from pier.models.agent.install import InstallStep
 from verifiers.v1.runtimes import (
     ModalConfig,
     SandoqConfig,
@@ -29,6 +34,33 @@ _PROXY_ENV_KEYS = (
     "NO_PROXY",
     "no_proxy",
 )
+_UV_INSTALLER = re.compile(
+    r"^curl -LsSf https://astral\.sh/uv/[^/]+/install\.sh \| sh$",
+    re.MULTILINE,
+)
+_STAGED_UV_ARCHIVE = "/tmp/pier-host-uv.tgz"
+_STAGED_UV_PATH = "/opt/pier-tools/uv"
+_USE_STAGED_UV = f"""
+mkdir -p "$HOME/.local/bin"
+ln -sf {_STAGED_UV_PATH} "$HOME/.local/bin/uv"
+ln -sf {_STAGED_UV_PATH} "$HOME/.local/bin/uvx"
+printf '%s\n' 'export PATH="$HOME/.local/bin:$PATH"' > "$HOME/.local/bin/env"
+""".strip()
+
+
+@cache
+def _host_uv_archive() -> bytes | None:
+    uv = shutil.which("uv")
+    if uv is None:
+        return None
+    data = Path(uv).resolve().read_bytes()
+    buffer = io.BytesIO()
+    with tarfile.open(fileobj=buffer, mode="w:gz") as archive:
+        member = tarfile.TarInfo("uv")
+        member.mode = 0o755
+        member.size = len(data)
+        archive.addfile(member, io.BytesIO(data))
+    return buffer.getvalue()
 
 
 class PierRuntimeEnvironment(BaseEnvironment):
@@ -210,10 +242,14 @@ class PierRuntimeEnvironment(BaseEnvironment):
         install = self.agent_install_spec
         if install is None:
             return
+        use_staged_uv = await self._stage_host_uv(install.steps)
         for step in install.steps:
             user = "root" if step.user == "root" else self.default_user
+            command = step.run
+            if use_staged_uv:
+                command = _UV_INSTALLER.sub(_USE_STAGED_UV, command, count=1)
             result = await self.exec(
-                step.run,
+                command,
                 env={**(step.env or {}), _AGENT_NETWORK_MARKER: "1"},
                 timeout_sec=int(self.task_env_config.build_timeout_sec),
                 user=user,
@@ -235,6 +271,34 @@ class PierRuntimeEnvironment(BaseEnvironment):
                     "agent installation verification failed: "
                     + (result.stderr or result.stdout or "no output")[-2000:]
                 )
+
+    async def _stage_host_uv(self, steps: list[InstallStep]) -> bool:
+        if not any(_UV_INSTALLER.search(step.run) for step in steps):
+            return False
+        archive = await asyncio.to_thread(_host_uv_archive)
+        if archive is None:
+            return False
+        await self.runtime.write(_STAGED_UV_ARCHIVE, archive)
+        result = await self.runtime.run(
+            [
+                "sh",
+                "-c",
+                "mkdir -p /opt/pier-tools && "
+                f"tar -xzf {_STAGED_UV_ARCHIVE} -C /opt/pier-tools && "
+                f"rm -f {_STAGED_UV_ARCHIVE} && "
+                f"{_STAGED_UV_PATH} --version",
+            ],
+            {},
+        )
+        if result.exit_code != 0:
+            detail = result.stderr or result.stdout or "no output"
+            raise RuntimeError(f"failed to stage host uv: {detail[-2000:]}")
+        self.logger.info(
+            "Staged evaluator uv for %s agent setup: %s",
+            self.provider,
+            result.stdout.strip(),
+        )
+        return True
 
     async def stop(self, delete: bool) -> None:
         runtime = self._runtime
