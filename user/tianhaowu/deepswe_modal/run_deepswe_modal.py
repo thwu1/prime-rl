@@ -2,8 +2,10 @@ import argparse
 import json
 import os
 import secrets
+import shutil
 import socket
 import subprocess
+import tempfile
 import time
 import urllib.request
 from pathlib import Path
@@ -11,6 +13,11 @@ from pathlib import Path
 import modal
 from pier_runner import run_pier_job
 from provider_env import provider_environment_context
+from request_capture import (
+    audit_captured_requests,
+    start_capture_proxy,
+    stop_capture_proxy,
+)
 
 PROJECT_DIR = Path("/storage/home/tianhaowu/prime-rl")
 CADDY = Path("/home/tianhaowu/bin/caddy")
@@ -202,7 +209,7 @@ def run_pier(
     base_url: str,
     api_key: str,
     provider: str,
-) -> None:
+) -> Path:
     with provider_environment_context(provider) as env:
         env.update(
             {
@@ -210,7 +217,7 @@ def run_pier(
                 "OPENAI_BASE_URL": f"{base_url}/v1",
             }
         )
-        run_pier_job(config, job_name, env=env)
+        return run_pier_job(config, job_name, env=env)
 
 
 def verify_mini_swe_thinking(
@@ -286,9 +293,18 @@ def main() -> None:
     ssh_process = None
     ssh_log = None
     relay = None
+    capture_server = None
+    capture_thread = None
+    capture_temp = tempfile.TemporaryDirectory(prefix=f"deepswe-capture-{slurm_job_id}-")
+    capture_dir = Path(capture_temp.name)
     try:
-        caddy_process, caddy_log = start_caddy(
+        capture_server, capture_thread, capture_url = start_capture_proxy(
             router,
+            capture_dir,
+            driver_dir / "request_capture.jsonl",
+        )
+        caddy_process, caddy_log = start_caddy(
+            capture_url,
             local_port,
             api_key,
             driver_dir / "caddy.log",
@@ -333,6 +349,12 @@ def main() -> None:
             api_key,
             args.provider,
         )
+        audit_captured_requests(
+            router,
+            capture_dir,
+            driver_dir / "request_capture.jsonl",
+            driver_dir / "thinking_trajectory_audit.json",
+        )
     finally:
         stop_process(ssh_process)
         if ssh_log is not None:
@@ -342,6 +364,15 @@ def main() -> None:
         stop_process(caddy_process)
         if caddy_log is not None:
             caddy_log.close()
+        if capture_server is not None and capture_thread is not None:
+            stop_capture_proxy(capture_server, capture_thread)
+        if capture_dir.is_dir():
+            shutil.copytree(
+                capture_dir,
+                driver_dir / "latest_requests",
+                dirs_exist_ok=True,
+            )
+        capture_temp.cleanup()
 
 
 if __name__ == "__main__":

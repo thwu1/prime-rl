@@ -67,6 +67,12 @@ LiteLLM for three live turns, checks both prior reasoning messages are forwarded
 unchanged, then verifies the live vLLM-rendered turn-3 prompt contains both.
 Malformed stochastic tool calls may retry with a new seed; reasoning and render
 validation still fail closed.
+The eval relay also records a compact line for every actual model request,
+checks that the prior reasoning hash sequence is an exact prefix of the next
+turn, retains each task's latest exact request, and renders those final requests
+through the live vLLM tokenizer. Inspect `request_capture.jsonl`,
+`latest_requests/`, and `thinking_trajectory_audit.json` in the driver job
+directory.
 Inspect:
 
 ```text
