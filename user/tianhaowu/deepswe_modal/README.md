@@ -101,6 +101,10 @@ after the agent exits. It records the before/after revisions and final clean
 status in `agent/submission-commit.txt`; a dirty worktree fails the trial instead
 of silently producing an empty patch.
 
+The MiniSWE instance template uses fixed `Linux x86_64` system information.
+Provider-specific kernel strings otherwise change the prompt before the first
+model turn and invalidate fixed-seed Modal/VMVM/Sandoq trajectory comparisons.
+
 The inference deployment must use the `nemotron_v3` reasoning parser and an
 automatic tool-call parser. Its configured context limit is 262,144 tokens;
 the DeepSWE request limit is 32,768 output tokens.

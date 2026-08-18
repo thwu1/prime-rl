@@ -12,6 +12,9 @@ GENERATED_CONFIG_DIR = Path("/checkpoint/ram/tianhaowu/deepswe_eval/configs")
 DEFAULT_MODEL = "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16"
 DEFAULT_TASKS = Path("/checkpoint/ram/tianhaowu/deepswe_eval/deep-swe/tasks")
 DEFAULT_JOBS_DIR = Path("/checkpoint/ram/tianhaowu/deepswe_eval/jobs")
+MINI_SWE_INSTANCE_TEMPLATE = PROJECT_DIR / (
+    "user/tianhaowu/deepswe_modal/mini_swe_instance_template.txt"
+)
 PIER_RUNTIME_IMPORT = (
     "user.tianhaowu.deepswe_sandbox.pier_runtime:PierRuntimeEnvironment"
 )
@@ -44,6 +47,15 @@ def number(value: object, name: str) -> int | float:
 def load_toml(path: Path) -> dict:
     with path.open("rb") as file:
         return tomllib.load(file)
+
+
+def mini_swe_config(step_limit: int | None) -> str:
+    template = MINI_SWE_INSTANCE_TEMPLATE.read_text().rstrip()
+    lines = ["agent:", "  instance_template: |"]
+    lines.extend(f"    {line}" for line in template.splitlines())
+    if step_limit is not None:
+        lines.append(f"  step_limit: {step_limit}")
+    return "\n".join(lines) + "\n"
 
 
 def build_environment(
@@ -188,9 +200,8 @@ def build_configs(
         "cost_limit": 0,
         "model_class": "litellm",
         "model_kwargs": model_kwargs,
+        "config_yaml": mini_swe_config(step_limit),
     }
-    if step_limit is not None:
-        agent_kwargs["config_yaml"] = f"agent:\n  step_limit: {step_limit}\n"
 
     pier_config = {
         "job_name": name,

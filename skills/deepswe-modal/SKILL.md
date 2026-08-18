@@ -80,6 +80,10 @@ creates a no-hook submission commit, and requires a clean worktree before the
 verifier runs. Inspect `agent/submission-commit.txt`; do not treat a staged-only
 working tree as a submitted solution.
 
+Use the checked-in provider-neutral MiniSWE instance template. The upstream
+template embeds each sandbox's kernel string, making the Modal and VMVM prompts
+different before turn one and invalidating deterministic trajectory parity.
+
 Inspect:
 
 ```text
