@@ -70,10 +70,13 @@ Sandoq-to-`ram-inference-gateway` path used by evaluation.
 
 DeepSWE uses a fresh outer Sandoq pod for every trial by setting
 `OCI_RUNNER_POOL_MAX_REUSE_COUNT=1` and disabling the per-pod image cache.
-Its task images are large and unrelated; retaining them across assignments
-under podman's `vfs` storage can exhaust the pod's 60 GiB ephemeral disk and
-evict an otherwise live session. The pool still coordinates concurrent lease
-creation, but retires each outer pod after its assignment.
+Its task images are large and unrelated. The launcher enables
+`OCI_RUNNER_PODMAN_FUSE_OVERLAYFS=1`, which stages the CPU node's
+`fuse-overlayfs` plus `libfuse3` into each fresh outer pod and selects a separate
+overlay graphroot before any task image is pulled. This avoids `vfs` copying the
+complete lower filesystem once per image layer and exhausting the pod's 60 GiB
+ephemeral limit. The pool still coordinates concurrent lease creation, but
+retires each outer pod after its assignment.
 
 An initial wave may log retryable HTTP 429 `No available pods` while the
 `oci-runner` warm pool scales. Do not cancel while requests are still within the
