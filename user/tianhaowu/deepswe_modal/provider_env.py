@@ -80,6 +80,9 @@ def provider_environment(
         env.setdefault("OCI_RUNNER_SESSION_REUSE", "1")
         env.setdefault("OCI_RUNNER_POOL_MAX_REUSE_COUNT", "1")
         env.setdefault("OCI_RUNNER_IMAGE_CACHE_MAX_ENTRIES", "0")
+        env.setdefault("OCI_RUNNER_PODMAN_FUSE_OVERLAYFS", "1")
+        env.setdefault("OCI_RUNNER_FUSE_OVERLAYFS_PATH", "/usr/bin/fuse-overlayfs")
+        env.setdefault("OCI_RUNNER_LIBFUSE3_PATH", "/lib/x86_64-linux-gnu/libfuse3.so.3")
         env.setdefault("OCI_RUNNER_PULL_TIMEOUT", f"{startup_timeout_sec}s")
         env.setdefault("OCI_RUNNER_PULL_POLL_MAX_ERRORS", "20")
         if n_concurrent is None:
