@@ -32,6 +32,8 @@ uv run rl @ rl.toml --dry-run --output-dir /tmp/x # write resolved TOML to /tmp/
 
 Incompatible combinations (e.g. CP requires flash attention) must raise in a `model_validator` at resolve time, not at runtime. When renaming a field, emit a deprecation warning with a migration hint — never silently drop.
 
+For SFT with context parallelism, `pack_function` may be `cat` or `fixed_stack`; variable-shape `stack` is unsupported. Use `fixed_stack` for complete pre-segmented trajectories that already fit `seq_len`: it preserves one trajectory per sequence and pads the remainder. `cat` concatenates rows and truncates the row that crosses the packing boundary, so it is inappropriate when every row must remain complete. CP still requires `micro_batch_size = 1` and a compatible divisible sequence length.
+
 ## Special syntax
 
 **Booleans** — CLI `--flag` / `--no-flag`; TOML must be explicit (`enforce_eager = true`).

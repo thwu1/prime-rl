@@ -526,8 +526,15 @@ class FixedStackDataset(StatefulIterableDataset):
             for key, value in sample.items():
                 assert isinstance(value, list), f"Value for key {key} must be a list"
                 assert len(value) == sample_len, f"Value for key {key} must align with input_ids"
-                pad_value = False if key == "loss_mask" else 0.0 if key == "loss_weight" else 0
-                padded_sample[key] = value[: self.seq_len] + [pad_value] * max(self.seq_len - len(value), 0)
+                truncated_value = value[: self.seq_len]
+                pad_len = self.seq_len - len(truncated_value)
+                if key == "position_ids":
+                    pad_start = truncated_value[-1] + 1 if truncated_value else 0
+                    padding = list(range(pad_start, pad_start + pad_len))
+                else:
+                    pad_value = False if key == "loss_mask" else 0.0 if key == "loss_weight" else 0
+                    padding = [pad_value] * pad_len
+                padded_sample[key] = truncated_value + padding
             batch.append(padded_sample)
 
             if len(batch) == self.batch_size:

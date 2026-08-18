@@ -96,6 +96,7 @@ def test_fixed_stack_has_exact_cardinality_and_resumes(monkeypatch):
     first_batch = next(dataiter)
 
     assert first_batch["input_ids"] == [[10, 11, 0, 0], [20, 21, 22, 23]]
+    assert first_batch["position_ids"] == [[0, 1, 2, 3], [0, 1, 2, 3]]
     assert first_batch["loss_mask"] == [[True, False, False, False], [True, False, True, False]]
     assert first_batch["loss_weight"] == [[0.1, 0.1, 0.0, 0.0], [0.2, 0.2, 0.2, 0.2]]
     state_dict = dataloader.state_dict()
@@ -108,6 +109,7 @@ def test_fixed_stack_has_exact_cardinality_and_resumes(monkeypatch):
     second_batch = next(resumed_iter)
 
     assert second_batch["input_ids"] == [[30, 0, 0, 0], [40, 41, 42, 43]]
+    assert second_batch["position_ids"] == [[0, 1, 2, 3], [0, 1, 2, 3]]
     assert resumed_dataloader.state_dict()["dataset_state"] == {"dataset": {"step": 4, "epoch": 0}}
     with pytest.raises(StopIteration):
         next(resumed_iter)

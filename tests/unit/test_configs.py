@@ -183,6 +183,28 @@ def test_sft_chunked_loss_supports_example_weights():
     assert config.model.fused_lm_head_token_chunk_size == 8192
 
 
+def test_sft_cp_supports_fixed_stack_but_not_variable_stack():
+    fixed_stack = SFTConfig.model_validate(
+        {
+            "model": {"cp": 2},
+            "data": {"type": "sft", "seq_len": 256, "pack_function": "fixed_stack"},
+            "val": {
+                "data": {"type": "sft", "seq_len": 256, "pack_function": "fixed_stack"},
+            },
+        }
+    )
+    assert fixed_stack.data.pack_function == "fixed_stack"
+    assert fixed_stack.val is not None and fixed_stack.val.data.pack_function == "fixed_stack"
+
+    with pytest.raises(ValidationError, match="'cat' or 'fixed_stack'"):
+        SFTConfig.model_validate(
+            {
+                "model": {"cp": 2},
+                "data": {"type": "sft", "seq_len": 256, "pack_function": "stack"},
+            }
+        )
+
+
 def test_trainer_enable_token_export_cli_flag():
     assert not cli(TrainerConfig, args=[]).enable_token_export
     assert cli(TrainerConfig, args=["--enable-token-export"]).enable_token_export

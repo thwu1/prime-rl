@@ -279,10 +279,11 @@ class SFTConfig(BaseConfig):
     @model_validator(mode="after")
     def validate_pack_function(self):
         if self.model.cp > 1:
-            if self.data.pack_function != "cat":
-                raise ValueError("Packing function must be 'cat' when CP is enabled")
-            if self.val is not None and self.val.data.pack_function != "cat":
-                raise ValueError("Validation packing function must be 'cat' when CP is enabled")
+            supported_pack_functions = {"cat", "fixed_stack"}
+            if self.data.pack_function not in supported_pack_functions:
+                raise ValueError("Packing function must be 'cat' or 'fixed_stack' when CP is enabled")
+            if self.val is not None and self.val.data.pack_function not in supported_pack_functions:
+                raise ValueError("Validation packing function must be 'cat' or 'fixed_stack' when CP is enabled")
         return self
 
     @model_validator(mode="after")
