@@ -80,10 +80,11 @@ ephemeral limit. The pool still coordinates concurrent lease creation, but
 retires each outer pod after its assignment.
 
 The managed outer pod does not delegate a cgroup to nested `runsc` containers.
-The provider therefore records the Pier resource request and sets
-`GOMAXPROCS=ceil(cpu_cores)` on the task container. This matters for Go tasks:
-without it they see all 64 host CPUs and timing-sensitive baseline tests can
-fail even when the oracle patch is correct.
+The provider therefore records the Pier resource request and sets common Go,
+OpenMP/BLAS, joblib, Rayon, and Polars thread-count variables to
+`ceil(cpu_cores)` on the task container. Without this process-level CPU view,
+tasks can see all 64 host CPUs, oversubscribe the pod, run far slower than the
+declared timeout, or make timing-sensitive baseline tests fail.
 
 Agent and verifier commands use a guarded fire-and-poll protocol. The provider
 launches each command once, writes its exit status and output under a unique
