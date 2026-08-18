@@ -89,3 +89,8 @@ tunnel. The CPU eval driver registers its authenticated capture proxy with the
 shared `ram-inference-gateway`, and the MiniSWE process in each VMVM calls that
 stable public ingress. VMVM's reverse-SSH `host_endpoint` remains available for
 generic Runtime consumers and its contract smoke.
+
+`VACLI_IMAGE_PULL_TIMEOUT_SECONDS` bounds each VM-side image pull attempt. The
+DeepSWE launcher derives it from TOML `sandbox_startup_timeout_sec` and uses one
+hour by default; keep the command/session ceiling separate because verification
+can legitimately outlive startup.

@@ -148,6 +148,7 @@ Full evaluations can bound MiniSWE turns and agent wall time directly in TOML:
 
 ```toml
 sandbox_timeout_sec = 14400
+sandbox_startup_timeout_sec = 3600
 
 [mini_swe]
 step_limit = 200
@@ -156,9 +157,12 @@ timeout_sec = 10800
 
 `timeout_sec` configures Pier's agent deadline. `sandbox_timeout_sec` raises the
 VMVM/Sandoq command-transport ceiling above the agent deadline, leaving time for
-transport latency, startup, collection, and verification commands. VMVM and
+transport latency, collection, and verification commands. VMVM and
 Sandoq leases auto-renew while their runtimes are active, so their short renewal
 TTLs do not cap trial duration.
+`sandbox_startup_timeout_sec` separately bounds VMVM image pulls and Sandoq OCI
+image/bootstrap setup; one hour leaves startup headroom without turning a stuck
+pull into a multi-hour trial.
 
 The MiniSWE instance template uses fixed `Linux x86_64` system information.
 Provider-specific kernel strings otherwise change the prompt before the first

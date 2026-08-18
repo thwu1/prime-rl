@@ -84,6 +84,9 @@ bound. The oracle gate is valid only if the terminal aggregate has 113 rewards
 of 1 and zero remaining errors; transient retry lines alone are not failures.
 Nested image-pull status polling tolerates 20 consecutive control-plane errors
 before discarding the assignment. This polling is read-only and safe to repeat.
+The launcher maps TOML `sandbox_startup_timeout_sec` to
+`OCI_RUNNER_PULL_TIMEOUT`; the checked-in eval uses one hour for image pull plus
+nested-container bootstrap, independently of the longer command/session ceiling.
 A definitive `session_not_found` is different: the session identity no longer
 exists, so poison that assignment immediately and retry the whole trial on a
 fresh lease rather than polling or replaying commands against it.

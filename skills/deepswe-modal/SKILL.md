@@ -44,6 +44,8 @@ Set `[mini_swe].step_limit` to bound agent turns and
 `[mini_swe].timeout_sec` to bound agent wall time. Set the top-level
 `sandbox_timeout_sec` at least as high as the agent timeout, with headroom, for
 the VMVM/Sandoq command-transport ceiling. Their leases auto-renew while active.
+Set `sandbox_startup_timeout_sec` separately for VMVM image pulls and Sandoq OCI
+image/bootstrap setup; the checked-in full eval uses one hour.
 Whole-trial retries are restricted to `SandboxError`,
 `EnvironmentStartTimeoutError`, and `AgentSetupTimeoutError`. Do not broaden
 that allowlist to agent execution, verifier, reward, or parsing failures; those

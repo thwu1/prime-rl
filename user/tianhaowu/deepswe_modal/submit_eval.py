@@ -169,6 +169,10 @@ def build_configs(
         source.get("sandbox_timeout_sec", max(agent_timeout_sec or 0, 7200)),
         "sandbox_timeout_sec",
     )
+    sandbox_startup_timeout_sec = positive_int(
+        source.get("sandbox_startup_timeout_sec", 3600),
+        "sandbox_startup_timeout_sec",
+    )
     if agent_timeout_sec is not None and sandbox_timeout_sec < agent_timeout_sec:
         raise ValueError("sandbox_timeout_sec must be greater than or equal to mini_swe.timeout_sec")
 
@@ -242,6 +246,7 @@ def build_configs(
         "model": model,
         "mini_swe_version": mini_swe_version,
         "provider": provider,
+        "sandbox_startup_timeout_sec": sandbox_startup_timeout_sec,
         "sandbox_timeout_sec": sandbox_timeout_sec,
     }
     return pier_config, runtime
@@ -281,6 +286,8 @@ def main() -> None:
         runtime["mini_swe_version"],
         "--provider",
         runtime["provider"],
+        "--sandbox-startup-timeout-sec",
+        str(runtime["sandbox_startup_timeout_sec"]),
     ]
     print(f"Generated Pier config: {generated_config}", flush=True)
     print(f"Eval job name: {job_name}", flush=True)

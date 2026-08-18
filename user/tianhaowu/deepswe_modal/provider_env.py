@@ -23,6 +23,7 @@ def provider_environment(
     provider: str,
     base: dict[str, str] | None = None,
     n_concurrent: int | None = None,
+    startup_timeout_sec: int = 3600,
 ) -> dict[str, str]:
     if provider not in {"modal", "vmvm", "sandoq"}:
         raise ValueError(f"unsupported sandbox provider: {provider}")
@@ -30,6 +31,12 @@ def provider_environment(
         not isinstance(n_concurrent, int) or isinstance(n_concurrent, bool) or n_concurrent <= 0
     ):
         raise ValueError("n_concurrent must be positive")
+    if (
+        not isinstance(startup_timeout_sec, int)
+        or isinstance(startup_timeout_sec, bool)
+        or startup_timeout_sec <= 0
+    ):
+        raise ValueError("startup_timeout_sec must be positive")
     env = dict(base or os.environ)
     provider_paths = [
         str(PROJECT_DIR),
@@ -51,7 +58,7 @@ def provider_environment(
         else:
             env["VACLI_MAX_CONCURRENT_LEASES"] = str(n_concurrent)
         env.setdefault("VACLI_MAX_PULL_RETRIES", "20")
-        env.setdefault("VACLI_IMAGE_PULL_TIMEOUT_SECONDS", "1200")
+        env.setdefault("VACLI_IMAGE_PULL_TIMEOUT_SECONDS", str(startup_timeout_sec))
     elif provider == "sandoq":
         for key in PROXY_ENV_KEYS:
             env.pop(key, None)
@@ -73,6 +80,7 @@ def provider_environment(
         env.setdefault("OCI_RUNNER_SESSION_REUSE", "1")
         env.setdefault("OCI_RUNNER_POOL_MAX_REUSE_COUNT", "1")
         env.setdefault("OCI_RUNNER_IMAGE_CACHE_MAX_ENTRIES", "0")
+        env.setdefault("OCI_RUNNER_PULL_TIMEOUT", f"{startup_timeout_sec}s")
         env.setdefault("OCI_RUNNER_PULL_POLL_MAX_ERRORS", "20")
         if n_concurrent is None:
             env.setdefault("OCI_RUNNER_POOL_SIZE", "16")
@@ -87,8 +95,9 @@ def provider_environment_context(
     provider: str,
     base: dict[str, str] | None = None,
     n_concurrent: int | None = None,
+    startup_timeout_sec: int = 3600,
 ) -> Iterator[dict[str, str]]:
-    env = provider_environment(provider, base, n_concurrent)
+    env = provider_environment(provider, base, n_concurrent, startup_timeout_sec)
     if provider != "sandoq":
         yield env
         return

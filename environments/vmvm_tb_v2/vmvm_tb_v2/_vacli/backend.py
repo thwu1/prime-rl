@@ -88,6 +88,9 @@ MAX_CONCURRENT_LEASES = int(os.environ.get("VACLI_MAX_CONCURRENT_LEASES", "16"))
 # (toomanyrequests). The vmvm-registry mirror path needs no retries; this only
 # matters for the docker.io fallback used when an image is not yet mirrored.
 MAX_PULL_RETRIES = int(os.environ.get("VACLI_MAX_PULL_RETRIES", "20"))
+IMAGE_PULL_TIMEOUT_SECONDS = int(os.environ.get("VACLI_IMAGE_PULL_TIMEOUT_SECONDS", "350"))
+if IMAGE_PULL_TIMEOUT_SECONDS <= 0:
+    raise ValueError("VACLI_IMAGE_PULL_TIMEOUT_SECONDS must be positive")
 # Retries for the vacli lease bring-up itself. Concurrent launches race on
 # Configerator/JustKnobs init ("isConfigeratorAvailable() returned false" ->
 # "vacli died before tunnel was ready"), a transient thundering-herd failure at
@@ -555,7 +558,7 @@ def _pull_image_in_vm(sp, ssh_port, control_path, image):
             stdin=sp.DEVNULL,
             stdout=sp.PIPE,
             stderr=sp.STDOUT,
-            timeout=350,
+            timeout=IMAGE_PULL_TIMEOUT_SECONDS,
         )
         last = r.stdout.decode("utf-8", errors="replace") if r.stdout else ""
         if r.returncode == 0:

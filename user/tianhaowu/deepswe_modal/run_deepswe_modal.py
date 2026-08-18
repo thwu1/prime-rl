@@ -44,6 +44,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--gateway-model-name", required=True)
     parser.add_argument("--mini-swe-version", default="2.2.8")
     parser.add_argument("--provider", choices=("modal", "vmvm", "sandoq"), required=True)
+    parser.add_argument("--sandbox-startup-timeout-sec", type=int, default=3600)
     return parser.parse_args()
 
 
@@ -234,12 +235,17 @@ def run_pier(
     base_url: str,
     api_key: str,
     provider: str,
+    sandbox_startup_timeout_sec: int,
 ) -> Path:
     config_data = json.loads(config.read_text())
     n_concurrent = config_data.get("n_concurrent_trials")
     if not isinstance(n_concurrent, int) or isinstance(n_concurrent, bool) or n_concurrent <= 0:
         raise ValueError("Pier config n_concurrent_trials must be a positive integer")
-    with provider_environment_context(provider, n_concurrent=n_concurrent) as env:
+    with provider_environment_context(
+        provider,
+        n_concurrent=n_concurrent,
+        startup_timeout_sec=sandbox_startup_timeout_sec,
+    ) as env:
         env.update(
             {
                 "OPENAI_API_KEY": api_key,
@@ -370,6 +376,7 @@ def main() -> None:
             GATEWAY_PUBLIC_URL,
             api_key,
             args.provider,
+            args.sandbox_startup_timeout_sec,
         )
         audit_captured_requests(
             router,
