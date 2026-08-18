@@ -78,6 +78,12 @@ complete lower filesystem once per image layer and exhausting the pod's 60 GiB
 ephemeral limit. The pool still coordinates concurrent lease creation, but
 retires each outer pod after its assignment.
 
+The managed outer pod does not delegate a cgroup to nested `runsc` containers.
+The provider therefore records the Pier resource request and sets
+`GOMAXPROCS=ceil(cpu_cores)` on the task container. This matters for Go tasks:
+without it they see all 64 host CPUs and timing-sensitive baseline tests can
+fail even when the oracle patch is correct.
+
 An initial wave may log retryable HTTP 429 `No available pods` while the
 `oci-runner` warm pool scales. Do not cancel while requests are still within the
 bounded create deadline; successful capacity appears as `OCI runner assignment
