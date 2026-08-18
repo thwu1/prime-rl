@@ -28,6 +28,15 @@ uv run rl --help                                  # all fields and defaults
 uv run rl @ rl.toml --dry-run --output-dir /tmp/x # write resolved TOML to /tmp/x/configs
 ```
 
+## SLURM host-memory requests
+
+`#SBATCH --exclusive` reserves whole nodes but does not override a cluster's
+`DefMemPerCPU` allocation. If a weight gather is killed near that computed cap,
+compare `sacct` MaxRSS with `scontrol show config` and the nodes' RealMemory.
+When the QoS permits it, copy the existing template and add `#SBATCH --mem=0`
+to request all physical memory without changing the shared template. Validate
+the rendered script with a dry run and `sbatch --test-only` before submission.
+
 ## Validators
 
 Incompatible combinations (e.g. CP requires flash attention) must raise in a `model_validator` at resolve time, not at runtime. When renaming a field, emit a deprecation warning with a migration hint — never silently drop.
