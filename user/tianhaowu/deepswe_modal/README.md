@@ -150,6 +150,25 @@ sbatch user/tianhaowu/deepswe_modal/audit_capture.sbatch \
   /checkpoint/ram/tianhaowu/deepswe_eval/driver/JOB_ID INFERENCE_JOB_ID
 ```
 
+The capture proxy selects `latest_requests/` by per-task request sequence, not
+response completion order. A slow older completion therefore cannot overwrite
+a newer request snapshot. For a run produced before that guard, reconstruct the
+single stale snapshot from the saved MiniSWE trajectory, then audit the copied
+request set on a CPU node:
+
+```bash
+uv run --no-sync python user/tianhaowu/deepswe_modal/recover_latest_request.py \
+  /checkpoint/ram/tianhaowu/deepswe_eval/driver/JOB_ID TASK_KEY TRAJECTORY.json
+sbatch user/tianhaowu/deepswe_modal/audit_capture.sbatch \
+  /checkpoint/ram/tianhaowu/deepswe_eval/driver/JOB_ID INFERENCE_JOB_ID \
+  --latest-dir /checkpoint/ram/tianhaowu/deepswe_eval/driver/JOB_ID/recovered_latest_requests \
+  --output /checkpoint/ram/tianhaowu/deepswe_eval/driver/JOB_ID/thinking_trajectory_audit_recovered.json
+```
+
+Recovery fails unless the stale request is an exact prefix of the trajectory
+and its message count matches a successful request summary. The provenance file
+records both request sequence numbers and all relevant SHA-256 hashes.
+
 When Pier retries a task, the first two-message request is recorded as a new
 attempt and starts a fresh prefix chain. Reasoning preservation still fails
 closed within every attempt; a valid retry is not compared against the failed

@@ -152,6 +152,14 @@ sbatch user/tianhaowu/deepswe_modal/audit_capture.sbatch \
   /checkpoint/ram/tianhaowu/deepswe_eval/driver/JOB_ID INFERENCE_JOB_ID
 ```
 
+The capture proxy must update `latest_requests/` by `per_task_request`, not by
+response completion order; concurrent older requests can finish after newer
+ones. For a historical run with one stale snapshot, use
+`recover_latest_request.py` to reconstruct it from the saved MiniSWE trajectory.
+The tool requires the stale capture to be an exact trajectory prefix and emits
+hash provenance. Pass its copied directory to `audit_capture.sbatch` with
+`--latest-dir` and write a separate report with `--output`.
+
 Pier retries start a new prefix chain only when the capture sees an explicit
 two-message request with no prior reasoning after a nonempty attempt. The
 summary records `attempt`, `per_attempt_request`, and `retry_boundary`; do not

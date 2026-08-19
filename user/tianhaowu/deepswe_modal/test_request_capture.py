@@ -105,3 +105,51 @@ def test_failed_context_request_does_not_replace_latest_success(tmp_path) -> Non
     assert json.loads((latest_dir / f"{key}.json").read_text()) == successful_payload
     summaries = [json.loads(line) for line in summary_path.read_text().splitlines()]
     assert is_context_window_exhaustion(summaries[-1])
+
+
+def test_slow_response_does_not_replace_newer_request(tmp_path) -> None:
+    latest_dir = tmp_path / "latest"
+    summary_path = tmp_path / "capture.jsonl"
+    server = CaptureServer(
+        ("127.0.0.1", 0),
+        upstream="http://unused",
+        upstream_model=None,
+        latest_dir=latest_dir,
+        summary_path=summary_path,
+    )
+    try:
+        first_payload = {
+            "messages": [
+                {"role": "system", "content": "system"},
+                {"role": "user", "content": "task"},
+            ]
+        }
+        second_payload = {
+            "messages": [
+                *first_payload["messages"],
+                {"role": "assistant", "reasoning": "new reasoning"},
+                {"role": "tool", "content": "new observation"},
+            ]
+        }
+        first = server.capture_request(first_payload, 0)
+        second = server.capture_request(second_payload, 0)
+
+        server.capture_response(second, 200, b'{"usage":{"prompt_tokens":2}}')
+        server.capture_response(first, 200, b'{"usage":{"prompt_tokens":1}}')
+    finally:
+        server.server_close()
+
+    key = first["task_key"]
+    assert json.loads((latest_dir / f"{key}.json").read_text()) == second_payload
+
+    restored = CaptureServer(
+        ("127.0.0.1", 0),
+        upstream="http://unused",
+        upstream_model=None,
+        latest_dir=latest_dir,
+        summary_path=summary_path,
+    )
+    try:
+        assert restored.task_states[key]["latest_completed_request"] == 2
+    finally:
+        restored.server_close()
