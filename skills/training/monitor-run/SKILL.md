@@ -64,6 +64,19 @@ gates must include every original, resumed, and replacement output directory; pr
 recursive result-file scan over a fixed list of run suffixes. Make the target launcher
 idempotent so a requeued watcher cannot submit duplicate jobs.
 
+For an SFT best-validation handoff, inspect `ckpt.keep_last` before waiting for
+the training job to finish. When validation and weight checkpoints share an
+interval but only a few recent checkpoints are retained, an earlier minimum can
+be pruned before terminal selection. Start
+`user/tianhaowu/fair-sc-3/scripts/watch_nemotron_deepswe_best_eval.py` while the
+runs are active. It selects only validation steps with a `weights/step_N/STABLE`
+checkpoint, hardlinks the current minimum under `best_val_weights/`, and replaces
+that snapshot only after a lower-loss stable checkpoint exists. Select the
+minimum independently within each run; losses from different validation datasets
+are not comparable. The sbatch wrapper persists state and idempotently submits
+four-node inference plus CPU-node VMVM DeepSWE evaluation after both training
+jobs finish successfully.
+
 When several multi-node vLLM evaluations start concurrently, do not share the
 default network-backed `~/.cache/vllm` compile cache. Set `VLLM_CACHE_ROOT` inside
 each node task to a job- and task-specific directory under `SLURM_TMPDIR` (falling
