@@ -41,6 +41,15 @@ enabled = true
 preserve_previous = true
 ```
 
+To run an exact subset, set task directory names rather than Pier's generated
+trial IDs:
+
+```toml
+task_names = [
+  "fastapi-implicit-head-options",
+]
+```
+
 Provider-specific runtime fields can be supplied in `[provider_options]`.
 For example, the DeepSWE Sandoq configuration is:
 
@@ -76,6 +85,21 @@ uv run --no-sync python user/tianhaowu/deepswe_modal/submit_eval.py \
 Generated Pier configs live under
 `/checkpoint/ram/tianhaowu/deepswe_eval/configs/`; results live under
 `/checkpoint/ram/tianhaowu/deepswe_eval/jobs/`.
+
+When a completed run needs an exact subset recovery, merge only after the
+recovery is terminal and fully scored:
+
+```bash
+uv run --no-sync python user/tianhaowu/deepswe_modal/merge_recovered_results.py \
+  --base /checkpoint/path/to/original-job \
+  --recovery /checkpoint/path/to/recovery-job \
+  --tasks /checkpoint/ram/tianhaowu/deepswe_eval/deep-swe/tasks \
+  --replace-task fastapi-implicit-head-options \
+  --output /checkpoint/path/to/combined-result.json
+```
+
+The merge fails unless the final set has one scored result for every benchmark
+task and records the source path and SHA-256 of every selected result.
 
 ## Thinking preservation
 

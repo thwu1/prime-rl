@@ -44,6 +44,13 @@ Set `[mini_swe].step_limit` to bound agent turns and
 `[mini_swe].timeout_sec` to bound agent wall time. Set the top-level
 `sandbox_timeout_sec` at least as high as the agent timeout, with headroom, for
 the VMVM/Sandoq command-transport ceiling. Their leases auto-renew while active.
+Use top-level `task_names = ["task-directory-name"]` to recover an exact subset.
+These are names under the configured tasks directory, not Pier trial IDs with a
+generated `__SUFFIX`.
+After the subset finishes, use `merge_recovered_results.py` with one
+`--replace-task` per recovered task. It validates the exact benchmark task set,
+requires verifier metrics with no exception for every selected result, checks
+task checksums, and writes per-task paths and SHA-256 provenance.
 Set `verifier_timeout_multiplier = 4.0` for full VMVM/Sandoq runs so their
 slower remote execution can finish each task's verifier without changing the
 tests or reward logic.
@@ -53,6 +60,13 @@ Whole-trial retries are restricted to `SandboxError`,
 `EnvironmentStartTimeoutError`, and `AgentSetupTimeoutError`. Do not broaden
 that allowlist to agent execution, verifier, reward, or parsing failures; those
 are evaluation outcomes and rerolling them would resample the model.
+The Runtime adapter classifies a failed agent installation command as
+`SandboxError`, so transient package-index and mirror failures retry the whole
+trial instead of becoming a terminal missing score.
+For root setup steps that run `apt-get update`, it temporarily hides third-party
+source files and restores them when the setup shell exits. Generic MiniSWE
+dependencies come from the base Debian/Ubuntu repositories, so a stale task-
+specific package index cannot block agent installation.
 The runtime adapter stages the CPU evaluator's local `uv` binary before
 installing MiniSWE. Do not restore the per-sandbox Astral/GitHub installer; the
 shared provider egress can return HTTP 429 under even small concurrent runs.
