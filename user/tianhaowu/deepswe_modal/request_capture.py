@@ -133,8 +133,14 @@ class CaptureServer(ThreadingHTTPServer):
                         "attempt": 1,
                         "attempt_requests": 0,
                         "reasoning_hashes": [],
+                        "latest_completed_request": 0,
                     },
                 )
+                if summary.get("http_status") == 200:
+                    state["latest_completed_request"] = max(
+                        state["latest_completed_request"],
+                        per_task_request,
+                    )
                 if per_task_request < state["requests"]:
                     continue
                 state["requests"] = per_task_request
@@ -157,6 +163,7 @@ class CaptureServer(ThreadingHTTPServer):
                     "attempt": 1,
                     "attempt_requests": 0,
                     "reasoning_hashes": [],
+                    "latest_completed_request": 0,
                 },
             )
             state["reasoning_hashes"] = hashes
@@ -187,6 +194,7 @@ class CaptureServer(ThreadingHTTPServer):
                     "attempt": 1,
                     "attempt_requests": 0,
                     "reasoning_hashes": [],
+                    "latest_completed_request": 0,
                 },
             )
             previous = state["reasoning_hashes"]
@@ -262,10 +270,14 @@ class CaptureServer(ThreadingHTTPServer):
                 summary["error"] = error
         with self.lock:
             if status == 200:
-                target = self.latest_dir / f"{summary['task_key']}.json"
-                temporary = target.with_suffix(f".{threading.get_ident()}.tmp")
-                temporary.write_text(json.dumps(request_payload))
-                os.replace(temporary, target)
+                state = self.task_states[summary["task_key"]]
+                per_task_request = summary["per_task_request"]
+                if per_task_request >= state["latest_completed_request"]:
+                    target = self.latest_dir / f"{summary['task_key']}.json"
+                    temporary = target.with_suffix(f".{threading.get_ident()}.tmp")
+                    temporary.write_text(json.dumps(request_payload))
+                    os.replace(temporary, target)
+                    state["latest_completed_request"] = per_task_request
             with self.summary_path.open("a") as file:
                 file.write(json.dumps(summary, sort_keys=True) + "\n")
 
