@@ -62,6 +62,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--poll-seconds", type=int, default=60)
     parser.add_argument("--once", action="store_true")
     parser.add_argument("--launch", action="store_true")
+    parser.add_argument("--launch-generation", type=int, default=1)
     return parser.parse_args()
 
 
@@ -374,8 +375,10 @@ preserve_previous = true
 
 def launch_environment() -> dict[str, str]:
     env = os.environ.copy()
-    env.pop("SBATCH_OUTPUT", None)
-    env.pop("SBATCH_ERROR", None)
+    scheduler_prefixes = ("SBATCH_", "SLURM_", "SRUN_", "PMIX_")
+    for name in tuple(env):
+        if name.startswith(scheduler_prefixes):
+            env.pop(name)
     env["UV_PROJECT_ENVIRONMENT"] = INFERENCE_ENV
     return env
 
@@ -427,18 +430,26 @@ def launch_eval(
     state: dict[str, Any],
     state_path: Path,
     state_dir: Path,
+    generation: int,
 ) -> None:
     best = run_state["best_checkpoint"]
     step = best["step"]
-    launch = run_state.setdefault("launch", {})
-    launch_root = state_dir / "launches" / f"{spec.label}-step-{step}"
+    launches = run_state.setdefault("launches", {})
+    previous_launch = run_state.get("launch")
+    if previous_launch is not None and "1" not in launches:
+        launches["1"] = previous_launch
+    launch = launches.setdefault(str(generation), {})
+    launch["generation"] = generation
+    run_state["launch"] = launch
+    suffix = "" if generation == 1 else f"-r{generation}"
+    launch_root = state_dir / "launches" / f"{spec.label}-step-{step}{suffix}"
     launch_root.mkdir(parents=True, exist_ok=True)
     checkpoint = Path(best["preserved_path"])
     base_model = Path(run_state["config"]["base_model_path"])
 
     tokenizer_hashes = verify_tokenizer(checkpoint, base_model)
     launch["tokenizer_sha256"] = tokenizer_hashes
-    inference_name = f"nemotron-best-{spec.job_id}-s{step}-infer"
+    inference_name = f"nemotron-best-{spec.job_id}-s{step}-infer{suffix}"
     inference_config = launch_root / "inference.toml"
     inference_config.write_text(
         render_inference_config(checkpoint=checkpoint, base_model=base_model, job_name=inference_name)
@@ -473,8 +484,8 @@ def launch_eval(
         launch["inference_submitted_at"] = now()
         atomic_write_json(state_path, state)
 
-    eval_name = f"nemotron-super-deepswe-{spec.label}-best-s{step}"
-    eval_job_name = f"deepswe-{spec.label}-{spec.job_id}-s{step}"
+    eval_name = f"nemotron-super-deepswe-{spec.label}-best-s{step}{suffix}"
+    eval_job_name = f"deepswe-{spec.label}-{spec.job_id}-s{step}{suffix}"
     eval_config = launch_root / "deepswe_vmvm.toml"
     eval_config.write_text(render_eval_config(name=eval_name, inference_job_id=launch["inference_job_id"]))
     if "eval_job_id" not in launch:
@@ -495,7 +506,7 @@ def launch_eval(
         atomic_write_json(state_path, state)
 
     if "cleanup_job_id" not in launch:
-        cleanup_job_name = f"cleanup-{spec.job_id}-s{step}"
+        cleanup_job_name = f"cleanup-{spec.job_id}-s{step}{suffix}"
         launch["cleanup_job_name"] = cleanup_job_name
         launch["cleanup_submission_intent_at"] = now()
         atomic_write_json(state_path, state)
@@ -622,6 +633,8 @@ def main() -> None:
     args = parse_args()
     if args.poll_seconds <= 0:
         raise ValueError("poll-seconds must be positive")
+    if args.launch_generation <= 0:
+        raise ValueError("launch-generation must be positive")
     specs = args.run
     if len({spec.label for spec in specs}) != len(specs):
         raise ValueError("run labels must be unique")
@@ -660,8 +673,10 @@ def main() -> None:
                             state,
                             state_path,
                             state_dir,
+                            args.launch_generation,
                         )
                     state["status"] = "launched"
+                    state["launch_generation"] = args.launch_generation
                     state["launched_at"] = now()
                     atomic_write_json(state_path, state)
                 return
