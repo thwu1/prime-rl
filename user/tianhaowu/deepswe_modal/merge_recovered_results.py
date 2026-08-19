@@ -1,6 +1,7 @@
 import argparse
 import hashlib
 import json
+from collections import Counter
 from pathlib import Path
 
 METRIC_NAMES = (
@@ -60,19 +61,25 @@ def index_trials(job_dir: Path) -> dict[str, dict]:
     return trials
 
 
-def require_scored_result(task_name: str, trial: dict, source: str) -> dict:
+def require_scored_result(
+    task_name: str,
+    trial: dict,
+    source: str,
+    *,
+    allow_scored_exception: bool,
+) -> dict:
     result_path = trial["result_path"]
     if result_path is None:
         raise ValueError(f"{source} task {task_name!r} has no result.json")
     result = load_json(result_path)
-    if result.get("exception_info") is not None:
-        exception_type = result["exception_info"].get("exception_type", "unknown")
-        raise ValueError(f"{source} task {task_name!r} failed with {exception_type}")
     verifier_result = result.get("verifier_result")
     if not isinstance(verifier_result, dict) or not isinstance(
         verifier_result.get("rewards"), dict
     ):
         raise ValueError(f"{source} task {task_name!r} has no verifier rewards")
+    if result.get("exception_info") is not None and not allow_scored_exception:
+        exception_type = result["exception_info"].get("exception_type", "unknown")
+        raise ValueError(f"{source} task {task_name!r} failed with {exception_type}")
     missing_metrics = [
         metric for metric in METRIC_NAMES if not isinstance(verifier_result["rewards"].get(metric), int | float)
     ]
@@ -123,13 +130,22 @@ def main() -> None:
         trials = recovery_trials if source == "recovery" else base_trials
         if task_name not in trials:
             raise ValueError(f"{source} has no trial directory for task {task_name!r}")
-        result = require_scored_result(task_name, trials[task_name], source)
+        result = require_scored_result(
+            task_name,
+            trials[task_name],
+            source,
+            allow_scored_exception=source == "base",
+        )
         result_path = trials[task_name]["result_path"]
+        exception_info = result.get("exception_info")
         final_results[task_name] = result
         task_provenance[task_name] = {
             "source": source,
             "trial_name": result["trial_name"],
             "task_checksum": result["task_checksum"],
+            "exception_type": (
+                exception_info.get("exception_type") if exception_info is not None else None
+            ),
             "result_path": str(result_path.resolve()),
             "result_sha256": file_sha256(result_path),
         }
@@ -160,6 +176,15 @@ def main() -> None:
                 "base": len(final_results) - len(replace_tasks),
                 "recovery": len(replace_tasks),
             },
+            "scored_exception_counts": dict(
+                sorted(
+                    Counter(
+                        provenance["exception_type"]
+                        for provenance in task_provenance.values()
+                        if provenance["exception_type"] is not None
+                    ).items()
+                )
+            ),
         },
         "tasks": task_provenance,
     }
