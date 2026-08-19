@@ -99,7 +99,10 @@ uv run --no-sync python user/tianhaowu/deepswe_modal/merge_recovered_results.py 
 ```
 
 The merge fails unless the final set has one scored result for every benchmark
-task and records the source path and SHA-256 of every selected result.
+task and every recovery replacement is exception-free. Scored base outcomes
+such as an agent timeout followed by successful verification are preserved and
+recorded by exception type. The output includes the source path and SHA-256 of
+every selected result.
 
 ## Thinking preservation
 
