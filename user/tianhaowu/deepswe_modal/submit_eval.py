@@ -78,7 +78,7 @@ def build_environment(
             "delete": True,
             "kwargs": {
                 "app_name": modal_app_name,
-                "sandbox_timeout_secs": 86400,
+                "sandbox_timeout_secs": session_timeout,
                 **provider_options,
             },
         }
