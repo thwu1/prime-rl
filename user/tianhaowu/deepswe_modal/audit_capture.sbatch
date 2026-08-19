@@ -14,7 +14,9 @@ cd /storage/home/tianhaowu/prime-rl
 
 DRIVER_DIR=${1:?usage: sbatch audit_capture.sbatch DRIVER_DIR INFERENCE_JOB_ID}
 INFERENCE_JOB_ID=${2:?usage: sbatch audit_capture.sbatch DRIVER_DIR INFERENCE_JOB_ID}
+shift 2
 
 uv run --no-sync python user/tianhaowu/deepswe_modal/audit_capture.py \
   "$DRIVER_DIR" \
-  --inference-job-id "$INFERENCE_JOB_ID"
+  --inference-job-id "$INFERENCE_JOB_ID" \
+  "$@"
