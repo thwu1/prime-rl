@@ -20,12 +20,43 @@ For VMVM and Sandoq, the adapter stages the CPU evaluator's local `uv` binary
 before installing MiniSWE. This avoids a GitHub release download in every
 ephemeral sandbox and the resulting shared-egress HTTP 429 failures.
 
-The CPU driver publishes the private inference router through a temporary,
-authenticated Modal relay. Modal is therefore required for the relay even when
-the task sandbox provider is VMVM or Sandoq. Task sandboxes never use Prime
-Sandbox. Sandoq defaults to a temporary Modal reverse relay for the Verifiers
-host-interception endpoint, so it does not require `PRIME_API_KEY`; set
-`host_tunnel = "prime"` explicitly only when that behavior is desired.
+The CPU driver starts an authenticated request-capture proxy and registers it
+with `ram-inference-gateway`. Every provider calls the gateway's stable public
+endpoint, which routes the request back to that CPU node and then to the private
+inference job. DeepSWE model traffic uses neither a Modal relay nor Prime
+Sandbox. Modal credentials are needed only when `provider = "modal"`.
+
+Sandoq's generic Verifiers `host_endpoint` contract can still use a temporary
+Modal reverse relay, but DeepSWE does not exercise that path. Its task containers
+reach the shared inference gateway directly.
+
+## Full evaluation configs
+
+The checked-in production configs differ only by sandbox provider:
+
+| Provider | Config |
+| --- | --- |
+| Modal | `nemotron_super_deepswe_modal.toml` |
+| VMVM | `nemotron_super_deepswe_vmvm.toml` |
+| Sandoq | `nemotron_super_deepswe_sandoq.toml` |
+
+They use 32 concurrent trials, six infrastructure-only retries, 200 MiniSWE
+turns, a three-hour agent timeout, a four-hour sandbox/session ceiling, a
+one-hour startup ceiling, a 4x verifier timeout, and preserved thinking at the
+native 262,144-token context limit. Change `inference_job_id` when launching a
+new inference deployment; the other settings are the validated full-eval
+defaults.
+
+Submit the selected config from the CPU sbatch launcher:
+
+```bash
+sbatch user/tianhaowu/deepswe_modal/submit_eval.sbatch \
+  user/tianhaowu/deepswe_modal/nemotron_super_deepswe_modal.toml
+sbatch user/tianhaowu/deepswe_modal/submit_eval.sbatch \
+  user/tianhaowu/deepswe_modal/nemotron_super_deepswe_vmvm.toml
+sbatch user/tianhaowu/deepswe_modal/submit_eval.sbatch \
+  user/tianhaowu/deepswe_modal/nemotron_super_deepswe_sandoq.toml
+```
 
 ## TOML launcher
 
@@ -50,21 +81,9 @@ task_names = [
 ]
 ```
 
-Provider-specific runtime fields can be supplied in `[provider_options]`.
-For example, the DeepSWE Sandoq configuration is:
-
-```toml
-[provider_options]
-mode = "oci-runner"
-host_tunnel = "modal"
-```
-
-Submit the CPU driver with:
-
-```bash
-sbatch user/tianhaowu/deepswe_modal/submit_eval.sbatch \
-  user/tianhaowu/deepswe_modal/nemotron_super_deepswe_smoke.toml
-```
+Provider-specific runtime fields can be supplied in `[provider_options]` for a
+nonstandard deployment. The launcher already selects Sandoq `oci-runner` mode
+and the validated VMVM defaults, so the production TOMLs do not need overrides.
 
 The CLI can override the TOML provider without editing the file:
 
@@ -74,12 +93,14 @@ sbatch user/tianhaowu/deepswe_modal/submit_eval.sbatch \
   --provider vmvm
 ```
 
-Render and validate without launching:
+Render and validate every production config without launching:
 
 ```bash
-uv run --no-sync python user/tianhaowu/deepswe_modal/submit_eval.py \
-  user/tianhaowu/deepswe_modal/nemotron_super_deepswe.toml \
-  --provider modal --dry-run
+for provider in modal vmvm sandoq; do
+  uv run --no-sync python user/tianhaowu/deepswe_modal/submit_eval.py \
+    "user/tianhaowu/deepswe_modal/nemotron_super_deepswe_${provider}.toml" \
+    --dry-run
+done
 ```
 
 Generated Pier configs live under
@@ -228,10 +249,14 @@ the DeepSWE request limit is 32,768 output tokens.
 Run the reference solution through the selected provider:
 
 ```bash
-sbatch user/tianhaowu/deepswe_modal/submit_oracle.sbatch modal
-sbatch user/tianhaowu/deepswe_modal/submit_oracle.sbatch vmvm --n-concurrent 8 \
+sbatch user/tianhaowu/deepswe_modal/submit_oracle.sbatch modal \
+  --n-concurrent 64 --max-retries 6 --sandbox-timeout-sec 14400 \
   --verifier-timeout-multiplier 4
-sbatch user/tianhaowu/deepswe_modal/submit_oracle.sbatch sandoq --n-concurrent 8 \
+sbatch user/tianhaowu/deepswe_modal/submit_oracle.sbatch vmvm \
+  --n-concurrent 64 --max-retries 6 --sandbox-timeout-sec 14400 \
+  --verifier-timeout-multiplier 4
+sbatch user/tianhaowu/deepswe_modal/submit_oracle.sbatch sandoq \
+  --n-concurrent 64 --max-retries 6 --sandbox-timeout-sec 14400 \
   --verifier-timeout-multiplier 4
 ```
 
@@ -299,8 +324,8 @@ sbatch user/tianhaowu/deepswe_modal/submit_eval.sbatch \
 
 The comparator rejects mismatched agent/model sampling configs before comparing
 commands. This diagnostic config also applies the same 100-step mini-swe cap on
-every provider; the score configs remain governed only by each task's 90-minute
-agent timeout. The fixed seed reduces sampling variance, but vLLM may still
+every provider; the full score configs use a 200-step cap and three-hour agent
+timeout. The fixed seed reduces sampling variance, but vLLM may still
 produce harmless byte-level differences such as a trailing newline or a
 generated tool-call ID. Compare sandbox behavior rather than requiring the raw
 completions to be byte-identical.
@@ -324,6 +349,6 @@ complete reasoning, command outcomes, and verifier behavior are the parity
 signals. Exact reasoning hashes remain diagnostic for byte-level drift.
 
 VMVM and Sandoq keep provider networking enabled so the in-sandbox agent can
-reach the authenticated model relay. Non-agent verifier commands explicitly
-clear inherited proxy variables, and the trajectory report surfaces any network
-commands issued by the agent.
+reach the authenticated inference gateway. Non-agent verifier commands
+explicitly clear inherited proxy variables, and the trajectory report surfaces
+any network commands issued by the agent.

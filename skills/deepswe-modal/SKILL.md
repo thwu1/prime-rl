@@ -1,29 +1,38 @@
 ---
 name: deepswe-modal
-description: Launch and validate DeepSWE evaluations with mini-swe-agent, Modal/VMVM/Sandoq sandboxes, and a private prime-rl inference job. Use for provider selection, oracle gates, trajectory parity, the Modal relay, or thinking-preservation checks.
+description: Launch and validate DeepSWE evaluations with mini-swe-agent, Modal/VMVM/Sandoq sandboxes, and a private prime-rl inference job. Use for provider selection, oracle gates, trajectory parity, the RAM inference gateway, or thinking-preservation checks.
 ---
 
 # DeepSWE sandbox providers
 
 The workflow lives in `user/tianhaowu/deepswe_modal/`. The inference server is
-a separate GPU job; all oracle, smoke, full-eval, relay, and validation drivers
-must run on the CPU partition.
+a separate GPU job; all oracle, smoke, full-eval, gateway, and validation
+drivers must run on the CPU partition.
 
 ## Launch from TOML
 
-Set `provider = "modal"`, `"vmvm"`, or `"sandoq"` in the TOML and submit:
+Use the explicit full-eval TOML for the selected provider:
 
 ```bash
 sbatch user/tianhaowu/deepswe_modal/submit_eval.sbatch \
-  user/tianhaowu/deepswe_modal/nemotron_super_deepswe.toml
+  user/tianhaowu/deepswe_modal/nemotron_super_deepswe_modal.toml
+sbatch user/tianhaowu/deepswe_modal/submit_eval.sbatch \
+  user/tianhaowu/deepswe_modal/nemotron_super_deepswe_vmvm.toml
+sbatch user/tianhaowu/deepswe_modal/submit_eval.sbatch \
+  user/tianhaowu/deepswe_modal/nemotron_super_deepswe_sandoq.toml
 ```
+
+The three production configs use concurrency 32, six infrastructure-only
+retries, 200 turns, a three-hour agent timeout, a four-hour sandbox/session
+ceiling, a one-hour startup ceiling, a 4x verifier timeout, and full-history
+thinking. Change only `inference_job_id` for a new inference deployment.
 
 For one task, use `nemotron_super_deepswe_smoke.toml`. Validate config rendering
 without launching:
 
 ```bash
 uv run --no-sync python user/tianhaowu/deepswe_modal/submit_eval.py \
-  user/tianhaowu/deepswe_modal/nemotron_super_deepswe.toml --dry-run
+  user/tianhaowu/deepswe_modal/nemotron_super_deepswe_vmvm.toml --dry-run
 ```
 
 Override the TOML selection with `--provider vmvm`. Modal uses Pier's native
@@ -35,7 +44,7 @@ separate-verifier mode does not retain them, because their task images are
 registry-backed and keeping every completed agent sandbox would exhaust provider
 capacity.
 
-The checked-in full-eval config uses 32 concurrent trials. The oracle launcher
+The checked-in full-eval configs use 32 concurrent trials. The oracle launcher
 defaults to 64. Full evals and oracles use up to six whole-trial retries for
 transient provider provisioning failures. Both launchers propagate the requested concurrency to
 `VACLI_MAX_CONCURRENT_LEASES` or `OCI_RUNNER_POOL_SIZE`, so the runtime pool does
@@ -193,7 +202,7 @@ config and runtime log before evaluating.
 
 Full-history thinking makes the inference context limit part of eval validity.
 Nemotron Super declares `max_position_embeddings = 262144`; use that native
-limit for unlimited-step DeepSWE scoring. A server capped at 102144 rejects the
+limit for long-horizon DeepSWE scoring. A server capped at 102144 rejects the
 next turn once the preserved prompt reaches 102145 tokens, causing mini-swe to
 exit nonzero and the trial to score zero even when P2P is otherwise perfect.
 The 100-step parity diagnostic may use less context, but do not treat a 102144
@@ -231,8 +240,8 @@ cap; do not compare independently sampled temperature-1 runs as evidence of
 sandbox parity. A fixed seed reduces variance but does not guarantee
 byte-identical vLLM output; use prompt/config identity, normalized reasoning,
 commands and outcomes, rewards, and patches as behavior signals. Treat exact
-reasoning hashes as a diagnostic. The score TOMLs intentionally keep mini-swe's
-unlimited step setting and rely on the task's 90-minute agent timeout.
+reasoning hashes as a diagnostic. The score TOMLs use the common 200-step cap
+and three-hour agent timeout.
 
 After matched jobs finish, compare their ATIF trajectories:
 
