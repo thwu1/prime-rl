@@ -42,6 +42,29 @@ _UV_INSTALLER = re.compile(
 )
 _STAGED_UV_ARCHIVE = "/tmp/pier-host-uv.tgz"
 _STAGED_UV_PATH = "/opt/pier-tools/uv"
+_APT_SOURCE_GUARD = r"""
+pier_disabled_apt_sources=
+pier_restore_apt_sources() {
+    if [ -n "$pier_disabled_apt_sources" ] && [ -d "$pier_disabled_apt_sources" ]; then
+        for pier_source in "$pier_disabled_apt_sources"/*; do
+            [ -e "$pier_source" ] || continue
+            mv "$pier_source" /etc/apt/sources.list.d/
+        done
+        rmdir "$pier_disabled_apt_sources"
+    fi
+}
+if command -v apt-get >/dev/null 2>&1 && [ -d /etc/apt/sources.list.d ]; then
+    pier_disabled_apt_sources=$(mktemp -d)
+    for pier_source in /etc/apt/sources.list.d/*; do
+        [ -f "$pier_source" ] || continue
+        if grep -Eqs '(deb\.debian\.org|security\.debian\.org|snapshot\.debian\.org|archive\.ubuntu\.com|security\.ubuntu\.com|ports\.ubuntu\.com)' "$pier_source"; then
+            continue
+        fi
+        mv "$pier_source" "$pier_disabled_apt_sources"/
+    done
+    trap pier_restore_apt_sources EXIT
+fi
+""".strip()
 _USE_STAGED_UV = f"""
 mkdir -p "$HOME/.local/bin"
 ln -sf {_STAGED_UV_PATH} "$HOME/.local/bin/uv"
@@ -251,6 +274,8 @@ class PierRuntimeEnvironment(BaseEnvironment):
             command = step.run
             if use_staged_uv:
                 command = _UV_INSTALLER.sub(_USE_STAGED_UV, command, count=1)
+            if user == "root" and "apt-get update" in command:
+                command = f"{_APT_SOURCE_GUARD}\n{command}"
             result = await self.exec(
                 command,
                 env={**(step.env or {}), _AGENT_NETWORK_MARKER: "1"},
@@ -259,7 +284,7 @@ class PierRuntimeEnvironment(BaseEnvironment):
             )
             if result.return_code != 0:
                 detail = result.stderr or result.stdout or "no output"
-                raise RuntimeError(
+                raise SandboxError(
                     f"agent install step failed with code {result.return_code}: {detail[-2000:]}"
                 )
         if install.verification_command:
@@ -270,7 +295,7 @@ class PierRuntimeEnvironment(BaseEnvironment):
                 user=self.default_user,
             )
             if result.return_code != 0:
-                raise RuntimeError(
+                raise SandboxError(
                     "agent installation verification failed: "
                     + (result.stderr or result.stdout or "no output")[-2000:]
                 )
