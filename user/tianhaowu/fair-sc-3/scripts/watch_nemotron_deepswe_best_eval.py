@@ -256,24 +256,39 @@ def sha256(path: Path) -> str:
 
 
 def verify_tokenizer(checkpoint: Path, base_model: Path) -> dict[str, str]:
-    tokenizer_files = sorted(
-        path.name
-        for path in checkpoint.iterdir()
-        if path.is_file()
-        and (path.name.startswith("tokenizer") or path.name in {"special_tokens_map.json", "added_tokens.json"})
-    )
-    if not tokenizer_files:
-        raise RuntimeError(f"checkpoint has no tokenizer files: {checkpoint}")
+    tokenizer_files = ("tokenizer.json", "chat_template.jinja")
     hashes = {}
     for name in tokenizer_files:
         checkpoint_file = checkpoint / name
         base_file = base_model / name
+        if not checkpoint_file.is_file():
+            raise FileNotFoundError(f"checkpoint tokenizer file is missing: {checkpoint_file}")
         if not base_file.is_file():
             raise FileNotFoundError(f"base tokenizer file is missing: {base_file}")
         checkpoint_hash = sha256(checkpoint_file)
         if checkpoint_hash != sha256(base_file):
             raise RuntimeError(f"checkpoint tokenizer differs from base tokenizer: {name}")
         hashes[name] = checkpoint_hash
+
+    checkpoint_config = json.loads((checkpoint / "tokenizer_config.json").read_text())
+    base_config = json.loads((base_model / "tokenizer_config.json").read_text())
+    semantic_fields = (
+        "add_prefix_space",
+        "bos_token",
+        "clean_up_tokenization_spaces",
+        "eos_token",
+        "model_input_names",
+        "model_max_length",
+        "pad_token",
+        "unk_token",
+    )
+    mismatches = {
+        field: {"checkpoint": checkpoint_config.get(field), "base": base_config.get(field)}
+        for field in semantic_fields
+        if checkpoint_config.get(field) != base_config.get(field)
+    }
+    if mismatches:
+        raise RuntimeError(f"checkpoint tokenizer config differs from base tokenizer: {mismatches}")
     return hashes
 
 
@@ -622,6 +637,9 @@ def main() -> None:
                 terminal.append(collect_run(spec, state["runs"][spec.label]))
             state["updated_at"] = now()
             state["status"] = "ready_to_launch" if all(terminal) else "monitoring"
+            if all(terminal):
+                state.pop("error", None)
+                state.pop("last_transient_error", None)
             atomic_write_json(state_path, state)
             summary = {
                 label: {

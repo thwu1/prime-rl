@@ -77,6 +77,13 @@ are not comparable. The sbatch wrapper persists state and idempotently submits
 four-node inference plus CPU-node VMVM DeepSWE evaluation after both training
 jobs finish successfully.
 
+Nemotron weight checkpoints reserialize `tokenizer_config.json` through the
+runtime tokenizer backend, so that file is not byte-identical to the original
+Hugging Face snapshot even when tokenization is unchanged. The handoff verifies
+the byte identity of `tokenizer.json` and `chat_template.jinja`, plus the
+semantic special-token and context fields in `tokenizer_config.json`. Do not
+restore a raw hash check over the entire tokenizer config.
+
 When several multi-node vLLM evaluations start concurrently, do not share the
 default network-backed `~/.cache/vllm` compile cache. Set `VLLM_CACHE_ROOT` inside
 each node task to a job- and task-specific directory under `SLURM_TMPDIR` (falling
