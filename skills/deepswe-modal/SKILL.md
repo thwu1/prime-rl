@@ -49,8 +49,9 @@ These are names under the configured tasks directory, not Pier trial IDs with a
 generated `__SUFFIX`.
 After the subset finishes, use `merge_recovered_results.py` with one
 `--replace-task` per recovered task. It validates the exact benchmark task set,
-requires verifier metrics with no exception for every selected result, checks
-task checksums, and writes per-task paths and SHA-256 provenance.
+requires every replacement to be exception-free, preserves base trials that
+have verifier metrics after a scored agent timeout, checks task checksums, and
+writes per-task paths, exception types, and SHA-256 provenance.
 Set `verifier_timeout_multiplier = 4.0` for full VMVM/Sandoq runs so their
 slower remote execution can finish each task's verifier without changing the
 tests or reward logic.
