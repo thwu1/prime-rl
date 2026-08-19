@@ -84,6 +84,15 @@ the byte identity of `tokenizer.json` and `chat_template.jinja`, plus the
 semantic special-token and context fields in `tokenizer_config.json`. Do not
 restore a raw hash check over the entire tokenizer config.
 
+When the handoff itself runs inside an existing SLURM allocation, child `sbatch`
+submissions must not inherit the parent step namespace. In particular,
+`SLURM_CPU_BIND` can carry a one-CPU mask into a four-node inference job and make
+its first `srun` fail before vLLM starts. The watcher strips `SBATCH_*`,
+`SLURM_*`, `SRUN_*`, and `PMIX_*` from its child-launch environment. If a child
+chain already reached a terminal infrastructure failure, preserve its IDs and
+rerun with `--launch-generation N`; generation 2 and later use unique `-rN` job
+names and output directories while retaining earlier launch provenance.
+
 When several multi-node vLLM evaluations start concurrently, do not share the
 default network-backed `~/.cache/vllm` compile cache. Set `VLLM_CACHE_ROOT` inside
 each node task to a job- and task-specific directory under `SLURM_TMPDIR` (falling
