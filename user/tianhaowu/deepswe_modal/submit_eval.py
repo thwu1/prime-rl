@@ -187,6 +187,18 @@ def build_configs(
         raise ValueError("sandbox_timeout_sec must be greater than or equal to mini_swe.timeout_sec")
 
     dataset = {"path": str(tasks_path)}
+    if "task_names" in source:
+        task_names = source["task_names"]
+        if not isinstance(task_names, list) or not task_names:
+            raise ValueError("task_names must be a non-empty array")
+        if any(not isinstance(task_name, str) or not task_name for task_name in task_names):
+            raise ValueError("task_names entries must be non-empty strings")
+        if len(task_names) != len(set(task_names)):
+            raise ValueError("task_names entries must be unique")
+        missing_tasks = [task_name for task_name in task_names if not (tasks_path / task_name).is_dir()]
+        if missing_tasks:
+            raise FileNotFoundError(f"DeepSWE task directories do not exist: {missing_tasks}")
+        dataset["task_names"] = task_names
     if "n_tasks" in source:
         dataset["n_tasks"] = positive_int(source["n_tasks"], "n_tasks")
     if "sample_seed" in source:
