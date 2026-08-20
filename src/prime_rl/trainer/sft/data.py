@@ -44,6 +44,20 @@ class Batch(TypedDict):
     loss_weight: NotRequired[Float[Tensor, "batch seq"]]
 
 
+def _message_is_trainable(message: dict, config: LossMaskConfig) -> bool:
+    role = message.get("role")
+    if role not in {"system", "user", "assistant", "tool"}:
+        raise ValueError(f"Invalid message role: {role}")
+
+    trainable = message.get("trainable")
+    if trainable is not None:
+        if not isinstance(trainable, bool):
+            raise TypeError("Message trainable field must be a boolean")
+        return trainable
+
+    return cast(bool, getattr(config, role))
+
+
 class StatefulIterableDataset(Stateful, IterableDataset):
     """SFT dataset are iterable (infinite) and stateful (can be checkpointed)."""
 
@@ -224,20 +238,6 @@ class SFTDataset(StatefulIterableDataset):
                 for t in raw_tools
             ]
 
-        def should_mask(message: dict) -> bool:
-            assert "role" in message, "Message must have a role"
-            match message["role"]:
-                case "user":
-                    return True if self.loss_mask_config.user else False
-                case "assistant":
-                    return True if self.loss_mask_config.assistant else False
-                case "system":
-                    return True if self.loss_mask_config.system else False
-                case "tool":
-                    return True if self.loss_mask_config.tool else False
-                case _:
-                    raise ValueError(f"Invalid message role: {message['role']}")
-
         if self.renderer is not None:
             if example.get("chat_template_kwargs") and not self._warned_chat_template_kwargs:
                 self.logger.warning(
@@ -251,7 +251,7 @@ class SFTDataset(StatefulIterableDataset):
             input_ids, loss_mask = build_training_sample(
                 self.renderer,
                 messages,
-                role_to_mask=should_mask,
+                role_to_mask=lambda message: _message_is_trainable(message, self.loss_mask_config),
                 tools=tools,
             )
         else:
@@ -259,7 +259,7 @@ class SFTDataset(StatefulIterableDataset):
                 input_ids, loss_mask = build_incremental_token_mask(
                     self.tokenizer,
                     messages,
-                    role_to_mask=should_mask,
+                    role_to_mask=lambda message: _message_is_trainable(message, self.loss_mask_config),
                     tools=tools,
                     chat_template_kwargs=example.get("chat_template_kwargs", {}),
                     collapse_consecutive_tool_messages=True,

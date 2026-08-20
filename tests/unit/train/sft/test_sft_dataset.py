@@ -285,6 +285,28 @@ def test_multiturn_loss_mask():
     print_sample(sample["input_ids"], sample["loss_mask"], tokenizer)
 
 
+def test_message_trainable_flag_overrides_role_mask():
+    config = SFTDataConfig().loss_mask
+
+    assert not sft_data._message_is_trainable(
+        {"role": "assistant", "content": "context", "trainable": False},
+        config,
+    )
+    assert sft_data._message_is_trainable(
+        {"role": "assistant", "content": "target", "trainable": True},
+        config,
+    )
+    assert not sft_data._message_is_trainable(
+        {"role": "user", "content": "prompt"},
+        config,
+    )
+    with pytest.raises(TypeError, match="must be a boolean"):
+        sft_data._message_is_trainable(
+            {"role": "assistant", "content": "target", "trainable": 1},
+            config,
+        )
+
+
 def test_multiturn_loss_mask_with_tools():
     tool_example = {
         "prompt": [
