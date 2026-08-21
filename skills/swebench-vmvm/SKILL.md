@@ -96,6 +96,12 @@ Use Nemotron's `qwen3_coder` tool parser, `nemotron_v3` reasoning parser, and
 262,144-token context. Use Qwen's `qwen3_coder` tool parser, `qwen3` reasoning
 parser, and 131,072-token context.
 
+Keep per-rollout session affinity enabled. The pinned Verifiers v1 client sends
+`X-Session-ID` with `session.trace.id` on every ordinary or streamed model turn.
+That value must remain stable within a rollout and distinct across rollouts. A
+multi-engine endpoint must consistently hash this header; the production
+single-node tensor-parallel configs have only one engine and need no router.
+
 Do not requeue an inference job while an evaluator retains its node URL. After
 an endpoint loss, stop the evaluator, restore a healthy endpoint, then resume
 the durable result directory.

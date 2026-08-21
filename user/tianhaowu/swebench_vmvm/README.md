@@ -75,6 +75,13 @@ reasoning parser, and 262,144-token context. The Qwen configs retain the
 `qwen3_coder` tool parser, `qwen3` reasoning parser, and 131,072-token context,
 so the same endpoint supports both the ReAct and native-tool evaluations.
 
+Verifiers sends the rollout trace ID as `X-Session-ID` on every model request,
+including streamed SDK requests. If an endpoint fronts multiple engines, its
+router must consistently hash this header so all turns from one rollout reuse
+the same prefix cache. The checked-in inference configs each serve one tensor-
+parallel engine, so the header preserves the routing contract without changing
+engine selection.
+
 Wait for `/v1/models` to advertise the exact configured model before launching
 an evaluator. Use `--no-requeue` for inference jobs; if an endpoint moves, stop
 the evaluator and resume its durable output directory against the new endpoint.
