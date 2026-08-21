@@ -102,6 +102,11 @@ EVAL_CONFIG=user/tianhaowu/swebench_vmvm/configs/eval/swe_rebench_qwen36_miniswe
   user/tianhaowu/swebench_vmvm/run_v1_eval.sbatch
 ```
 
+When the CPU queue is unavailable and the researcher explicitly permits it,
+the same launcher may run as an overlapping Slurm step on the exclusive
+inference allocation with `CUDA_VISIBLE_DEVICES=`. Keep exactly one evaluator
+writer for the result directory; no separate colocated config is needed.
+
 For a smoke run, pass CLI overrides after the launcher:
 
 ```bash

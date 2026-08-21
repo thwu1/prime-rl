@@ -42,6 +42,7 @@ under the source tree.
 Run state-changing Slurm commands through tmux pane
 `swebench_vmvm:Launcher.0`. This includes `sbatch`, `scancel`, and mutating
 `scontrol` commands. Read-only `squeue` and `sacct` checks may run directly.
+Treat every `sbatch` command below as a payload to send through that pane.
 
 For example:
 
@@ -51,6 +52,10 @@ tmux send-keys -t swebench_vmvm:Launcher.0 \
 ```
 
 Run evaluators on CPU nodes. Keep model serving in a separate H100 or H200 job.
+If the CPU queue is blocked and the user permits colocation, run the evaluator
+as a separate overlapping step on the exclusive inference allocation, hide its
+GPUs with `CUDA_VISIBLE_DEVICES=`, and retain the one-writer result-directory
+invariant. Do not add a one-off colocated launcher to the repository.
 
 ## Prepare dependencies
 
