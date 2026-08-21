@@ -1516,6 +1516,8 @@ class VacliVMVMBackend:
                 self._container_id, chk.returncode,
             )
             return False
+        if not self._restore_host_tunnels():
+            return False
         # FIFO mode: the persistent shell lives INSIDE the container, so it
         # survived the drop -- cwd/env + any in-flight command are intact. Do NOT
         # rebuild it (that would lose state); just verify it is still alive. Only
@@ -1830,6 +1832,39 @@ class VacliVMVMBackend:
         raise BackendInitError(
             f"could not expose host port {local_port} to VMVM container: {last_error}"
         )
+
+    def _restore_host_tunnels(self) -> bool:
+        """Restore reverse forwards after the SSH control master is replaced."""
+        for tunnel in self._host_tunnels:
+            relay = self._ssh_call_raw(f"kill -0 {tunnel.relay_pid}", timeout=30)
+            if relay.returncode != 0:
+                logger.warning(
+                    "vacli.restart_session: host bridge relay %d is not running",
+                    tunnel.relay_pid,
+                )
+                return False
+            forward = f"127.0.0.1:{tunnel.remote_port}:127.0.0.1:{tunnel.local_port}"
+            result = self._sp.run(
+                _ssh_opts(self._ssh_port, self._control_path)
+                + ["-O", "forward", "-R", forward, "root@localhost"],
+                stdin=self._sp.DEVNULL,
+                stdout=self._sp.PIPE,
+                stderr=self._sp.PIPE,
+                timeout=30,
+            )
+            if result.returncode != 0:
+                detail = (result.stderr or b"").decode("utf-8", errors="replace").strip()
+                logger.warning(
+                    "vacli.restart_session: could not restore host tunnel on port %d: %s",
+                    tunnel.remote_port,
+                    detail,
+                )
+                return False
+            logger.info(
+                "vacli.restart_session: restored host tunnel on port %d",
+                tunnel.remote_port,
+            )
+        return True
 
     def close_host_tunnel(self, tunnel: object) -> None:
         if not isinstance(tunnel, VacliHostTunnel):

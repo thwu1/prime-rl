@@ -90,6 +90,12 @@ once with `recover_last()`. It permits five consecutive recovery drops. A lost
 container or persistent shell still becomes `SandboxError` and consumes a
 whole-trial retry.
 
+If the in-flight command depends on a registered host tunnel,
+`restart_session()` must restore that reverse forward on the replacement SSH
+control master before `recover_last()`. Keep the same remote port so the
+surviving command's endpoint remains valid; failed forward restoration makes
+the sandbox event unrecoverable.
+
 VMVM interception does not create a Prime sandbox or require Prime tunnel
 credentials. Arbitrary public port exposure from a VMVM container is not yet a
 supported provider capability; colocated servers and the harness interception
