@@ -28,11 +28,14 @@ sbatch --parsable \
   user/tianhaowu/tau3_banking_vmvm/run_eval.sbatch
 ```
 
-Then launch the full 97-task x 5-trial run:
+For routine evaluation, create a run-specific TOML from
+`nemotron_super_kimi.toml` and set `num_trials = 3` under `[benchmark]`. Then
+launch the full 97-task x 3-trial run:
 
 ```bash
+tau3_config=/path/to/nemotron_super_kimi_x3.toml
 sbatch --parsable \
-  --export=ALL,TAU3_CONFIG=user/tianhaowu/tau3_banking_vmvm/nemotron_super_kimi.toml,TAU3_OUTPUT_DIR=/checkpoint/ram/$USER/tau3_banking_vmvm/nemotron_super_kimi,TAU3_POLICY_JOB_ID="$policy_job",TAU3_WORKERS=16 \
+  --export=ALL,TAU3_CONFIG="$tau3_config",TAU3_OUTPUT_DIR=/checkpoint/ram/$USER/tau3_banking_vmvm/nemotron_super_kimi,TAU3_POLICY_JOB_ID="$policy_job",TAU3_WORKERS=16 \
   user/tianhaowu/tau3_banking_vmvm/run_eval.sbatch
 ```
 
@@ -40,11 +43,11 @@ Validate configuration without contacting providers or leasing VMVMs:
 
 ```bash
 uv run --frozen python user/tianhaowu/tau3_banking_vmvm/run_eval.py \
-  user/tianhaowu/tau3_banking_vmvm/nemotron_super_kimi.toml --dry-run
+  "$tau3_config" --dry-run
 ```
 
-The full denominator is 485: 97 unique tasks and 5 trials. Tau's seed schedule
-from base seed 300 is `626729`, `373753`, `361454`, `1567`, and `514337`.
+The full denominator is 291: 97 unique tasks and 3 trials. Tau's seed schedule
+from base seed 300 is `626729`, `373753`, and `361454`.
 
 ## Required model protocol
 
@@ -92,25 +95,25 @@ wc -l OUTPUT_DIR/results.jsonl OUTPUT_DIR/attempts.jsonl
 tail -n 30 /home/$USER/log/slurm-JOB_ID.err
 ```
 
-After all 485 rows are present and the job exits successfully, run the full
+After all 291 rows are present and the job exits successfully, run the full
 audit:
 
 ```bash
 uv run --frozen python user/tianhaowu/tau3_banking_vmvm/audit.py \
-  OUTPUT_DIR/results.jsonl --expected-total 485 \
+  OUTPUT_DIR/results.jsonl --expected-total 291 \
   --summary OUTPUT_DIR/final_audit.json
 ```
 
 Require `complete`, `coverage_valid`, proxy `protocol_valid`, and
-`whole_trial_retry_policy_valid` to be true. Confirm five judge requests, zero
+`whole_trial_retry_policy_valid` to be true. Confirm three judge requests, zero
 provider retry exhaustions, unique result keys, 97 rows per trial, and no
 repeated deterministic provider errors.
 
-Compute standard unbiased pass@k from the five samples per task, not merely the
+Compute standard unbiased pass@k from the three samples per task, not merely the
 union of the first k trial indices:
 
 ```text
-pass@k = mean_task(1 - C(5 - successes_for_task, k) / C(5, k))
+pass@k = mean_task(1 - C(3 - successes_for_task, k) / C(3, k))
 ```
 
 ## Tool-schema scope
