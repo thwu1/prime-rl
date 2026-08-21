@@ -1,0 +1,4 @@
+interface:
+  display_name: "SWE-bench VMVM"
+  short_description: "Run and audit SWE benchmarks on VMVM"
+  default_prompt: "Use $swebench-vmvm to launch or audit a VMVM SWE benchmark evaluation."

@@ -15,8 +15,8 @@
 set -euo pipefail
 
 project_dir=/storage/home/tianhaowu/prime-rl
-config_path="$project_dir/user/tianhaowu/swebench_vmvm/nemotron_inference_h200.toml"
-output_dir=/checkpoint/ram/tianhaowu/swebench_vmvm/nemotron_inference_h200
+config_path="$project_dir/user/tianhaowu/swebench_vmvm/configs/inference/nemotron_h200.toml"
+output_dir=/checkpoint/ram/tianhaowu/swebench_vmvm/inference/nemotron_h200
 
 mkdir -p "$output_dir/logs"
 cd "$project_dir"

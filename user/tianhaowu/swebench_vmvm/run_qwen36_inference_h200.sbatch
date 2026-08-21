@@ -1,13 +1,12 @@
 #!/bin/bash
-#SBATCH --job-name=nemotron-super-swebench-h100
-#SBATCH --partition=h100
-#SBATCH --qos=h100_ram_high
+#SBATCH --job-name=qwen36-swe-rebench-h200
+#SBATCH --partition=h200
+#SBATCH --qos=h200_ram_high
 #SBATCH --account=ram
 #SBATCH --time=5-00:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --gres=gpu:8
-#SBATCH --exclusive
+#SBATCH --gres=gpu:4
 #SBATCH --no-requeue
 #SBATCH --output=/home/tianhaowu/log/slurm-%j.out
 #SBATCH --error=/home/tianhaowu/log/slurm-%j.err
@@ -15,8 +14,8 @@
 set -euo pipefail
 
 project_dir=/storage/home/tianhaowu/prime-rl
-config_path="$project_dir/user/tianhaowu/swebench_vmvm/configs/inference/nemotron_h100.toml"
-output_dir=/checkpoint/ram/tianhaowu/swebench_vmvm/inference/nemotron_h100
+config_path="$project_dir/user/tianhaowu/swebench_vmvm/configs/inference/qwen36_h200.toml"
+output_dir=/checkpoint/ram/tianhaowu/swebench_vmvm/inference/qwen36_h200
 
 mkdir -p "$output_dir/logs"
 cd "$project_dir"

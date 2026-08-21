@@ -15,9 +15,13 @@
 set -euo pipefail
 
 project_dir=${PROJECT_DIR:-${SLURM_SUBMIT_DIR:-$PWD}}
-eval_config=${EVAL_CONFIG:-user/tianhaowu/swebench_vmvm/mini_swe_smoke.toml}
 resume_dir=${RESUME_DIR:-}
+eval_config=${EVAL_CONFIG:-}
 resume_run_id=${RESUME_RUN_ID:-$SLURM_JOB_ID}
+if [ -z "$resume_dir" ] && [ -z "$eval_config" ]; then
+    echo "Set EVAL_CONFIG to a file under user/tianhaowu/swebench_vmvm/configs/eval" >&2
+    exit 1
+fi
 if [ -n "$resume_dir" ]; then
     output_dir=$resume_dir
 else
@@ -127,5 +131,6 @@ fi
 if [ -n "$vmvm_lease_ttl" ]; then
     args+=(--harness.runtime.lease-ttl "$vmvm_lease_ttl")
 fi
+args+=("$@")
 
 uv run --no-sync eval "${args[@]}"

@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=nemotron-super-swebench-h100
+#SBATCH --job-name=qwen36-swe-rebench-h100
 #SBATCH --partition=h100
 #SBATCH --qos=h100_ram_high
 #SBATCH --account=ram
@@ -15,8 +15,8 @@
 set -euo pipefail
 
 project_dir=/storage/home/tianhaowu/prime-rl
-config_path="$project_dir/user/tianhaowu/swebench_vmvm/configs/inference/nemotron_h100.toml"
-output_dir=/checkpoint/ram/tianhaowu/swebench_vmvm/inference/nemotron_h100
+config_path="$project_dir/user/tianhaowu/swebench_vmvm/configs/inference/qwen36_h100.toml"
+output_dir=/checkpoint/ram/tianhaowu/swebench_vmvm/inference/qwen36_h100
 
 mkdir -p "$output_dir/logs"
 cd "$project_dir"
