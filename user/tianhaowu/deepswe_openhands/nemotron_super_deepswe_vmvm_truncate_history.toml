@@ -1,0 +1,32 @@
+name = "nemotron-super-deepswe-openhands-truncate-history-262k"
+provider = "vmvm"
+inference_job_id = 10813704
+model = "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16"
+tasks_path = "/checkpoint/ram/tianhaowu/deepswe_eval/deep-swe/tasks"
+n_attempts = 1
+n_concurrent = 32
+max_retries = 6
+verifier_timeout_multiplier = 4.0
+sandbox_timeout_sec = 14400
+sandbox_startup_timeout_sec = 3600
+
+[openhands]
+version = "1.42.1"
+max_iterations = 200
+timeout_sec = 10800
+request_timeout_sec = 7200
+llm_retries = 5
+max_input_tokens = 262144
+terminal_type = "subprocess"
+terminal_no_change_timeout_sec = 600
+stuck_detection = false
+
+[sampling]
+max_tokens = 32768
+temperature = 1.0
+top_p = 0.95
+top_k = 20
+
+[thinking]
+enabled = true
+preserve_previous = false

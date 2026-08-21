@@ -4,32 +4,32 @@ import os
 import secrets
 import socket
 import subprocess
+import sys
 import threading
 import time
 import urllib.request
 from pathlib import Path
 
-from pier_runner import run_pier_job
-from provider_env import provider_environment_context
-from request_capture import (
+PROJECT_DIR = Path("/storage/home/tianhaowu/prime-rl")
+COMMON_HARNESS_DIR = PROJECT_DIR / "user/tianhaowu/deepswe_modal"
+sys.path.insert(0, str(COMMON_HARNESS_DIR))
+
+from pier_runner import run_pier_job  # noqa: E402
+from provider_env import provider_environment_context  # noqa: E402
+from request_capture import (  # noqa: E402
     audit_captured_requests,
     start_capture_proxy,
     stop_capture_proxy,
 )
 
-PROJECT_DIR = Path("/storage/home/tianhaowu/prime-rl")
 CADDY = Path("/home/tianhaowu/bin/caddy")
-CADDYFILE = PROJECT_DIR / "user/tianhaowu/deepswe_modal/Caddyfile"
-THINKING_VERIFIER = PROJECT_DIR / "user/tianhaowu/deepswe_modal/verify_mini_swe_thinking.py"
-DRIVER_ROOT = Path("/checkpoint/ram/tianhaowu/deepswe_eval/driver")
+CADDYFILE = PROJECT_DIR / "user/tianhaowu/deepswe_openhands/Caddyfile"
+DRIVER_ROOT = Path("/checkpoint/ram/tianhaowu/deepswe_eval/openhands-driver")
 DEFAULT_MODEL_NAME = "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16"
 GATEWAY_INTERNAL_URL = "http://fair-sc-3-ingress-slurm-ingress"
 GATEWAY_PUBLIC_URL = "https://ram-inference-gateway.ingress.fair-sc-3.metahpc.aws.metafb.cloud"
 GATEWAY_HOST_HEADER = "ram-inference-gateway.ingress."
-GATEWAY_REGISTER_TOKEN = os.environ.get(
-    "GATEWAY_REGISTER_TOKEN",
-    "ram_secret_dont_share",
-)
+GATEWAY_REGISTER_TOKEN = os.environ.get("GATEWAY_REGISTER_TOKEN", "ram_secret_dont_share")
 GATEWAY_REGISTER_TTL_SEC = 45
 GATEWAY_HEARTBEAT_SEC = 15
 GATEWAY_REGISTER_SCHEMA_VERSION = 1
@@ -38,29 +38,18 @@ GATEWAY_REGISTER_SCHEMA_VERSION = 1
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("config", type=Path)
-    upstream = parser.add_mutually_exclusive_group(required=True)
-    upstream.add_argument("--inference-job-id")
-    upstream.add_argument("--upstream-info-path", type=Path)
+    parser.add_argument("--inference-job-id", required=True)
     parser.add_argument("--job-name", required=True)
     parser.add_argument("--model-name", default=DEFAULT_MODEL_NAME)
     parser.add_argument("--gateway-model-name", required=True)
-    parser.add_argument("--mini-swe-version", default="2.2.8")
     parser.add_argument("--provider", choices=("modal", "vmvm", "sandoq"), required=True)
-    parser.add_argument("--render-endpoints-path", type=Path)
-    parser.add_argument("--upstream-session-header")
-    parser.add_argument("--chat-template-kwargs-json")
     parser.add_argument("--sandbox-startup-timeout-sec", type=int, default=3600)
     parser.add_argument("--truncate-history-thinking", action="store_true")
     return parser.parse_args()
 
 
 def run_output(command: list[str]) -> str:
-    return subprocess.run(
-        command,
-        check=True,
-        text=True,
-        capture_output=True,
-    ).stdout.strip()
+    return subprocess.run(command, check=True, text=True, capture_output=True).stdout.strip()
 
 
 def inference_router(job_id: str) -> str:
@@ -104,54 +93,6 @@ def wait_for_endpoint(
         except OSError:
             time.sleep(10)
     raise TimeoutError(f"Endpoint did not become ready: {url}")
-
-
-def wait_for_tcp(host: str, port: int, timeout_sec: int) -> None:
-    deadline = time.monotonic() + timeout_sec
-    while time.monotonic() < deadline:
-        try:
-            with socket.create_connection((host, port), timeout=1):
-                return
-        except OSError:
-            time.sleep(1)
-    raise TimeoutError(f"TCP endpoint did not become ready: {host}:{port}")
-
-
-def load_upstream_info(path: Path, expected_model: str) -> tuple[str, str | None]:
-    info = json.loads(path.read_text())
-    if not isinstance(info, dict):
-        raise TypeError(f"upstream info must be a JSON object: {path}")
-    url = info.get("url")
-    if not isinstance(url, str) or not url.startswith(("http://", "https://")):
-        raise ValueError(f"upstream info has no valid URL: {path}")
-    model = info.get("model")
-    if model != expected_model:
-        raise ValueError(f"upstream info model is {model!r}, expected {expected_model!r}")
-    api_key = info.get("api_key")
-    if api_key is not None and (not isinstance(api_key, str) or not api_key):
-        raise ValueError(f"upstream info has an invalid API key: {path}")
-    return url.rstrip("/"), api_key
-
-
-def discover_render_router(endpoints_path: Path, expected_model: str) -> str:
-    failures = []
-    for path in sorted(endpoints_path.glob("*.json")):
-        try:
-            endpoint = json.loads(path.read_text())
-            host = endpoint["host"]
-            port = endpoint["port"]
-            if not isinstance(host, str) or not isinstance(port, int):
-                raise TypeError("host and port must be strings and integers")
-            router = f"http://{host}:{port}"
-            response = request_json(f"{router}/v1/models")
-            served_models = {item["id"] for item in response.get("data", [])}
-            if expected_model not in served_models:
-                raise ValueError(f"served models are {sorted(served_models)}")
-            return router
-        except (OSError, TypeError, ValueError) as error:
-            failures.append(f"{path.name}: {error}")
-    detail = "; ".join(failures[-3:])
-    raise RuntimeError(f"no live render endpoint found under {endpoints_path}: {detail}")
 
 
 class GatewayRegistration:
@@ -199,7 +140,7 @@ class GatewayRegistration:
                 "url": self.upstream_url,
                 "api_key": self.api_key,
                 "extras": {
-                    "proxy_type": "deepswe-capture",
+                    "proxy_type": "deepswe-openhands-capture",
                     "provider": self.provider,
                 },
                 "jobid": self.job_id,
@@ -309,106 +250,21 @@ def run_pier(
         return run_pier_job(config, job_name, env=env)
 
 
-def verify_mini_swe_thinking(
-    base_url: str,
-    render_base_url: str,
-    api_key: str,
-    model_name: str,
-    mini_swe_version: str,
-    log_path: Path,
-    chat_template_kwargs: dict,
-    truncate_history_thinking: bool,
-) -> None:
-    env = os.environ.copy()
-    for key in (
-        "HTTP_PROXY",
-        "HTTPS_PROXY",
-        "ALL_PROXY",
-        "http_proxy",
-        "https_proxy",
-        "all_proxy",
-    ):
-        env.pop(key, None)
-    env.update(
-        {
-            "LITELLM_LOCAL_MODEL_COST_MAP": "True",
-            "NO_PROXY": "127.0.0.1,localhost",
-            "OPENAI_API_KEY": api_key,
-        }
-    )
-    command = [
-        "uv",
-        "run",
-        "--offline",
-        "--no-sync",
-        "--with",
-        f"mini-swe-agent=={mini_swe_version}",
-        "python",
-        str(THINKING_VERIFIER),
-        "--base-url",
-        base_url,
-        "--render-base-url",
-        render_base_url,
-        "--model-name",
-        model_name,
-        "--log-path",
-        str(log_path),
-        "--chat-template-kwargs-json",
-        json.dumps(chat_template_kwargs, separators=(",", ":")),
-    ]
-    if truncate_history_thinking:
-        command.append("--truncate-history-thinking")
-    subprocess.run(command, cwd=PROJECT_DIR, env=env, check=True)
-
-
 def main() -> None:
     args = parse_args()
     slurm_job_id = os.environ.get("SLURM_JOB_ID", str(os.getpid()))
     driver_dir = DRIVER_ROOT / slurm_job_id
     driver_dir.mkdir(parents=True, exist_ok=True)
 
-    if args.chat_template_kwargs_json is None:
-        chat_template_kwargs = {
-            "enable_thinking": True,
-            "truncate_history_thinking": args.truncate_history_thinking,
-        }
-    else:
-        chat_template_kwargs = json.loads(args.chat_template_kwargs_json)
-        if not isinstance(chat_template_kwargs, dict):
-            raise TypeError("chat template kwargs must be a JSON object")
-
-    upstream_api_key = None
-    if args.inference_job_id is not None:
-        router = inference_router(args.inference_job_id)
-    else:
-        router, upstream_api_key = load_upstream_info(
-            args.upstream_info_path.resolve(),
-            args.model_name,
-        )
-    render_router = (
-        discover_render_router(args.render_endpoints_path.resolve(), args.model_name)
-        if args.render_endpoints_path is not None
-        else router
-    )
-    if render_router == router:
-        print(f"Waiting for inference router {router}", flush=True)
-        model_response = wait_for_endpoint(
-            f"{router}/v1/models",
-            api_key=upstream_api_key,
-            timeout_sec=2 * 60 * 60,
-        )
-        served_models = [item["id"] for item in model_response.get("data", [])]
-        if args.model_name not in served_models:
-            raise RuntimeError(f"Expected {args.model_name}, got {served_models}")
-    else:
-        print(
-            f"Validated {args.model_name} through render endpoint {render_router}; chat traffic will use {router}",
-            flush=True,
-        )
+    router = inference_router(args.inference_job_id)
+    print(f"Waiting for inference router {router}", flush=True)
+    model_response = wait_for_endpoint(f"{router}/v1/models", timeout_sec=2 * 60 * 60)
+    served_models = [item["id"] for item in model_response.get("data", [])]
+    if args.model_name not in served_models:
+        raise RuntimeError(f"Expected {args.model_name}, got {served_models}")
 
     api_key = secrets.token_urlsafe(32)
     local_port = available_port()
-
     caddy_process = None
     caddy_log = None
     gateway_registration = None
@@ -421,8 +277,6 @@ def main() -> None:
             capture_dir,
             driver_dir / "request_capture.jsonl",
             upstream_model=args.model_name,
-            upstream_api_key=upstream_api_key,
-            upstream_session_header=args.upstream_session_header,
         )
         caddy_process, caddy_log = start_caddy(
             capture_url,
@@ -430,10 +284,13 @@ def main() -> None:
             api_key,
             driver_dir / "caddy.log",
         )
-        wait_for_tcp("127.0.0.1", local_port, timeout_sec=60)
-
+        wait_for_endpoint(
+            f"http://127.0.0.1:{local_port}/v1/models",
+            api_key=api_key,
+            timeout_sec=60,
+        )
         gateway_registration = GatewayRegistration(
-            deployment=f"deepswe-{slurm_job_id}",
+            deployment=f"deepswe-openhands-{slurm_job_id}",
             model=args.gateway_model_name,
             upstream_url=f"http://{socket.gethostname()}:{local_port}",
             api_key=api_key,
@@ -452,18 +309,7 @@ def main() -> None:
             f"RAM inference gateway route ready for {args.gateway_model_name} via {socket.gethostname()}:{local_port}",
             flush=True,
         )
-        local_url = f"http://127.0.0.1:{local_port}"
-        verify_mini_swe_thinking(
-            local_url,
-            render_router,
-            api_key,
-            args.model_name,
-            args.mini_swe_version,
-            driver_dir / "thinking_preflight.json",
-            chat_template_kwargs,
-            args.truncate_history_thinking,
-        )
-        run_pier(
+        result_path = run_pier(
             args.config.resolve(),
             args.job_name,
             GATEWAY_PUBLIC_URL,
@@ -471,13 +317,14 @@ def main() -> None:
             args.provider,
             args.sandbox_startup_timeout_sec,
         )
+        (driver_dir / "pier-result-path.txt").write_text(str(result_path) + "\n")
         audit_captured_requests(
-            render_router,
+            router,
             capture_dir,
             driver_dir / "request_capture.jsonl",
             driver_dir / "thinking_trajectory_audit.json",
-            expected_template_kwargs=chat_template_kwargs,
             truncate_history_thinking=args.truncate_history_thinking,
+            preserve_reasoning_history=not args.truncate_history_thinking,
         )
     finally:
         if gateway_registration is not None:

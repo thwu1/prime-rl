@@ -39,6 +39,8 @@ The checked-in production configs differ only by sandbox provider:
 | Modal | `nemotron_super_deepswe_modal.toml` |
 | VMVM | `nemotron_super_deepswe_vmvm.toml` |
 | Sandoq | `nemotron_super_deepswe_sandoq.toml` |
+| VMVM history-truncation ablation | `nemotron_super_deepswe_vmvm_truncate_history.toml` |
+| Kimi K2.6 through the shared inference proxy | `kimi_k26_deepswe_vmvm.toml` |
 
 They use 32 concurrent trials, six infrastructure-only retries, 200 MiniSWE
 turns, a three-hour agent timeout, a four-hour sandbox/session ceiling, a
@@ -46,6 +48,10 @@ one-hour startup ceiling, a 4x verifier timeout, and preserved thinking at the
 native 262,144-token context limit. Change `inference_job_id` when launching a
 new inference deployment; the other settings are the validated full-eval
 defaults.
+
+The Kimi config uses the shared `serve_api_v2` proxy, sticky LiteLLM sessions,
+and direct worker endpoints for renderer validation. It keeps production
+concurrency at 32 and preserves Kimi reasoning with its native template kwargs.
 
 Submit the selected config from the CPU sbatch launcher:
 
@@ -71,6 +77,11 @@ provider = "vmvm" # modal, vmvm, or sandoq
 enabled = true
 preserve_previous = true
 ```
+
+Set `preserve_previous = false` only for the explicit Nemotron default-template
+ablation. It renders `truncate_history_thinking=true`; thinking remains enabled,
+but reasoning from earlier assistant turns is removed from the next rendered
+prompt. Production score configs keep `preserve_previous = true`.
 
 To run an exact subset, set task directory names rather than Pier's generated
 trial IDs:
@@ -125,14 +136,17 @@ such as an agent timeout followed by successful verification are preserved and
 recorded by exception type. The output includes the source path and SHA-256 of
 every selected result.
 
-## Thinking preservation
+## Thinking history policy
 
-Every request sets `enable_thinking=true` and
-`truncate_history_thinking=false`. Before Pier starts,
+Production requests set `enable_thinking=true` and
+`truncate_history_thinking=false`. The explicit truncation ablation sets the
+second field to `true`. Before Pier starts,
 `verify_mini_swe_thinking.py` performs three live mini-swe turns, records every
 outgoing request and completion, verifies both prior reasoning blocks are
-forwarded unchanged, then checks vLLM's live chat-render endpoint contains both
-blocks and produces the same prompt-token count as the actual third completion.
+forwarded unchanged, then checks vLLM's live chat-render endpoint either contains
+both blocks or intentionally removes both, according to the configured policy.
+It also requires the rendered prompt-token count to match the actual third
+completion.
 Malformed stochastic tool calls are retried with a different seed; the
 reasoning and renderer checks still fail closed.
 
@@ -170,6 +184,9 @@ node:
 sbatch user/tianhaowu/deepswe_modal/audit_capture.sbatch \
   /checkpoint/ram/tianhaowu/deepswe_eval/driver/JOB_ID INFERENCE_JOB_ID
 ```
+
+For a history-truncation ablation, append `--truncate-history-thinking` so the
+audit requires prior reasoning to be absent from the rendered prompt.
 
 The capture proxy selects `latest_requests/` by per-task request sequence, not
 response completion order. A slow older completion therefore cannot overwrite
