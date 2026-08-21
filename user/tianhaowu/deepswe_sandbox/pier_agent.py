@@ -2,6 +2,18 @@ from pier.agents.installed.base import NonZeroAgentExitCodeError
 from pier.agents.installed.mini_swe_agent import MiniSweAgent
 from pier.environments.base import BaseEnvironment
 from pier.models.agent.context import AgentContext
+from verifiers.v1.errors import SandboxError
+
+_CLASSIFY_AGENT_TRANSPORT_EXIT_COMMAND = r"""
+trajectory=/logs/agent/mini-swe-agent.trajectory.json
+if test -s "$trajectory" && \
+   grep -Eq '"exit_status"[[:space:]]*:[[:space:]]*"(InternalServerError|APIConnectionError|APITimeoutError|ServiceUnavailableError|RateLimitError)"' "$trajectory" && \
+   grep -Eiq 'RemoteProtocolError|APIConnectionError|APITimeoutError|Connection error|Server disconnected|incomplete message body|502 Bad Gateway|503 Service Unavailable|504 Gateway Time-out|RateLimitError' "$trajectory"; then
+    printf 'model_transport_error\n'
+else
+    printf 'non_transport_exit\n'
+fi
+""".strip()
 
 _VALIDATE_AGENT_EXIT_COMMAND = """
 trajectory=/logs/agent/mini-swe-agent.trajectory.json
@@ -15,7 +27,7 @@ if grep -Eq '"exit_status"[[:space:]]*:[[:space:]]*"LimitsExceeded"' "$trajector
     exit 0
 fi
 if grep -Eq '"exit_status"[[:space:]]*:[[:space:]]*"(BadRequestError|ContextWindowExceededError)"' "$trajectory" && \
-   grep -Fq "exceeds the model's maximum context length" "$trajectory"; then
+   grep -Eiq 'ContextWindowExceeded|maximum context length|context window[^"[:cntrl:]]*exceed' "$trajectory"; then
     printf 'accepted_exit_status=ContextWindowExceeded\n' \
         | tee /logs/agent/submission-exit.txt
     exit 0
@@ -54,8 +66,13 @@ class DeepSweMiniSweAgent(MiniSweAgent):
     ) -> None:
         try:
             await super().run(instruction, environment, context)
-        except NonZeroAgentExitCodeError:
-            pass
+        except NonZeroAgentExitCodeError as error:
+            classification = await self.exec_as_agent(
+                environment,
+                command=_CLASSIFY_AGENT_TRANSPORT_EXIT_COMMAND,
+            )
+            if classification.stdout.strip() == "model_transport_error":
+                raise SandboxError("MiniSWE model request transport failed after its internal retries") from error
         await self.exec_as_agent(
             environment,
             command=_VALIDATE_AGENT_EXIT_COMMAND,

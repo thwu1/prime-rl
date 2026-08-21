@@ -1,0 +1,9 @@
+Solve the following software engineering task in the repository at `/app`:
+
+{{ instruction }}
+
+Use the terminal and file editor to inspect the repository, implement the fix,
+and run focused verification. Do not only describe a solution: make the required
+changes in the working tree. When the task is complete, finish the OpenHands
+conversation with a concise summary. The harness will commit all remaining
+working-tree changes for DeepSWE grading.

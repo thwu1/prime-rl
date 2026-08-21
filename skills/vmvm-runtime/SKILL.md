@@ -37,7 +37,9 @@ sbatch user/tianhaowu/deepswe_vmvm/run_runtime_smoke.sbatch
 The smoke checks a real lease, binary file round trip, workdir execution, the
 container-to-host interception route, and cleanup. The host route is an SSH
 reverse forward on VM loopback plus a VM bridge relay; the container URL must
-bypass its HTTP proxy through `NO_PROXY`.
+bypass its HTTP proxy through `NO_PROXY`. Probe the bridge from the task
+container with Bash's `/dev/tcp`; benchmark images for Go, Java, Rust, and
+TypeScript are not required to provide a `python` executable.
 
 Pier's DeepSWE adapter supports prebuilt agent images and the benchmark's
 separate verifier Dockerfiles. It validates the Dockerfile, starts its `FROM`
@@ -80,6 +82,14 @@ exit code is the command result; a negative exit code is surfaced as
 fresh attempt. Cleanup remains idempotent and closes every active bridge before
 releasing the vacli lease.
 
+The DeepSWE Pier adapter adds provider-local recovery without changing the
+generic Runtime or VMVM-TB-v2 interfaces. When `runtime.run()` reports a VMVM
+connection loss, `PierRuntimeEnvironment` reconnects to the same container with
+the existing `restart_session()` and collects the pending FIFO command exactly
+once with `recover_last()`. It permits five consecutive recovery drops. A lost
+container or persistent shell still becomes `SandboxError` and consumes a
+whole-trial retry.
+
 VMVM interception does not create a Prime sandbox or require Prime tunnel
 credentials. Arbitrary public port exposure from a VMVM container is not yet a
 supported provider capability; colocated servers and the harness interception
@@ -98,3 +108,5 @@ can legitimately outlive startup.
 Use `verifier_timeout_multiplier = 4.0` in full VMVM TOMLs and
 `--verifier-timeout-multiplier 4` for the oracle. This retains the task's own
 timeout ratios while allowing slow remote verifier execution to complete.
+For a targeted model-eval recovery, set top-level TOML `task_names` to exact
+task directory names. Do not use Pier's generated `trial-name__SUFFIX` value.

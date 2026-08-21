@@ -34,6 +34,27 @@ def pier_command(config: Path, job_name: str) -> list[str]:
     ]
 
 
+def pier_resume_command(job_dir: Path) -> list[str]:
+    return [
+        "uv",
+        "tool",
+        "run",
+        "--offline",
+        "--isolated",
+        "--from",
+        "datacurve-pier==0.3.1",
+        "--with-editable",
+        str(PROJECT_DIR / "deps/verifiers"),
+        "--exclude-newer-package",
+        "datacurve-pier=2026-08-19",
+        "pier",
+        "job",
+        "resume",
+        "--job-path",
+        str(job_dir),
+    ]
+
+
 def read_result(path: Path) -> dict | None:
     try:
         return json.loads(path.read_text())
@@ -76,8 +97,15 @@ def run_pier_job(
     *,
     env: dict[str, str] | None = None,
 ) -> Path:
-    command = pier_command(config, job_name)
-    result_path = JOBS_DIR / job_name / "result.json"
+    job_dir = JOBS_DIR / job_name
+    result_path = job_dir / "result.json"
+    existing_result = read_result(result_path)
+    if existing_result is not None and existing_result.get("finished_at") is not None:
+        validate_clean_completion(existing_result)
+        print(f"Pier already completed: {result_path}", flush=True)
+        return result_path
+
+    command = pier_resume_command(job_dir) if existing_result is not None else pier_command(config, job_name)
     print(f"Running: {shlex.join(command)}", flush=True)
     process = subprocess.Popen(
         command,
@@ -112,8 +140,7 @@ def run_pier_job(
 
     validate_clean_completion(result)
     print(
-        f"Pier completed: {result_path} "
-        f"(errored={result['stats']['n_errored_trials']})",
+        f"Pier completed: {result_path} (errored={result['stats']['n_errored_trials']})",
         flush=True,
     )
     return result_path

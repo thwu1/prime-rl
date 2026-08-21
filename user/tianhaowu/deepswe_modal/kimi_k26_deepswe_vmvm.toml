@@ -1,0 +1,31 @@
+name = "kimi-k26-deepswe-preserve-c32-2x"
+provider = "vmvm"
+upstream_info_path = "/checkpoint/ram/shared/vllm_deployments_v2/shared-kimi26/proxy_info.json"
+render_endpoints_path = "/checkpoint/ram/shared/vllm_deployments_v2/shared-kimi26/endpoints"
+upstream_session_header = "x-litellm-session-id"
+model = "Kimi-K2.6"
+tasks_path = "/checkpoint/ram/tianhaowu/deepswe_eval/deep-swe/tasks"
+n_attempts = 1
+n_concurrent = 32
+max_retries = 6
+verifier_timeout_multiplier = 8.0
+sandbox_timeout_sec = 28800
+sandbox_startup_timeout_sec = 7200
+
+[mini_swe]
+step_limit = 200
+timeout_sec = 21600
+
+[sampling]
+max_tokens = 32768
+temperature = 1.0
+top_p = 0.95
+top_k = 20
+
+[thinking]
+enabled = true
+preserve_previous = true
+
+[thinking.template_kwargs]
+thinking = true
+preserve_thinking = true
