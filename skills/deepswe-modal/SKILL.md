@@ -9,6 +9,50 @@ The workflow lives in `user/tianhaowu/deepswe_modal/`. The inference server is
 a separate GPU job; all oracle, smoke, full-eval, gateway, and validation
 drivers must run on the CPU partition.
 
+## Quick start: MiniSWE evaluation
+
+Use the checked-in config for the target provider and model. For the normal
+Nemotron Super evaluation on VMVM, update `inference_job_id` in
+`user/tianhaowu/deepswe_modal/nemotron_super_deepswe_vmvm.toml` to the active
+inference job. Also verify that `model` exactly matches `/v1/models`.
+
+Validate the TOML and rendered Pier config without launching anything:
+
+```bash
+uv run --no-sync python user/tianhaowu/deepswe_modal/submit_eval.py \
+  user/tianhaowu/deepswe_modal/nemotron_super_deepswe_vmvm.toml --dry-run
+```
+
+Launch the evaluator as a CPU Slurm job:
+
+```bash
+sbatch user/tianhaowu/deepswe_modal/submit_eval.sbatch \
+  user/tianhaowu/deepswe_modal/nemotron_super_deepswe_vmvm.toml
+```
+
+Do not run a full evaluator on the login node. The model remains in its
+separate GPU inference job. Slurm writes the driver log to
+`/checkpoint/ram/tianhaowu/deepswe_eval/driver_JOB_ID.log`; Pier results live
+under `/checkpoint/ram/tianhaowu/deepswe_eval/jobs/`.
+
+### Model choices
+
+| Model or deployment | TOML changes |
+| --- | --- |
+| Nemotron Super on a private prime-rl inference job | Set `inference_job_id` and the exact model ID returned by `/v1/models`. Keep `thinking.preserve_previous = true` for the normal full-history evaluation. |
+| Nemotron history-truncation ablation | Set `thinking.preserve_previous = false`. This removes prior reasoning from the rendered prompt while keeping current-turn thinking enabled. |
+| Kimi-K2.6 on shared `serve_api_v2` | Remove `inference_job_id`; set `upstream_info_path`, `render_endpoints_path`, and `upstream_session_header = "x-litellm-session-id"`. Use Kimi's thinking kwargs and the doubled timeouts from `kimi_k26_deepswe_vmvm.toml`. |
+| Another reasoning-capable model | Set its exact served model ID and model-specific `[thinking.template_kwargs]`. Confirm the inference job has compatible reasoning and tool-call parsers, then require the live thinking preflight to pass before a full run. |
+
+Use `nemotron_super_deepswe_modal.toml`,
+`nemotron_super_deepswe_vmvm.toml`, or
+`nemotron_super_deepswe_sandoq.toml` for the corresponding provider. Use
+`nemotron_super_deepswe_vmvm_truncate_history.toml` for the history ablation and
+`kimi_k26_deepswe_vmvm.toml` for the shared Kimi deployment. The full-eval
+default is 32 concurrent trials; the oracle gate may use 64. Keep
+`mini_swe.timeout_sec` at three hours and `sandbox_timeout_sec` at four hours
+for VMVM/Sandoq unless a model such as Kimi needs the documented 2x limits.
+
 The standalone OpenHands SDK alternative lives in
 `user/tianhaowu/deepswe_openhands/`. Do not add OpenHands conditionals to the
 MiniSWE launcher. Its own sbatch launcher, TOML renderer, Pier agent, prompt,
