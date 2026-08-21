@@ -1,0 +1,52 @@
+# Full SWE-rebench evaluation with the published text-command ReAct scaffold.
+model = "Qwen/Qwen3.6-27B"
+num_tasks = 111
+num_rollouts = 5
+max_concurrent = 16
+max_turns = 250
+multiplex = 8
+rich = false
+
+[client]
+base_url = "http://127.0.0.1:8000/v1"
+api_key_var = "OPENAI_API_KEY"
+timeout = 7200
+connect_timeout = 30
+max_retries = 10
+
+[sampling]
+temperature = 1.0
+top_p = 0.95
+top_k = 20
+min_p = 0.0
+presence_penalty = 0.0
+repetition_penalty = 1.0
+max_tokens = 81920
+chat_template_kwargs = { enable_thinking = true, preserve_thinking = true }
+
+[taskset]
+id = "swe-rebench-harbor"
+dataset_dir = "/checkpoint/ram/tianhaowu/swebench_vmvm/swe_rebench_07_2026_harbor/swe-rebench-07-2026"
+
+[harness]
+id = "swe-rebench-react"
+max_steps = 250
+command_timeout = 300
+output_limit = 20000
+
+[harness.runtime]
+type = "vmvm"
+session_timeout = 7200
+tenant_id = "async_2347641"
+lease_ttl = "60s"
+max_session_buffer_size = 67108864
+
+[timeout]
+setup = 1800
+rollout = 3000
+finalize = 600
+scoring = 3000
+
+[retries.rollout]
+max_retries = 2
+include = ["SandboxError", "TunnelError"]
