@@ -7,7 +7,7 @@ set -euo pipefail
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 project_dir=$(git -C "$script_dir" rev-parse --show-toplevel)
 expected_tasks=${EXPECTED_TASKS:-500}
-rollouts_per_task=${ROLLOUTS_PER_TASK:-3}
+rollouts_per_task=${ROLLOUTS_PER_TASK:-1}
 expected_rows=$((expected_tasks * rollouts_per_task))
 results="$BASE_RESULTS_DIR/results.jsonl"
 

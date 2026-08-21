@@ -19,7 +19,7 @@ authorizes a shared change.
 | Benchmark | Harness | Model | Shape |
 | --- | --- | --- | ---: |
 | SWE-bench Verified | mini-swe-agent 2.2.8 | Nemotron 3 Super | 500 x 1 |
-| SWE-bench Verified | OpenHands SDK 1.17.0 | Nemotron 3 Super | 500 x 3 |
+| SWE-bench Verified | OpenHands SDK 1.17.0 | Nemotron 3 Super | 500 x 1 |
 | SWE-rebench July 2026 | fixed text-command ReAct | Qwen3.6-27B | 111 x 5 |
 | SWE-rebench July 2026 | mini-swe-agent 2.2.8 native tools | Qwen3.6-27B | 111 x 5 |
 
@@ -146,12 +146,12 @@ uv run --no-sync python user/tianhaowu/swebench_vmvm/audit_results.py \
   --require-swebench-vmvm-provenance --reject-mode-changes --strict
 ```
 
-Use `K=1` for MiniSWE and `K=3` for OpenHands. Then run the relevant specialized
+Use `K=1` for both MiniSWE and OpenHands. Then run the relevant specialized
 audit:
 
 ```bash
 uv run --no-sync python user/tianhaowu/swebench_vmvm/openhands_sdk_harness/audit.py \
-  RESULTS --expected-rows 1500 --strict
+  RESULTS --expected-rows 500 --strict
 ```
 
 For SWE-rebench, use 111 tasks and five rollouts, then run both the Harbor audit
@@ -170,7 +170,7 @@ Run only the ReAct or MiniSWE specialized audit that matches the evaluated
 harness.
 
 For OpenHands, require the evaluator step to finish as `COMPLETED` with exit
-code `0:0` and exactly 1,500 rows. Then run
+code `0:0` and exactly 500 rows. Then run
 `finalize_openhands_sdk.sh`, which verifies result shape, SDK behavior,
 implementation snapshots, runtime sources, inference provenance, and final
 checksums.

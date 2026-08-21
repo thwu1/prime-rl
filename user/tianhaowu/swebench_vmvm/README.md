@@ -9,7 +9,7 @@ Verifiers or `vmvm_tb_v2`.
 | Benchmark | Harness | Model | Workload |
 | --- | --- | --- | ---: |
 | SWE-bench Verified | mini-swe-agent 2.2.8 | Nemotron 3 Super | 500 x 1 |
-| SWE-bench Verified | OpenHands SDK 1.17.0 | Nemotron 3 Super | 500 x 3 |
+| SWE-bench Verified | OpenHands SDK 1.17.0 | Nemotron 3 Super | 500 x 1 |
 | SWE-rebench July 2026 | published text-command ReAct scaffold | Qwen3.6-27B | 111 x 5 |
 | SWE-rebench July 2026 | mini-swe-agent 2.2.8 native tools | Qwen3.6-27B | 111 x 5 |
 
@@ -163,15 +163,15 @@ uv run --no-sync python user/tianhaowu/swebench_vmvm/audit_results.py \
   --require-swebench-vmvm-provenance --reject-mode-changes --strict
 ```
 
-Use `--rollouts-per-task 3` for OpenHands. For SWE-rebench use
-`--expected-tasks 111 --rollouts-per-task 5` and omit the SWE-bench provenance
-flags.
+Use one rollout per task for both SWE-bench Verified harnesses. For SWE-rebench
+use `--expected-tasks 111 --rollouts-per-task 5` and omit the SWE-bench
+provenance flags.
 
 Run the harness-specific audit as well:
 
 ```bash
 uv run --no-sync python user/tianhaowu/swebench_vmvm/openhands_sdk_harness/audit.py \
-  RESULTS --expected-rows 1500 --strict
+  RESULTS --expected-rows 500 --strict
 
 uv run --no-sync python user/tianhaowu/swebench_vmvm/swe_rebench_react/audit.py \
   RESULTS --expected-rows 555 --strict
@@ -183,7 +183,7 @@ uv run --no-sync python user/tianhaowu/swebench_vmvm/swe_rebench_harbor/audit.py
   RESULTS --require-verifier-metadata --strict
 ```
 
-For a completed OpenHands 500 x 3 run, preserve the inference config, launcher,
+For a completed OpenHands 500 x 1 run, preserve the inference config, launcher,
 startup log, Slurm job ID, and their checksum manifest in the result directory,
 then run the fail-closed finalizer:
 
@@ -193,8 +193,7 @@ BASE_RESULTS_DIR=/path/to/run \
 ```
 
 `watch_finalize_openhands_sdk.sh` may wait on an exact evaluator step. It accepts
-only a `COMPLETED`/`0:0` step with exactly 1,500 rows before invoking the
-finalizer.
+only a `COMPLETED`/`0:0` step with exactly 500 rows before invoking the finalizer.
 
 ## Result interpretation
 
