@@ -1,0 +1,32 @@
+output_dir = "/checkpoint/ram/tianhaowu/swebench_vmvm/qwen36_native_tools_inference_h100"
+gpu_memory_utilization = 0.90
+
+[model]
+name = "Qwen/Qwen3.6-27B"
+max_model_len = 131072
+tool_call_parser = "qwen3_coder"
+reasoning_parser = "qwen3"
+
+[parallel]
+tp = 8
+
+[server]
+host = "0.0.0.0"
+port = 8000
+
+[deployment]
+type = "single_node"
+gpus_per_node = 8
+
+[vllm_extra]
+language_model_only = true
+gdn_prefill_backend = "triton"
+enable_prefix_caching = true
+served_model_name = ["Qwen/Qwen3.6-27B"]
+
+[log]
+level = "info"
+vf_level = "info"
+json_logging = false
+log_data = false
+interval = 10.0

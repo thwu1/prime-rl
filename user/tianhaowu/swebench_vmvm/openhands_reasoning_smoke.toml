@@ -1,0 +1,51 @@
+model = "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16"
+num_tasks = 1
+num_rollouts = 1
+max_concurrent = 1
+max_turns = 100
+multiplex = 1
+rich = false
+
+[client]
+base_url = "http://127.0.0.1:8000/v1"
+api_key_var = "OPENAI_API_KEY"
+timeout = 7200
+connect_timeout = 30
+max_retries = 10
+
+[sampling]
+temperature = 1.0
+top_p = 0.95
+top_k = 20
+max_tokens = 32768
+chat_template_kwargs = { enable_thinking = true, truncate_history_thinking = false }
+
+[taskset]
+id = "swebench-verified-vmvm"
+use_prime_registry = false
+fresh_verifier_runtime = true
+
+[harness]
+id = "openhands_harness_reasoning"
+max_iterations = 100
+command_timeout = 300
+memory_limit_mb = 32768
+
+[harness.runtime]
+type = "vmvm"
+session_timeout = 32400
+tenant_id = "async_2347641"
+lease_ttl = "60s"
+max_session_buffer_size = 67108864
+cpu = 4
+memory = 32
+
+[timeout]
+setup = 3600
+rollout = 28800
+finalize = 600
+scoring = 6000
+
+[retries.rollout]
+max_retries = 2
+include = ["SandboxError", "ProviderError", "TunnelError", "HarnessError", "TasksetError"]

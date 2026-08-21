@@ -1,0 +1,31 @@
+output_dir = "/checkpoint/ram/tianhaowu/swebench_vmvm/qwen36_inference_h200_single"
+gpu_memory_utilization = 0.90
+
+[model]
+name = "Qwen/Qwen3.6-27B"
+max_model_len = 131072
+
+[parallel]
+tp = 8
+
+[server]
+port = 8000
+
+[deployment]
+type = "single_node"
+gpus_per_node = 8
+
+[vllm_extra]
+language_model_only = true
+gdn_prefill_backend = "triton"
+enable_prefix_caching = true
+served_model_name = ["Qwen/Qwen3.6-27B"]
+
+[slurm]
+job_name = "qwen36-swe-rebench-single-h200"
+project_dir = "/storage/home/tianhaowu/prime-rl"
+partition = "h200"
+account = "ram"
+time = "120:00:00"
+template_path = "/storage/home/tianhaowu/prime-rl/user/tianhaowu/fair-sc/templates/inference_fairsc.sbatch.j2"
+pre_run_command = "export UV_PROJECT_ENVIRONMENT=/storage/home/tianhaowu/.venvs/prime-rl-nemotron-sft UV_NO_SYNC=1 PATH=/storage/home/tianhaowu/.venvs/prime-rl-nemotron-sft/bin:$PATH HF_HOME=/checkpoint/ram-h100-2/tianhaowu/.cache/huggingface HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 VLLM_ALLOW_LONG_MAX_MODEL_LEN=1"
