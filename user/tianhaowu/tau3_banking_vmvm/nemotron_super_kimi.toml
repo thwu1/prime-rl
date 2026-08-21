@@ -1,0 +1,80 @@
+name = "nemotron-super-tau3-banking-kimi-k26"
+output_dir = "/checkpoint/ram/tianhaowu/tau3_banking_vmvm/nemotron_super_kimi_k26"
+
+[source]
+commit = "fc0055dc4e0a316c3f83133267fbd6faaa770992"
+empty_response_retry_commit = "60c2a0dbf974ea7533456a4706f837c3a6d14afc"
+cache_dir = "/checkpoint/ram/tianhaowu/tau3_banking_vmvm/cache"
+
+[benchmark]
+domain = "banking_knowledge"
+retrieval_config = "bm25_grep"
+expected_tasks = 97
+num_trials = 5
+seed = 300
+max_steps = 200
+max_errors = 10
+simulation_timeout_seconds = 3600
+
+[policy]
+model = "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16"
+base_url_env = "TAU3_POLICY_BASE_URL"
+api_key_env = "TAU3_POLICY_API_KEY"
+slurm_job_id_env = "TAU3_POLICY_JOB_ID"
+slurm_job_name = "nemotron-super-tau3-h100"
+port = 8000
+temperature = 1.0
+top_p = 0.95
+max_tokens = 32768
+thinking = true
+thinking_template_key = "enable_thinking"
+skip_special_tokens = false
+empty_response_attempts = 5
+request_retries = 3
+request_timeout_seconds = 900
+
+[user]
+model = "Kimi-K2.6"
+info_path = "/checkpoint/ram/shared/vllm_deployments_v2/shared-kimi26/proxy_info.json"
+temperature = 0.0
+max_tokens = 8192
+thinking = false
+thinking_template_key = "thinking"
+empty_response_attempts = 30
+request_retries = 3
+request_timeout_seconds = 900
+
+[judge]
+model = "Kimi-K2.6"
+info_path = "/checkpoint/ram/shared/vllm_deployments_v2/shared-kimi26/proxy_info.json"
+temperature = 0.0
+thinking = true
+thinking_template_key = "thinking"
+request_retries = 3
+request_timeout_seconds = 900
+format_retries = 3
+
+[runtime]
+workers = 16
+image = "python:3.12-slim"
+tenant_id = "async_2347641"
+lease_ttl = "60s"
+cpu = 4
+memory_gb = 8
+setup_timeout_seconds = 1800
+command_timeout_seconds = 7200
+request_timeout_seconds = 1200
+max_connection_drops = 5
+uv_version = "0.11.26"
+
+[retry]
+max_vmvm_retries = 2
+vmvm_retry_delay_seconds = 10
+provider_retry_delay_seconds = 1
+proxy_recovery_timeout_seconds = 300
+
+[reference]
+requested_pass_rate_approx = 0.12
+current_public_artificial_analysis_passes = 50
+current_public_artificial_analysis_trials = 485
+current_public_artificial_analysis_score = 0.103092783505155
