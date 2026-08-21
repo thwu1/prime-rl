@@ -124,6 +124,44 @@ class SWERebenchHarborTaskset(
     HarborTaskset,
     vf.Taskset[SWERebenchTask, SWERebenchHarborConfig],
 ):
+    async def _install_java_build_mirrors(
+        self,
+        task: SWERebenchTask,
+        runtime: Runtime,
+    ) -> None:
+        home_result = await runtime.run(["sh", "-c", 'printf "%s" "${HOME:-/root}"'], {})
+        if home_result.exit_code != 0:
+            raise RuntimeError(f"reading Java task HOME failed: {home_result.stdout}")
+        home = home_result.stdout.strip() or "/root"
+        if not home.startswith("/"):
+            raise ValueError(f"Java task HOME must be absolute: {home!r}")
+        gradle_home_result = await runtime.run(
+            [
+                "sh",
+                "-c",
+                'printf "%s" "${GRADLE_USER_HOME:-${HOME:-/root}/.gradle}"',
+            ],
+            {},
+        )
+        if gradle_home_result.exit_code != 0:
+            raise RuntimeError(f"reading Java task GRADLE_USER_HOME failed: {gradle_home_result.stdout}")
+        gradle_home = gradle_home_result.stdout.strip()
+        if not gradle_home.startswith("/"):
+            raise ValueError(f"Java task GRADLE_USER_HOME must be absolute: {gradle_home!r}")
+        logger.info(
+            "%s Java build environment: HOME=%s GRADLE_USER_HOME=%s",
+            task.name,
+            home,
+            gradle_home,
+        )
+        java_homes = ("/root",) if home == "/root" else ("/root", home)
+        for java_home in java_homes:
+            await runtime.write(f"{java_home}/.m2/settings.xml", MAVEN_SETTINGS)
+        gradle_init = GRADLE_INIT
+        if task.workdir == "/pulsar":
+            gradle_init += PULSAR_GRADLE_INIT
+        await runtime.write(f"{gradle_home}/init.d/swe-rebench-central-mirror.gradle", gradle_init)
+
     def load_tasks(self) -> list[SWERebenchTask]:
         task_dirs = [
             path.parent
@@ -169,41 +207,7 @@ class SWERebenchHarborTaskset(
         if task.language != "java":
             return
         await install_java_forward_proxy_ca(runtime)
-        home_result = await runtime.run(["sh", "-c", 'printf "%s" "${HOME:-/root}"'], {})
-        if home_result.exit_code != 0:
-            raise RuntimeError(f"reading Java task HOME failed: {home_result.stdout}")
-        home = home_result.stdout.strip() or "/root"
-        if not home.startswith("/"):
-            raise ValueError(f"Java task HOME must be absolute: {home!r}")
-        gradle_home_result = await runtime.run(
-            [
-                "sh",
-                "-c",
-                'printf "%s" "${GRADLE_USER_HOME:-${HOME:-/root}/.gradle}"',
-            ],
-            {},
-        )
-        if gradle_home_result.exit_code != 0:
-            raise RuntimeError(f"reading Java task GRADLE_USER_HOME failed: {gradle_home_result.stdout}")
-        gradle_home = gradle_home_result.stdout.strip()
-        if not gradle_home.startswith("/"):
-            raise ValueError(f"Java task GRADLE_USER_HOME must be absolute: {gradle_home!r}")
-        logger.info(
-            "%s Java build environment: HOME=%s GRADLE_USER_HOME=%s",
-            task.name,
-            home,
-            gradle_home,
-        )
-        java_homes = ("/root",) if home == "/root" else ("/root", home)
-        for java_home in java_homes:
-            settings_path = f"{java_home}/.m2/settings.xml"
-            settings = await runtime.run(["sh", "-c", f"test -f {shlex.quote(settings_path)}"], {})
-            if settings.exit_code != 0:
-                await runtime.write(settings_path, MAVEN_SETTINGS)
-        gradle_init = GRADLE_INIT
-        if task.workdir == "/pulsar":
-            gradle_init += PULSAR_GRADLE_INIT
-        await runtime.write(f"{gradle_home}/init.d/swe-rebench-central-mirror.gradle", gradle_init)
+        await self._install_java_build_mirrors(task, runtime)
 
     async def finalize(
         self,
@@ -221,6 +225,9 @@ class SWERebenchHarborTaskset(
         task: SWERebenchTask,
         runtime: Runtime,
     ):
+        if task.language == "java":
+            # Agent commands may modify user-level build configuration.
+            await self._install_java_build_mirrors(task, runtime)
         await runtime.write(
             "/tmp/tests.tgz",
             make_tar(Path(task.task_dir) / "tests"),
