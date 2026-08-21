@@ -128,6 +128,10 @@ a failed fresh verifier on a new VMVM runtime with the exact captured candidate
 patch; it must not resample the model merely because scoring infrastructure
 failed.
 
+For SWE-rebench Java tasks, restore the harness-owned Maven and Gradle mirror
+files immediately before scoring. Agent commands can modify user-level build
+configuration, so setup-time mirror installation alone is not sufficient.
+
 ## Audit results
 
 Use `audit_results.py` for row shape, task multiplicity, stop conditions,
