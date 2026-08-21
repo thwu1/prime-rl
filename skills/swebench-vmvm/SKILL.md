@@ -175,6 +175,11 @@ uv run --no-sync python user/tianhaowu/swebench_vmvm/audit_miniswe_native_tools.
 Run only the ReAct or MiniSWE specialized audit that matches the evaluated
 harness.
 
+The ReAct auditor counts assistant turns without exactly one text command as
+malformed. A context-limit tail may contain reasoning without text; count that
+tail as malformed rather than a protocol issue when the trajectory already has
+a valid command and contains no native tool call.
+
 For OpenHands, require the evaluator step to finish as `COMPLETED` with exit
 code `0:0` and exactly 500 rows. Then run
 `finalize_openhands_sdk.sh`, which verifies result shape, SDK behavior,
