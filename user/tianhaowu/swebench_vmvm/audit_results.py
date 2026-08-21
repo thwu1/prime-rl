@@ -91,6 +91,15 @@ def swebench_vmvm_provenance_issues(
     if not isinstance(verifier_runtime, (str, dict)) or not verifier_runtime:
         issues.append("missing fresh verifier runtime descriptor")
 
+    verifier_attempts = info.get("swebench_verifier_attempts", 1)
+    verifier_failures = info.get("swebench_verifier_failures", [])
+    if type(verifier_attempts) is not int or verifier_attempts < 1:
+        issues.append("fresh verifier attempt count is invalid")
+    if not isinstance(verifier_failures, list) or not all(isinstance(item, str) for item in verifier_failures):
+        issues.append("fresh verifier failure history is invalid")
+    elif type(verifier_attempts) is int and verifier_attempts != len(verifier_failures) + 1:
+        issues.append("fresh verifier attempt count disagrees with failure history")
+
     verifier = info.get("swebench_verifier")
     if not isinstance(verifier, dict):
         issues.append("missing parsed verifier report")
@@ -126,6 +135,7 @@ def main() -> None:
     invalid_trace_ids: list[dict[str, object]] = []
     duplicate_trace_ids: list[dict[str, object]] = []
     mode_change_tasks: list[dict[str, object]] = []
+    verifier_attempt_counts: collections.Counter[int] = collections.Counter()
     rows = 0
     solved = 0.0
 
@@ -181,6 +191,9 @@ def main() -> None:
                     provenance_issues.append({"idx": idx, "name": name, "issues": issues})
                 info = row.get("info")
                 if isinstance(info, dict):
+                    attempts = info.get("swebench_verifier_attempts", 1)
+                    if type(attempts) is int and attempts >= 1:
+                        verifier_attempt_counts[attempts] += 1
                     descriptor = info.get("swebench_verifier_runtime")
                     if isinstance(descriptor, (str, dict)) and descriptor:
                         descriptor_key = json.dumps(descriptor, sort_keys=True)
@@ -239,6 +252,7 @@ def main() -> None:
         "incomplete_tasks": incomplete_tasks,
         "provenance_issues": provenance_issues,
         "duplicate_verifier_runtimes": duplicate_verifier_runtimes,
+        "verifier_attempt_counts": dict(sorted(verifier_attempt_counts.items())),
         "invalid_trace_ids": invalid_trace_ids,
         "duplicate_trace_ids": duplicate_trace_ids,
         "mode_change_rows": len(mode_change_tasks),

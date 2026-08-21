@@ -1,14 +1,17 @@
 import hashlib
 import json
+import logging
 from pathlib import Path
 
 import verifiers.v1 as vf
+from pydantic import Field
 from swebench_verified_v1.taskset import (
     SWEBenchVerifiedConfig,
     SWEBenchVerifiedTaskset,
 )
 from swebench_vmvm_compat import install_context_limit_compatibility
 from verifiers.v1.decorators import reward
+from verifiers.v1.errors import SandboxError
 from verifiers.v1.runtimes import Runtime, VMVMRuntime, make_runtime
 from verifiers.v1.runtimes.base import _ENSURE_UV
 from verifiers.v1.tasksets.harbor_v1 import HarborTask
@@ -16,10 +19,12 @@ from verifiers.v1.tasksets.harbor_v1.taskset import make_tar
 from verifiers.v1.trace import Trace
 
 install_context_limit_compatibility()
+logger = logging.getLogger(__name__)
 
 
 class SWEBenchVerifiedVMVMConfig(SWEBenchVerifiedConfig):
     fresh_verifier_runtime: bool = True
+    verifier_runtime_retries: int = Field(2, ge=0)
 
 
 class SWEBenchVerifiedVMVMTaskset(
@@ -164,6 +169,56 @@ class SWEBenchVerifiedVMVMTaskset(
         output = verifier.stdout + verifier.stderr
         return score, instance, verifier.exit_code, output[-8000:]
 
+    async def _run_fresh_verifier(
+        self,
+        task: HarborTask,
+        trace: Trace,
+        runtime: VMVMRuntime,
+        patch: str,
+    ) -> tuple[float, dict, int, str]:
+        failures = []
+        attempts = self.config.verifier_runtime_retries + 1
+        for attempt in range(1, attempts + 1):
+            scoring_runtime = make_runtime(
+                runtime.config.model_copy(update={"image": task.image, "workdir": task.workdir}),
+                name=f"{trace.id}-verifier-{attempt}",
+            )
+            try:
+                try:
+                    await scoring_runtime.start()
+                    await self._apply_candidate_patch(task, scoring_runtime, patch)
+                    ensured = await scoring_runtime.run(["sh", "-c", _ENSURE_UV], {})
+                    if ensured.exit_code != 0:
+                        output = ensured.stdout + ensured.stderr
+                        raise RuntimeError(f"installing uv for SWE-bench verifier failed: {output[-4000:]}")
+                    result = await self._run_verifier(task, scoring_runtime)
+                    descriptor = scoring_runtime.descriptor
+                finally:
+                    await scoring_runtime.stop()
+            except SandboxError as error:
+                failures.append(str(error))
+                if attempt == attempts:
+                    trace.info["swebench_verifier_attempts"] = attempt
+                    trace.info["swebench_verifier_failures"] = failures
+                    raise RuntimeError(
+                        f"fresh SWE-bench verifier failed after {attempts} attempts with the same candidate patch"
+                    ) from error
+                logger.warning(
+                    "retrying fresh SWE-bench verifier for %s with the same candidate patch (attempt %d/%d): %s",
+                    task.name,
+                    attempt + 1,
+                    attempts,
+                    error,
+                )
+                continue
+
+            trace.info["swebench_verifier_runtime"] = descriptor
+            trace.info["swebench_verifier_attempts"] = attempt
+            trace.info["swebench_verifier_failures"] = failures
+            return result
+
+        raise AssertionError("fresh verifier retry loop exhausted without returning")
+
     @reward(weight=1.0)
     async def solved(
         self,
@@ -176,21 +231,7 @@ class SWEBenchVerifiedVMVMTaskset(
             if not isinstance(runtime, VMVMRuntime):
                 raise TypeError("fresh SWE-bench verification requires the VMVM runtime")
             patch = trace.info["swebench_candidate_patch"]["patch"]
-            scoring_runtime = make_runtime(
-                runtime.config.model_copy(update={"image": task.image, "workdir": task.workdir}),
-                name=f"{trace.id}-verifier",
-            )
-            try:
-                await scoring_runtime.start()
-                await self._apply_candidate_patch(task, scoring_runtime, patch)
-                ensured = await scoring_runtime.run(["sh", "-c", _ENSURE_UV], {})
-                if ensured.exit_code != 0:
-                    output = ensured.stdout + ensured.stderr
-                    raise RuntimeError(f"installing uv for SWE-bench verifier failed: {output[-4000:]}")
-                score, report, exit_code, output_tail = await self._run_verifier(task, scoring_runtime)
-                trace.info["swebench_verifier_runtime"] = scoring_runtime.descriptor
-            finally:
-                await scoring_runtime.stop()
+            score, report, exit_code, output_tail = await self._run_fresh_verifier(task, trace, runtime, patch)
         else:
             score, report, exit_code, output_tail = await self._run_verifier(task, scoring_runtime)
         trace.info["swebench_verifier"] = {

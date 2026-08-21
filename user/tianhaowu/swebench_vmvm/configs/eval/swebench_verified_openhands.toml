@@ -22,6 +22,7 @@ top_p = 0.95
 id = "swebench-verified-vmvm"
 use_prime_registry = false
 fresh_verifier_runtime = true
+verifier_runtime_retries = 2
 
 [harness]
 id = "openhands_sdk_harness"
@@ -46,4 +47,4 @@ scoring = 6000
 
 [retries.rollout]
 max_retries = 2
-include = ["SandboxError", "ProviderError", "TunnelError", "HarnessError", "TasksetError"]
+include = ["SandboxError", "TunnelError"]

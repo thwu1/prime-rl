@@ -122,6 +122,12 @@ The launcher owns an exclusive output lock. Never run two writers against the
 same result directory. Resume only missing or errored work with `RESUME_DIR`
 after proving the prior evaluator is terminal.
 
+Keep model-provider retries inside the individual request. Restrict whole-
+rollout retries to `SandboxError` and `TunnelError`. SWE-bench Verified retries
+a failed fresh verifier on a new VMVM runtime with the exact captured candidate
+patch; it must not resample the model merely because scoring infrastructure
+failed.
+
 ## Audit results
 
 Use `audit_results.py` for row shape, task multiplicity, stop conditions,

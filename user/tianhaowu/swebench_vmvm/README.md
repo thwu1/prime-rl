@@ -133,6 +133,10 @@ EVAL_CONFIG=CONFIG,RESUME_DIR=/checkpoint/ram/tianhaowu/swebench_vmvm/evals/run_
 `swebench_verified_vmvm/` evaluates each candidate patch in a fresh VMVM
 container at the task's base commit. Candidate patch hashes, parsed test reports,
 and distinct verifier-runtime descriptors are saved in every result row.
+Transient verifier-runtime failures retry only the fresh verifier with the exact
+captured patch; they never resample the model trajectory. Whole-rollout retries
+are restricted to sandbox or interception-tunnel loss. Model-provider retries
+remain inside the individual model request.
 
 `openhands_sdk_harness/` implements NVIDIA's published OpenHands SDK 1.17.0
 recipe with Terminal, FileEditor, and TaskTracker, 200 iterations, the published

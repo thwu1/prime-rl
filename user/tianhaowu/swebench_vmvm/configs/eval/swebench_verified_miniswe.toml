@@ -25,6 +25,7 @@ chat_template_kwargs = { enable_thinking = true, truncate_history_thinking = fal
 id = "swebench-verified-vmvm"
 use_prime_registry = false
 fresh_verifier_runtime = true
+verifier_runtime_retries = 2
 
 [harness]
 id = "mini-swe-agent"
@@ -55,4 +56,4 @@ scoring = 6000
 
 [retries.rollout]
 max_retries = 2
-include = ["SandboxError", "ProviderError", "TunnelError", "HarnessError", "TasksetError"]
+include = ["SandboxError", "TunnelError"]
