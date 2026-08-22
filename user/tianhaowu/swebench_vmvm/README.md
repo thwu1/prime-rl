@@ -222,6 +222,25 @@ request at the model context limit. The latter must be exactly one terminal HTTP
 SDK error status, agent exception, HTTP error, or transport error fails strict
 audit.
 
+If a completed OpenHands row contains a non-context provider or transport error,
+run that exact task once with the production config in a separate output
+directory. After the 500-task evaluator is terminal, create a new standalone
+result directory without editing either source result:
+
+```bash
+uv run --no-sync python \
+  user/tianhaowu/swebench_vmvm/recover_openhands_infrastructure.py \
+  BASE_RESULTS_DIR --replacement-dir CLEAN_ONE_TASK_DIR \
+  --output-dir RECOVERED_RESULTS_DIR
+```
+
+The recovery command refuses active writer locks and overwrites, requires a
+clean replacement with matching task, config, model, official-recipe, archive,
+prompt, and runtime-source provenance, restores the task's original dataset
+index, and records source/result checksums. Run the normal finalizer on the
+recovered directory; it includes the recovery manifest and copied replacement
+artifacts in `final.sha256`.
+
 ## Result interpretation
 
 SWE-bench Verified reports resolved tasks divided by 500. SWE-rebench reports
