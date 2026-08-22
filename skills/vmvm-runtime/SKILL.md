@@ -27,6 +27,12 @@ The local backend package must be importable by the CPU evaluator:
 export PYTHONPATH="$PWD/environments/vmvm_tb_v2${PYTHONPATH:+:$PYTHONPATH}"
 ```
 
+`VACLI_MAX_CONCURRENT_LEASES` limits only simultaneous lease bring-up. It does
+not cap the number of active VMVMs after their tunnels are ready. For a
+high-fanout run, set the evaluator's worker count to the desired active
+concurrency and keep lease bring-up lower when needed to avoid a control-plane
+burst.
+
 Do not run VMVM evaluation drivers on a login node. Validate the real provider
 contract with:
 
@@ -96,10 +102,54 @@ control master before `recover_last()`. Keep the same remote port so the
 surviving command's endpoint remains valid; failed forward restoration makes
 the sandbox event unrecoverable.
 
+If a worker exits with a nonnegative code and emits its final status/reward JSON
+to stdout, but the result-file read then loses transport, recover that immutable
+summary instead of replaying the rollout. Treat the event as fatal when neither
+the result file nor a matching final stdout summary is available.
+Snapshot the worker and its runtime inputs before starting leases, and build
+replacement VMVMs from that run-local snapshot. Source edits during a long run
+must not silently change later tasks. If one task exhausts confirmed-safe
+infrastructure retries, record it as missing and let unrelated queued tasks
+finish before failing the aggregate run.
+
+Stage and validate files in the container before opening a long-lived reverse
+host tunnel. A transfer started after `open_host_tunnel()` can block behind the
+SSH control connection; making the tunnel the last setup step avoids that stall.
+
+Keep model-provider retries inside the individual model call. Transport errors,
+HTTP 429, and HTTP 5xx responses may be retried there, but exhausting those
+retries is not evidence that the sandbox was lost and must not replay the whole
+rollout. Score or surface the terminal provider failure according to the
+benchmark contract. A fresh whole-rollout attempt is reserved for a confirmed
+lost VM or container before any result was persisted.
+Classify provider-specific context-limit wording before generic retry handling.
+In particular, Nemotron/vLLM may report that the model's "context length is
+only" a given size and ask to "reduce the length of the input prompt". That is
+a context reset, not ten retries followed by a model error.
+
+Do not enable `set -e` inside a command passed to the persistent
+`VacliVMVMBackend.run_bash` shell. A failing child then exits the shell before
+the backend's completion sentinel is emitted, so an ordinary command failure is
+misreported as a timeout. Capture and propagate the child status explicitly;
+`set -o pipefail` is safe when needed.
+
 VMVM interception does not create a Prime sandbox or require Prime tunnel
 credentials. Arbitrary public port exposure from a VMVM container is not yet a
 supported provider capability; colocated servers and the harness interception
 path do not need it.
+
+Plain HTTP egress from a VMVM lease can be transparently intercepted by Meta's
+forward proxy. In that path, an origin-form request such as `GET /v3/health`
+fails with `400 No uri specified`; send proxy-form requests with the complete
+URL instead. Configure an explicit HTTP proxy for clients such as urllib, and
+keep the reverse-tunneled host/model address in `NO_PROXY`. Do not use
+`urllib.request.ProxyHandler({})` or an `httpx` client with `trust_env=False`
+and no explicit proxy for traffic that requires the lease's injected
+`HTTP_PROXY`. Resolve that proxy and pass it explicitly to urllib, httpx, and
+WebSocket clients. Disabling environment proxies remains appropriate for calls
+to the reverse-tunneled model endpoint itself.
+The forward proxy may cache GET responses despite `Cache-Control: no-cache`;
+append a unique query parameter to mutable polling URLs such as execution status.
 
 DeepSWE model traffic does not use a Modal relay or VMVM's per-sandbox host
 tunnel. The CPU eval driver registers its authenticated capture proxy with the
