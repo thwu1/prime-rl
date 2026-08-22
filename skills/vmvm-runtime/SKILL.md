@@ -30,8 +30,9 @@ export PYTHONPATH="$PWD/environments/vmvm_tb_v2${PYTHONPATH:+:$PYTHONPATH}"
 `VACLI_MAX_CONCURRENT_LEASES` limits only simultaneous lease bring-up. It does
 not cap the number of active VMVMs after their tunnels are ready. For a
 high-fanout run, set the evaluator's worker count to the desired active
-concurrency and keep lease bring-up lower when needed to avoid a control-plane
-burst.
+concurrency. The DeepSWE launchers default to 113 active trials while capping
+simultaneous VMVM lease acquisition at 32; set
+`VACLI_MAX_CONCURRENT_LEASES` explicitly to override that startup fanout.
 
 Do not run VMVM evaluation drivers on a login node. Validate the real provider
 contract with:

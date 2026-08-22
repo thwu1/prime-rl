@@ -9,6 +9,7 @@ from sandoq_proxy import DirectConnectProxy
 
 PROJECT_DIR = Path("/storage/home/tianhaowu/prime-rl")
 SANDOQ_CLIENT_SITE = Path("/checkpoint/ram/tianhaowu/deepswe_eval/sandoq-client-site")
+DEFAULT_VMVM_LEASE_CONCURRENCY = 32
 PROXY_ENV_KEYS = (
     "HTTP_PROXY",
     "HTTPS_PROXY",
@@ -56,7 +57,10 @@ def provider_environment(
         if n_concurrent is None:
             env.setdefault("VACLI_MAX_CONCURRENT_LEASES", "16")
         else:
-            env["VACLI_MAX_CONCURRENT_LEASES"] = str(n_concurrent)
+            env.setdefault(
+                "VACLI_MAX_CONCURRENT_LEASES",
+                str(min(n_concurrent, DEFAULT_VMVM_LEASE_CONCURRENCY)),
+            )
         env.setdefault("VACLI_MAX_PULL_RETRIES", "20")
         env.setdefault("VACLI_IMAGE_PULL_TIMEOUT_SECONDS", str(startup_timeout_sec))
     elif provider == "sandoq":

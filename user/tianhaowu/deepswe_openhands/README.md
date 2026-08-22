@@ -5,7 +5,7 @@ MiniSWE evaluation path. Pier still owns the DeepSWE dataset, sandbox provider,
 hidden verifier sandbox, retries, and result aggregation. The OpenHands process
 runs locally inside each task sandbox with TerminalTool and FileEditorTool.
 
-The production VMVM config uses 32 concurrent tasks, six infrastructure-only
+The production VMVM config uses 113 concurrent tasks, six infrastructure-only
 retries, 200 OpenHands iterations, a three-hour agent timeout, a four-hour
 sandbox ceiling, and Nemotron's native 262,144-token context limit:
 
