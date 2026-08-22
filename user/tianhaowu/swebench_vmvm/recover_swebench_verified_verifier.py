@@ -8,6 +8,7 @@ import inspect
 import json
 import os
 import shutil
+import sys
 import tarfile
 import tempfile
 import time
@@ -225,6 +226,9 @@ def write_recovery_sources(output_dir: Path) -> tuple[dict[str, str], str]:
 
 def main() -> None:
     args = parse_args()
+    vmvm_package = Path(__file__).resolve().parents[3] / "environments" / "vmvm_tb_v2"
+    if vmvm_package.is_dir():
+        sys.path.insert(0, str(vmvm_package))
     base_dir = args.base_dir.resolve()
     output_dir = args.output_dir.resolve()
     results = base_dir / "results.jsonl"
