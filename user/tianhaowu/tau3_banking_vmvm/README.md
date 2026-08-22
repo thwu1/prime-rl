@@ -9,7 +9,8 @@ The completed Nemotron 3 Super reproduction scored 57/485 (11.7526%). See
 
 The evaluator has two user/judge provider profiles. The completed reproduction
 used the self-hosted Kimi profile. The MetaGen profile keeps the user and judge
-models independent; the checked-in example selects GPT-5.4 Mini for both.
+models independent; the checked-in example selects Tau2 v1.0.1's
+`gpt-4.1-2025-04-14` default for both.
 
 Both profiles use:
 
@@ -46,19 +47,18 @@ The provider-specific settings are:
 - `nemotron_super_kimi.toml`: self-hosted Kimi K2.6, non-thinking for the user
   simulator and thinking-enabled for the judge;
 - `nemotron_super_metagen.toml`: MetaGen-hosted models without Kimi-specific
-  chat-template flags. The checked-in values are `openai/gpt-5.4-mini` for both
-  roles, but `model` and optional `reasoning_effort` are independent in the two
-  sections. Its URL and API key come only from `TAU3_METAGEN_BASE_URL` and
-  `TAU3_METAGEN_API_KEY`.
+  chat-template flags. The checked-in values are `gpt-4.1-2025-04-14` for both
+  roles, matching Tau2 v1.0.1's model defaults, but `model` and optional
+  `reasoning_effort` remain independent in the two sections. Its URL and API
+  key come only from `TAU3_METAGEN_BASE_URL` and `TAU3_METAGEN_API_KEY`.
 
 The current public Artificial Analysis snapshot is 50/485, or
 `0.103092783505155`. Its published methodology note identifies GPT-5.4 Mini as
-the user simulator but does not separately identify the NL-assertion judge. The
-completed Kimi reproduction is therefore a separate provider comparison, and a
-MetaGen run must record both selected model IDs before claiming exact parity.
-For reference, Tau2 v1.0.1 itself defaults both roles to
-`gpt-4.1-2025-04-14`; current Sierra leaderboard submissions declare GPT-5.2
-low-reasoning as the user simulator but do not expose a separate judge field.
+the user simulator but does not separately identify the NL-assertion judge.
+That is an external leaderboard override, not the Tau2 default. Current Sierra
+leaderboard submissions similarly override the user simulator with GPT-5.2
+low-reasoning without exposing a separate judge field. Record both selected
+model IDs before claiming parity with either leaderboard.
 
 The 30-attempt user behavior originates in NVIDIA's stable merge
 `befd120003fb55f48b498f6549556dcaf74582d5`; the later `60c2a0d` tree contains
@@ -84,8 +84,8 @@ of the later `c88e411d` SFT tool-schema lane.
   aggregation.
 - `nemotron_super_kimi.toml`: full 97 x 5 configuration.
 - `nemotron_super_kimi_smoke.toml`: one-trial smoke configuration.
-- `nemotron_super_metagen.toml`: full 97 x 5 GPT-5.4 Mini configuration.
-- `nemotron_super_metagen_smoke.toml`: one-trial GPT-5.4 Mini smoke.
+- `nemotron_super_metagen.toml`: full 97 x 5 Tau2-default-model MetaGen configuration.
+- `nemotron_super_metagen_smoke.toml`: one-trial Tau2-default-model MetaGen smoke.
 
 ## Run
 

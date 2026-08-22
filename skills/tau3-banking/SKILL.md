@@ -68,7 +68,8 @@ changes them:
     enabled;
   - MetaGen: explicit, independently selected user and judge model IDs and
     optional `reasoning_effort`, with no Kimi-specific chat-template thinking
-    flags. The checked-in example uses `openai/gpt-5.4-mini` for both;
+    flags. The checked-in example uses Tau2 v1.0.1's
+    `gpt-4.1-2025-04-14` default for both;
 - user temperature 0 and max tokens 8,192; judge temperature 0;
 - retrieval: `bm25_grep`;
 - limits: 200 Tau steps and 10 tool errors.

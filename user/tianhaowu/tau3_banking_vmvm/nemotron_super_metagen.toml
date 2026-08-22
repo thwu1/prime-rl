@@ -1,5 +1,5 @@
-name = "nemotron-super-tau3-banking-metagen-gpt54-mini"
-output_dir = "/checkpoint/ram/tianhaowu/tau3_banking_vmvm/nemotron_super_metagen_gpt54_mini"
+name = "nemotron-super-tau3-banking-metagen-gpt41"
+output_dir = "/checkpoint/ram/tianhaowu/tau3_banking_vmvm/nemotron_super_metagen_gpt41"
 
 [source]
 commit = "fc0055dc4e0a316c3f83133267fbd6faaa770992"
@@ -37,8 +37,8 @@ sticky_session_header = "x-session-id"
 
 [user]
 provider = "metagen"
-# Artificial Analysis publishes GPT-5.4 Mini as its user simulator.
-model = "openai/gpt-5.4-mini"
+# Tau2 v1.0.1 default user simulator.
+model = "gpt-4.1-2025-04-14"
 base_url_env = "TAU3_METAGEN_BASE_URL"
 api_key_env = "TAU3_METAGEN_API_KEY"
 require_api_key = true
@@ -51,8 +51,8 @@ sticky_session = false
 
 [judge]
 provider = "metagen"
-# Confirm this independently before labeling a run exact leaderboard parity.
-model = "openai/gpt-5.4-mini"
+# Tau2 v1.0.1 default NL-assertion judge.
+model = "gpt-4.1-2025-04-14"
 base_url_env = "TAU3_METAGEN_BASE_URL"
 api_key_env = "TAU3_METAGEN_API_KEY"
 require_api_key = true
@@ -82,7 +82,4 @@ provider_retry_delay_seconds = 1
 proxy_recovery_timeout_seconds = 300
 
 [reference]
-requested_pass_rate_approx = 0.12
-current_public_artificial_analysis_passes = 50
-current_public_artificial_analysis_trials = 485
-current_public_artificial_analysis_score = 0.103092783505155
+model_profile = "tau2-v1.0.1-default-user-and-judge"
