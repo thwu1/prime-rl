@@ -99,7 +99,8 @@ Model transport failures, HTTP 408/409/429, and HTTP 5xx responses use up to ten
 attempts with ten-second spacing. Other HTTP 4xx responses fail the model call
 immediately because repeating an unchanged malformed request cannot recover it.
 Context-window failures reset conversation context instead of replaying the
-request.
+request. The initial `/v1/models` probe uses the same transient retry policy so
+a single overloaded shared-endpoint response does not abort the entire run.
 
 As in Toolathlon-Verified's upstream OpenAI harness, every model-facing tool
 name replaces hyphens with underscores while dispatch retains the service's raw
@@ -192,7 +193,9 @@ sbatch user/tianhaowu/toolathlon_vmvm/run_eval.sbatch
 same output directory resumes missing tasks; a mismatched semantic config is
 rejected. Each run copies its worker, local tools, schemas, and runner files
 into the output directory before acquiring leases, and replacement VMVMs use
-those snapshots rather than mutable checkout files.
+those snapshots rather than mutable checkout files. Catalog and schema snapshots
+retain the basenames referenced by the saved config so that the output directory
+is directly runnable for recovery.
 
 If a run drains all other work but one or more tasks exhaust only confirmed-safe
 infrastructure retries, stop the original writer and resume the full config with

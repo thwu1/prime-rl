@@ -13,6 +13,7 @@ import statistics
 import threading
 import time
 import tomllib
+import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
@@ -90,17 +91,38 @@ def _load_endpoint(section: dict[str, Any], override_url: str | None) -> Endpoin
     return Endpoint(_normalize_base_url(str(base_url)), str(api_key), str(model))
 
 
-def _probe(endpoint: Endpoint) -> None:
+def _probe(endpoint: Endpoint, attempts: int, retry_delay: float) -> None:
     request = urllib.request.Request(
         endpoint.base_url + "/v1/models",
         headers={"Authorization": f"Bearer {endpoint.api_key}"},
     )
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-    with opener.open(request, timeout=30) as response:
-        payload = json.load(response)
-    models = {str(item.get("id")) for item in payload.get("data", []) if isinstance(item, dict)}
-    if endpoint.model not in models:
-        raise ValueError(f"Endpoint {endpoint.base_url} does not advertise {endpoint.model!r}: {sorted(models)}")
+    last_error: BaseException | None = None
+    for attempt in range(1, attempts + 1):
+        try:
+            with opener.open(request, timeout=30) as response:
+                payload = json.load(response)
+            models = {str(item.get("id")) for item in payload.get("data", []) if isinstance(item, dict)}
+            if endpoint.model not in models:
+                raise ValueError(
+                    f"Endpoint {endpoint.base_url} does not advertise {endpoint.model!r}: {sorted(models)}"
+                )
+            return
+        except urllib.error.HTTPError as error:
+            if 400 <= error.code < 500 and error.code not in {408, 409, 429}:
+                raise
+            last_error = error
+        except (json.JSONDecodeError, OSError) as error:
+            last_error = error
+        if attempt < attempts:
+            logger.warning(
+                "Model endpoint probe failed (%d/%d): %s",
+                attempt,
+                attempts,
+                last_error,
+            )
+            time.sleep(retry_delay)
+    raise RuntimeError(f"Model endpoint probe failed after {attempts} attempts: {last_error}") from last_error
 
 
 def _semantic_config(config: dict[str, Any]) -> dict[str, Any]:
@@ -416,8 +438,8 @@ def _copy_run_inputs(
 ) -> None:
     inputs = [
         (config_path, "config.toml"),
-        (catalog_path, "task_catalog.json"),
-        (schemas_path, "tool_schemas.json"),
+        (catalog_path, catalog_path.name),
+        (schemas_path, schemas_path.name),
     ]
     inputs.extend((HERE / name, name) for name in RUNNER_FILES)
     for source, name in inputs:
@@ -529,7 +551,11 @@ def main() -> int:
         return 0
 
     endpoint = _load_endpoint(config["model"], args.model_base_url)
-    _probe(endpoint)
+    _probe(
+        endpoint,
+        max(1, int(config["model"].get("request_retries", 1))),
+        float(config["model"].get("request_retry_delay_seconds", 10)),
+    )
     output_dir = (args.output_dir or Path(config["output_dir"])).expanduser().resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
     _copy_run_inputs(config_path, output_dir, catalog_path, schemas_path)

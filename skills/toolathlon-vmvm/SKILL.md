@@ -123,11 +123,14 @@ that matches the upstream public-service request.
 - Retry a whole rollout only after a confirmed lost VM/container or vanished
   unpersisted service execution.
 - Retry model transport failures, HTTP 408/409/429, and HTTP 5xx inside the
-  model call. Fail deterministic HTTP 4xx immediately.
+  model call and initial endpoint probe. Fail deterministic HTTP 4xx
+  immediately.
 - Treat an explicit context-limit response as a context reset, not a generic
   provider retry.
 - Append to `results.jsonl` and `attempts.jsonl`; resume by the unique
   `(task_id, trial)` key. Reject semantic-config or snapshot fingerprint drift.
+- Preserve the configured catalog and schema basenames in the output snapshot;
+  the saved `config.toml` must resolve every relative input from that directory.
 - Drain unrelated queued tasks before failing an aggregate whose safe
   infrastructure retries were exhausted.
 - After the original writer is terminal, resume the same full config, output,
