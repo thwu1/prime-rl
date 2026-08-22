@@ -6,6 +6,7 @@ import copy
 import hashlib
 import inspect
 import json
+import logging
 import os
 import shutil
 import sys
@@ -15,6 +16,7 @@ import time
 import tomllib
 from pathlib import Path
 
+import tomli_w
 from swebench_verified_vmvm.taskset import (
     SWEBenchVerifiedVMVMConfig,
     SWEBenchVerifiedVMVMTaskset,
@@ -226,6 +228,7 @@ def write_recovery_sources(output_dir: Path) -> tuple[dict[str, str], str]:
 
 def main() -> None:
     args = parse_args()
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     vmvm_package = Path(__file__).resolve().parents[3] / "environments" / "vmvm_tb_v2"
     if vmvm_package.is_dir():
         sys.path.insert(0, str(vmvm_package))
@@ -240,6 +243,14 @@ def main() -> None:
 
     source_row = read_target_row(results, args.trace_id)
     config = tomllib.loads(config_path.read_text())
+    recovery_config = copy.deepcopy(config)
+    recovery_config["taskset"]["tasks"] = [task_name(source_row)]
+    recovery_config["num_tasks"] = 1
+    recovery_config["num_rollouts"] = 1
+    recovery_config["max_concurrent"] = 1
+    recovery_config["multiplex"] = 1
+    recovery_config["output_dir"] = str(output_dir)
+    recovery_config_text = tomli_w.dumps(recovery_config)
     recovered_row, recovery = asyncio.run(recover_row(source_row, config))
 
     output_dir.parent.mkdir(parents=True, exist_ok=True)
@@ -249,17 +260,8 @@ def main() -> None:
         recovery_source_hashes, recovery_archive_sha256 = write_recovery_sources(temporary_dir)
         recovery["source_files"] = recovery_source_hashes
         recovery["source_archive_sha256"] = recovery_archive_sha256
-        taskset_config = copy.deepcopy(config)
-        taskset_config["taskset"]["tasks"] = [task_name(source_row)]
-        taskset_config["num_tasks"] = 1
-        taskset_config["num_rollouts"] = 1
-        taskset_config["max_concurrent"] = 1
-        taskset_config["multiplex"] = 1
-        taskset_config["output_dir"] = str(output_dir)
         with (temporary_dir / "config.toml").open("w") as handle:
-            import tomli_w
-
-            tomli_w.dump(taskset_config, handle)
+            handle.write(recovery_config_text)
             handle.flush()
             os.fsync(handle.fileno())
         with (temporary_dir / "results.jsonl").open("x") as handle:
