@@ -131,6 +131,15 @@ that matches the upstream public-service request.
   `(task_id, trial)` key. Reject semantic-config or snapshot fingerprint drift.
 - Preserve the configured catalog and schema basenames in the output snapshot;
   the saved `config.toml` must resolve every relative input from that directory.
+- While the official service is busy, probe `/models` through the VMVM reverse
+  tunnel on every status-poll cycle and again immediately before submission and
+  monitoring. Recreate the VMVM after transient probe retries are exhausted;
+  never submit with a cached tunnel URL that has not passed the remote probe.
+- Count ordinary official-service `null` outcomes as zero. Treat a complete
+  all-null trial as infrastructure failure only when every runnable task failed
+  at the first model turn and zero tool calls executed. Preserve it under the
+  trial's `attempts/` directory, recreate VMVM, and submit a uniquely named
+  replacement; never overwrite or delete the failed service artifact.
 - Drain unrelated queued tasks before failing an aggregate whose safe
   infrastructure retries were exhausted.
 - After the original writer is terminal, resume the same full config, output,

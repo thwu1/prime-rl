@@ -72,7 +72,7 @@ def _request_json(
             error.code,
             error.read().decode("utf-8", errors="replace"),
         ) from error
-    except (urllib.error.URLError, TimeoutError) as error:
+    except (urllib.error.URLError, TimeoutError, ConnectionError) as error:
         raise ServiceTransportError(f"{type(error).__name__}: {error}") from error
     parsed = json.loads(raw)
     if not isinstance(parsed, dict):
@@ -82,6 +82,42 @@ def _request_json(
 
 def _emit(payload: dict[str, Any]) -> None:
     print(RESULT_MARKER + json.dumps(payload, sort_keys=True), flush=True)
+
+
+def probe_model(model_base_url: str, api_key: str, model: str) -> int:
+    request = urllib.request.Request(
+        f"{model_base_url.rstrip('/')}/models",
+        headers={
+            "Accept": "application/json",
+            "Authorization": f"Bearer {api_key}",
+        },
+    )
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    try:
+        with opener.open(request, timeout=30) as response:
+            raw = response.read()
+    except urllib.error.HTTPError as error:
+        body = error.read().decode("utf-8", errors="replace")
+        _emit({"error": f"HTTP {error.code}: {body[-2000:]}", "status": error.code, "body": body})
+        return EXIT_RETRYABLE if _retryable_status(error.code) else EXIT_FATAL
+    except (urllib.error.URLError, TimeoutError, ConnectionError) as error:
+        _emit({"error": f"{type(error).__name__}: {error}", "type": "model_transport_error"})
+        return EXIT_RETRYABLE
+
+    try:
+        payload = json.loads(raw)
+    except (json.JSONDecodeError, UnicodeDecodeError) as error:
+        _emit({"error": f"{type(error).__name__}: {error}", "type": "invalid_model_response"})
+        return EXIT_FATAL
+    if not isinstance(payload, dict) or not isinstance(payload.get("data"), list):
+        _emit({"error": "Model endpoint returned an invalid models payload", "type": "invalid_model_response"})
+        return EXIT_FATAL
+    models = {str(item.get("id")) for item in payload["data"] if isinstance(item, dict)}
+    if model not in models:
+        _emit({"error": f"Endpoint does not advertise {model!r}", "models": sorted(models)})
+        return EXIT_FATAL
+    _emit({"model": model, "models": sorted(models)})
+    return 0
 
 
 def status(server_url: str) -> int:
@@ -489,6 +525,11 @@ def parse_args() -> argparse.Namespace:
     status_parser = subparsers.add_parser("status")
     status_parser.add_argument("--server-url", required=True)
 
+    probe_parser = subparsers.add_parser("probe-model")
+    probe_parser.add_argument("--model-base-url", required=True)
+    probe_parser.add_argument("--api-key", required=True)
+    probe_parser.add_argument("--model", required=True)
+
     submit_parser = subparsers.add_parser("submit")
     submit_parser.add_argument("--server-url", required=True)
     submit_parser.add_argument("--request", type=Path, required=True)
@@ -511,6 +552,8 @@ def main() -> int:
     args = parse_args()
     if args.command == "status":
         return status(args.server_url)
+    if args.command == "probe-model":
+        return probe_model(args.model_base_url, args.api_key, args.model)
     if args.command == "submit":
         return submit(args.server_url, args.request)
     if args.command == "monitor":
