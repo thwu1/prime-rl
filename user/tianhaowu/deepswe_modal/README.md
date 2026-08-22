@@ -42,12 +42,16 @@ The checked-in production configs differ only by sandbox provider:
 | VMVM history-truncation ablation | `nemotron_super_deepswe_vmvm_truncate_history.toml` |
 | Kimi K2.6 through the shared inference proxy | `kimi_k26_deepswe_vmvm.toml` |
 
-They use 32 concurrent trials, six infrastructure-only retries, 200 MiniSWE
-turns, a three-hour agent timeout, a four-hour sandbox/session ceiling, a
-one-hour startup ceiling, a 4x verifier timeout, and preserved thinking at the
-native 262,144-token context limit. Change `inference_job_id` when launching a
-new inference deployment; the other settings are the validated full-eval
-defaults.
+The three provider configs and the history-truncation ablation use 113
+concurrent trials, six infrastructure-only retries, 200 MiniSWE turns, a
+three-hour agent timeout, a four-hour sandbox/session ceiling, a one-hour
+startup ceiling, a 4x verifier timeout, and the native 262,144-token context
+limit. Change `inference_job_id` when launching a new inference deployment; the
+other settings are the validated full-eval defaults.
+
+VMVM limits simultaneous lease acquisition to 32 by default while allowing all
+113 Pier trials to remain active. Set `VACLI_MAX_CONCURRENT_LEASES` explicitly
+when a different provider-side startup fanout is required.
 
 The Kimi config uses the shared `serve_api_v2` proxy, sticky LiteLLM sessions,
 and direct worker endpoints for renderer validation. It keeps production

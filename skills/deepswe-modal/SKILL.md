@@ -49,7 +49,8 @@ Use `nemotron_super_deepswe_modal.toml`,
 `nemotron_super_deepswe_sandoq.toml` for the corresponding provider. Use
 `nemotron_super_deepswe_vmvm_truncate_history.toml` for the history ablation and
 `kimi_k26_deepswe_vmvm.toml` for the shared Kimi deployment. The full-eval
-default is 32 concurrent trials; the oracle gate may use 64. Keep
+default is 113 concurrent trials on a four-node inference deployment; the
+oracle gate may use 64. Keep
 `mini_swe.timeout_sec` at three hours and `sandbox_timeout_sec` at four hours
 for VMVM/Sandoq unless a model such as Kimi needs the documented 2x limits.
 
@@ -108,7 +109,7 @@ sbatch user/tianhaowu/deepswe_modal/submit_eval.sbatch \
   user/tianhaowu/deepswe_modal/nemotron_super_deepswe_sandoq.toml
 ```
 
-The three production configs use concurrency 32, six infrastructure-only
+The three production configs use concurrency 113, six infrastructure-only
 retries, 200 turns, a three-hour agent timeout, a four-hour sandbox/session
 ceiling, a one-hour startup ceiling, a 4x verifier timeout, and full-history
 thinking. Change only `inference_job_id` for a new inference deployment.
@@ -151,11 +152,13 @@ separate-verifier mode does not retain them, because their task images are
 registry-backed and keeping every completed agent sandbox would exhaust provider
 capacity.
 
-The checked-in full-eval configs use 32 concurrent trials. The oracle launcher
-defaults to 64. Full evals and oracles use up to six whole-trial retries for
-transient provider provisioning failures. Both launchers propagate the requested concurrency to
-`VACLI_MAX_CONCURRENT_LEASES` or `OCI_RUNNER_POOL_SIZE`, so the runtime pool does
-not silently retain its smaller standalone-smoke default.
+The checked-in full-eval configs use 113 concurrent trials with four inference
+replicas. The oracle launcher defaults to 64. Full evals and oracles use up to
+six whole-trial retries for transient provider provisioning failures. Sandoq
+propagates the requested concurrency to `OCI_RUNNER_POOL_SIZE`. VMVM allows all
+trials to remain active but caps simultaneous lease acquisition at 32 by
+default; set `VACLI_MAX_CONCURRENT_LEASES` explicitly to override that startup
+fanout.
 Set `[mini_swe].step_limit` to bound agent turns and
 `[mini_swe].timeout_sec` to bound agent wall time. Set the top-level
 `sandbox_timeout_sec` at least as high as the agent timeout, with headroom, for

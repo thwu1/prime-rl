@@ -126,7 +126,7 @@ def build_configs(
         raise ValueError("provider_options must be a TOML table")
 
     n_attempts = positive_int(source.get("n_attempts", 1), "n_attempts")
-    n_concurrent = positive_int(source.get("n_concurrent", 32), "n_concurrent")
+    n_concurrent = positive_int(source.get("n_concurrent", 113), "n_concurrent")
     max_retries = positive_int(source.get("max_retries", 6), "max_retries")
     verifier_timeout_multiplier = positive_number(
         source.get("verifier_timeout_multiplier", 4.0),
