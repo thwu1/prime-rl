@@ -247,8 +247,9 @@ separate result directory. After the full evaluator is terminal, use
 refuses live writer locks and existing outputs, requires a clean one-row
 replacement with matching task/config/model/official-recipe and runtime-source
 provenance, restores the original dataset index, preserves both source result
-sets, and records hashes plus copied recovery artifacts for the finalizer. Never
-hand-edit the active `results.jsonl` or replace a clean model outcome.
+sets, omits stale derived audit/status files, and records hashes plus copied
+recovery artifacts for the finalizer. Never hand-edit the active `results.jsonl`
+or replace a clean model outcome.
 
 If an older SWE-bench Verified row has exactly `TasksetError: scoring timed
 out` after its candidate patch was captured, recover only the verifier:

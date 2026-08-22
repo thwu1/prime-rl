@@ -271,7 +271,8 @@ uv run --no-sync python \
 The recovery command refuses active writer locks and overwrites, requires a
 clean replacement with matching task, config, model, official-recipe, archive,
 prompt, and runtime-source provenance, restores the task's original dataset
-index, and records source/result checksums. Run the normal finalizer on the
+index, and records source/result checksums. It omits stale derived audit and
+finalizer-status files from the base run. Run the normal finalizer on the
 recovered directory; it includes the recovery manifest and copied replacement
 artifacts in `final.sha256`.
 

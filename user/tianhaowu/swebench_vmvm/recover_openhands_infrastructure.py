@@ -33,6 +33,22 @@ INFERENCE_PROVENANCE_FILES = (
     "inference_startup.log",
     "inference_slurm_job.txt",
 )
+DERIVED_RUN_FILES = {
+    "final.sha256",
+    "finalizer_sources.sha256",
+    "finalizer_sources.tar.gz",
+    "finalizer_sources_audit.json",
+    "finalizer_status.json",
+    "implementation_audit.json",
+    "inference_audit.json",
+    "inference_router_audit.json",
+    "runtime_revisions.txt",
+    "runtime_sources.sha256",
+    "runtime_sources.tar.gz",
+    "runtime_sources_audit.json",
+    "sdk_harness_audit.json",
+    "strict_audit.json",
+}
 RUNTIME_SOURCE_PREFIXES = (
     "deps/research-environments/environments/swebench_verified_v1/swebench_verified_v1/",
     "deps/verifiers/verifiers/v1/",
@@ -351,7 +367,11 @@ def compatible_openhands_metadata(base: dict[str, object], replacement: dict[str
 
 def copy_run_files(source: Path, destination: Path) -> None:
     for path in source.iterdir():
-        if path.name in {".writer.lock", "results.jsonl"} or path.name.endswith(".tmp"):
+        if (
+            path.name in {".writer.lock", "results.jsonl"}
+            or path.name in DERIVED_RUN_FILES
+            or path.name.endswith(".tmp")
+        ):
             continue
         if path.is_file():
             shutil.copy2(path, destination / path.name)
