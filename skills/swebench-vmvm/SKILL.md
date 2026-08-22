@@ -82,7 +82,9 @@ sbatch --export=ALL,NUM_TASKS=1 \
 
 ## Start inference
 
-Select one launcher for the available GPU type:
+Select one launcher for the available GPU type. Each launcher requests four
+nodes, starts one independent tensor-parallel replica per node, and exposes a
+single router endpoint on the first node:
 
 ```bash
 sbatch user/tianhaowu/swebench_vmvm/run_nemotron_inference_h100.sbatch
@@ -91,6 +93,10 @@ sbatch user/tianhaowu/swebench_vmvm/run_qwen36_inference_h100.sbatch
 sbatch user/tianhaowu/swebench_vmvm/run_qwen36_inference_h200.sbatch
 ```
 
+The H100 launchers and Nemotron H200 launcher allocate eight GPUs per replica;
+the Qwen H200 launcher allocates four. Runtime artifacts are isolated under
+`SWEBENCH_INFERENCE_OUTPUT_ROOT/run_JOB_ID`.
+
 Require `/v1/models` to advertise the exact model before starting evaluation.
 Use Nemotron's `qwen3_coder` tool parser, `nemotron_v3` reasoning parser, and
 262,144-token context. Use Qwen's `qwen3_coder` tool parser, `qwen3` reasoning
@@ -98,9 +104,16 @@ parser, and 131,072-token context.
 
 Keep per-rollout session affinity enabled. The pinned Verifiers v1 client sends
 `X-Session-ID` with `session.trace.id` on every ordinary or streamed model turn.
-That value must remain stable within a rollout and distinct across rollouts. A
-multi-engine endpoint must consistently hash this header; the production
-single-node tensor-parallel configs have only one engine and need no router.
+That value must remain stable within a rollout and distinct across rollouts.
+The production four-replica launchers run `vllm-router` with
+`consistent_hash` and `--request-id-headers x-session-id`.
+
+After a multi-replica run, run `audit_router_affinity.py` with
+`--expected-workers 4`, `--min-session-ids EXPECTED_ROWS`, and `--strict`.
+Require the ring to reach four workers, every routing key to begin with
+`header:x-session-id:`, all four workers to receive traffic, and no session key
+to map to more than one worker. Copy the log to
+`RESULT_DIR/inference_router.log` before OpenHands finalization.
 
 Do not requeue an inference job while an evaluator retains its node URL. After
 an endpoint loss, stop the evaluator, restore a healthy endpoint, then resume
@@ -133,12 +146,15 @@ The launcher owns an exclusive output lock. Never run two writers against the
 same result directory. Resume only missing or errored work with `RESUME_DIR`
 after proving the prior evaluator is terminal.
 
-Use the production default of 32 concurrent rollouts. This controls rollout
-concurrency, not vLLM's internal batch size. Confirm headroom from the live
-server logs: sustained `Waiting: 0` together with low KV-cache occupancy means
-the evaluator is under-filling the model server. Do not edit `config.toml` in an
-active or partially completed result directory merely to raise concurrency;
-apply the higher setting to a fresh run so provenance remains exact.
+Scale rollout concurrency with the four inference replicas: use 60 for
+OpenHands (4 x 15) and 64 for the other harnesses (4 x 16). This controls
+rollout concurrency, not vLLM's internal batch size. Confirm headroom from each
+backend log; sustained `Waiting: 0` together with low KV-cache occupancy means
+the evaluator is under-filling the replicas. Keep
+`VACLI_MAX_CONCURRENT_LEASES=64` or higher for these production settings. Do
+not edit `config.toml` in an active or partially completed result directory
+merely to raise concurrency; apply the higher setting to a fresh run so
+provenance remains exact.
 
 Keep model-provider retries inside the individual request. Restrict whole-
 rollout retries to `SandboxError` and `TunnelError`. SWE-bench Verified retries

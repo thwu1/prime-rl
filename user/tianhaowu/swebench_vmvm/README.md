@@ -60,7 +60,9 @@ longer lease.
 
 ## Start inference
 
-Nemotron Super and Qwen3.6-27B each have H100 and H200 launchers:
+Nemotron Super and Qwen3.6-27B each have H100 and H200 launchers. Every
+launcher allocates four nodes and starts one independent tensor-parallel model
+replica per node behind a router on the first node:
 
 ```bash
 sbatch user/tianhaowu/swebench_vmvm/run_nemotron_inference_h100.sbatch
@@ -70,17 +72,35 @@ sbatch user/tianhaowu/swebench_vmvm/run_qwen36_inference_h100.sbatch
 sbatch user/tianhaowu/swebench_vmvm/run_qwen36_inference_h200.sbatch
 ```
 
+The H100 launchers and Nemotron H200 launcher use eight GPUs per replica. The
+Qwen H200 launcher uses four GPUs per replica. Each launch writes immutable
+launcher/config provenance and per-node logs under the job-specific directory
+`SWEBENCH_INFERENCE_OUTPUT_ROOT/run_JOB_ID`.
+
 The Nemotron configs retain the `qwen3_coder` tool parser, `nemotron_v3`
 reasoning parser, and 262,144-token context. The Qwen configs retain the
 `qwen3_coder` tool parser, `qwen3` reasoning parser, and 131,072-token context,
 so the same endpoint supports both the ReAct and native-tool evaluations.
 
 Verifiers sends the rollout trace ID as `X-Session-ID` on every model request,
-including streamed SDK requests. If an endpoint fronts multiple engines, its
-router must consistently hash this header so all turns from one rollout reuse
-the same prefix cache. The checked-in inference configs each serve one tensor-
-parallel engine, so the header preserves the routing contract without changing
-engine selection.
+including streamed SDK requests. The launchers configure `vllm-router` with
+`consistent_hash` and `--request-id-headers x-session-id`, so every turn from
+one rollout stays on the same replica and reuses its prefix cache. Router debug
+logs are written to `RUN_DIR/logs/inference/router.log` and record the extracted
+header key and selected worker.
+
+Audit a completed router log before reporting the result:
+
+```bash
+uv run --no-sync python \
+  user/tianhaowu/swebench_vmvm/audit_router_affinity.py \
+  RUN_DIR/logs/inference/router.log --expected-workers 4 \
+  --min-session-ids EXPECTED_ROWS --strict
+```
+
+For OpenHands finalization, copy that log to
+`RESULT_DIR/inference_router.log`; the finalizer audits it and includes the
+report in `final.sha256`.
 
 Wait for `/v1/models` to advertise the exact configured model before launching
 an evaluator. Use `--no-requeue` for inference jobs; if an endpoint moves, stop
@@ -135,12 +155,13 @@ The launcher accepts `INFERENCE_BASE_URL` instead of `INFERENCE_JOB_ID`, and
 `OUTPUT_DIR` to select a new result directory. It takes an exclusive writer lock
 and refuses to truncate an existing result.
 
-Production evaluations allow 32 concurrent rollouts. This is the evaluator
-workload bound, not a vLLM batch-size override: tool execution and scoring mean
-only a subset of those rollouts issue model requests at once. Monitor vLLM's
-`Running` and `Waiting` counters; sustained zero waiting and low KV-cache usage
-indicate room for this concurrency. Do not edit an active run's saved config to
-change concurrency. Apply the setting on a fresh run instead.
+Production concurrency scales with the four inference replicas: 60 concurrent
+rollouts for OpenHands (4 x 15) and 64 for the other harnesses (4 x 16). This is
+the evaluator workload bound, not a vLLM batch-size override: tool execution
+and scoring mean only a subset of those rollouts issue model requests at once.
+The evaluator launcher permits 64 simultaneous VMVM leases by default. Monitor
+each backend's `Running` and `Waiting` counters. Do not edit an active run's
+saved config to change concurrency; apply the setting on a fresh run.
 
 Resume an interrupted run only after confirming no evaluator still owns the
 directory:

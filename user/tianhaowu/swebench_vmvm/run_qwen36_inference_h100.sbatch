@@ -4,8 +4,8 @@
 #SBATCH --qos=h100_ram_high
 #SBATCH --account=ram
 #SBATCH --time=5-00:00:00
-#SBATCH --nodes=1
-#SBATCH --ntasks=1
+#SBATCH --nodes=4
+#SBATCH --ntasks-per-node=1
 #SBATCH --gres=gpu:8
 #SBATCH --exclusive
 #SBATCH --no-requeue
@@ -15,23 +15,10 @@
 set -euo pipefail
 
 project_dir=/storage/home/tianhaowu/prime-rl
-config_path="$project_dir/user/tianhaowu/swebench_vmvm/configs/inference/qwen36_h100.toml"
-output_dir=/checkpoint/ram/tianhaowu/swebench_vmvm/inference/qwen36_h100
+export PROJECT_DIR="$project_dir"
+export SWEBENCH_INFERENCE_CONFIG="$project_dir/user/tianhaowu/swebench_vmvm/configs/inference/qwen36_h100.toml"
+export SWEBENCH_INFERENCE_OUTPUT_ROOT=/checkpoint/ram/tianhaowu/swebench_vmvm/inference/qwen36_h100
+export SWEBENCH_INFERENCE_LAUNCHER="$project_dir/user/tianhaowu/swebench_vmvm/run_qwen36_inference_h100.sbatch"
+export SWEBENCH_EXPECTED_MODEL=Qwen/Qwen3.6-27B
 
-mkdir -p "$output_dir/logs"
-cd "$project_dir"
-
-unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy
-export UV_PROJECT_ENVIRONMENT=/storage/home/tianhaowu/.venvs/prime-rl-nemotron-sft
-export UV_NO_SYNC=1
-export PYTHONDONTWRITEBYTECODE=1
-export HF_HOME=/checkpoint/ram-h100-2/tianhaowu/.cache/huggingface
-export HF_HUB_CACHE="$HF_HOME/hub"
-export HF_HUB_OFFLINE=1
-export TRANSFORMERS_OFFLINE=1
-export VLLM_ALLOW_LONG_MAX_MODEL_LEN=1
-export VLLM_CACHE_ROOT="/tmp/vllm-cache-$USER-$SLURM_JOB_ID"
-export FLASHINFER_WORKSPACE_BASE="/tmp/flashinfer-$USER-$SLURM_JOB_ID"
-
-srun --kill-on-bad-exit=1 uv run --no-sync inference @ "$config_path" \
-    2>&1 | tee "$output_dir/server_${SLURM_JOB_ID}.log"
+exec bash "$project_dir/user/tianhaowu/swebench_vmvm/run_inference_4node.sh"
