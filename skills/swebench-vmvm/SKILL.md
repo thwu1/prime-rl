@@ -186,6 +186,12 @@ code `0:0` and exactly 500 rows. Then run
 implementation snapshots, runtime sources, inference provenance, and final
 checksums.
 
+Treat `ConversationExecutionStatus.ERROR` as valid only for clean 200-request
+iteration exhaustion, or for one terminal HTTP 400 where Verifiers deliberately
+stops the rollout at `context_length`. Require the latter's agent exception to
+end with `rollout stopped: context_length`. Any other SDK error status, agent
+exception, HTTP error, or transport error is an audit failure.
+
 ## Report progress
 
 Report a matrix with these columns:

@@ -201,6 +201,12 @@ BASE_RESULTS_DIR=/path/to/run \
 
 `watch_finalize_openhands_sdk.sh` may wait on an exact evaluator step. It accepts
 only a `COMPLETED`/`0:0` step with exactly 500 rows before invoking the finalizer.
+The SDK audit accepts `ConversationExecutionStatus.ERROR` only when the agent
+cleanly exhausts all 200 model requests, or when Verifiers deliberately ends a
+request at the model context limit. The latter must be exactly one terminal HTTP
+400 whose agent exception ends with `rollout stopped: context_length`. Any other
+SDK error status, agent exception, HTTP error, or transport error fails strict
+audit.
 
 ## Result interpretation
 
