@@ -28,6 +28,14 @@ sbatch --parsable \
   user/tianhaowu/tau3_banking_vmvm/run_eval.sbatch
 ```
 
+When submitting the policy from another Slurm allocation, remove
+`SLURM_MEM_PER_CPU`, `SLURM_MEM_PER_GPU`, `SLURM_MEM_PER_NODE`,
+`SLURM_CPUS_PER_TASK`, and `SLURM_TRES_PER_TASK` from the child `sbatch`
+environment. The policy script must request all 192 CPUs on each H100 node and
+pass that count explicitly to `srun`; otherwise a one-CPU watcher can make
+FlashInfer compilation take hours. Verify the inference step's `AllocCPUS`
+before waiting for model readiness.
+
 For routine evaluation, create a run-specific TOML from
 `nemotron_super_kimi.toml` and set `num_trials = 3` under `[benchmark]`. Then
 launch the full 97-task x 3-trial run:
