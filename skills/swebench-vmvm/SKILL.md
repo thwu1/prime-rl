@@ -160,7 +160,8 @@ Keep model-provider retries inside the individual request. Restrict whole-
 rollout retries to `SandboxError` and `TunnelError`. SWE-bench Verified retries
 a failed fresh verifier on a new VMVM runtime with the exact captured candidate
 patch; it must not resample the model merely because scoring infrastructure
-failed.
+failed. Bound the verifier command by `task.timeout.scoring`; exit 124 is a
+terminal zero-score benchmark outcome and must carry explicit timeout metadata.
 
 For SWE-rebench Java tasks, restore the harness-owned Maven and Gradle mirror
 files immediately before scoring. Agent commands can modify user-level build
@@ -245,6 +246,21 @@ replacement with matching task/config/model/official-recipe and runtime-source
 provenance, restores the original dataset index, preserves both source result
 sets, and records hashes plus copied recovery artifacts for the finalizer. Never
 hand-edit the active `results.jsonl` or replace a clean model outcome.
+
+If an older SWE-bench Verified row has exactly `TasksetError: scoring timed
+out` after its candidate patch was captured, recover only the verifier:
+
+```bash
+uv run --no-sync python \
+  user/tianhaowu/swebench_vmvm/recover_swebench_verified_verifier.py \
+  BASE_RESULTS_DIR --trace-id TRACE_ID --output-dir VERIFIER_RECOVERY_DIR
+```
+
+The tool reuses the exact trace and patch, runs a fresh VMVM verifier with the
+task's declared timeout, and writes a one-row recovery directory. Supply that
+directory as an additional `--replacement-dir` to
+`recover_openhands_infrastructure.py`; the merger rejects any change to the
+trace ID, trajectory nodes, patch, or OpenHands recipe metadata.
 
 ## Report progress
 

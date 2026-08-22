@@ -179,8 +179,10 @@ container at the task's base commit. Candidate patch hashes, parsed test reports
 and distinct verifier-runtime descriptors are saved in every result row.
 Transient verifier-runtime failures retry only the fresh verifier with the exact
 captured patch; they never resample the model trajectory. Whole-rollout retries
-are restricted to sandbox or interception-tunnel loss. Model-provider retries
-remain inside the individual model request.
+are restricted to sandbox or interception-tunnel loss. Each verifier command is
+bounded by the task's declared Harbor verifier timeout; reaching that limit is a
+terminal zero-score benchmark outcome with explicit timeout provenance. Model-
+provider retries remain inside the individual model request.
 
 `openhands_sdk_harness/` implements NVIDIA's published OpenHands SDK 1.17.0
 recipe with Terminal, FileEditor, and TaskTracker, 200 iterations, the published
@@ -268,6 +270,21 @@ prompt, and runtime-source provenance, restores the task's original dataset
 index, and records source/result checksums. Run the normal finalizer on the
 recovered directory; it includes the recovery manifest and copied replacement
 artifacts in `final.sha256`.
+
+If an older run instead reached the outer scoring timeout after capturing its
+candidate patch, re-run only its verifier in a fresh VMVM. This preserves the
+model trajectory and applies the task's declared verifier timeout:
+
+```bash
+uv run --no-sync python \
+  user/tianhaowu/swebench_vmvm/recover_swebench_verified_verifier.py \
+  BASE_RESULTS_DIR --trace-id TRACE_ID --output-dir VERIFIER_RECOVERY_DIR
+```
+
+Pass `VERIFIER_RECOVERY_DIR` as another `--replacement-dir` to
+`recover_openhands_infrastructure.py`. The merger requires the replacement to
+retain the exact trace ID, nodes, candidate patch, and OpenHands metadata, so a
+verifier failure cannot accidentally resample the agent.
 
 ## Result interpretation
 

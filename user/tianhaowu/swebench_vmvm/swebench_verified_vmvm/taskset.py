@@ -150,7 +150,29 @@ class SWEBenchVerifiedVMVMTaskset(
             output = staged.stdout + staged.stderr
             raise RuntimeError(f"staging SWE-bench verifier failed: {output[-4000:]}")
 
-        verifier = await runtime.run(["sh", "-c", "cd /tests && bash test.sh"], {})
+        timeout_seconds = task.timeout.scoring
+        verifier_command = "cd /tests && bash test.sh"
+        if timeout_seconds is not None:
+            verifier_command = (
+                "cd /tests && timeout --signal=TERM --kill-after=30s "
+                f"{float(timeout_seconds):g}s bash test.sh"
+            )
+        verifier = await runtime.run(["sh", "-c", verifier_command], {})
+        output = verifier.stdout + verifier.stderr
+        if timeout_seconds is not None and verifier.exit_code == 124:
+            return (
+                0.0,
+                {
+                    "patch_successfully_applied": True,
+                    "resolved": False,
+                    "tests_status": {},
+                    "timed_out": True,
+                    "timeout_sec": float(timeout_seconds),
+                },
+                verifier.exit_code,
+                output[-8000:],
+            )
+
         reward_text = (await runtime.read("/logs/verifier/reward.txt")).decode().strip()
         score = float(reward_text)
         if score not in (0.0, 1.0):
@@ -161,12 +183,10 @@ class SWEBenchVerifiedVMVMTaskset(
         if not isinstance(instance, dict):
             raise ValueError(f"SWE-bench verifier report is missing {task.name}")
         if not instance.get("patch_successfully_applied") or "tests_status" not in instance:
-            output = verifier.stdout + verifier.stderr
             raise RuntimeError(f"SWE-bench verifier did not parse test results for {task.name}: {output[-4000:]}")
         resolved = bool(instance.get("resolved"))
         if resolved != bool(score):
             raise ValueError(f"SWE-bench reward/report mismatch for {task.name}: reward={score}, resolved={resolved}")
-        output = verifier.stdout + verifier.stderr
         return score, instance, verifier.exit_code, output[-8000:]
 
     async def _run_fresh_verifier(
@@ -234,12 +254,16 @@ class SWEBenchVerifiedVMVMTaskset(
             score, report, exit_code, output_tail = await self._run_fresh_verifier(task, trace, runtime, patch)
         else:
             score, report, exit_code, output_tail = await self._run_verifier(task, scoring_runtime)
-        trace.info["swebench_verifier"] = {
+        verifier_info = {
             "exit_code": exit_code,
             "patch_successfully_applied": report["patch_successfully_applied"],
             "resolved": report["resolved"],
             "tests_status": report["tests_status"],
         }
+        if report.get("timed_out") is True:
+            verifier_info["timed_out"] = True
+            verifier_info["timeout_sec"] = report["timeout_sec"]
+        trace.info["swebench_verifier"] = verifier_info
         if not score:
             trace.info["swebench_verifier"]["output_tail"] = output_tail
         return score
