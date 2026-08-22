@@ -13,6 +13,8 @@ from jinja2 import Template
 EXPECTED_NEMO_GYM_COMMIT = "354babf7e3554fcd006807c86e80ef476aec9408"
 EXPECTED_NEMO_EVALUATOR_COMMIT = "230c8411fff82fa581195b7d088d7fb67d3bc98c"
 EXPECTED_VERSION = "1.17.0"
+FINISHED_STATUS = "ConversationExecutionStatus.FINISHED"
+ERROR_STATUS = "ConversationExecutionStatus.ERROR"
 EXPECTED_SYSTEM_PROMPT_SHA256 = "f413d0fd1e5a1482d0d473e2de399a0a0c99f645d3838ef6cf887a167b7a31b6"
 EXPECTED_INSTRUCTION_TEMPLATE_SHA256 = "1605532f463c04d02bf315d47865db34960e0c6d0870cf8aa8598ecc17d22ea7"
 EXPECTED_MODEL = "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16"
@@ -63,10 +65,13 @@ def main() -> None:
     total_http_errors = 0
     total_transport_errors = 0
     rows_with_exceptions = 0
+    context_limit_terminations = 0
+    max_iteration_exhaustions = 0
     execution_statuses = Counter()
 
     for row_number, row in enumerate(rows, 1):
-        stop_conditions[row.get("stop_condition")] += 1
+        stop_condition = row.get("stop_condition")
+        stop_conditions[stop_condition] += 1
         info = row.get("info") or {}
         metadata = info.get("openhands_sdk")
         if not isinstance(metadata, dict):
@@ -81,7 +86,8 @@ def main() -> None:
 
         version = agent.get("openhands_sdk_version")
         versions[str(version)] += 1
-        execution_statuses[str(agent.get("execution_status"))] += 1
+        execution_status = str(agent.get("execution_status"))
+        execution_statuses[execution_status] += 1
         if version != EXPECTED_VERSION:
             issues.append({"row": row_number, "issue": f"OpenHands SDK version {version!r}"})
         if agent.get("openhands_tools_version") != EXPECTED_VERSION:
@@ -145,12 +151,54 @@ def main() -> None:
             issues.append({"row": row_number, "issue": "no parsed reasoning response"})
         if not proxy.get("tool_call_responses"):
             issues.append({"row": row_number, "issue": "no native tool-call response"})
-        if agent.get("exception"):
-            rows_with_exceptions += 1
 
         details = proxy.get("request_details") or []
         if len(details) != requests:
             issues.append({"row": row_number, "issue": "request detail count mismatch"})
+
+        exception = agent.get("exception")
+        if exception:
+            rows_with_exceptions += 1
+        expected_context_limit = (
+            stop_condition == "context_length"
+            and execution_status == ERROR_STATUS
+            and isinstance(exception, dict)
+            and exception.get("type") == "ConversationRunError"
+            and str(exception.get("message", "")).endswith(
+                "OpenAIException - rollout stopped: context_length"
+            )
+            and http_errors == 1
+            and transport_errors == 0
+            and responses == requests - 1
+            and bool(details)
+            and details[-1].get("status") == 400
+        )
+        expected_iteration_exhaustion = (
+            execution_status == ERROR_STATUS
+            and exception is None
+            and requests == 200
+            and http_errors == 0
+            and transport_errors == 0
+        )
+        if expected_context_limit:
+            context_limit_terminations += 1
+        elif expected_iteration_exhaustion:
+            max_iteration_exhaustions += 1
+        else:
+            if exception:
+                issues.append({"row": row_number, "issue": "OpenHands agent raised an exception"})
+            if http_errors:
+                issues.append({"row": row_number, "issue": f"proxy recorded {http_errors} HTTP error(s)"})
+            if transport_errors:
+                issues.append({"row": row_number, "issue": f"proxy recorded {transport_errors} transport error(s)"})
+            if execution_status != FINISHED_STATUS:
+                issues.append(
+                    {
+                        "row": row_number,
+                        "issue": f"unexpected OpenHands execution status {execution_status!r}",
+                    }
+                )
+
         for expected_turn, detail in enumerate(details, 1):
             turn = detail.get("turn")
             if turn != expected_turn:
@@ -204,6 +252,8 @@ def main() -> None:
         "total_http_errors": total_http_errors,
         "total_transport_errors": total_transport_errors,
         "rows_with_agent_exceptions": rows_with_exceptions,
+        "context_limit_terminations": context_limit_terminations,
+        "max_iteration_exhaustions": max_iteration_exhaustions,
         "execution_statuses": dict(execution_statuses),
         "issues": issues,
     }

@@ -19,7 +19,7 @@ authorizes a shared change.
 | Benchmark | Harness | Model | Shape |
 | --- | --- | --- | ---: |
 | SWE-bench Verified | mini-swe-agent 2.2.8 | Nemotron 3 Super | 500 x 1 |
-| SWE-bench Verified | OpenHands SDK 1.17.0 | Nemotron 3 Super | 500 x 3 |
+| SWE-bench Verified | OpenHands SDK 1.17.0 | Nemotron 3 Super | 500 x 1 |
 | SWE-rebench July 2026 | fixed text-command ReAct | Qwen3.6-27B | 111 x 5 |
 | SWE-rebench July 2026 | mini-swe-agent 2.2.8 native tools | Qwen3.6-27B | 111 x 5 |
 
@@ -96,6 +96,12 @@ Use Nemotron's `qwen3_coder` tool parser, `nemotron_v3` reasoning parser, and
 262,144-token context. Use Qwen's `qwen3_coder` tool parser, `qwen3` reasoning
 parser, and 131,072-token context.
 
+Keep per-rollout session affinity enabled. The pinned Verifiers v1 client sends
+`X-Session-ID` with `session.trace.id` on every ordinary or streamed model turn.
+That value must remain stable within a rollout and distinct across rollouts. A
+multi-engine endpoint must consistently hash this header; the production
+single-node tensor-parallel configs have only one engine and need no router.
+
 Do not requeue an inference job while an evaluator retains its node URL. After
 an endpoint loss, stop the evaluator, restore a healthy endpoint, then resume
 the durable result directory.
@@ -118,6 +124,11 @@ sbatch --export=ALL,INFERENCE_JOB_ID=JOB_ID,EVAL_CONFIG=CONFIG \
   --num-tasks 1 --num-rollouts 1 --max-concurrent 1 --multiplex 1
 ```
 
+For a plugin-specific override such as `--taskset.tasks`, repeat the taskset and
+harness IDs after the `@` config (`--taskset.id ... --harness.id ...`). Without
+those IDs, pydantic-config sees only the base plugin types and cannot parse the
+task list override.
+
 The launcher owns an exclusive output lock. Never run two writers against the
 same result directory. Resume only missing or errored work with `RESUME_DIR`
 after proving the prior evaluator is terminal.
@@ -127,6 +138,26 @@ rollout retries to `SandboxError` and `TunnelError`. SWE-bench Verified retries
 a failed fresh verifier on a new VMVM runtime with the exact captured candidate
 patch; it must not resample the model merely because scoring infrastructure
 failed.
+
+For SWE-rebench Java tasks, restore the harness-owned Maven and Gradle mirror
+files immediately before scoring. Agent commands can modify user-level build
+configuration, so setup-time mirror installation alone is not sufficient.
+
+Keep the official 3,000-second SWE-rebench verifier limit inside the remote
+shell command. A verifier timeout is a terminal zero-score benchmark outcome,
+not an infrastructure error. The eval's outer scoring timeout is 14,400 seconds
+only to accommodate up to four network-infrastructure attempts and their
+backoff. Capture the exact candidate patch during `finalize` before any verifier
+runs. If the agent VM is lost during scoring, retry only the verifier in a fresh
+VMVM with that captured patch; never resample the completed model trajectory.
+
+For a historical row where the old outer timeout produced exactly
+`TasksetError: scoring timed out`, wait for the evaluator to become terminal and
+run `recover_swe_rebench_timeouts.py` into a new result file. It refuses the
+active writer lock, requires the old outer timeout to equal the task's official
+verifier budget, rejects any other error shape, reconstructs the last exact
+`git diff` from the saved trajectory, and assigns the official timeout score of
+zero without issuing another model request.
 
 ## Audit results
 
@@ -142,12 +173,12 @@ uv run --no-sync python user/tianhaowu/swebench_vmvm/audit_results.py \
   --require-swebench-vmvm-provenance --reject-mode-changes --strict
 ```
 
-Use `K=1` for MiniSWE and `K=3` for OpenHands. Then run the relevant specialized
+Use `K=1` for both MiniSWE and OpenHands. Then run the relevant specialized
 audit:
 
 ```bash
 uv run --no-sync python user/tianhaowu/swebench_vmvm/openhands_sdk_harness/audit.py \
-  RESULTS --expected-rows 1500 --strict
+  RESULTS --expected-rows 500 --strict
 ```
 
 For SWE-rebench, use 111 tasks and five rollouts, then run both the Harbor audit
@@ -165,11 +196,32 @@ uv run --no-sync python user/tianhaowu/swebench_vmvm/audit_miniswe_native_tools.
 Run only the ReAct or MiniSWE specialized audit that matches the evaluated
 harness.
 
+The ReAct auditor counts assistant turns without exactly one text command as
+malformed. A context-limit tail may contain reasoning without text; count that
+tail as malformed rather than a protocol issue when the trajectory already has
+a valid command and contains no native tool call.
+
 For OpenHands, require the evaluator step to finish as `COMPLETED` with exit
-code `0:0` and exactly 1,500 rows. Then run
+code `0:0` and exactly 500 rows. Then run
 `finalize_openhands_sdk.sh`, which verifies result shape, SDK behavior,
 implementation snapshots, runtime sources, inference provenance, and final
 checksums.
+
+Treat `ConversationExecutionStatus.ERROR` as valid only for clean 200-request
+iteration exhaustion, or for one terminal HTTP 400 where Verifiers deliberately
+stops the rollout at `context_length`. Require the latter's agent exception to
+end with `rollout stopped: context_length`. Any other SDK error status, agent
+exception, HTTP error, or transport error is an audit failure.
+
+If an otherwise completed row contains a non-context provider or transport
+error, run that exact task once with the production OpenHands config in a
+separate result directory. After the full evaluator is terminal, use
+`recover_openhands_infrastructure.py` to create a new result directory. It
+refuses live writer locks and existing outputs, requires a clean one-row
+replacement with matching task/config/model/official-recipe and runtime-source
+provenance, restores the original dataset index, preserves both source result
+sets, and records hashes plus copied recovery artifacts for the finalizer. Never
+hand-edit the active `results.jsonl` or replace a clean model outcome.
 
 ## Report progress
 

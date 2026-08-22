@@ -7,7 +7,7 @@ set -euo pipefail
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 project_dir=$(git -C "$script_dir" rev-parse --show-toplevel)
 expected_tasks=${EXPECTED_TASKS:-500}
-rollouts_per_task=${ROLLOUTS_PER_TASK:-3}
+rollouts_per_task=${ROLLOUTS_PER_TASK:-1}
 expected_rows=$((expected_tasks * rollouts_per_task))
 results="$BASE_RESULTS_DIR/results.jsonl"
 
@@ -40,6 +40,7 @@ finalizer_sources=(
     user/tianhaowu/swebench_vmvm/finalize_openhands_sdk.sh
     user/tianhaowu/swebench_vmvm/watch_finalize_openhands_sdk.sh
     user/tianhaowu/swebench_vmvm/audit_results.py
+    user/tianhaowu/swebench_vmvm/recover_openhands_infrastructure.py
     user/tianhaowu/swebench_vmvm/openhands_sdk_harness/audit.py
     user/tianhaowu/swebench_vmvm/verify_implementation_snapshot.py
     user/tianhaowu/swebench_vmvm/audit_nemotron_inference.py
@@ -141,6 +142,15 @@ for artifact in \
         hash_inputs+=("$artifact")
     fi
 done
+if [ -f "$BASE_RESULTS_DIR/openhands_infrastructure_recovery.json" ]; then
+    hash_inputs+=("$BASE_RESULTS_DIR/openhands_infrastructure_recovery.json")
+fi
+if [ -d "$BASE_RESULTS_DIR/recovery_sources" ]; then
+    mapfile -d '' recovery_source_files < <(
+        find "$BASE_RESULTS_DIR/recovery_sources" -type f -print0 | sort -z
+    )
+    hash_inputs+=("${recovery_source_files[@]}")
+fi
 sha256sum "${hash_inputs[@]}" > "$BASE_RESULTS_DIR/final.sha256.tmp"
 mv "$BASE_RESULTS_DIR/final.sha256.tmp" "$BASE_RESULTS_DIR/final.sha256"
 sha256sum -c "$BASE_RESULTS_DIR/final.sha256"

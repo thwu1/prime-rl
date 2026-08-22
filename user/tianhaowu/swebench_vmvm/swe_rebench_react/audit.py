@@ -185,7 +185,7 @@ def main() -> None:
                     )
                 content = message.get("content")
                 if not isinstance(content, str):
-                    row_issues.append({**task_ref, "position": position, "issue": "assistant content is not text"})
+                    malformed_responses += 1
                     continue
                 commands = COMMAND_BLOCK.findall(content)
                 if len(commands) != 1:

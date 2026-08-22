@@ -2,6 +2,7 @@
 
 import argparse
 import collections
+import hashlib
 import json
 import tomllib
 from pathlib import Path
@@ -66,6 +67,10 @@ def main() -> None:
     solved = 0
     verifier_metadata_rows = 0
     missing_verifier_metadata = 0
+    verifier_timeout_rows = 0
+    candidate_patch_rows = 0
+    parsed_report_rows = 0
+    verifier_attempt_counts: collections.Counter[int] = collections.Counter()
 
     if config["taskset"].get("id") != "swe-rebench-harbor":
         issues.append({"issue": "config does not use the swe-rebench-harbor taskset"})
@@ -121,10 +126,59 @@ def main() -> None:
                     issues.append({**task_ref, "issue": "missing SWE-rebench verifier metadata"})
                 continue
             verifier_metadata_rows += 1
-            if not isinstance(verifier.get("exit_code"), int):
+            timed_out = verifier.get("timed_out", False)
+            if not isinstance(timed_out, bool):
+                issues.append({**task_ref, "issue": "invalid verifier timed_out flag"})
+            elif timed_out:
+                verifier_timeout_rows += 1
+                if float(reward) != 0.0:
+                    issues.append({**task_ref, "issue": "timed-out verifier has nonzero reward"})
+                timeout_sec = verifier.get("timeout_sec")
+                if not isinstance(timeout_sec, (int, float)) or isinstance(timeout_sec, bool) or timeout_sec <= 0:
+                    issues.append({**task_ref, "issue": "timed-out verifier has invalid timeout"})
+                if verifier.get("exit_code") not in (None, 124, 137):
+                    issues.append({**task_ref, "issue": "timed-out verifier has unexpected exit code"})
+            elif not isinstance(verifier.get("exit_code"), int):
                 issues.append({**task_ref, "issue": "invalid verifier exit code"})
             if verifier.get("reward") != float(reward):
                 issues.append({**task_ref, "issue": "verifier metadata disagrees with persisted reward"})
+
+            info = row.get("info")
+            attempts = info.get("swe_rebench_verifier_attempts") if isinstance(info, dict) else None
+            failures = info.get("swe_rebench_verifier_failures") if isinstance(info, dict) else None
+            if attempts is not None or failures is not None:
+                if type(attempts) is not int or attempts < 1:
+                    issues.append({**task_ref, "issue": "invalid verifier attempt count"})
+                elif not isinstance(failures, list) or not all(isinstance(item, str) for item in failures):
+                    issues.append({**task_ref, "issue": "invalid verifier failure history"})
+                elif attempts != len(failures) + 1:
+                    issues.append({**task_ref, "issue": "verifier attempt count disagrees with failure history"})
+                else:
+                    verifier_attempt_counts[attempts] += 1
+
+            candidate = info.get("swe_rebench_candidate_patch") if isinstance(info, dict) else None
+            if candidate is not None:
+                if not isinstance(candidate, dict) or not isinstance(candidate.get("patch"), str):
+                    issues.append({**task_ref, "issue": "invalid SWE-rebench candidate patch metadata"})
+                else:
+                    patch = candidate["patch"]
+                    encoded = patch.encode()
+                    if candidate.get("bytes") != len(encoded):
+                        issues.append({**task_ref, "issue": "candidate patch byte count does not match"})
+                    if candidate.get("sha256") != hashlib.sha256(encoded).hexdigest():
+                        issues.append({**task_ref, "issue": "candidate patch SHA-256 does not match"})
+                    candidate_patch_rows += 1
+
+            report = verifier.get("report")
+            if report is not None:
+                if not isinstance(report, dict) or not isinstance(report.get("resolved"), bool):
+                    issues.append({**task_ref, "issue": "invalid parsed verifier report"})
+                elif report["resolved"] != bool(reward):
+                    issues.append({**task_ref, "issue": "parsed verifier report disagrees with reward"})
+                else:
+                    parsed_report_rows += 1
+            elif candidate is not None and not timed_out:
+                issues.append({**task_ref, "issue": "candidate-patch row is missing parsed verifier report"})
 
     for task in expected:
         count = counts[task["idx"]]
@@ -149,6 +203,10 @@ def main() -> None:
         "resolved_rate": solved / expected_rows if expected_rows else 0.0,
         "verifier_metadata_rows": verifier_metadata_rows,
         "missing_verifier_metadata": missing_verifier_metadata,
+        "verifier_timeout_rows": verifier_timeout_rows,
+        "candidate_patch_rows": candidate_patch_rows,
+        "parsed_report_rows": parsed_report_rows,
+        "verifier_attempt_counts": dict(sorted(verifier_attempt_counts.items())),
         "stop_conditions": dict(sorted(stops.items())),
         "issues": issues,
     }

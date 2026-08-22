@@ -1,4 +1,4 @@
-# Full SWE-rebench evaluation with the published text-command ReAct scaffold.
+# Full SWE-rebench evaluation with the behavior-compatible text-command ReAct scaffold.
 model = "Qwen/Qwen3.6-27B"
 num_tasks = 111
 num_rollouts = 5
@@ -45,7 +45,9 @@ max_session_buffer_size = 67108864
 setup = 1800
 rollout = 3000
 finalize = 600
-scoring = 3000
+# Each verifier attempt remains capped by its Harbor 3000-second budget. The
+# outer stage allows the benchmark-local infrastructure retry loop to finish.
+scoring = 14400
 
 [retries.rollout]
 max_retries = 2

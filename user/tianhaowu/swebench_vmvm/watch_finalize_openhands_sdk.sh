@@ -6,7 +6,7 @@ set -euo pipefail
 : "${EVAL_STEP_ID:?Set EVAL_STEP_ID to the active Slurm evaluator step}"
 
 expected_tasks=${EXPECTED_TASKS:-500}
-rollouts_per_task=${ROLLOUTS_PER_TASK:-3}
+rollouts_per_task=${ROLLOUTS_PER_TASK:-1}
 expected_rows=$((expected_tasks * rollouts_per_task))
 status_file="$BASE_RESULTS_DIR/finalizer_status.json"
 started_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)

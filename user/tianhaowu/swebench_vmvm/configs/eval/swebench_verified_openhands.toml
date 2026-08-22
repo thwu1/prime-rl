@@ -1,7 +1,7 @@
 # Full SWE-bench Verified evaluation with the official OpenHands SDK recipe.
 model = "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16"
 num_tasks = 500
-num_rollouts = 3
+num_rollouts = 1
 max_concurrent = 15
 max_turns = 200
 multiplex = 4
