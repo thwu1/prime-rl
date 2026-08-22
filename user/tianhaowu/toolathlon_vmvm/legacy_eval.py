@@ -104,6 +104,8 @@ def _validate(config: dict[str, Any]) -> None:
         raise ValueError("The live official service limits submissions to 10 workers")
     if str(service["client_version"]) != "1.3" or str(service["ws_client_version"]) != "1.3":
         raise ValueError("Toolathlon-Verified requires client and WebSocket protocol 1.3")
+    if int(service.get("max_trial_infrastructure_retries", 2)) < 0:
+        raise ValueError("max_trial_infrastructure_retries must be nonnegative")
     expected = {
         "target_total_passes": 188,
         "target_any_passes": 78,
@@ -157,6 +159,50 @@ def _run_remote(
     return result
 
 
+def _probe_remote_model(
+    harness: ToolathlonVMVMHarness,
+    model: str,
+    *,
+    attempts: int = 3,
+    delay_seconds: float = 5,
+) -> str:
+    last_output = ""
+    for attempt in range(1, attempts + 1):
+        model_base_url = harness.ensure_model_tunnel() + "/model/v1"
+        result = _run_remote(
+            harness,
+            _remote_command(
+                "probe-model",
+                "--model-base-url",
+                model_base_url,
+                "--api-key",
+                "vmvm-proxy",
+                "--model",
+                model,
+            ),
+            timeout=60,
+        )
+        last_output = result["output"][-4000:]
+        if result["exit_code"] == 0:
+            _parse_marker(result["output"])
+            current_base_url = harness.ensure_model_tunnel() + "/model/v1"
+            if current_base_url == model_base_url:
+                return model_base_url
+            logger.warning("VMVM model tunnel changed during its liveness probe; probing the replacement")
+        elif result["exit_code"] == 75:
+            logger.warning(
+                "VMVM model tunnel probe failed (%d/%d): %s",
+                attempt,
+                attempts,
+                last_output[-2000:],
+            )
+        else:
+            raise VMVMCommandFailed(f"Unrecoverable model tunnel probe failure: {last_output}")
+        if attempt < attempts:
+            time.sleep(delay_seconds)
+    raise VMVMCommandLost(f"VMVM model tunnel failed {attempts} liveness probes: {last_output}")
+
+
 def _start_harness(
     config: dict[str, Any],
     proxy_port: int,
@@ -191,10 +237,60 @@ def _safe_extract(archive_path: Path, destination: Path) -> None:
         archive.extractall(destination, filter="data")
 
 
-def _audit_trial(trial_dir: Path, expected_total: int) -> dict[str, Any]:
+def _proxy_requests_since(proxy_log_path: Path, state: dict[str, Any]) -> int | None:
+    def count_requests(lines: Any) -> int:
+        requests = 0
+        for line in lines:
+            if not line.strip():
+                continue
+            event = json.loads(line)
+            if not str(event.get("path", "")).endswith("/models"):
+                requests += 1
+        return requests
+
+    offset = state.get("proxy_log_offset")
+    if offset is not None:
+        with proxy_log_path.open("rb") as handle:
+            handle.seek(int(offset))
+            end_offset = state.get("proxy_log_end_offset")
+            if end_offset is not None:
+                length = int(end_offset) - int(offset)
+                if length < 0:
+                    raise ValueError("proxy_log_end_offset precedes proxy_log_offset")
+                return count_requests(handle.read(length).splitlines())
+            return count_requests(handle)
+
+    submitted_at = state.get("submitted_at")
+    if submitted_at is None or not proxy_log_path.exists():
+        return None
+    requests = 0
+    finished_at = state.get("finished_at")
+    with proxy_log_path.open() as handle:
+        for line in handle:
+            event = json.loads(line)
+            timestamp = float(event.get("timestamp", 0))
+            is_generation_request = not str(event.get("path", "")).endswith("/models")
+            if (
+                is_generation_request
+                and timestamp >= float(submitted_at)
+                and (finished_at is None or timestamp <= float(finished_at))
+            ):
+                requests += 1
+    return requests
+
+
+def _audit_trial(
+    trial_dir: Path,
+    expected_total: int,
+    *,
+    model_proxy_requests: int | None = None,
+) -> dict[str, Any]:
     stats_path = trial_dir / "service_results" / "eval_stats.json"
     stats = json.loads(stats_path.read_text())
-    evaluation = stats.get("status_breakdown", {}).get("evaluation", {})
+    status_breakdown = stats.get("status_breakdown", {})
+    preprocess = status_breakdown.get("preprocess", {})
+    running = status_breakdown.get("running", {})
+    evaluation = status_breakdown.get("evaluation", {})
     total = int(stats.get("total_tasks", 0))
     passes = int(evaluation.get("pass_count", round(float(stats.get("average_success_rate", 0)) * total)))
     fails = int(evaluation.get("fail_count", max(0, total - passes)))
@@ -221,10 +317,93 @@ def _audit_trial(trial_dir: Path, expected_total: int) -> dict[str, Any]:
         "pass_tasks": pass_tasks,
         "fail_tasks": fail_tasks,
         "null_tasks": null_tasks,
+        "average_turns": float(stats.get("average_turns", 0)),
+        "average_tool_calls": float(stats.get("average_tool_calls", 0)),
+        "preprocess_done": int(preprocess.get("done_count", 0)),
+        "preprocess_failed": int(preprocess.get("fail_count", 0)),
+        "running_done": int(running.get("done_count", 0)),
+        "running_failed": int(running.get("fail_count", 0)),
         "complete": total == expected_total and passes + fails + nulls == expected_total,
     }
+    if model_proxy_requests is not None:
+        report["model_proxy_requests"] = model_proxy_requests
     _write_json(trial_dir / "summary.json", report)
     return report
+
+
+def _is_no_execution_trial(report: dict[str, Any]) -> bool:
+    return (
+        bool(report.get("complete"))
+        and int(report["nulls"]) == int(report["expected_total"])
+        and int(report["preprocess_done"]) > 0
+        and int(report["running_done"]) == 0
+        and int(report["running_failed"]) == int(report["preprocess_done"])
+        and float(report["average_turns"]) <= 1
+        and float(report["average_tool_calls"]) == 0
+    )
+
+
+def _next_trial_attempt(trial_dir: Path) -> int:
+    marker = trial_dir / "attempt_archive.json"
+    if marker.exists():
+        return int(json.loads(marker.read_text())["attempt"])
+    attempts_dir = trial_dir / "attempts"
+    attempts = [
+        int(path.name.removeprefix("attempt_"))
+        for path in attempts_dir.glob("attempt_[0-9][0-9][0-9]")
+        if path.is_dir()
+    ]
+    return max(attempts, default=0) + 1
+
+
+def _archive_trial_attempt(trial_dir: Path, attempt: int) -> Path:
+    marker = trial_dir / "attempt_archive.json"
+    if marker.exists():
+        marked_attempt = int(json.loads(marker.read_text())["attempt"])
+        if marked_attempt != attempt:
+            raise ValueError(f"Attempt archive marker is for {marked_attempt}, not {attempt}")
+    else:
+        _write_json(marker, {"attempt": attempt})
+    destination = trial_dir / "attempts" / f"attempt_{attempt:03d}"
+    destination.mkdir(parents=True, exist_ok=True)
+    for name in ("service_state.json", "summary.json", "service_results.tar.gz", "service_results"):
+        source = trial_dir / name
+        if source.exists():
+            target = destination / name
+            if target.exists():
+                raise ValueError(f"Both active and archived trial artifacts exist: {source}, {target}")
+            os.replace(source, target)
+    aggregate_summary = trial_dir.parent / "summary.json"
+    if aggregate_summary.exists():
+        archived_summary = destination / "aggregate_summary.json"
+        if archived_summary.exists():
+            raise ValueError(
+                f"Both active and archived aggregate summaries exist: {aggregate_summary}, {archived_summary}"
+            )
+        os.replace(aggregate_summary, archived_summary)
+    marker.unlink()
+    return destination
+
+
+def _reject_no_execution_trial(
+    *,
+    trial_dir: Path,
+    state: dict[str, Any],
+    report: dict[str, Any],
+    max_retries: int,
+) -> None:
+    attempt = int(state.get("attempt") or _next_trial_attempt(trial_dir))
+    state["attempt"] = attempt
+    state.setdefault("finished_at", time.time())
+    state["summary"] = report
+    state["infrastructure_failure"] = "all runnable tasks failed before executing a tool"
+    _write_json(trial_dir / "service_state.json", state)
+    archive = _archive_trial_attempt(trial_dir, attempt)
+    if attempt > max_retries:
+        raise VMVMCommandFailed(f"Official trial exhausted {max_retries} infrastructure retries; preserved {archive}")
+    raise VMVMCommandLost(
+        f"Official trial produced no valid executions; preserved {archive} and will submit attempt {attempt + 1}"
+    )
 
 
 def _audit_trials(output_dir: Path, config: dict[str, Any]) -> dict[str, Any]:
@@ -287,6 +466,7 @@ def _run_official_trial(
     model: str,
     trial_index: int,
     output_dir: Path,
+    proxy_log_path: Path,
 ) -> dict[str, Any]:
     service = config["official_service"]
     expected_tasks = int(config["benchmark"]["expected_tasks"])
@@ -294,41 +474,46 @@ def _run_official_trial(
     trial_name = f"trial_{trial_number:03d}"
     trial_dir = output_dir / trial_name
     trial_dir.mkdir(parents=True, exist_ok=True)
+    archive_marker = trial_dir / "attempt_archive.json"
+    if archive_marker.exists():
+        archived_attempt = int(json.loads(archive_marker.read_text())["attempt"])
+        archive = _archive_trial_attempt(trial_dir, archived_attempt)
+        logger.warning("Finished interrupted official trial archival at %s", archive)
     state_path = trial_dir / "service_state.json"
     state = json.loads(state_path.read_text()) if state_path.exists() else {}
+    attempt = int(state.get("attempt") or _next_trial_attempt(trial_dir))
+    max_trial_retries = int(service.get("max_trial_infrastructure_retries", 2))
 
     stats_path = trial_dir / "service_results" / "eval_stats.json"
     if stats_path.exists():
-        report = _audit_trial(trial_dir, expected_tasks)
+        report = _audit_trial(
+            trial_dir,
+            expected_tasks,
+            model_proxy_requests=_proxy_requests_since(proxy_log_path, state),
+        )
         if report.get("complete"):
+            if _is_no_execution_trial(report):
+                _reject_no_execution_trial(
+                    trial_dir=trial_dir,
+                    state=state,
+                    report=report,
+                    max_retries=max_trial_retries,
+                )
             logger.info("Skipping completed Verified %s", trial_name)
             return report
 
     if state and state.get("config_fingerprint") != fingerprint:
         raise ValueError(f"Existing {trial_name} state has a different config fingerprint")
 
-    model_tunnel_url = harness.ensure_model_tunnel() + "/model/v1"
+    model_tunnel_url: str | None = None
     if not state.get("job_id"):
-        submit_request = {
-            "client_version": service["client_version"],
-            "mode": "private",
-            "base_url": model_tunnel_url,
-            "api_key": None,
-            "model_name": model,
-            "workers": int(config["runtime"]["workers"]),
-            "custom_job_id": f"{service['job_id_prefix']}-trial-{trial_number}",
-            "skip_container_restart": False,
-            "provider": "unified",
-            "ws_client_version": service["ws_client_version"],
-            "model_params": {"max_tokens": int(config["model"]["max_tokens"])},
-        }
+        job_id = f"{service['job_id_prefix']}-trial-{trial_number}"
+        if attempt > 1:
+            job_id += f"-attempt-{attempt}"
         remote_request = f"/opt/toolathlon/{trial_name}_submit_request.json"
-        harness.transfer(
-            json.dumps(submit_request, indent=2, sort_keys=True).encode(),
-            remote_request,
-        )
         deadline = time.monotonic() + int(service["wait_timeout_seconds"])
         while time.monotonic() <= deadline:
+            _probe_remote_model(harness, model)
             status_result = _run_remote(
                 harness,
                 _remote_command("status", "--server-url", server_url),
@@ -337,7 +522,29 @@ def _run_official_trial(
             if status_result["exit_code"] == 0:
                 status_payload = _parse_marker(status_result["output"])
                 if not bool(status_payload.get("busy")):
-                    harness.ensure_model_tunnel()
+                    model_tunnel_url = _probe_remote_model(harness, model)
+                    submit_request = {
+                        "client_version": service["client_version"],
+                        "mode": "private",
+                        "base_url": model_tunnel_url,
+                        "api_key": None,
+                        "model_name": model,
+                        "workers": int(config["runtime"]["workers"]),
+                        "custom_job_id": job_id,
+                        "skip_container_restart": False,
+                        "provider": "unified",
+                        "ws_client_version": service["ws_client_version"],
+                        "model_params": {"max_tokens": int(config["model"]["max_tokens"])},
+                    }
+                    harness.transfer(
+                        json.dumps(submit_request, indent=2, sort_keys=True).encode(),
+                        remote_request,
+                    )
+                    confirmed_tunnel_url = _probe_remote_model(harness, model)
+                    if confirmed_tunnel_url != model_tunnel_url:
+                        logger.warning("VMVM model tunnel changed while preparing submission; retrying")
+                        continue
+                    proxy_log_offset = proxy_log_path.stat().st_size if proxy_log_path.exists() else 0
                     submit_result = _run_remote(
                         harness,
                         _remote_command(
@@ -354,10 +561,12 @@ def _run_official_trial(
                         state = {
                             "config_fingerprint": fingerprint,
                             "trial": trial_number,
+                            "attempt": attempt,
                             "job_id": str(submit_payload["job_id"]),
                             "client_id": str(submit_payload.get("client_id") or ""),
                             "submitted_at": time.time(),
                             "server_url": server_url,
+                            "proxy_log_offset": proxy_log_offset,
                         }
                         _write_json(state_path, state)
                         logger.info(
@@ -380,8 +589,8 @@ def _run_official_trial(
         else:
             raise TimeoutError(f"Verified service did not become available for {trial_name}")
 
-    model_tunnel_url = harness.ensure_model_tunnel() + "/model/v1"
-    remote_output_dir = f"/opt/toolathlon/service_results/{trial_name}"
+    model_tunnel_url = _probe_remote_model(harness, model)
+    remote_output_dir = f"/opt/toolathlon/service_results/{trial_name}_attempt_{attempt:03d}"
     monitor_command = "TOOLATHLON_OPENAI_API_KEY=vmvm-proxy " + _remote_command(
         "monitor",
         "--server-url",
@@ -424,12 +633,24 @@ def _run_official_trial(
     archive_path = trial_dir / "service_results.tar.gz"
     archive_path.write_bytes(harness.read_file(remote_archive))
     _safe_extract(archive_path, trial_dir / "service_results")
-    report = _audit_trial(trial_dir, expected_tasks)
     state["finished_at"] = time.time()
+    state["proxy_log_end_offset"] = proxy_log_path.stat().st_size if proxy_log_path.exists() else 0
+    report = _audit_trial(
+        trial_dir,
+        expected_tasks,
+        model_proxy_requests=_proxy_requests_since(proxy_log_path, state),
+    )
     state["summary"] = report
     _write_json(state_path, state)
     if not report["complete"]:
         raise ValueError(f"Verified {trial_name} returned incomplete results: {report}")
+    if _is_no_execution_trial(report):
+        _reject_no_execution_trial(
+            trial_dir=trial_dir,
+            state=state,
+            report=report,
+            max_retries=max_trial_retries,
+        )
     return report
 
 
@@ -501,6 +722,7 @@ def main() -> int:
                         model=model,
                         trial_index=trial_index,
                         output_dir=output_dir,
+                        proxy_log_path=output_dir / "proxy_requests.jsonl",
                     )
                     break
                 except VMVMCommandLost as error:

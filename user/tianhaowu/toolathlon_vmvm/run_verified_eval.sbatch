@@ -14,7 +14,8 @@
 
 set -euo pipefail
 
-project_dir=/storage/home/tianhaowu/prime-rl
+project_dir="${TOOLATHLON_PROJECT_DIR:-/storage/home/tianhaowu/prime-rl}"
+runner_path="${TOOLATHLON_RUNNER_PATH:-$project_dir/user/tianhaowu/toolathlon_vmvm/legacy_eval.py}"
 config_path="${TOOLATHLON_CONFIG:-$project_dir/user/tianhaowu/toolathlon_vmvm/kimi_k26_verified_v2.toml}"
 output_dir="${TOOLATHLON_OUTPUT_DIR:-/checkpoint/ram/tianhaowu/toolathlon_vmvm/kimi_k26_verified_v2}"
 
@@ -31,5 +32,5 @@ export VACLI_MAX_PULL_RETRIES=20
 export VACLI_IMAGE_PULL_TIMEOUT_SECONDS=3600
 
 srun --kill-on-bad-exit=1 uv run --no-sync python \
-  user/tianhaowu/toolathlon_vmvm/legacy_eval.py \
+  "$runner_path" \
   "$config_path" --output-dir "$output_dir"

@@ -76,13 +76,23 @@ sbatch user/tianhaowu/toolathlon_vmvm/run_verified_eval.sbatch
 The runner recreates a lost VM while waiting for the global service or while
 monitoring an already-recorded service job; it never blindly resubmits after an
 unknown submission outcome. Override `TOOLATHLON_CONFIG` and
-`TOOLATHLON_OUTPUT_DIR` only when intentionally creating a distinct run.
+`TOOLATHLON_OUTPUT_DIR` only when intentionally creating a distinct run. For a
+recovery from an immutable worktree, set `TOOLATHLON_PROJECT_DIR`; the batch
+wrapper derives both the runner and default config from it. An explicit
+`TOOLATHLON_RUNNER_PATH` overrides only the runner.
 
 The job waits for the single official service to become idle, submits three
 resumable private-mode evaluations sequentially, and forwards model requests
 through a VMVM-to-host tunnel. Output is written under
 `/checkpoint/ram/tianhaowu/toolathlon_vmvm/kimi_k26_verified_v2`, with one
 subdirectory per trial and an aggregate `summary.json`.
+While the service is busy, every status-poll cycle also calls `/models` through
+the VMVM reverse tunnel. The runner repeats that probe immediately before
+submission and monitoring, verifies that `Kimi-K2.6` is advertised, and
+recreates the VMVM after three transient probe failures. This prevents a cached
+tunnel URL from silently expiring during a multi-hour global-service wait.
+Probe requests are excluded from each trial's model-request count, whose audit
+boundary is recorded only after the final pre-submission probe.
 
 Submit the in-house pinned reproduction with 96 active task workers:
 
@@ -120,6 +130,12 @@ The official service includes terminal `null` evaluation outcomes in its
 108-task denominator and scores them as zero. A trial is complete when the pass,
 fail, and null task lists together cover all 108 tasks; `null` is not a missing
 task that should block later trials.
+The one exception is a whole-trial transport collapse: all 108 outcomes are
+null, every successfully preprocessed task fails at the first model turn, no
+tool call executes, and average turns is at most one. The runner preserves that
+service result under `trial_NNN/attempts/attempt_NNN/`, recreates the VMVM
+tunnel, and submits a uniquely named replacement trial. It allows two such
+infrastructure retries before failing explicitly.
 Completed official trials are re-audited from `eval_stats.json` before runner
 fingerprints are compared. This permits an audit-only runner correction to
 resume at the next trial, while incomplete trials still require an exact
@@ -234,7 +250,13 @@ command is collected with `recover_last()` without sending it again. The
 official service job ID is persisted before monitoring, so restarting the
 driver reconnects to the same evaluation rather than replaying it. Model
 transport failures remain individual model-call failures and never replay
-stateful tool actions. Exhausting one task's recoverable infrastructure attempts
-does not stop unrelated queued tasks; the run drains the queue and then fails as
-incomplete. Configuration, protocol, and unrecoverable harness errors still stop
-the run immediately.
+stateful tool actions. While waiting to submit, an idempotent model-list probe
+keeps the reverse tunnel active and forces VM recreation before submission when
+the cached tunnel is no longer usable. A terminal official-service attempt may
+be resubmitted only when its aggregate proves that no runnable task got past the
+first model turn and no tool call executed; the failed service artifact remains
+archived.
+Exhausting one task's recoverable infrastructure attempts does not stop
+unrelated queued tasks; the run drains the queue and then fails as incomplete.
+Configuration, protocol, and unrecoverable harness errors still stop the run
+immediately.
