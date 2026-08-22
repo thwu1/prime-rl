@@ -36,10 +36,39 @@ export UV_PROJECT_ENVIRONMENT=/storage/home/tianhaowu/.venvs/prime-rl-nemotron-s
 export UV_NO_SYNC=1
 export PYTHONDONTWRITEBYTECODE=1
 
+runtime_source_roots=(
+    environments/vmvm_tb_v2/vmvm_tb_v2
+    deps/verifiers/verifiers/v1
+    deps/research-environments/environments/swebench_verified_v1/swebench_verified_v1
+)
+runtime_submodules=(
+    deps/verifiers
+    deps/research-environments
+)
+for root in "${runtime_source_roots[@]}"; do
+    if [ ! -d "$root" ]; then
+        printf 'Required runtime source tree is missing: %s\n' "$root" >&2
+        exit 1
+    fi
+done
+for submodule in "${runtime_submodules[@]}"; do
+    submodule_root=$(git -C "$submodule" rev-parse --show-toplevel 2>/dev/null) || {
+        printf 'Required submodule is not initialized: %s\n' "$submodule" >&2
+        exit 1
+    }
+    if [ "$(realpath "$submodule_root")" != "$(realpath "$submodule")" ]; then
+        printf 'Required submodule is not initialized: %s\n' "$submodule" >&2
+        exit 1
+    fi
+done
+verifiers_revision=$(git -C deps/verifiers rev-parse HEAD)
+research_environments_revision=$(git -C deps/research-environments rev-parse HEAD)
+
 finalizer_sources=(
     user/tianhaowu/swebench_vmvm/finalize_openhands_sdk.sh
     user/tianhaowu/swebench_vmvm/watch_finalize_openhands_sdk.sh
     user/tianhaowu/swebench_vmvm/audit_results.py
+    user/tianhaowu/swebench_vmvm/audit_router_affinity.py
     user/tianhaowu/swebench_vmvm/recover_openhands_infrastructure.py
     user/tianhaowu/swebench_vmvm/openhands_sdk_harness/audit.py
     user/tianhaowu/swebench_vmvm/verify_implementation_snapshot.py
@@ -56,11 +85,6 @@ uv run --no-sync python user/tianhaowu/swebench_vmvm/verify_implementation_snaps
     > "$BASE_RESULTS_DIR/finalizer_sources_audit.json.tmp"
 mv "$BASE_RESULTS_DIR/finalizer_sources_audit.json.tmp" "$BASE_RESULTS_DIR/finalizer_sources_audit.json"
 
-runtime_source_roots=(
-    environments/vmvm_tb_v2/vmvm_tb_v2
-    deps/verifiers/verifiers/v1
-    deps/research-environments/environments/swebench_verified_v1/swebench_verified_v1
-)
 mapfile -d '' runtime_sources < <(
     find "${runtime_source_roots[@]}" -type f \
         ! -path '*/__pycache__/*' ! -name '*.pyc' -print0 | sort -z
@@ -76,8 +100,8 @@ printf '%s\0' "${runtime_sources[@]}" | \
         -czf "$BASE_RESULTS_DIR/runtime_sources.tar.gz.tmp"
 {
     printf 'prime_rl=%s\n' "$(git rev-parse HEAD)"
-    printf 'verifiers=%s\n' "$(git -C deps/verifiers rev-parse HEAD)"
-    printf 'research_environments=%s\n' "$(git -C deps/research-environments rev-parse HEAD)"
+    printf 'verifiers=%s\n' "$verifiers_revision"
+    printf 'research_environments=%s\n' "$research_environments_revision"
 } > "$BASE_RESULTS_DIR/runtime_revisions.txt.tmp"
 mv "$BASE_RESULTS_DIR/runtime_sources.sha256.tmp" "$BASE_RESULTS_DIR/runtime_sources.sha256"
 mv "$BASE_RESULTS_DIR/runtime_sources.tar.gz.tmp" "$BASE_RESULTS_DIR/runtime_sources.tar.gz"
@@ -112,6 +136,15 @@ uv run --no-sync python user/tianhaowu/swebench_vmvm/audit_nemotron_inference.py
     "$BASE_RESULTS_DIR/inference_startup.log" --strict \
     > "$BASE_RESULTS_DIR/inference_audit.json.tmp"
 mv "$BASE_RESULTS_DIR/inference_audit.json.tmp" "$BASE_RESULTS_DIR/inference_audit.json"
+
+if [ -f "$BASE_RESULTS_DIR/inference_router.log" ]; then
+    uv run --no-sync python user/tianhaowu/swebench_vmvm/audit_router_affinity.py \
+        "$BASE_RESULTS_DIR/inference_router.log" --expected-workers 4 \
+        --min-session-ids "$expected_rows" --strict \
+        > "$BASE_RESULTS_DIR/inference_router_audit.json.tmp"
+    mv "$BASE_RESULTS_DIR/inference_router_audit.json.tmp" \
+        "$BASE_RESULTS_DIR/inference_router_audit.json"
+fi
 
 # Prove that the sources executed above did not change after being archived.
 sha256sum -c "$BASE_RESULTS_DIR/finalizer_sources.sha256"

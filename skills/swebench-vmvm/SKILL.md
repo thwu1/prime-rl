@@ -82,7 +82,9 @@ sbatch --export=ALL,NUM_TASKS=1 \
 
 ## Start inference
 
-Select one launcher for the available GPU type:
+Select one launcher for the available GPU type. Each launcher requests four
+nodes, starts one independent tensor-parallel replica per node, and exposes a
+single router endpoint on the first node:
 
 ```bash
 sbatch user/tianhaowu/swebench_vmvm/run_nemotron_inference_h100.sbatch
@@ -91,6 +93,10 @@ sbatch user/tianhaowu/swebench_vmvm/run_qwen36_inference_h100.sbatch
 sbatch user/tianhaowu/swebench_vmvm/run_qwen36_inference_h200.sbatch
 ```
 
+The H100 launchers and Nemotron H200 launcher allocate eight GPUs per replica;
+the Qwen H200 launcher allocates four. Runtime artifacts are isolated under
+`SWEBENCH_INFERENCE_OUTPUT_ROOT/run_JOB_ID`.
+
 Require `/v1/models` to advertise the exact model before starting evaluation.
 Use Nemotron's `qwen3_coder` tool parser, `nemotron_v3` reasoning parser, and
 262,144-token context. Use Qwen's `qwen3_coder` tool parser, `qwen3` reasoning
@@ -98,9 +104,16 @@ parser, and 131,072-token context.
 
 Keep per-rollout session affinity enabled. The pinned Verifiers v1 client sends
 `X-Session-ID` with `session.trace.id` on every ordinary or streamed model turn.
-That value must remain stable within a rollout and distinct across rollouts. A
-multi-engine endpoint must consistently hash this header; the production
-single-node tensor-parallel configs have only one engine and need no router.
+That value must remain stable within a rollout and distinct across rollouts.
+The production four-replica launchers run `vllm-router` with
+`consistent_hash` and `--request-id-headers x-session-id`.
+
+After a multi-replica run, run `audit_router_affinity.py` with
+`--expected-workers 4`, `--min-session-ids EXPECTED_ROWS`, and `--strict`.
+Require the ring to reach four workers, every routing key to begin with
+`header:x-session-id:`, all four workers to receive traffic, and no session key
+to map to more than one worker. Copy the log to
+`RESULT_DIR/inference_router.log` before OpenHands finalization.
 
 Do not requeue an inference job while an evaluator retains its node URL. After
 an endpoint loss, stop the evaluator, restore a healthy endpoint, then resume
@@ -133,11 +146,22 @@ The launcher owns an exclusive output lock. Never run two writers against the
 same result directory. Resume only missing or errored work with `RESUME_DIR`
 after proving the prior evaluator is terminal.
 
+Scale rollout concurrency with the four inference replicas: use 60 for
+OpenHands (4 x 15) and 64 for the other harnesses (4 x 16). This controls
+rollout concurrency, not vLLM's internal batch size. Confirm headroom from each
+backend log; sustained `Waiting: 0` together with low KV-cache occupancy means
+the evaluator is under-filling the replicas. Keep
+`VACLI_MAX_CONCURRENT_LEASES=64` or higher for these production settings. Do
+not edit `config.toml` in an active or partially completed result directory
+merely to raise concurrency; apply the higher setting to a fresh run so
+provenance remains exact.
+
 Keep model-provider retries inside the individual request. Restrict whole-
 rollout retries to `SandboxError` and `TunnelError`. SWE-bench Verified retries
 a failed fresh verifier on a new VMVM runtime with the exact captured candidate
 patch; it must not resample the model merely because scoring infrastructure
-failed.
+failed. Bound the verifier command by `task.timeout.scoring`; exit 124 is a
+terminal zero-score benchmark outcome and must carry explicit timeout metadata.
 
 For SWE-rebench Java tasks, restore the harness-owned Maven and Gradle mirror
 files immediately before scoring. Agent commands can modify user-level build
@@ -205,7 +229,10 @@ For OpenHands, require the evaluator step to finish as `COMPLETED` with exit
 code `0:0` and exactly 500 rows. Then run
 `finalize_openhands_sdk.sh`, which verifies result shape, SDK behavior,
 implementation snapshots, runtime sources, inference provenance, and final
-checksums.
+checksums. Run it from a checkout with the `deps/verifiers` and
+`deps/research-environments` submodules initialized; it fails closed rather
+than emitting partial runtime provenance. The SDK audit streams full result
+rows to keep memory bounded on 500-task runs.
 
 Treat `ConversationExecutionStatus.ERROR` as valid only for clean 200-request
 iteration exhaustion, or for one terminal HTTP 400 where Verifiers deliberately
@@ -220,8 +247,24 @@ separate result directory. After the full evaluator is terminal, use
 refuses live writer locks and existing outputs, requires a clean one-row
 replacement with matching task/config/model/official-recipe and runtime-source
 provenance, restores the original dataset index, preserves both source result
-sets, and records hashes plus copied recovery artifacts for the finalizer. Never
-hand-edit the active `results.jsonl` or replace a clean model outcome.
+sets, omits stale derived audit/status files, and records hashes plus copied
+recovery artifacts for the finalizer. Never hand-edit the active `results.jsonl`
+or replace a clean model outcome.
+
+If an older SWE-bench Verified row has exactly `TasksetError: scoring timed
+out` after its candidate patch was captured, recover only the verifier:
+
+```bash
+uv run --no-sync python \
+  user/tianhaowu/swebench_vmvm/recover_swebench_verified_verifier.py \
+  BASE_RESULTS_DIR --trace-id TRACE_ID --output-dir VERIFIER_RECOVERY_DIR
+```
+
+The tool reuses the exact trace and patch, runs a fresh VMVM verifier with the
+task's declared timeout, and writes a one-row recovery directory. Supply that
+directory as an additional `--replacement-dir` to
+`recover_openhands_infrastructure.py`; the merger rejects any change to the
+trace ID, trajectory nodes, patch, or OpenHands recipe metadata.
 
 ## Report progress
 

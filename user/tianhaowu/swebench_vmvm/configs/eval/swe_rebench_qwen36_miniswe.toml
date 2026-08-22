@@ -2,7 +2,7 @@
 model = "Qwen/Qwen3.6-27B"
 num_tasks = 111
 num_rollouts = 5
-max_concurrent = 16
+max_concurrent = 64
 max_turns = 250
 multiplex = 8
 rich = false

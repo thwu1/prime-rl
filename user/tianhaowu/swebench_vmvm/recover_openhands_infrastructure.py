@@ -17,6 +17,8 @@ from pathlib import Path
 FINISHED_STATUS = "ConversationExecutionStatus.FINISHED"
 ERROR_STATUS = "ConversationExecutionStatus.ERROR"
 INFRASTRUCTURE_ERRORS = {"ProviderError", "SandboxError", "TunnelError"}
+VERIFIER_TIMEOUT_ERROR_TYPE = "TasksetError"
+VERIFIER_TIMEOUT_ERROR_MESSAGE = "scoring timed out"
 REQUIRED_RUN_FILES = (
     "config.toml",
     "implementation.sha256",
@@ -31,6 +33,22 @@ INFERENCE_PROVENANCE_FILES = (
     "inference_startup.log",
     "inference_slurm_job.txt",
 )
+DERIVED_RUN_FILES = {
+    "final.sha256",
+    "finalizer_sources.sha256",
+    "finalizer_sources.tar.gz",
+    "finalizer_sources_audit.json",
+    "finalizer_status.json",
+    "implementation_audit.json",
+    "inference_audit.json",
+    "inference_router_audit.json",
+    "runtime_revisions.txt",
+    "runtime_sources.sha256",
+    "runtime_sources.tar.gz",
+    "runtime_sources_audit.json",
+    "sdk_harness_audit.json",
+    "strict_audit.json",
+}
 RUNTIME_SOURCE_PREFIXES = (
     "deps/research-environments/environments/swebench_verified_v1/swebench_verified_v1/",
     "deps/verifiers/verifiers/v1/",
@@ -176,6 +194,66 @@ def infrastructure_contaminated(row: dict[str, object]) -> bool:
     return has_transport_error or has_unexpected_http_error
 
 
+def verifier_timed_out(row: dict[str, object]) -> bool:
+    errors = row.get("errors")
+    if not isinstance(errors, list) or len(errors) != 1:
+        return False
+    error = errors[0]
+    return (
+        isinstance(error, dict)
+        and error.get("type") == VERIFIER_TIMEOUT_ERROR_TYPE
+        and error.get("message") == VERIFIER_TIMEOUT_ERROR_MESSAGE
+    )
+
+
+def validate_same_trajectory_verifier_recovery(
+    base: dict[str, object],
+    replacement: dict[str, object],
+) -> None:
+    if base.get("id") != replacement.get("id") or base.get("nodes") != replacement.get("nodes"):
+        raise ValueError("verifier recovery changed the model trajectory")
+    base_info = base.get("info")
+    replacement_info = replacement.get("info")
+    if not isinstance(base_info, dict) or not isinstance(replacement_info, dict):
+        raise ValueError("verifier recovery is missing result metadata")
+    if base_info.get("swebench_candidate_patch") != replacement_info.get("swebench_candidate_patch"):
+        raise ValueError("verifier recovery changed the candidate patch")
+    recovery = replacement_info.get("swebench_verifier_recovery")
+    if not isinstance(recovery, dict) or recovery.get("classification") != "same_trajectory_fresh_verifier":
+        raise ValueError("replacement row is not a verifier-only recovery")
+    if recovery.get("source_row_sha256") != row_sha256(base):
+        raise ValueError("verifier recovery source-row hash does not match")
+
+
+def verifier_recovery_provenance(
+    run_dir: Path,
+    row: dict[str, object],
+    results_sha256: str,
+) -> dict[str, str]:
+    info = row.get("info")
+    recovery = info.get("swebench_verifier_recovery") if isinstance(info, dict) else None
+    if not isinstance(recovery, dict):
+        return {}
+    paths = {
+        "verifier_recovery_manifest": run_dir / "swebench_verifier_recovery.json",
+        "verifier_recovery_sources": run_dir / "verifier_recovery_sources.tar.gz",
+        "verifier_recovery_source_checksums": run_dir / "verifier_recovery_sources.sha256",
+    }
+    missing = [str(path) for path in paths.values() if not path.is_file()]
+    if missing:
+        raise ValueError(f"verifier recovery is missing provenance artifacts: {missing}")
+    manifest = json.loads(paths["verifier_recovery_manifest"].read_text())
+    if manifest.get("source_trace_id") != row.get("id"):
+        raise ValueError("verifier recovery manifest has the wrong trace ID")
+    if manifest.get("output_results_sha256") != results_sha256:
+        raise ValueError("verifier recovery manifest has the wrong results hash")
+    if manifest.get("recovery") != recovery:
+        raise ValueError("verifier recovery manifest disagrees with row metadata")
+    if recovery.get("source_archive_sha256") != file_sha256(paths["verifier_recovery_sources"]):
+        raise ValueError("verifier recovery source archive hash does not match")
+    return {name: file_sha256(path) for name, path in paths.items()}
+
+
 def validate_candidate_patch(row: dict[str, object]) -> None:
     info = row.get("info")
     candidate = info.get("swebench_candidate_patch") if isinstance(info, dict) else None
@@ -289,7 +367,11 @@ def compatible_openhands_metadata(base: dict[str, object], replacement: dict[str
 
 def copy_run_files(source: Path, destination: Path) -> None:
     for path in source.iterdir():
-        if path.name in {".writer.lock", "results.jsonl"} or path.name.endswith(".tmp"):
+        if (
+            path.name in {".writer.lock", "results.jsonl"}
+            or path.name in DERIVED_RUN_FILES
+            or path.name.endswith(".tmp")
+        ):
             continue
         if path.is_file():
             shutil.copy2(path, destination / path.name)
@@ -356,9 +438,10 @@ def main() -> None:
             if name in replacements:
                 raise ValueError(f"multiple replacement rows supplied for {name}")
             replacements[name] = row
+            results_sha256 = file_sha256(files["results.jsonl"])
             replacement_provenance[name] = {
                 "directory": str(run_dir),
-                "results_sha256": file_sha256(files["results.jsonl"]),
+                "results_sha256": results_sha256,
                 "implementation_sha256_file": file_sha256(files["implementation.sha256"]),
                 "implementation_archive_sha256": file_sha256(files["implementation.tar.gz"]),
                 "implementation_revisions_sha256": file_sha256(files["implementation_revisions.txt"]),
@@ -366,6 +449,7 @@ def main() -> None:
                 "runtime_contract_sha256": replacement_runtime_sha256,
                 "replacement_row_sha256": row_sha256(row),
                 "replacement_trace_id": row.get("id"),
+                **verifier_recovery_provenance(run_dir, row, results_sha256),
             }
 
         output_dir.parent.mkdir(parents=True, exist_ok=True)
@@ -398,20 +482,27 @@ def main() -> None:
                     if name in replacements:
                         if name in seen_replacements:
                             raise ValueError(f"base results contain multiple rows for {name}")
-                        if not infrastructure_contaminated(base_row):
-                            raise ValueError(f"base row for {name} is not infrastructure-contaminated")
+                        is_verifier_recovery = verifier_timed_out(base_row)
+                        if not infrastructure_contaminated(base_row) and not is_verifier_recovery:
+                            raise ValueError(f"base row for {name} is not recoverable")
                         replacement = copy.deepcopy(replacements[name])
                         if normalized_task(task(base_row)) != normalized_task(task(replacement)):
                             raise ValueError(f"replacement task metadata differs from the base row for {name}")
                         if not compatible_openhands_metadata(base_row, replacement):
                             raise ValueError(f"replacement OpenHands recipe differs from the base row for {name}")
+                        if is_verifier_recovery:
+                            validate_same_trajectory_verifier_recovery(base_row, replacement)
                         replacement["task"] = copy.deepcopy(task(base_row))
                         info = replacement.get("info")
                         if not isinstance(info, dict):
                             raise ValueError(f"replacement row for {name} has no info object")
                         provenance = replacement_provenance[name]
                         info["openhands_infrastructure_recovery"] = {
-                            "classification": "clean_official_recipe_replacement",
+                            "classification": (
+                                "same_trajectory_fresh_verifier"
+                                if is_verifier_recovery
+                                else "clean_official_recipe_replacement"
+                            ),
                             "base_results_sha256": base_results_sha256,
                             "base_row_sha256": row_sha256(base_row),
                             "base_trace_id": base_row.get("id"),

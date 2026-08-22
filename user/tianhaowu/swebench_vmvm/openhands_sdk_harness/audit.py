@@ -5,6 +5,7 @@ import hashlib
 import json
 import re
 from collections import Counter
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -25,16 +26,14 @@ SYSTEM_PROMPT = ASSET_DIR / "official_system_prompt.txt"
 DEFAULT_DATASET_DIR = Path.home() / ".cache/harbor/swebench-verified/swebench-verified"
 
 
-def _load(path: Path) -> list[dict[str, Any]]:
-    rows = []
+def _iter_rows(path: Path) -> Iterator[tuple[int, dict[str, Any]]]:
     with path.open() as file:
         for line_number, line in enumerate(file, 1):
             if line.strip():
                 try:
-                    rows.append(json.loads(line))
+                    yield line_number, json.loads(line)
                 except json.JSONDecodeError as error:
                     raise ValueError(f"{path}:{line_number}: {error}") from error
-    return rows
 
 
 def main() -> None:
@@ -45,7 +44,6 @@ def main() -> None:
     parser.add_argument("--strict", action="store_true")
     args = parser.parse_args()
 
-    rows = _load(args.results)
     issues = []
     template_bytes = INSTRUCTION_TEMPLATE.read_bytes()
     template_sha256 = hashlib.sha256(template_bytes).hexdigest()
@@ -68,8 +66,10 @@ def main() -> None:
     context_limit_terminations = 0
     max_iteration_exhaustions = 0
     execution_statuses = Counter()
+    rows = 0
 
-    for row_number, row in enumerate(rows, 1):
+    for row_number, row in _iter_rows(args.results):
+        rows += 1
         stop_condition = row.get("stop_condition")
         stop_conditions[stop_condition] += 1
         info = row.get("info") or {}
@@ -235,12 +235,12 @@ def main() -> None:
                 issues.append({"row": row_number, "turn": turn, "issue": "officially dropped parameter is present"})
                 break
 
-    if args.expected_rows is not None and len(rows) != args.expected_rows:
-        issues.append({"issue": f"expected {args.expected_rows} rows, found {len(rows)}"})
+    if args.expected_rows is not None and rows != args.expected_rows:
+        issues.append({"issue": f"expected {args.expected_rows} rows, found {rows}"})
 
     report = {
         "results": str(args.results),
-        "rows": len(rows),
+        "rows": rows,
         "expected_rows": args.expected_rows,
         "instruction_template_sha256": template_sha256,
         "system_prompt_sha256": system_prompt_sha256,
