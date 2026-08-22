@@ -260,6 +260,10 @@ def _validate_config(
     else:
         if num_trials != 2:
             raise ValueError("The Nemotron Super evaluation is configured for two trials")
+        if model.get("sticky_session") is not True:
+            raise ValueError("Nemotron Super evaluation requires sticky sessions")
+        if str(model.get("sticky_session_header", "")).strip().lower() != "x-session-id":
+            raise ValueError("Nemotron Super sticky routing requires the 'x-session-id' header")
         if bool(model.get("thinking")) is not True:
             raise ValueError("Nemotron Super evaluation requires thinking mode")
         if bool(model.get("parallel_tool_calls")) is not True:

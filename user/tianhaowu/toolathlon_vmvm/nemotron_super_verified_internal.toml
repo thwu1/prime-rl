@@ -1,0 +1,68 @@
+name = "toolathlon-verified-nemotron-super-base-internal-v2-2trial"
+output_dir = "/checkpoint/ram/tianhaowu/toolathlon_vmvm/nemotron_super_verified_internal_v2"
+
+[source]
+repository = "https://github.com/hkust-nlp/Toolathlon"
+release = "Toolathlon-Verified"
+commit = "9be8d8fe07a497b18ee61e3f2ae694e9797f39eb"
+task_catalog_file = "task_catalog_verified.json"
+tool_schemas_file = "tool_schemas.json"
+task_catalog_sha256 = "d22f73a14e248578504574fe2a3c602a933d635b3e126c4915ecad5d878e352b"
+
+[benchmark]
+suite = "toolathlon-verified-internal-v3"
+expected_tasks = 108
+num_trials = 2
+max_steps = 100
+max_observation_chars = 100000
+task_timeout_seconds = 5400
+dispatch_seed = 20260821
+tool_source = "live"
+
+[model]
+model = "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16"
+base_url_env = "NEMOTRON_TOOLATHLON_BASE_URL"
+max_tokens = 65536
+context_window = 262144
+thinking = true
+thinking_template_key = "enable_thinking"
+parallel_tool_calls = true
+request_retries = 10
+request_retry_delay_seconds = 10
+request_timeout_seconds = 600
+sticky_session = true
+sticky_session_header = "x-session-id"
+
+[service]
+http_proxy_url = "http://47.253.57.66:8080"
+server_urls = [
+  "http://47.253.57.66:8080",
+  "http://47.253.57.66:8082",
+  "http://47.253.57.66:8084",
+  "http://47.253.57.66:8086",
+]
+debug = false
+http_timeout_seconds = 300
+status_poll_interval_seconds = 5
+start_retry_interval_seconds = 10
+start_retry_jitter_seconds = 10
+start_timeout_seconds = 5400
+execution_ready_timeout_seconds = 1800
+max_setup_vanishes = 10
+tool_call_retries = 3
+tool_call_retry_backoff_seconds = 5
+
+[runtime]
+workers = 96
+image = "docker.io/lockon0927/toolathlon-task-image:1016beta"
+tenant_id = "async_2347641"
+lease_ttl = "60s"
+cpu = 2
+memory_gb = 8
+command_timeout_seconds = 5700
+request_timeout_seconds = 600
+max_connection_drops = 5
+
+[retry]
+max_infrastructure_retries = 2
+retry_delay_seconds = 10
