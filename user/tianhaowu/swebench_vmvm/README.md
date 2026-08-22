@@ -245,6 +245,10 @@ BASE_RESULTS_DIR=/path/to/run \
 
 `watch_finalize_openhands_sdk.sh` may wait on an exact evaluator step. It accepts
 only a `COMPLETED`/`0:0` step with exactly 500 rows before invoking the finalizer.
+Run finalization from a checkout with the `deps/verifiers` and
+`deps/research-environments` submodules initialized; the finalizer fails closed
+when either runtime source tree is absent. The OpenHands audit streams JSONL
+rows so full 500-task trajectories do not need to reside in memory together.
 The SDK audit accepts `ConversationExecutionStatus.ERROR` only when the agent
 cleanly exhausts all 200 model requests, or when Verifiers deliberately ends a
 request at the model context limit. The latter must be exactly one terminal HTTP

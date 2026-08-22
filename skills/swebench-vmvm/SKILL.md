@@ -229,7 +229,10 @@ For OpenHands, require the evaluator step to finish as `COMPLETED` with exit
 code `0:0` and exactly 500 rows. Then run
 `finalize_openhands_sdk.sh`, which verifies result shape, SDK behavior,
 implementation snapshots, runtime sources, inference provenance, and final
-checksums.
+checksums. Run it from a checkout with the `deps/verifiers` and
+`deps/research-environments` submodules initialized; it fails closed rather
+than emitting partial runtime provenance. The SDK audit streams full result
+rows to keep memory bounded on 500-task runs.
 
 Treat `ConversationExecutionStatus.ERROR` as valid only for clean 200-request
 iteration exhaustion, or for one terminal HTTP 400 where Verifiers deliberately
