@@ -51,7 +51,7 @@ def _llm_args(
         "timeout": config["request_timeout_seconds"],
         "extra_headers": extra_headers,
     }
-    for key in ("top_p", "max_tokens"):
+    for key in ("top_p", "max_tokens", "reasoning_effort"):
         if config.get(key) is not None:
             arguments[key] = config[key]
     extra_body: dict[str, Any] = {}
@@ -268,7 +268,7 @@ def _install_judge_adapter(
                     file=sys.stderr,
                     flush=True,
                 )
-        raise JudgeFormatError(f"Kimi judge returned invalid JSON after {format_retries} attempts: {last_error}")
+        raise JudgeFormatError(f"Judge returned invalid JSON after {format_retries} attempts: {last_error}")
 
     module.generate = generate_json
 

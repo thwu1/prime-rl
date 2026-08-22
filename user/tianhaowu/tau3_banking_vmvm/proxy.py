@@ -122,6 +122,7 @@ class ProxyHandler(BaseHTTPRequestHandler):
                         "temperature",
                         "top_p",
                         "max_tokens",
+                        "reasoning_effort",
                         "seed",
                         "chat_template_kwargs",
                         "skip_special_tokens",

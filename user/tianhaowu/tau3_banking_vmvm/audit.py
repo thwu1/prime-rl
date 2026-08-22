@@ -18,6 +18,7 @@ ENDPOINT_LOCATION_KEYS = {
     "base_url_env",
     "info_path",
     "port",
+    "require_api_key",
     "slurm_job_id",
     "slurm_job_id_env",
     "slurm_job_name",
@@ -308,9 +309,12 @@ def _expected_request(role: str, config: dict[str, Any]) -> dict[str, Any]:
     expected: dict[str, Any] = {
         "model": section["model"],
         "temperature": section["temperature"],
-        "chat_template_kwargs": {section.get("thinking_template_key", "enable_thinking"): section["thinking"]},
     }
-    for key in ("top_p", "max_tokens", "skip_special_tokens"):
+    if section.get("thinking") is not None:
+        expected["chat_template_kwargs"] = {
+            section.get("thinking_template_key", "enable_thinking"): section["thinking"]
+        }
+    for key in ("top_p", "max_tokens", "reasoning_effort", "skip_special_tokens"):
         if section.get(key) is not None:
             expected[key] = section[key]
     return expected
@@ -408,9 +412,11 @@ def _audit_proxy(path: Path, config: dict[str, Any] | None) -> dict[str, Any]:
                         f"Proxy protocol mismatch at {path}:{line_number} for {role}.{key}: "
                         f"{request.get(key)!r} != {expected!r}"
                     )
-            for key in ("top_p", "max_tokens", "skip_special_tokens"):
+            for key in ("top_p", "max_tokens", "reasoning_effort", "skip_special_tokens"):
                 if config[role].get(key) is None and key in request:
                     raise ValueError(f"Unexpected {role}.{key} at {path}:{line_number}")
+            if config[role].get("thinking") is None and "chat_template_kwargs" in request:
+                raise ValueError(f"Unexpected {role}.chat_template_kwargs at {path}:{line_number}")
 
     repeated_non_retryable = {trial: count for trial, count in non_retryable_errors.items() if count > 1}
     if repeated_non_retryable:

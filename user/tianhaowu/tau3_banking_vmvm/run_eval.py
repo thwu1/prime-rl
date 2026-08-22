@@ -80,6 +80,9 @@ def _load_info_endpoint(section: dict[str, Any], override_url: str | None = None
     if not base_url:
         raise ValueError(f"No endpoint URL configured for model {section.get('model')}")
     api_key = os.getenv(section.get("api_key_env", "")) or section.get("api_key") or info.get("api_key") or "EMPTY"
+    if section.get("require_api_key") and api_key == "EMPTY":
+        api_key_env = section.get("api_key_env")
+        raise ValueError(f"No API key configured for model {section.get('model')}; set {api_key_env}")
     model = section.get("model") or info.get("model")
     if not model:
         raise ValueError("Endpoint model is missing")
@@ -156,6 +159,7 @@ def _semantic_config(config: dict[str, Any]) -> dict[str, Any]:
         "base_url_env",
         "info_path",
         "port",
+        "require_api_key",
         "slurm_job_id",
         "slurm_job_id_env",
         "slurm_job_name",
@@ -199,31 +203,61 @@ def _validate_config(config: dict[str, Any]) -> None:
     if int(policy.get("empty_response_attempts", 0)) != 5:
         raise ValueError("Nemotron parity requires five empty-response attempts")
     user = config["user"]
-    if user["model"] != "Kimi-K2.6":
-        raise ValueError("The requested user simulator is Kimi-K2.6")
-    if user.get("thinking") is not False or user.get("thinking_template_key") != "thinking":
-        raise ValueError("The requested Kimi user simulator must be non-thinking")
+    user_provider = str(user.get("provider", "kimi"))
+    if user_provider == "kimi":
+        if user["model"] != "Kimi-K2.6":
+            raise ValueError("The Kimi user simulator must use Kimi-K2.6")
+        if user.get("thinking") is not False or user.get("thinking_template_key") != "thinking":
+            raise ValueError("The Kimi user simulator must be non-thinking")
+    elif user_provider == "metagen":
+        if not str(user.get("model", "")).strip():
+            raise ValueError("The MetaGen user simulator model must be explicit")
+        if user.get("thinking") is not None or user.get("thinking_template_key") is not None:
+            raise ValueError("The MetaGen user simulator must not send Kimi chat-template thinking flags")
+        if not user.get("base_url_env") or not user.get("api_key_env") or user.get("api_key"):
+            raise ValueError("The MetaGen user simulator URL and API key must come from environment variables")
+        if user.get("require_api_key") is not True:
+            raise ValueError("The MetaGen user simulator must require an API key")
+    else:
+        raise ValueError(f"Unsupported user provider: {user_provider!r}")
     if int(user.get("max_tokens", 0)) != 8192:
-        raise ValueError("The requested Kimi user simulator token cap is 8192")
+        raise ValueError("The user simulator token cap must be 8192")
     if int(user.get("empty_response_attempts", 0)) != 30:
-        raise ValueError("Kimi user parity requires 30 empty-response attempts")
+        raise ValueError("User-simulator parity requires 30 empty-response attempts")
     judge = config["judge"]
-    if judge["model"] != "Kimi-K2.6":
-        raise ValueError("The requested NL-assertion judge is Kimi-K2.6")
-    if judge.get("thinking") is not True or judge.get("thinking_template_key") != "thinking":
-        raise ValueError("The requested Kimi judge must use thinking mode")
-    expected_session_headers = {
-        "policy": "x-session-id",
-        "user": "x-litellm-session-id",
-        "judge": "x-litellm-session-id",
-    }
-    for role, expected_header in expected_session_headers.items():
+    judge_provider = str(judge.get("provider", "kimi"))
+    if judge_provider == "kimi":
+        if judge["model"] != "Kimi-K2.6":
+            raise ValueError("The Kimi NL-assertion judge must use Kimi-K2.6")
+        if judge.get("thinking") is not True or judge.get("thinking_template_key") != "thinking":
+            raise ValueError("The Kimi judge must use thinking mode")
+    elif judge_provider == "metagen":
+        if not str(judge.get("model", "")).strip():
+            raise ValueError("The MetaGen NL-assertion judge model must be explicit")
+        if judge.get("thinking") is not None or judge.get("thinking_template_key") is not None:
+            raise ValueError("The MetaGen judge must not send Kimi chat-template thinking flags")
+        if not judge.get("base_url_env") or not judge.get("api_key_env") or judge.get("api_key"):
+            raise ValueError("The MetaGen judge URL and API key must come from environment variables")
+        if judge.get("require_api_key") is not True:
+            raise ValueError("The MetaGen judge must require an API key")
+    else:
+        raise ValueError(f"Unsupported judge provider: {judge_provider!r}")
+    for role in ("policy", "user", "judge"):
         section = config[role]
-        if section.get("sticky_session") is not True:
-            raise ValueError(f"{role}.sticky_session must be true")
-        actual_header = str(section.get("sticky_session_header", "")).lower()
-        if actual_header != expected_header:
-            raise ValueError(f"{role}.sticky_session_header must be {expected_header!r}, got {actual_header!r}")
+        if not isinstance(section.get("sticky_session"), bool):
+            raise ValueError(f"{role}.sticky_session must be explicitly true or false")
+        if section["sticky_session"]:
+            expected_header = "x-session-id" if role == "policy" else "x-litellm-session-id"
+            actual_header = str(section.get("sticky_session_header", "")).lower()
+            if actual_header != expected_header:
+                raise ValueError(f"{role}.sticky_session_header must be {expected_header!r}, got {actual_header!r}")
+    if config["policy"]["sticky_session"] is not True:
+        raise ValueError("policy.sticky_session must be true")
+    for role, provider in (("user", user_provider), ("judge", judge_provider)):
+        if provider == "kimi" and config[role]["sticky_session"] is not True:
+            raise ValueError(f"The Kimi {role} endpoint must use sticky sessions")
+        if provider == "metagen" and config[role]["sticky_session"] is not False:
+            raise ValueError(f"The MetaGen {role} endpoint must disable provider-specific sticky routing")
     if float(config["retry"].get("provider_retry_delay_seconds", 0)) <= 0:
         raise ValueError("Provider retry delay must be positive")
     if float(config["retry"].get("proxy_recovery_timeout_seconds", 0)) <= 0:
@@ -399,8 +433,16 @@ def main() -> int:
         "source_archive": str(archive),
         "source_archive_sha256": sha256(archive),
         "policy": {"base_url": policy.base_url, "model": policy.model},
-        "user": {"base_url": user.base_url, "model": user.model},
-        "judge": {"base_url": judge.base_url, "model": judge.model},
+        "user": {
+            "base_url": user.base_url,
+            "model": user.model,
+            "provider": config["user"].get("provider", "kimi"),
+        },
+        "judge": {
+            "base_url": judge.base_url,
+            "model": judge.model,
+            "provider": config["judge"].get("provider", "kimi"),
+        },
         "task_count": len(task_ids),
         "task_ids": task_ids,
         "trial_ids": sorted({trial.trial for trial in trials}),

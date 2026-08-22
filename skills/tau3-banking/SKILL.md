@@ -1,6 +1,6 @@
 ---
 name: tau3-banking
-description: Launch, resume, monitor, and audit the standalone Tau3 Banking benchmark on VMVM with an external policy server and Kimi user/judge endpoints. Use for the 97-task banking_knowledge suite, Tau2 v1.0.1 parity, Nemotron Super evaluation, exact-once VMVM recovery, pass@k reporting, or investigating the 16-tool official schema versus the later 17-tool SFT schema.
+description: Launch, resume, monitor, and audit the standalone Tau3 Banking benchmark on VMVM with an external policy server and selectable self-hosted Kimi or MetaGen user/judge endpoints. Use for the 97-task banking_knowledge suite, Tau2 v1.0.1 parity, Nemotron Super evaluation, exact-once VMVM recovery, pass@k reporting, or investigating the 16-tool official schema versus the later 17-tool SFT schema.
 ---
 
 # Tau3 Banking on VMVM
@@ -27,6 +27,13 @@ sbatch --parsable \
   --export=ALL,TAU3_CONFIG=user/tianhaowu/tau3_banking_vmvm/nemotron_super_kimi_smoke.toml,TAU3_OUTPUT_DIR=/checkpoint/ram/$USER/tau3_banking_vmvm/smoke,TAU3_POLICY_JOB_ID="$policy_job",TAU3_LIMIT=1,TAU3_WORKERS=1 \
   user/tianhaowu/tau3_banking_vmvm/run_eval.sbatch
 ```
+
+Use `nemotron_super_kimi*.toml` for self-hosted Kimi K2.6. Use
+`nemotron_super_metagen*.toml` for MetaGen and export
+`TAU3_METAGEN_BASE_URL` plus `TAU3_METAGEN_API_KEY` in the submitting shell.
+The MetaGen user and judge model IDs are independent semantic settings. Never
+put the credential in a TOML, command-line argument, VMVM sandbox, or result
+artifact.
 
 For routine evaluation, create a run-specific TOML from
 `nemotron_super_kimi.toml` and set `num_trials = 3` under `[benchmark]`. Then
@@ -56,18 +63,30 @@ changes them:
 
 - policy: Nemotron 3 Super, temperature 1.0, top-p 0.95, thinking enabled,
   max tokens 32,768, native 262,144-token context;
-- user: Kimi K2.6, temperature 0, thinking disabled, max tokens 8,192;
-- judge: Kimi K2.6, temperature 0, thinking enabled;
+- user/judge profile, selected by TOML:
+  - self-hosted Kimi: Kimi K2.6, user thinking disabled, judge thinking
+    enabled;
+  - MetaGen: explicit, independently selected user and judge model IDs and
+    optional `reasoning_effort`, with no Kimi-specific chat-template thinking
+    flags. The checked-in example uses `openai/gpt-5.4-mini` for both;
+- user temperature 0 and max tokens 8,192; judge temperature 0;
 - retrieval: `bm25_grep`;
 - limits: 200 Tau steps and 10 tool errors.
+
+Do not infer the judge model from a published user-simulator field. Record an
+authoritative source for each role separately; Tau2 v1.0.1 defaults both roles
+to `gpt-4.1-2025-04-14`, while current Sierra submissions publish their user
+simulator but not a separate judge field.
 
 Keep sticky routing explicit in every endpoint section. Set
 `sticky_session = true` and `sticky_session_header = "x-session-id"` for the
 policy. Prime-rl's `consistent_hash` router hashes that header. Use
-`x-litellm-session-id` for the Kimi user and judge endpoints. The evaluator
-uses one stable `tau3-{task_id}.{trial}-{attempt}-{role}` value for every model
-call in that role. For multi-replica policy inference, require the router log to
-show `header:x-session-id:` keys and no key mapped to multiple backends.
+`x-litellm-session-id` for the self-hosted Kimi user and judge endpoints. The
+evaluator uses one stable `tau3-{task_id}.{trial}-{attempt}-{role}` value for
+every Kimi call in that role. MetaGen user/judge routes explicitly set
+`sticky_session = false`. For multi-replica policy inference, require the
+router log to show `header:x-session-id:` keys and no key mapped to multiple
+backends.
 
 Credentials stay on the CPU host. The proxy injects them and logs request
 metadata only; never copy provider keys into a VMVM sandbox or result artifact.

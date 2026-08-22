@@ -7,15 +7,18 @@ the official Tau2 v1.0.1 grading implementation pinned at commit `fc0055d`.
 The completed Nemotron 3 Super reproduction scored 57/485 (11.7526%). See
 [`RESULTS.md`](RESULTS.md) for the exact protocol, audit, and artifact hashes.
 
-The default parity configuration uses:
+The evaluator has two user/judge provider profiles. The completed reproduction
+used the self-hosted Kimi profile. The MetaGen profile keeps the user and judge
+models independent; the checked-in example selects GPT-5.4 Mini for both.
+
+Both profiles use:
 
 - `bm25_grep` retrieval;
 - five trials per task with Tau's seed schedule starting at 300;
 - Nemotron 3 Super as the policy, with thinking enabled, temperature 1.0, and
   top-p 0.95;
-- Kimi K2.6 as the user simulator, non-thinking, with an 8,192-token cap;
-- Kimi K2.6 in thinking mode as the NL-assertion judge (only `task_102`
-  needs that judge);
+- an 8,192-token user-simulator cap;
+- a separately configured NL-assertion judge (only `task_102` needs it);
 - up to five attempts for an empty agent response and 30 for an empty user
   response, matching the NVIDIA Tau3 integration
   (`60c2a0dbf974ea7533456a4706f837c3a6d14afc`); an agent response that
@@ -28,7 +31,8 @@ The policy route sends `x-session-id`, which is the header consumed by
 prime-rl's `consistent_hash` vLLM router. The Kimi user and judge routes send
 `x-litellm-session-id`, which is the shared LiteLLM service's affinity header.
 Each value is stable for one task, trial, attempt, and role:
-`tau3-{task_id}.{trial}-{attempt}-{role}`.
+`tau3-{task_id}.{trial}-{attempt}-{role}`. MetaGen explicitly disables these
+self-hosted affinity headers.
 
 The checked-in single-node policy server has only one model replica, so affinity
 does not change its routing. When the policy URL points to a multi-replica
@@ -37,10 +41,24 @@ configures that router with `--request-id-headers x-session-id`. Audit
 `proxy_requests.jsonl` for the expected header and stable session value, and
 audit the router log to confirm each key maps to exactly one backend.
 
+The provider-specific settings are:
+
+- `nemotron_super_kimi.toml`: self-hosted Kimi K2.6, non-thinking for the user
+  simulator and thinking-enabled for the judge;
+- `nemotron_super_metagen.toml`: MetaGen-hosted models without Kimi-specific
+  chat-template flags. The checked-in values are `openai/gpt-5.4-mini` for both
+  roles, but `model` and optional `reasoning_effort` are independent in the two
+  sections. Its URL and API key come only from `TAU3_METAGEN_BASE_URL` and
+  `TAU3_METAGEN_API_KEY`.
+
 The current public Artificial Analysis snapshot is 50/485, or
-`0.103092783505155`, but its current methodology uses GPT-5.4 Mini rather than
-the requested Kimi setup. The Kimi-based target is therefore tracked separately
-and must be established by the full reproduction run.
+`0.103092783505155`. Its published methodology note identifies GPT-5.4 Mini as
+the user simulator but does not separately identify the NL-assertion judge. The
+completed Kimi reproduction is therefore a separate provider comparison, and a
+MetaGen run must record both selected model IDs before claiming exact parity.
+For reference, Tau2 v1.0.1 itself defaults both roles to
+`gpt-4.1-2025-04-14`; current Sierra leaderboard submissions declare GPT-5.2
+low-reasoning as the user simulator but do not expose a separate judge field.
 
 The 30-attempt user behavior originates in NVIDIA's stable merge
 `befd120003fb55f48b498f6549556dcaf74582d5`; the later `60c2a0d` tree contains
@@ -66,6 +84,8 @@ of the later `c88e411d` SFT tool-schema lane.
   aggregation.
 - `nemotron_super_kimi.toml`: full 97 x 5 configuration.
 - `nemotron_super_kimi_smoke.toml`: one-trial smoke configuration.
+- `nemotron_super_metagen.toml`: full 97 x 5 GPT-5.4 Mini configuration.
+- `nemotron_super_metagen_smoke.toml`: one-trial GPT-5.4 Mini smoke.
 
 ## Run
 
@@ -82,6 +102,19 @@ TAU3_CONFIG=user/tianhaowu/tau3_banking_vmvm/nemotron_super_kimi_smoke.toml \
 TAU3_OUTPUT_DIR=/checkpoint/ram/tianhaowu/tau3_banking_vmvm/smoke \
 TAU3_POLICY_JOB_ID="$inference_job" \
 TAU3_LIMIT=1 TAU3_WORKERS=1 \
+sbatch user/tianhaowu/tau3_banking_vmvm/run_eval.sbatch
+```
+
+For the MetaGen profile, export the provider URL and credential in the
+submitting shell, then select its smoke config. Never put the credential in a
+TOML file or command-line argument:
+
+```bash
+export TAU3_METAGEN_BASE_URL='https://provider.example/v1'
+export TAU3_METAGEN_API_KEY='...'
+TAU3_CONFIG=user/tianhaowu/tau3_banking_vmvm/nemotron_super_metagen_smoke.toml \
+TAU3_OUTPUT_DIR=/checkpoint/ram/tianhaowu/tau3_banking_vmvm/metagen_smoke \
+TAU3_POLICY_JOB_ID="$inference_job" TAU3_LIMIT=1 TAU3_WORKERS=1 \
 sbatch user/tianhaowu/tau3_banking_vmvm/run_eval.sbatch
 ```
 
@@ -109,8 +142,8 @@ deterministic HTTP 4xx errors are never retried. Empty successful responses are
 also retried only at the affected model call; after five empty agent responses
 or 30 empty user responses, or immediately after an agent output-length
 exhaustion, the model failure is scored as a terminal zero. Model context-window
-exhaustion and simulation timeouts are also terminal zeros. Kimi judge output
-is normalized from JSON code fences or a prose prefix; an actually malformed
+exhaustion and simulation timeouts are also terminal zeros. Judge output is
+normalized from JSON code fences or a prose prefix; an actually malformed
 judge response is retried only at the judge call and then stops the run.
 Configuration, authentication, task-loading, and grading errors also stop the
 run. The audit rejects every whole-trial retry not immediately preceded by a
