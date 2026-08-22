@@ -124,6 +124,11 @@ sbatch --export=ALL,INFERENCE_JOB_ID=JOB_ID,EVAL_CONFIG=CONFIG \
   --num-tasks 1 --num-rollouts 1 --max-concurrent 1 --multiplex 1
 ```
 
+For a plugin-specific override such as `--taskset.tasks`, repeat the taskset and
+harness IDs after the `@` config (`--taskset.id ... --harness.id ...`). Without
+those IDs, pydantic-config sees only the base plugin types and cannot parse the
+task list override.
+
 The launcher owns an exclusive output lock. Never run two writers against the
 same result directory. Resume only missing or errored work with `RESUME_DIR`
 after proving the prior evaluator is terminal.
@@ -137,6 +142,22 @@ failed.
 For SWE-rebench Java tasks, restore the harness-owned Maven and Gradle mirror
 files immediately before scoring. Agent commands can modify user-level build
 configuration, so setup-time mirror installation alone is not sufficient.
+
+Keep the official 3,000-second SWE-rebench verifier limit inside the remote
+shell command. A verifier timeout is a terminal zero-score benchmark outcome,
+not an infrastructure error. The eval's outer scoring timeout is 14,400 seconds
+only to accommodate up to four network-infrastructure attempts and their
+backoff. Capture the exact candidate patch during `finalize` before any verifier
+runs. If the agent VM is lost during scoring, retry only the verifier in a fresh
+VMVM with that captured patch; never resample the completed model trajectory.
+
+For a historical row where the old outer timeout produced exactly
+`TasksetError: scoring timed out`, wait for the evaluator to become terminal and
+run `recover_swe_rebench_timeouts.py` into a new result file. It refuses the
+active writer lock, requires the old outer timeout to equal the task's official
+verifier budget, rejects any other error shape, reconstructs the last exact
+`git diff` from the saved trajectory, and assigns the official timeout score of
+zero without issuing another model request.
 
 ## Audit results
 

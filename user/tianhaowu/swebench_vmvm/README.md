@@ -10,7 +10,7 @@ Verifiers or `vmvm_tb_v2`.
 | --- | --- | --- | ---: |
 | SWE-bench Verified | mini-swe-agent 2.2.8 | Nemotron 3 Super | 500 x 1 |
 | SWE-bench Verified | OpenHands SDK 1.17.0 | Nemotron 3 Super | 500 x 1 |
-| SWE-rebench July 2026 | published text-command ReAct scaffold | Qwen3.6-27B | 111 x 5 |
+| SWE-rebench July 2026 | behavior-compatible text-command ReAct | Qwen3.6-27B | 111 x 5 |
 | SWE-rebench July 2026 | mini-swe-agent 2.2.8 native tools | Qwen3.6-27B | 111 x 5 |
 
 Only production configurations are checked in:
@@ -122,6 +122,15 @@ sbatch --export=ALL,INFERENCE_JOB_ID=JOB_ID,EVAL_CONFIG=CONFIG \
   --num-tasks 1 --num-rollouts 1 --max-concurrent 1 --multiplex 1
 ```
 
+When overriding a plugin-specific field such as `taskset.tasks` alongside an
+`@` config, repeat both plugin IDs so the CLI narrows their config types before
+parsing the override:
+
+```bash
+--taskset.id swe-rebench-harbor --harness.id swe-rebench-react \
+  --taskset.tasks TASK_DIRECTORY_NAME
+```
+
 The launcher accepts `INFERENCE_BASE_URL` instead of `INFERENCE_JOB_ID`, and
 `OUTPUT_DIR` to select a new result directory. It takes an exclusive writer lock
 and refuses to truncate an existing result.
@@ -152,7 +161,12 @@ prompts, and cross-turn reasoning replay.
 `swe_rebench_harbor/` adapts the pinned
 `ibragim-badertdinov/swe-rebench-07-2026@2026-07` Harbor tasks to Verifiers. The
 folder-local `swebench_vmvm_compat.py` handles Python-free VMVM images and Java
-proxy trust without changing the shared backend.
+proxy trust without changing the shared backend. It captures the exact candidate
+patch before scoring. Each Harbor verifier command retains its official
+3,000-second limit and records a timeout as a terminal zero score; the larger
+outer scoring window exists only so infrastructure retries can finish. If the
+agent runtime is lost during scoring, the adapter applies that same captured
+patch to a fresh VMVM verifier instead of resampling the model.
 
 `swe_rebench_react/` is a behavior-compatible implementation of the fixed
 text-command scaffold described by the Qwen3.6 report. The public benchmark does
@@ -215,3 +229,19 @@ resolved rollouts divided by 555; empirical pass@5 is reported separately.
 Infrastructure errors, duplicate traces, duplicate verifier runtimes, malformed
 provenance, and incomplete rows must all be zero before comparing a score with a
 published target.
+
+An older run may contain a `TasksetError: scoring timed out` row because its
+outer Verifiers timeout fired at the same instant as the Harbor verifier budget.
+After the evaluator is terminal, normalize that exact outcome without resampling
+the model:
+
+```bash
+uv run --no-sync python \
+  user/tianhaowu/swebench_vmvm/recover_swe_rebench_timeouts.py \
+  RESULTS --output RECOVERED_RESULTS
+```
+
+The recovery tool refuses to run while the result directory's writer lock is
+held, accepts only the exact timeout error shape where the old outer timeout
+equals the task's official verifier budget, recovers the candidate patch from
+the persisted trajectory, and records source/result hashes in its report.
