@@ -32,6 +32,8 @@ skip_special_tokens = false
 empty_response_attempts = 5
 request_retries = 3
 request_timeout_seconds = 900
+sticky_session = true
+sticky_session_header = "x-session-id"
 
 [user]
 model = "Kimi-K2.6"
@@ -43,6 +45,8 @@ thinking_template_key = "thinking"
 empty_response_attempts = 30
 request_retries = 3
 request_timeout_seconds = 900
+sticky_session = true
+sticky_session_header = "x-litellm-session-id"
 
 [judge]
 model = "Kimi-K2.6"
@@ -53,6 +57,8 @@ thinking_template_key = "thinking"
 request_retries = 3
 request_timeout_seconds = 900
 format_retries = 3
+sticky_session = true
+sticky_session_header = "x-litellm-session-id"
 
 [runtime]
 workers = 1

@@ -32,18 +32,24 @@ def _llm_args(
     attempt: int,
     config: dict[str, Any],
 ) -> dict[str, Any]:
+    extra_headers = {
+        "x-tau3-role": role,
+        "x-tau3-trial": trial_key,
+        "x-tau3-attempt": str(attempt),
+    }
+    if bool(config.get("sticky_session", True)):
+        session_header = str(config.get("sticky_session_header", "x-litellm-session-id")).strip().lower()
+        if not session_header:
+            raise ValueError(f"{role}.sticky_session_header must be non-empty")
+        extra_headers[session_header] = f"tau3-{trial_key}-{attempt}-{role}"
+
     arguments: dict[str, Any] = {
         "api_base": endpoint,
         "api_key": "vmvm-proxy",
         "temperature": config["temperature"],
         "num_retries": 0,
         "timeout": config["request_timeout_seconds"],
-        "extra_headers": {
-            "x-tau3-role": role,
-            "x-tau3-trial": trial_key,
-            "x-tau3-attempt": str(attempt),
-            "x-litellm-session-id": f"tau3-{trial_key}-{role}",
-        },
+        "extra_headers": extra_headers,
     }
     for key in ("top_p", "max_tokens"):
         if config.get(key) is not None:

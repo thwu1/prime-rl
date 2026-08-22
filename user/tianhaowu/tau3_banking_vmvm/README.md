@@ -22,6 +22,21 @@ The default parity configuration uses:
   exhausted its output budget is not retried;
 - 200 Tau steps and 10 tool errors per trial.
 
+## Sticky routing
+
+The policy route sends `x-session-id`, which is the header consumed by
+prime-rl's `consistent_hash` vLLM router. The Kimi user and judge routes send
+`x-litellm-session-id`, which is the shared LiteLLM service's affinity header.
+Each value is stable for one task, trial, attempt, and role:
+`tau3-{task_id}.{trial}-{attempt}-{role}`.
+
+The checked-in single-node policy server has only one model replica, so affinity
+does not change its routing. When the policy URL points to a multi-replica
+prime-rl router, keep `policy = "consistent_hash"`; the standard launcher
+configures that router with `--request-id-headers x-session-id`. Audit
+`proxy_requests.jsonl` for the expected header and stable session value, and
+audit the router log to confirm each key maps to exactly one backend.
+
 The current public Artificial Analysis snapshot is 50/485, or
 `0.103092783505155`, but its current methodology uses GPT-5.4 Mini rather than
 the requested Kimi setup. The Kimi-based target is therefore tracked separately

@@ -61,6 +61,14 @@ changes them:
 - retrieval: `bm25_grep`;
 - limits: 200 Tau steps and 10 tool errors.
 
+Keep sticky routing explicit in every endpoint section. Set
+`sticky_session = true` and `sticky_session_header = "x-session-id"` for the
+policy. Prime-rl's `consistent_hash` router hashes that header. Use
+`x-litellm-session-id` for the Kimi user and judge endpoints. The evaluator
+uses one stable `tau3-{task_id}.{trial}-{attempt}-{role}` value for every model
+call in that role. For multi-replica policy inference, require the router log to
+show `header:x-session-id:` keys and no key mapped to multiple backends.
+
 Credentials stay on the CPU host. The proxy injects them and logs request
 metadata only; never copy provider keys into a VMVM sandbox or result artifact.
 
