@@ -133,6 +133,13 @@ The launcher owns an exclusive output lock. Never run two writers against the
 same result directory. Resume only missing or errored work with `RESUME_DIR`
 after proving the prior evaluator is terminal.
 
+Use the production default of 32 concurrent rollouts. This controls rollout
+concurrency, not vLLM's internal batch size. Confirm headroom from the live
+server logs: sustained `Waiting: 0` together with low KV-cache occupancy means
+the evaluator is under-filling the model server. Do not edit `config.toml` in an
+active or partially completed result directory merely to raise concurrency;
+apply the higher setting to a fresh run so provenance remains exact.
+
 Keep model-provider retries inside the individual request. Restrict whole-
 rollout retries to `SandboxError` and `TunnelError`. SWE-bench Verified retries
 a failed fresh verifier on a new VMVM runtime with the exact captured candidate

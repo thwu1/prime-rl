@@ -135,6 +135,13 @@ The launcher accepts `INFERENCE_BASE_URL` instead of `INFERENCE_JOB_ID`, and
 `OUTPUT_DIR` to select a new result directory. It takes an exclusive writer lock
 and refuses to truncate an existing result.
 
+Production evaluations allow 32 concurrent rollouts. This is the evaluator
+workload bound, not a vLLM batch-size override: tool execution and scoring mean
+only a subset of those rollouts issue model requests at once. Monitor vLLM's
+`Running` and `Waiting` counters; sustained zero waiting and low KV-cache usage
+indicate room for this concurrency. Do not edit an active run's saved config to
+change concurrency. Apply the setting on a fresh run instead.
+
 Resume an interrupted run only after confirming no evaluator still owns the
 directory:
 
