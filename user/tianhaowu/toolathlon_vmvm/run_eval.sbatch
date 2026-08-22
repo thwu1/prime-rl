@@ -17,6 +17,7 @@ set -euo pipefail
 project_dir=/storage/home/tianhaowu/prime-rl
 config_path="${TOOLATHLON_CONFIG:-$project_dir/user/tianhaowu/toolathlon_vmvm/kimi_k26_historical.toml}"
 output_dir="${TOOLATHLON_OUTPUT_DIR:-/checkpoint/ram/tianhaowu/toolathlon_vmvm/kimi_k26_historical_parity_v2}"
+runner_path="${TOOLATHLON_RUNNER_PATH:-$project_dir/user/tianhaowu/toolathlon_vmvm/run_eval.py}"
 workers="${TOOLATHLON_WORKERS:-48}"
 
 cd "$project_dir"
@@ -40,4 +41,4 @@ if [[ -n "${TOOLATHLON_TASK_ID:-}" ]]; then
 fi
 
 srun --kill-on-bad-exit=1 uv run --no-sync python \
-  user/tianhaowu/toolathlon_vmvm/run_eval.py "${args[@]}"
+  "$runner_path" "${args[@]}"

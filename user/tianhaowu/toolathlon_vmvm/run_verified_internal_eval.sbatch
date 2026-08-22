@@ -17,6 +17,7 @@ set -euo pipefail
 project_dir=/storage/home/tianhaowu/prime-rl
 config_path="${TOOLATHLON_CONFIG:-$project_dir/user/tianhaowu/toolathlon_vmvm/kimi_k26_verified_internal_v4.toml}"
 output_dir="${TOOLATHLON_OUTPUT_DIR:-/checkpoint/ram/tianhaowu/toolathlon_vmvm/kimi_k26_verified_internal_v4}"
+runner_path="${TOOLATHLON_RUNNER_PATH:-$project_dir/user/tianhaowu/toolathlon_vmvm/run_eval.py}"
 
 cd "$project_dir"
 unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy
@@ -32,5 +33,5 @@ export VACLI_MAX_PULL_RETRIES=20
 export VACLI_IMAGE_PULL_TIMEOUT_SECONDS=1800
 
 srun --kill-on-bad-exit=1 uv run --no-sync python \
-  user/tianhaowu/toolathlon_vmvm/run_eval.py \
+  "$runner_path" \
   "$config_path" --output-dir "$output_dir" "$@"

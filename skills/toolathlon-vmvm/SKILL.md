@@ -130,6 +130,13 @@ that matches the upstream public-service request.
   `(task_id, trial)` key. Reject semantic-config or snapshot fingerprint drift.
 - Drain unrelated queued tasks before failing an aggregate whose safe
   infrastructure retries were exhausted.
+- After the original writer is terminal, resume the same full config, output,
+  and immutable runner snapshot with `--extra-infrastructure-retries N` when
+  only confirmed-safe infrastructure attempts were exhausted. This preserves
+  completed rows and continues their contiguous attempt numbers without
+  changing the fingerprint. If the checkout changed, point
+  `TOOLATHLON_RUNNER_PATH` at `OUTPUT_DIR/run_eval.py` and
+  `TOOLATHLON_CONFIG` at `OUTPUT_DIR/config.toml`.
 - Release a dedicated inference job only after successful evaluation. Preserve
   it after evaluator failure so the corrected evaluator can resume.
 

@@ -194,6 +194,15 @@ rejected. Each run copies its worker, local tools, schemas, and runner files
 into the output directory before acquiring leases, and replacement VMVMs use
 those snapshots rather than mutable checkout files.
 
+If a run drains all other work but one or more tasks exhaust only confirmed-safe
+infrastructure retries, stop the original writer and resume the full config with
+the same immutable runner snapshot plus `--extra-infrastructure-retries N`.
+This extends the existing contiguous attempt chains without changing the
+fingerprint or resampling completed tasks. Never run the recovery concurrently
+with the original evaluator. Set `TOOLATHLON_RUNNER_PATH` to the saved
+`OUTPUT_DIR/run_eval.py` and `TOOLATHLON_CONFIG` to
+`OUTPUT_DIR/config.toml` when the checkout has changed since the run started.
+
 Audit the completed v3 diagnostic result:
 
 ```bash

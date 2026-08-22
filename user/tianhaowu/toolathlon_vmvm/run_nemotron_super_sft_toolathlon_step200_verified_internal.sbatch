@@ -17,6 +17,7 @@ set -euo pipefail
 project_dir=/storage/home/tianhaowu/prime-rl
 config_path="${TOOLATHLON_CONFIG:-$project_dir/user/tianhaowu/toolathlon_vmvm/nemotron_super_sft_toolathlon_step200_verified_internal_v4.toml}"
 output_dir="${TOOLATHLON_OUTPUT_DIR:-/checkpoint/ram/tianhaowu/toolathlon_vmvm/nemotron_super_sft_toolathlon_step200_verified_internal_v4}"
+runner_path="${TOOLATHLON_RUNNER_PATH:-$project_dir/user/tianhaowu/toolathlon_vmvm/run_eval.py}"
 inference_job_id="${NEMOTRON_INFERENCE_JOB_ID:?Set NEMOTRON_INFERENCE_JOB_ID}"
 evaluation_succeeded=0
 
@@ -78,6 +79,6 @@ while true; do
 done
 
 srun --kill-on-bad-exit=1 uv run --no-sync python \
-  user/tianhaowu/toolathlon_vmvm/run_eval.py \
-  "$config_path" --output-dir "$output_dir"
+  "$runner_path" \
+  "$config_path" --output-dir "$output_dir" "$@"
 evaluation_succeeded=1

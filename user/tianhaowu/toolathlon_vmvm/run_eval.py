@@ -459,8 +459,12 @@ def main() -> int:
     parser.add_argument("--trial", action="append", type=int)
     parser.add_argument("--limit", type=int)
     parser.add_argument("--workers", type=int)
+    parser.add_argument("--extra-infrastructure-retries", type=int, default=0)
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
+
+    if args.extra_infrastructure_retries < 0:
+        raise ValueError("--extra-infrastructure-retries must be nonnegative")
 
     logging.basicConfig(
         level=logging.INFO,
@@ -499,6 +503,9 @@ def main() -> int:
         trial_indices = [trial for trial in trial_indices if trial in requested_trials]
     trials = [Trial(task=task, trial=trial) for trial in trial_indices for task in selected]
     worker_count = int(args.workers or config["runtime"]["workers"])
+    max_infrastructure_attempts = (
+        int(config["retry"]["max_infrastructure_retries"]) + 1 + args.extra_infrastructure_retries
+    )
     full_run = len(selected) == int(config["benchmark"]["expected_tasks"]) and len(trial_indices) == num_trials
     configured_workers = int(config["runtime"]["workers"])
     if full_run and worker_count != configured_workers:
@@ -512,6 +519,7 @@ def main() -> int:
                     "tasks": len(selected),
                     "trials": len(trials),
                     "workers": worker_count,
+                    "max_infrastructure_attempts": max_infrastructure_attempts,
                     "task_ids": [trial.task_id for trial in trials[:10]],
                 },
                 indent=2,
@@ -547,6 +555,8 @@ def main() -> int:
         "resumed": len(completed),
         "resumed_infrastructure_attempts": sum(unfinished_attempt_counts.values()),
         "workers": worker_count,
+        "max_infrastructure_attempts": max_infrastructure_attempts,
+        "extra_infrastructure_retries": args.extra_infrastructure_retries,
         "started_at": time.time(),
     }
     _write_json(output_dir / "run_metadata.json", metadata)
@@ -579,7 +589,7 @@ def main() -> int:
                 except queue.Empty:
                     return
                 try:
-                    max_attempts = int(retry_config["max_infrastructure_retries"]) + 1
+                    max_attempts = max_infrastructure_attempts
                     first_attempt = unfinished_attempt_counts.get(trial.key, 0) + 1
                     if first_attempt > max_attempts:
                         message = f"Infrastructure retries already exhausted for {trial.key}"
