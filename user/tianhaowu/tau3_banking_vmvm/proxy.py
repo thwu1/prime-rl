@@ -12,6 +12,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
+SESSION_HEADER_NAMES = ("x-session-id", "x-litellm-session-id")
+
 
 @dataclass(frozen=True)
 class Route:
@@ -88,9 +90,12 @@ class ProxyHandler(BaseHTTPRequestHandler):
             "Authorization": f"Bearer {route.api_key}",
             "Content-Type": self.headers.get("Content-Type", "application/json"),
         }
-        for name in ("x-litellm-session-id", "x-tau3-trial", "x-tau3-attempt", "x-tau3-role"):
+        session_headers: list[tuple[str, str]] = []
+        for name in (*SESSION_HEADER_NAMES, "x-tau3-trial", "x-tau3-attempt", "x-tau3-role"):
             if value := self.headers.get(name):
                 headers[name] = value
+                if name in SESSION_HEADER_NAMES:
+                    session_headers.append((name, value))
 
         detail: dict[str, Any] = {
             "route": route.name,
@@ -99,7 +104,11 @@ class ProxyHandler(BaseHTTPRequestHandler):
             "trial": self.headers.get("x-tau3-trial"),
             "attempt": self.headers.get("x-tau3-attempt"),
             "role": self.headers.get("x-tau3-role"),
+            "session_header": session_headers[0][0] if len(session_headers) == 1 else None,
+            "session_id": session_headers[0][1] if len(session_headers) == 1 else None,
         }
+        if len(session_headers) > 1:
+            detail["session_headers"] = dict(session_headers)
         if body:
             try:
                 payload = json.loads(body)

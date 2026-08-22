@@ -21,6 +21,8 @@ ENDPOINT_LOCATION_KEYS = {
     "slurm_job_id",
     "slurm_job_id_env",
     "slurm_job_name",
+    "sticky_session",
+    "sticky_session_header",
 }
 
 
@@ -320,6 +322,9 @@ def _audit_proxy(path: Path, config: dict[str, Any] | None) -> dict[str, Any]:
     empty_trials: dict[str, dict[str, Any]] = {}
     finish_reasons: Counter[str] = Counter()
     non_retryable_errors: Counter[str] = Counter()
+    session_headers: Counter[str] = Counter()
+    session_ids: set[str] = set()
+    sticky_roles: set[str] = set()
     total = 0
     expected_seeds: dict[int, int] = {}
     if config is not None:
@@ -372,6 +377,23 @@ def _audit_proxy(path: Path, config: dict[str, Any] | None) -> dict[str, Any]:
                 trial = int(trial_key.rsplit(".", maxsplit=1)[1])
             except (IndexError, ValueError) as error:
                 raise ValueError(f"Malformed proxy trial key at {path}:{line_number}: {trial_key}") from error
+            section = config[role]
+            if "sticky_session" in section:
+                sticky_roles.add(role)
+                actual_header = event.get("session_header")
+                actual_id = event.get("session_id")
+                if section["sticky_session"]:
+                    expected_header = str(section["sticky_session_header"]).lower()
+                    expected_id = f"tau3-{trial_key}-{attempt}-{role}"
+                    if actual_header != expected_header or actual_id != expected_id:
+                        raise ValueError(
+                            f"Proxy sticky-session mismatch at {path}:{line_number}: "
+                            f"{actual_header}={actual_id!r}, expected {expected_header}={expected_id!r}"
+                        )
+                    session_headers[f"{role}:{actual_header}"] += 1
+                    session_ids.add(str(actual_id))
+                elif actual_header is not None or actual_id is not None:
+                    raise ValueError(f"Unexpected sticky session at {path}:{line_number}")
             if role != "judge" and request.get("seed") != expected_seeds.get(trial):
                 raise ValueError(
                     f"Proxy seed mismatch at {path}:{line_number}: {request.get('seed')} != {expected_seeds.get(trial)}"
@@ -401,6 +423,10 @@ def _audit_proxy(path: Path, config: dict[str, Any] | None) -> dict[str, Any]:
         "empty_success_trials": dict(sorted(empty_trials.items())),
         "finish_reason_counts": dict(sorted(finish_reasons.items())),
         "non_retryable_error_counts": dict(sorted(non_retryable_errors.items())),
+        "session_header_counts": dict(sorted(session_headers.items())),
+        "sticky_session_ids": len(session_ids),
+        "sticky_session_roles": sorted(sticky_roles),
+        "sticky_session_valid": bool(sticky_roles),
         "protocol_valid": config is not None,
     }
 

@@ -93,9 +93,18 @@ def _slurm_job_node(job_id: str) -> str:
         capture_output=True,
         text=True,
     )
-    nodes = [line.strip() for line in result.stdout.splitlines() if line.strip() and line.strip() != "(null)"]
-    if len(nodes) != 1:
-        raise ValueError(f"Expected one running node for Slurm job {job_id}, found {nodes}")
+    nodelists = [line.strip() for line in result.stdout.splitlines() if line.strip() and line.strip() != "(null)"]
+    if len(nodelists) != 1:
+        raise ValueError(f"Expected one running allocation for Slurm job {job_id}, found {nodelists}")
+    expanded = subprocess.run(
+        ["scontrol", "show", "hostnames", nodelists[0]],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    nodes = [line.strip() for line in expanded.stdout.splitlines() if line.strip()]
+    if not nodes:
+        raise ValueError(f"Slurm job {job_id} has no allocated nodes")
     return nodes[0]
 
 
@@ -150,6 +159,8 @@ def _semantic_config(config: dict[str, Any]) -> dict[str, Any]:
         "slurm_job_id",
         "slurm_job_id_env",
         "slurm_job_name",
+        "sticky_session",
+        "sticky_session_header",
     }
     return {
         "source": config["source"],
@@ -201,6 +212,18 @@ def _validate_config(config: dict[str, Any]) -> None:
         raise ValueError("The requested NL-assertion judge is Kimi-K2.6")
     if judge.get("thinking") is not True or judge.get("thinking_template_key") != "thinking":
         raise ValueError("The requested Kimi judge must use thinking mode")
+    expected_session_headers = {
+        "policy": "x-session-id",
+        "user": "x-litellm-session-id",
+        "judge": "x-litellm-session-id",
+    }
+    for role, expected_header in expected_session_headers.items():
+        section = config[role]
+        if section.get("sticky_session") is not True:
+            raise ValueError(f"{role}.sticky_session must be true")
+        actual_header = str(section.get("sticky_session_header", "")).lower()
+        if actual_header != expected_header:
+            raise ValueError(f"{role}.sticky_session_header must be {expected_header!r}, got {actual_header!r}")
     if float(config["retry"].get("provider_retry_delay_seconds", 0)) <= 0:
         raise ValueError("Provider retry delay must be positive")
     if float(config["retry"].get("proxy_recovery_timeout_seconds", 0)) <= 0:
