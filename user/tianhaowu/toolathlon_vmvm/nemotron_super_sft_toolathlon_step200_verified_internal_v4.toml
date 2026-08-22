@@ -1,0 +1,76 @@
+name = "toolathlon-verified-nemotron-super-sft-toolathlon-step200-internal-v4-2trial"
+output_dir = "/checkpoint/ram/tianhaowu/toolathlon_vmvm/nemotron_super_sft_toolathlon_step200_verified_internal_v4"
+
+[source]
+repository = "https://github.com/hkust-nlp/Toolathlon"
+release = "Toolathlon-Verified"
+commit = "314408ac6140bb04f2f215449c3a9bea7d93c534"
+task_catalog_file = "task_catalog_verified.json"
+tool_schemas_file = "tool_schemas.json"
+task_catalog_sha256 = "d22f73a14e248578504574fe2a3c602a933d635b3e126c4915ecad5d878e352b"
+tool_schemas_sha256 = "422be44a1dccc546406e759e54c36ff75c02c39cff7b62b8f254dd5792bfad1f"
+
+[benchmark]
+suite = "toolathlon-verified-internal-v3"
+expected_tasks = 108
+num_trials = 2
+max_steps = 100
+max_observation_chars = 100000
+task_timeout_seconds = 5400
+dispatch_seed = 20260821
+tool_source = "static"
+
+[model]
+model = "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16"
+base_url_env = "NEMOTRON_TOOLATHLON_BASE_URL"
+checkpoint_path = "/checkpoint/ram/tianhaowu/sft_nemotron/outputs/nemotron-super-120b-toolathlon-v1-102144-cp1-ep8-fsdp-offload-expert-loop-fullmem-lr1e5-310steps-5epochs-seed3/weights/step_200"
+checkpoint_step = 200
+checkpoint_model_index_sha256 = "a372e3cc94aff7e030dcbdb6777b67efefcdb489e23d8da0380e39911099606c"
+checkpoint_tokenizer_sha256 = "623c34567aebb18582765289fbe23d901c62704d6518d71866e0e58db892b5b7"
+checkpoint_chat_template_sha256 = "575fb74f54ed264df9047d0ecce3c98938aae953fb4f50356675706264cbb68a"
+training_config_sha256 = "959d74ab30b70655d31a9bfce265fefb0f9dba9d24c4146e70d077524106c87f"
+max_tokens = 65536
+context_window = 262144
+thinking = true
+thinking_template_key = "enable_thinking"
+parallel_tool_calls = true
+request_retries = 10
+request_retry_delay_seconds = 10
+request_timeout_seconds = 600
+sticky_session = true
+sticky_session_header = "x-session-id"
+accept_legacy_tool_names = true
+
+[service]
+http_proxy_url = "http://47.253.57.66:8080"
+server_urls = [
+  "http://47.253.57.66:8080",
+  "http://47.253.57.66:8082",
+  "http://47.253.57.66:8084",
+  "http://47.253.57.66:8086",
+]
+debug = false
+http_timeout_seconds = 300
+status_poll_interval_seconds = 5
+start_retry_interval_seconds = 10
+start_retry_jitter_seconds = 10
+start_timeout_seconds = 5400
+execution_ready_timeout_seconds = 1800
+max_setup_vanishes = 10
+tool_call_retries = 3
+tool_call_retry_backoff_seconds = 5
+
+[runtime]
+workers = 96
+image = "docker.io/lockon0927/toolathlon-task-image:1016beta"
+tenant_id = "async_2347641"
+lease_ttl = "60s"
+cpu = 2
+memory_gb = 8
+command_timeout_seconds = 5700
+request_timeout_seconds = 600
+max_connection_drops = 5
+
+[retry]
+max_infrastructure_retries = 5
+retry_delay_seconds = 10
