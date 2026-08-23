@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 
 import httpx
+from agent import build_finish_tool
 from asset_fetch import asset_cache_status, load_asset_manifest, prepare_asset_cache, select_manifest_entries
 from common import (
     atomic_write_json,
@@ -22,12 +23,18 @@ from common import (
 )
 from openai import OpenAI
 from PIL import Image
+from pydantic import ValidationError
 from run_eval import (
     PREFLIGHT_SCHEMA_VERSION,
     WEB_FETCH_INVALID_URL,
     WEB_FETCH_PROBE_URL,
+    _expected_code_execution_tool_names,
+    _expected_finish_contract,
+    _expected_tool_capabilities,
+    _expected_workspace_contract,
     _fingerprint,
     _probe,
+    _sft_compatibility_aliases,
     _validate_config,
 )
 from vmvm_provider import VMVMCodeExecToolProvider
@@ -223,6 +230,7 @@ async def _probe_web_fetch(config: dict) -> dict:
 
 async def _probe_vmvm(config: dict, task_id: str | None = None) -> dict:
     runtime = config["runtime"]
+    sft_compatibility_aliases = _sft_compatibility_aliases(config)
     catalog = load_jsonl(Path(config["source"]["catalog_file"]).expanduser().resolve())
     if not catalog:
         raise ValueError("GDPval catalog is empty")
@@ -252,8 +260,62 @@ async def _probe_vmvm(config: dict, task_id: str | None = None) -> dict:
         bootstrap_assets=bootstrap_assets,
         asset_cache_dir=config["source"]["asset_cache_dir"],
         preload_image=bool(runtime.get("preload_image", True)),
+        sft_compatibility_aliases=sft_compatibility_aliases,
     )
-    async with provider:
+    async with provider as code_execution_tools:
+        tools = code_execution_tools if isinstance(code_execution_tools, list) else [code_execution_tools]
+        tool_names = [tool.name for tool in tools]
+        expected_tool_names = _expected_code_execution_tool_names(config)
+        if tool_names != expected_tool_names:
+            raise RuntimeError(f"Stirrup code-execution tool set mismatch: {tool_names!r} != {expected_tool_names!r}")
+        if sft_compatibility_aliases:
+            tool_probe_command = (
+                'test "$PWD" = /home/user && test "$HOME" = /home/user && '
+                'test /home/user -ef /workspace && test "$(readlink -f /home/user)" = /workspace && '
+                "rm -f /home/user/.gdpval-sft-alias-probe && "
+                "trap 'rm -f /home/user/.gdpval-sft-alias-probe' EXIT && "
+                "printf sft-compatibility > /home/user/.gdpval-sft-alias-probe && "
+                'test "$(cat /workspace/.gdpval-sft-alias-probe)" = sft-compatibility && '
+                "printf SFT_COMPATIBILITY_OK"
+            )
+        else:
+            tool_probe_command = 'test "$PWD" = /workspace && printf RUN_SHELL_OK'
+        expected_marker = "SFT_COMPATIBILITY_OK" if sft_compatibility_aliases else "RUN_SHELL_OK"
+        for tool in tools:
+            tool_result = await tool.executor(tool.parameters(cmd=tool_probe_command))
+            if tool_result.success is not True or expected_marker not in str(tool_result.content):
+                raise RuntimeError(f"Stirrup code-execution tool {tool.name!r} failed its workspace probe")
+
+        finish_tool = build_finish_tool(sft_compatibility_aliases=sft_compatibility_aliases)
+        finish_schema = finish_tool.parameters.model_json_schema()
+        schema_fields = list(finish_schema.get("properties", {}))
+        finish_tool.parameters.model_validate({"reason": "done", "paths": []})
+        summary_alias_accepted = True
+        try:
+            finish_tool.parameters.model_validate({"summary": "done", "paths": []})
+        except ValidationError:
+            summary_alias_accepted = False
+        if summary_alias_accepted is not sft_compatibility_aliases:
+            raise RuntimeError("Stirrup finish.summary compatibility does not match the configured mode")
+        conflicting_aliases_rejected = False
+        if sft_compatibility_aliases:
+            try:
+                finish_tool.parameters.model_validate({"reason": "a", "summary": "b", "paths": []})
+            except ValidationError:
+                conflicting_aliases_rejected = True
+            if not conflicting_aliases_rejected:
+                raise RuntimeError("Stirrup finish tool accepted conflicting reason and summary values")
+        finish_contract = {
+            "tool_name": finish_tool.name,
+            "canonical_field": "reason",
+            "schema_fields": schema_fields,
+            "summary_alias_enabled": sft_compatibility_aliases,
+            "summary_alias_accepted": summary_alias_accepted,
+            "conflicting_aliases_rejected": conflicting_aliases_rejected,
+        }
+        if finish_contract != _expected_finish_contract(config):
+            raise RuntimeError("Stirrup finish-tool contract does not match the configured mode")
+
         result = await provider.run_command(
             "for command in bash python git gcc g++ cmake swig pkg-config make libreoffice tesseract pandoc "
             "pdftotext gs ffmpeg dot convert pdflatex xelatex lualatex latexmk biber java gdalinfo jq unzip "
@@ -285,6 +347,10 @@ async def _probe_vmvm(config: dict, task_id: str | None = None) -> dict:
             "staged_assets": provider.staged_assets,
             "render_history": provider.render_history,
             "rendered_files": rendered_files,
+            "tool_capabilities": _expected_tool_capabilities(config),
+            "code_execution_tool_names": tool_names,
+            "workspace_contract": _expected_workspace_contract(config),
+            "finish_contract": finish_contract,
             "vmvm": provider.debugging_info,
         }
 

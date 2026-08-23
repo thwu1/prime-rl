@@ -97,12 +97,24 @@ gold files lack an independent Hugging Face hash confirmation. Preserve that
 caveat in reports even though the checked-in manifest makes transport itself
 immutable and reproducible.
 
-The pinned public NeMo Gym recipe does not require a search key. With neither
-`BRAVE_API_KEY` nor `TAVILY_API_KEY`, Stirrup exposes URL fetching but omits
-`web_search`; keep `tools.require_brave_search = false` to match that canonical
-default. NVIDIA Gym can optionally add Tavily, but record that as a distinct
-capability. The pinned GitHub asset transport requires no `HF_TOKEN` or
+The pinned public NeMo Gym recipe does not require a search key. The checked-in
+configs intentionally set `tools.require_brave_search = true` as an
+SFT-compatibility extension because the UniPat Kimi-K3 trajectories include
+`web_search`. Export `BRAVE_API_KEY` in the launch environment and never place
+it in TOML or retained artifacts. Preflight must exercise the provider and run
+metadata must record the added capability. A separate no-search config may set
+the flag to false; in that mode an ambient Brave key must not silently enable
+search. The pinned GitHub asset transport requires no `HF_TOKEN` or
 `HUGGING_FACE_HUB_TOKEN`.
+
+Keep the policy-facing SFT compatibility aliases narrow and explicit. With
+`tools.sft_compatibility_aliases = true`, `code_exec` and canonical `run_shell`
+must use the same sandbox executor, `/home/user` must resolve to `/workspace`
+alongside the existing `/working_dir` alias, and `finish.summary` may alias
+canonical `finish.reason`. Conflicting values must fail; matching values are
+canonicalized to `reason`. Resolve submitted `/home/user` paths against
+`/workspace` for validation, rendering, and artifact capture. The canonical
+interface remains available alongside the aliases.
 
 Keep `tools.web_fetch_trust_env = false` on Slurm CPU nodes. Their inherited
 HTTP(S) proxy points to a node-local address that is unreachable from the CPU
@@ -110,11 +122,12 @@ allocation. The runner uses a scoped Stirrup `httpx.AsyncClient` with this
 setting and leaves the process environment unchanged for unrelated transports.
 The full preflight must semantically fetch `https://example.com/` through that
 same provider and retain the proxy-variable names (never their values); dispatch
-and audit require the successful fetch record. It must also prove that an
-ambient Brave key cannot enable search when `require_brave_search=false` and
-that an invalid model-supplied URL is returned as a failed tool result instead
-of terminating the rollout. This is a narrow backport of Stirrup main's URL
-validation around the pinned v0.1.12 provider.
+and audit require the successful fetch record. With search enabled, it must run
+a real Brave query and verify the `fetch_web_page` and `web_search` tool set. In
+no-search mode it must instead prove that an ambient Brave key cannot enable
+search. It must always verify that an invalid model-supplied URL is returned as
+a failed tool result instead of terminating the rollout. This is a narrow
+backport of Stirrup main's URL validation around the pinned v0.1.12 provider.
 
 The checked-in configuration uses Kimi pairwise scoring against the pinned
 dataset's public human-expert deliverables at Elo 1000. It excludes missing-gold
@@ -187,6 +200,12 @@ depending on the original source directory. Keep the source-missing set frozen
 across resumes even after the target run generates those absent candidates;
 validate the generated target candidate separately instead of removing its key
 from source provenance.
+
+Search capability, tool schemas, path aliases, and policy prompt changes are
+generation-relevant. The complete `[tools]` table is included in the semantic
+and generation fingerprints. Such a migration requires a fresh output directory
+and regenerated candidates; do not use `--candidate-source-run` to import from
+an older no-search or pre-alias run.
 
 Run VMVM probes and evaluations from a CPU Slurm allocation. The interactive
 Codex container cannot expose the VM lease's SSH tunnel even when allocation

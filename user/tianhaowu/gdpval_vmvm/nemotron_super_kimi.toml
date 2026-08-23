@@ -81,8 +81,9 @@ exclude_unsupported_artifacts = true
 terminal_failure_policy = "withhold_headline_elo"
 
 [tools]
-require_brave_search = false
+require_brave_search = true
 web_fetch_trust_env = false
+sft_compatibility_aliases = true
 
 [[references]]
 id = "human_expert"
