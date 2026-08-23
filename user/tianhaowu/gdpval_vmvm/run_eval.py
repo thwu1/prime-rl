@@ -128,9 +128,6 @@ IMPLEMENTATION_FILES = [
     "audit.py",
     "common.py",
     "Dockerfile.sandbox",
-    "gdpval_sft_reference_files_prompt.txt",
-    "gdpval_sft_system_prompt.txt",
-    "gdpval_sft_task_prompt.txt",
     "gdpval_user_prompt.txt",
     "gdpval_asset_manifest.tsv",
     "judge.py",
@@ -155,9 +152,6 @@ GENERATION_IMPLEMENTATION_FILES = {
         "asset_fetch.py",
         "common.py",
         "Dockerfile.sandbox",
-        "gdpval_sft_reference_files_prompt.txt",
-        "gdpval_sft_system_prompt.txt",
-        "gdpval_sft_task_prompt.txt",
         "gdpval_user_prompt.txt",
         "office_render.py",
         "policy_client.py",
@@ -220,7 +214,7 @@ def _expected_workspace_contract(config: dict[str, Any]) -> dict[str, Any]:
     sft_compatibility_aliases = _sft_compatibility_aliases(config)
     return {
         "canonical_root": "/workspace",
-        "command_working_directory": "/home/user" if sft_compatibility_aliases else "/workspace",
+        "command_working_directory": "/workspace",
         "home_directory": "/home/user" if sft_compatibility_aliases else None,
         "home_user_resolves_to_workspace": sft_compatibility_aliases,
         "write_through_verified": sft_compatibility_aliases,

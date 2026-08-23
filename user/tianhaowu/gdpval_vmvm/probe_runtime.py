@@ -270,7 +270,7 @@ async def _probe_vmvm(config: dict, task_id: str | None = None) -> dict:
             raise RuntimeError(f"Stirrup code-execution tool set mismatch: {tool_names!r} != {expected_tool_names!r}")
         if sft_compatibility_aliases:
             tool_probe_command = (
-                'test "$PWD" = /home/user && test "$HOME" = /home/user && '
+                'test "$PWD" = /workspace && test "$HOME" = /home/user && '
                 'test /home/user -ef /workspace && test "$(readlink -f /home/user)" = /workspace && '
                 "rm -f /home/user/.gdpval-sft-alias-probe && "
                 "trap 'rm -f /home/user/.gdpval-sft-alias-probe' EXIT && "

@@ -370,7 +370,7 @@ class VMVMCodeExecToolProvider(CodeExecToolProvider):
             )
         command_timeout = int(timeout if timeout is not None else self._shell_timeout or SHELL_TIMEOUT)
         if self._sft_compatibility_aliases:
-            wrapped = "set -o pipefail\nexport HOME=/home/user\ncd /home/user\n(\n" + cmd + "\n)"
+            wrapped = "set -o pipefail\nexport HOME=/home/user\ncd /workspace\n(\n" + cmd + "\n)"
         else:
             wrapped = "set -o pipefail\ncd /workspace\n(\n" + cmd + "\n)"
         return await self._run_exactly_once(wrapped, command_timeout)
