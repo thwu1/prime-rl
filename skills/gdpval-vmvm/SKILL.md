@@ -118,7 +118,20 @@ alongside the existing `/working_dir` alias, and `finish.summary` may alias
 canonical `finish.reason`. Conflicting values must fail; matching values are
 canonicalized to `reason`. Resolve submitted `/home/user` paths against
 `/workspace` for validation, rendering, and artifact capture. The canonical
-interface remains available alongside the aliases.
+interface remains available alongside the aliases. This mode also uses the
+training-compatible prompt assets sourced from rLLM commit
+`76ba2dce0c22e19083a0478273774aaaa98bbe00`. Keep the system prompt passed to
+Stirrup byte-exact to the SFT ChatML serialization, including its trailing line
+feed (content SHA-256
+`30ec664aaba97ecfa75946c7ad74f8e1e08bb32ef084e5bbe599b002387d613b`).
+The task template removes only the false non-root UID claim, retains
+`code_exec`, `/home/user`, and the independent-command warning, interpolates the
+raw dataset task text, and lists reference files at their full nested
+`/home/user/<catalog path>` locations. Preserve the two trailing line feeds in
+the rendered SFT task prompt. Include all three assets in the full and generation
+implementation manifests. When the flag is false, preserve the canonical
+`gdpval_user_prompt.txt` output byte-for-byte and do not pass a custom system
+prompt to Stirrup.
 
 Keep `tools.web_fetch_trust_env = false` on Slurm CPU nodes. Their inherited
 HTTP(S) proxy points to a node-local address that is unreachable from the CPU

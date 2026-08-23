@@ -184,17 +184,44 @@ def _expert_deliverable_specs(task: dict[str, Any], config: dict[str, Any]) -> l
     return specs
 
 
-def _build_prompt(task: dict[str, Any]) -> str:
-    paths = [f"- /workspace/{_safe_relative(path).as_posix()}" for path in _as_list(task.get("reference_files"))]
-    task_text = f"Sector: {task.get('sector', '')}\nOccupation: {task.get('occupation', '')}\n\n{task['prompt']}"
-    return (
-        (HERE / "gdpval_user_prompt.txt")
-        .read_text(encoding="utf-8")
-        .format(
-            task=task_text,
-            reference_files="\n".join(paths) if paths else "None",
+def _prompt_asset(name: str) -> str:
+    return (HERE / name).read_text(encoding="utf-8")
+
+
+def _build_prompt(task: dict[str, Any], *, sft_compatibility_aliases: bool = False) -> str:
+    if not sft_compatibility_aliases:
+        paths = [f"- /workspace/{_safe_relative(path).as_posix()}" for path in _as_list(task.get("reference_files"))]
+        task_text = f"Sector: {task.get('sector', '')}\nOccupation: {task.get('occupation', '')}\n\n{task['prompt']}"
+        return (
+            (HERE / "gdpval_user_prompt.txt")
+            .read_text(encoding="utf-8")
+            .format(
+                task=task_text,
+                reference_files="\n".join(paths) if paths else "None",
+            )
         )
+
+    paths = [f"/home/user/{_safe_relative(path).as_posix()}" for path in _as_list(task.get("reference_files"))]
+    reference_files_section = ""
+    if paths:
+        reference_files_section = (
+            (HERE / "gdpval_sft_reference_files_prompt.txt")
+            .read_text(encoding="utf-8")
+            .format(reference_file_lines="\n".join(f"- {path}" for path in paths))
+        )
+    return (
+        _prompt_asset("gdpval_sft_task_prompt.txt").format(
+            reference_files_section=reference_files_section,
+            task_description=task["prompt"],
+        )
+        + "\n"
     )
+
+
+def _system_prompt(*, sft_compatibility_aliases: bool = False) -> str | None:
+    if not sft_compatibility_aliases:
+        return None
+    return _prompt_asset("gdpval_sft_system_prompt.txt")
 
 
 def _history_json(history: Any) -> list[Any]:
@@ -504,6 +531,7 @@ async def _rollout(
         client=client,
         name="gdpval_stirrup_agent",
         max_turns=int(config["benchmark"]["max_turns"]),
+        system_prompt=_system_prompt(sft_compatibility_aliases=sft_compatibility_aliases),
         tools=[provider, web_provider],
         finish_tool=[
             build_finish_tool(sft_compatibility_aliases=sft_compatibility_aliases),
@@ -514,7 +542,7 @@ async def _rollout(
     try:
         async with agent.session(output_dir=submission_dir) as session:
             finish_params, history, metadata = await asyncio.wait_for(
-                session.run(_build_prompt(task)),
+                session.run(_build_prompt(task, sft_compatibility_aliases=sft_compatibility_aliases)),
                 timeout=float(config["benchmark"]["task_timeout_seconds"]),
             )
             finish_payload = finish_params.model_dump() if hasattr(finish_params, "model_dump") else finish_params

@@ -37,6 +37,8 @@ official parity.
 - [Experimental NVIDIA Kimi judge overlay](https://github.com/NVIDIA-NeMo/Gym/pull/2046)
   `13e181aa1779809457d1abbf47ab209d8d0f5ab3`
 - [Artificial Analysis Stirrup v0.1.12](https://github.com/ArtificialAnalysis/Stirrup/tree/3e988e5a1729cea37e6484e5cab2ab0f9eae4ffb)
+- Optional SFT prompt compatibility is sourced from
+  [rLLM commit `76ba2dce0c22e19083a0478273774aaaa98bbe00`](https://github.com/rllm-org/rllm/tree/76ba2dce0c22e19083a0478273774aaaa98bbe00/rllm/data/gdpval_aa)
 - 250 agent turns; Nemotron temperature 1.0, top-p 0.95, reasoning enabled
 - NeMo's dynamic-token behavior is preserved: reasoning-only or otherwise
   empty choices count as turns, and Stirrup supplies its normal continuation
@@ -180,7 +182,21 @@ executor, maps `/home/user` to `/workspace` alongside the existing
 `finish.reason`. Conflicting `summary` and `reason` values are rejected; a
 matching pair is canonicalized to `reason`. Submitted `/home/user` paths are
 resolved against `/workspace` for validation, rendering, and artifact capture.
-Set the flag to `false` to expose only the canonical interface.
+The same flag selects the training-compatible prompts. The system prompt passed
+to Stirrup matches the SFT ChatML serialization of the exact rLLM text,
+including its trailing line feed (content SHA-256
+`30ec664aaba97ecfa75946c7ad74f8e1e08bb32ef084e5bbe599b002387d613b`).
+The task template is derived from that revision by removing only its inaccurate
+claim that commands run as non-root UID 1000; it retains `code_exec`, the
+`/home/user` working directory, the warning that commands do not share shell
+state, and the concise environment inventory. Reference files are listed at
+their actual nested `/home/user/<catalog path>` locations, and the original
+dataset task description is interpolated without adding sector or occupation
+metadata. The rendered task prompt retains the two trailing line feeds found in
+every inspected SFT ChatML row. All three prompt assets are included in the
+generation implementation manifest. Set the flag to `false` to expose only the
+canonical interface, retain the existing `gdpval_user_prompt.txt`
+byte-for-byte, and supply no custom system prompt.
 
 Slurm CPU nodes inherit HTTP proxy variables whose node-local proxy address is
 not reachable there. The checked-in configs therefore pin
