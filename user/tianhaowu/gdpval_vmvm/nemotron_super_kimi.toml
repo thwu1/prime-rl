@@ -27,11 +27,11 @@ dispatch_seed = 20260822
 
 [policy]
 model = "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16"
-deployment_id = "slurm-10913801:model-d51eab0d1f979ebc26b546e634a04f450d99158e:vllm-0.22.0"
+deployment_id = "slurm-10949910:model-d51eab0d1f979ebc26b546e634a04f450d99158e:vllm-0.22.0"
 checkpoint_revision = "d51eab0d1f979ebc26b546e634a04f450d99158e"
 server_version = "0.22.0"
-slurm_job_name = "nemotron-super-swebench-h100"
-slurm_job_id = "10913801"
+slurm_job_name = "gdpval-nemo-super-4x8-h100"
+slurm_job_id = "10949910"
 slurm_job_id_env = "GDPVAL_POLICY_JOB_ID"
 base_url_env = "GDPVAL_POLICY_BASE_URL"
 api_key_env = "GDPVAL_POLICY_API_KEY"

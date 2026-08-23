@@ -14,8 +14,8 @@
 
 set -euo pipefail
 
-project_dir=/storage/home/tianhaowu/prime-rl
-runner_dir="$project_dir/user/tianhaowu/gdpval_vmvm"
+runner_dir="${GDPVAL_RUNNER_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
+project_dir="${GDPVAL_PROJECT_DIR:-$(cd "$runner_dir/../../.." && pwd)}"
 config_path="${GDPVAL_CONFIG:-$runner_dir/nemotron_super_kimi.toml}"
 output_dir="${GDPVAL_OUTPUT_DIR:-/checkpoint/ram/tianhaowu/gdpval_vmvm/nemotron_super_kimi_final}"
 
