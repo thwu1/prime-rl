@@ -1,0 +1,4 @@
+interface:
+  display_name: "GDPval VMVM"
+  short_description: "Run and audit GDPval v2 evaluations on VMVM"
+  default_prompt: "Use $gdpval-vmvm to prepare, launch, resume, audit, or interpret a GDPval v2 evaluation."
