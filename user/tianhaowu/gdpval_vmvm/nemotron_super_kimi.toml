@@ -50,8 +50,8 @@ sticky_session_header = "x-session-id"
 
 [judge]
 model = "Kimi-K2.6"
-deployment_id = "shared-kimi26:proxy-job-10643065"
-proxy_jobid = "10643065"
+deployment_id = "shared-kimi26:proxy-job-10950967"
+proxy_jobid = "10950967"
 protocol_checkpoint_revision = "2755962d07cb42aa2d988a35bcb65cd4a9c2de82"
 context_window = 262144
 info_path = "/checkpoint/ram/shared/vllm_deployments_v2/shared-kimi26/proxy_info.json"
