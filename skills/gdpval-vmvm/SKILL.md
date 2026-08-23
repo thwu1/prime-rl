@@ -75,6 +75,10 @@ GDPVAL_OUTPUT_DIR=/checkpoint/ram/tianhaowu/gdpval_vmvm/smoke \
 sbatch user/tianhaowu/gdpval_vmvm/run_eval.sbatch
 ```
 
+The batch wrapper resolves its runner directory from the original Slurm
+`Command` path, not `BASH_SOURCE[0]`, because Slurm executes a spool copy of the
+script. Use `GDPVAL_RUNNER_DIR` only as an explicit override.
+
 The default transport pins `ycm824632241/benchmark-8.13` at commit
 `ab55c6be877d2da8d7016e809cbfc9cab2ed1e90`, tasks tree
 `2a76ef74c516bbebca41150458ab5bb06983a2d1`, and manifest SHA-256

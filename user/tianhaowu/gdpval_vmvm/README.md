@@ -242,6 +242,10 @@ subset score, not the official AA v2 Elo:
 sbatch user/tianhaowu/gdpval_vmvm/run_eval.sbatch
 ```
 
+The batch wrapper resolves the original submitted script from Slurm's `Command`
+field because `BASH_SOURCE[0]` points at Slurm's spool copy inside a running job.
+Set `GDPVAL_RUNNER_DIR` only when intentionally overriding that submitted path.
+
 Smoke one task first:
 
 ```bash

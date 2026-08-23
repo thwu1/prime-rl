@@ -14,7 +14,18 @@
 
 set -euo pipefail
 
-runner_dir="${GDPVAL_RUNNER_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
+if [[ -n "${GDPVAL_RUNNER_DIR:-}" ]]; then
+  runner_dir="$GDPVAL_RUNNER_DIR"
+elif [[ -n "${SLURM_JOB_ID:-}" ]]; then
+  submitted_script="$({ scontrol show job -o "$SLURM_JOB_ID"; } | sed -n 's/.* Command=\([^ ]*\).*/\1/p')"
+  if [[ -z "$submitted_script" ]]; then
+    echo "Could not resolve the submitted script path for Slurm job $SLURM_JOB_ID" >&2
+    exit 1
+  fi
+  runner_dir="$(cd "$(dirname "$submitted_script")" && pwd)"
+else
+  runner_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+fi
 project_dir="${GDPVAL_PROJECT_DIR:-$(cd "$runner_dir/../../.." && pwd)}"
 config_path="${GDPVAL_CONFIG:-$runner_dir/nemotron_super_kimi.toml}"
 output_dir="${GDPVAL_OUTPUT_DIR:-/checkpoint/ram/tianhaowu/gdpval_vmvm/nemotron_super_kimi_final}"
