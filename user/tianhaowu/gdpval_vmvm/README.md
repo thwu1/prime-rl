@@ -165,10 +165,26 @@ inside the container. The pinned GitHub transport is public, so the checked-in
 configuration does not require `HF_TOKEN` or `HUGGING_FACE_HUB_TOKEN`. API keys
 are read only from configured environment variables or endpoint-info files;
 they are never stored in the run directory. The canonical pinned NeMo Gym
-configuration does not require a search API key. With neither `BRAVE_API_KEY`
-nor `TAVILY_API_KEY`, Stirrup still exposes direct URL fetching but omits
-`web_search`; this runner matches that public default. NVIDIA Gym can optionally
-add Tavily, but such a run must record the added capability.
+configuration does not require a search API key, but the checked-in configs set
+`tools.require_brave_search = true` to expose the `web_search` capability used
+by the UniPat Kimi-K3 SFT trajectories. Export `BRAVE_API_KEY` in the launch
+environment; never write it into TOML, logs, or result metadata. This is an
+explicit SFT-compatibility extension to the public no-search recipe, and the
+preflight and run metadata record that capability.
+
+The checked-in configs also set `tools.sft_compatibility_aliases = true`.
+Canonical `run_shell`, `/workspace`, and `finish.reason` remain supported. The
+compatibility surface additionally exposes `code_exec` through the same sandbox
+executor, maps `/home/user` to `/workspace` alongside the existing
+`/working_dir` alias, and accepts `finish.summary` as an alias for
+`finish.reason`. Conflicting `summary` and `reason` values are rejected; a
+matching pair is canonicalized to `reason`. Submitted `/home/user` paths are
+resolved against `/workspace` for validation, rendering, and artifact capture.
+Compatibility mode keeps the canonical prompt and `/workspace` working
+directory unchanged. It sets `HOME=/home/user`, so absolute paths learned from
+the SFT data address the same files through the symlink while relative commands
+retain the official GDPval behavior. Set the flag to `false` to expose only the
+canonical interface.
 
 Slurm CPU nodes inherit HTTP proxy variables whose node-local proxy address is
 not reachable there. The checked-in configs therefore pin
@@ -177,11 +193,14 @@ managed Stirrup HTTP client; it does not unset process-wide proxy variables that
 other transports may need. The full preflight uses the same provider to fetch
 `https://example.com/`, checks stable extracted body text, and records the names
 but not the values of proxy variables present in the CPU-node environment.
-It also verifies that configured no-search mode cannot inherit an ambient Brave
-key and that malformed model-supplied URLs become failed tool results rather
-than aborting the rollout. Dispatch and audit reject a preflight without this
-semantic evidence. This narrow malformed-URL handling follows the corresponding
-fix on Stirrup main while retaining the pinned v0.1.12 agent protocol.
+With search enabled, it performs a real Brave query and verifies that both
+`fetch_web_page` and `web_search` are exposed. A config that disables search
+instead verifies that an ambient Brave key cannot enable it. In both modes, the
+probe confirms that malformed model-supplied URLs become failed tool results
+rather than aborting the rollout. Dispatch and audit reject a preflight without
+this semantic evidence. This narrow malformed-URL handling follows the
+corresponding fix on Stirrup main while retaining the pinned v0.1.12 agent
+protocol.
 
 The mirror has an exact structural match to the pinned v2 catalog: all 220
 prompt strings, 261 reference-file mappings, and 248 public-gold mappings agree.
@@ -227,6 +246,10 @@ subset score, not the official AA v2 Elo:
 sbatch user/tianhaowu/gdpval_vmvm/run_eval.sbatch
 ```
 
+The batch wrapper resolves the original submitted script from Slurm's `Command`
+field because `BASH_SOURCE[0]` points at Slurm's spool copy inside a running job.
+Set `GDPVAL_RUNNER_DIR` only when intentionally overriding that submitted path.
+
 Smoke one task first:
 
 ```bash
@@ -234,6 +257,11 @@ GDPVAL_LIMIT=1 GDPVAL_WORKERS=1 \
 GDPVAL_OUTPUT_DIR=/checkpoint/ram/tianhaowu/gdpval_vmvm/smoke \
 sbatch user/tianhaowu/gdpval_vmvm/run_eval.sbatch
 ```
+
+`GDPVAL_WORKERS` controls active task concurrency. For high-fanout runs, set
+`GDPVAL_LEASE_CONCURRENCY` separately to limit simultaneous VMVM lease startup;
+it does not cap the number of active sandboxes after their tunnels are ready.
+For example, use 64 workers with a 32-lease startup cap.
 
 For comparisons against other model runs, copy
 `nemotron_super_kimi_comparison.example.toml` and populate its external
@@ -275,6 +303,13 @@ absent candidates should be generated. A source mismatch or corrupt existing
 candidate is always fatal and is never treated as permission to resample. The
 frozen source-missing set remains in run metadata after those absent candidates
 are generated, so later resumes preserve the same import provenance.
+
+Enabling Brave search or changing the policy-facing compatibility aliases is a
+generation change, not a judge-only migration. The complete `[tools]` table is
+included in the semantic and generation fingerprints. Keep an older output
+directory frozen and start a new one with regenerated candidates; resume and
+candidate import from the earlier no-search/tool-contract fingerprint are
+intentionally rejected.
 
 ## Recovery and audit contract
 

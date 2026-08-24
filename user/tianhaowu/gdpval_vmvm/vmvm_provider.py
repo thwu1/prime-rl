@@ -175,7 +175,10 @@ class VMVMCodeExecToolProvider(CodeExecToolProvider):
         bootstrap_assets: list[dict[str, Any]] | None = None,
         asset_cache_dir: str | Path,
         preload_image: bool = True,
+        sft_compatibility_aliases: bool = False,
     ) -> None:
+        if not isinstance(sft_compatibility_aliases, bool):
+            raise TypeError("sft_compatibility_aliases must be a boolean")
         super().__init__(
             allowed_commands=allowed_commands,
             shell_timeout=command_timeout_seconds,
@@ -197,6 +200,7 @@ class VMVMCodeExecToolProvider(CodeExecToolProvider):
         self._bootstrap_assets = list(bootstrap_assets or [])
         self._asset_cache_dir = Path(asset_cache_dir).expanduser().resolve()
         self._preload_image = preload_image
+        self._sft_compatibility_aliases = sft_compatibility_aliases
         self.staged_assets: list[dict[str, Any]] = []
         self.render_history: list[dict[str, Any]] = []
 
@@ -209,10 +213,17 @@ class VMVMCodeExecToolProvider(CodeExecToolProvider):
         backend = self._backend
         return {
             "transport_drops": self._transport_drops,
+            "tool_capabilities": {
+                "run_shell": True,
+                "code_exec": self._sft_compatibility_aliases,
+                "home_user_workspace_alias": self._sft_compatibility_aliases,
+            },
             "backend": backend.get_debugging_info() if backend is not None else None,
         }
 
-    async def __aenter__(self) -> Tool[CodeExecutionParams, ToolUseCountMetadata]:
+    async def __aenter__(
+        self,
+    ) -> Tool[CodeExecutionParams, ToolUseCountMetadata] | list[Tool[CodeExecutionParams, ToolUseCountMetadata]]:
         try:
             backend_class = _PreloadedImageBackend if self._preload_image else VacliVMVMBackend
             self._backend = await anyio.to_thread.run_sync(lambda: backend_class(self._config))
@@ -221,8 +232,19 @@ class VMVMCodeExecToolProvider(CodeExecToolProvider):
                 raise VMVMFatalError(f"VMVM startup failed: {error}") from error
             raise VMVMInfrastructureLost(f"VMVM startup failed: {error}") from error
         try:
+            workspace_alias_setup = ""
+            if self._sft_compatibility_aliases:
+                workspace_alias_setup = (
+                    "mkdir -p /home\n"
+                    "if [ -e /home/user ] || [ -L /home/user ]; then\n"
+                    '  [ "$(readlink -f /home/user)" = /workspace ] || '
+                    '{ echo "/home/user does not resolve to /workspace"; exit 1; }\n'
+                    "else\n"
+                    "  ln -s /workspace /home/user\n"
+                    "fi\n"
+                )
             probe = await self._run_exactly_once(
-                "set -o pipefail\ncd /workspace\n"
+                "set -o pipefail\n" + workspace_alias_setup + "cd /workspace\n"
                 "command -v bash >/dev/null && command -v python >/dev/null && "
                 "command -v libreoffice >/dev/null",
                 timeout=120,
@@ -235,7 +257,10 @@ class VMVMCodeExecToolProvider(CodeExecToolProvider):
         except Exception:
             await self._destroy()
             raise
-        return self.get_code_exec_tool(name="run_shell")
+        run_shell = self.get_code_exec_tool(name="run_shell")
+        if not self._sft_compatibility_aliases:
+            return run_shell
+        return [run_shell, self.get_code_exec_tool(name="code_exec")]
 
     async def __aexit__(
         self,
@@ -255,14 +280,17 @@ class VMVMCodeExecToolProvider(CodeExecToolProvider):
             raise RuntimeError("VMVM sandbox is not running")
         return self._backend
 
-    @staticmethod
-    def _resolve_path(path: str) -> str:
+    def _resolve_path(self, path: str) -> str:
         pure = PurePosixPath(path)
         if pure.is_absolute():
             parts = pure.parts
-            if len(parts) < 2 or parts[1] not in {"workspace", "working_dir"}:
-                raise ValueError(f"Path must be under /workspace: {path!r}")
-            relative = PurePosixPath(*parts[2:])
+            if len(parts) >= 2 and parts[1] in {"workspace", "working_dir"}:
+                relative = PurePosixPath(*parts[2:])
+            elif self._sft_compatibility_aliases and len(parts) >= 3 and parts[1:3] == ("home", "user"):
+                relative = PurePosixPath(*parts[3:])
+            else:
+                allowed = "/workspace or /home/user" if self._sft_compatibility_aliases else "/workspace"
+                raise ValueError(f"Path must be under {allowed}: {path!r}")
         else:
             relative = pure
         if ".." in relative.parts:
@@ -341,7 +369,10 @@ class VMVMCodeExecToolProvider(CodeExecToolProvider):
                 error_kind="invalid_argument",
             )
         command_timeout = int(timeout if timeout is not None else self._shell_timeout or SHELL_TIMEOUT)
-        wrapped = "set -o pipefail\ncd /workspace\n(\n" + cmd + "\n)"
+        if self._sft_compatibility_aliases:
+            wrapped = "set -o pipefail\nexport HOME=/home/user\ncd /workspace\n(\n" + cmd + "\n)"
+        else:
+            wrapped = "set -o pipefail\ncd /workspace\n(\n" + cmd + "\n)"
         return await self._run_exactly_once(wrapped, command_timeout)
 
     @staticmethod

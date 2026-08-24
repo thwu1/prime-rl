@@ -22,7 +22,10 @@ from run_eval import (
     WEB_FETCH_INVALID_URL,
     WEB_FETCH_PROBE_URL,
     _assigned_reference,
+    _expected_tool_capabilities,
     _required_asset_entries,
+    _sft_compatibility_aliases,
+    _validate_sandbox_tool_contract,
 )
 from run_eval import _summary as _runner_summary
 from worker import _expert_deliverable_specs, _reference_input_specs, _safe_component
@@ -254,6 +257,7 @@ def _validate_generation_preflight(
         or not isinstance(sandbox.get("vmvm"), dict)
     ):
         raise ValueError("Candidate source generation preflight has incomplete sandbox evidence")
+    _validate_sandbox_tool_contract(sandbox, config, context="Candidate source generation preflight")
     asset_mirror = sandbox.get("asset_mirror")
     expected_mirror = {
         "repository": config["source"]["asset_mirror_repository"],
@@ -849,6 +853,7 @@ def _audit_preflight(output_dir: Path, metadata: dict[str, Any], config: dict[st
         or not isinstance(sandbox.get("vmvm"), dict)
     ):
         raise ValueError("Preflight artifact does not contain complete sandbox and Office-render evidence")
+    _validate_sandbox_tool_contract(sandbox, config, context="Preflight artifact")
     asset_mirror = sandbox.get("asset_mirror")
     expected_mirror = {
         "repository": config["source"]["asset_mirror_repository"],
@@ -1247,6 +1252,7 @@ def audit(output_dir: Path) -> dict[str, Any]:
         raise ValueError("Run metadata has an unsupported schema version")
     fingerprint = str(metadata["config_fingerprint"])
     config = tomllib.loads((output_dir / "config.toml").read_text(encoding="utf-8"))
+    _sft_compatibility_aliases(config)
     expected_deployments = {
         "policy": policy_deployment_identity(config["policy"]),
         "judge": judge_deployment_identity(config["judge"]),
@@ -1356,14 +1362,8 @@ def audit(output_dir: Path) -> dict[str, Any]:
     results = load_jsonl(output_dir / "results.jsonl")
     attempts = load_jsonl(output_dir / "attempts.jsonl")
     preflight = _audit_preflight(output_dir, metadata, config)
-    tools_metadata = metadata.get("tools")
-    if (
-        not isinstance(tools_metadata, dict)
-        or tools_metadata.get("web_fetch") is not True
-        or tools_metadata.get("web_fetch_trust_env") is not config["tools"]["web_fetch_trust_env"]
-        or tools_metadata.get("web_search") is not bool(config["tools"]["require_brave_search"])
-    ):
-        raise ValueError("Run metadata has mismatched Stirrup web-fetch transport provenance")
+    if metadata.get("tools") != _expected_tool_capabilities(config):
+        raise ValueError("Run metadata has mismatched Stirrup tool-capability provenance")
     endpoint_sessions = _endpoint_sessions(output_dir, config)
     metadata_endpoint_session_id = metadata.get("endpoint_session_id")
     if metadata_endpoint_session_id:
@@ -1464,6 +1464,7 @@ def audit(output_dir: Path) -> dict[str, Any]:
                 or manifest.get("config_fingerprint") != fingerprint
                 or manifest.get("web_fetch_trust_env") is not config["tools"]["web_fetch_trust_env"]
                 or manifest.get("web_search_available") is not bool(config["tools"]["require_brave_search"])
+                or manifest.get("tool_capabilities") != _expected_tool_capabilities(config)
             ):
                 raise ValueError(f"Candidate identity mismatch in result for {key}")
             if manifest.get("candidate_import") is not None:
@@ -1617,6 +1618,7 @@ def audit(output_dir: Path) -> dict[str, Any]:
                 or candidate_manifest.get("config_fingerprint") != fingerprint
                 or candidate_manifest.get("web_fetch_trust_env") is not config["tools"]["web_fetch_trust_env"]
                 or candidate_manifest.get("web_search_available") is not bool(config["tools"]["require_brave_search"])
+                or candidate_manifest.get("tool_capabilities") != _expected_tool_capabilities(config)
             ):
                 raise ValueError(f"Candidate identity mismatch for attempt {key}:{row['attempt']}")
             if candidate_manifest.get("candidate_import") is not None:
