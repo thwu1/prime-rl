@@ -75,6 +75,11 @@ GDPVAL_OUTPUT_DIR=/checkpoint/ram/tianhaowu/gdpval_vmvm/smoke \
 sbatch user/tianhaowu/gdpval_vmvm/run_eval.sbatch
 ```
 
+`GDPVAL_WORKERS` controls active task concurrency. Use
+`GDPVAL_LEASE_CONCURRENCY` to cap only simultaneous VMVM lease acquisition;
+for example, `GDPVAL_WORKERS=64 GDPVAL_LEASE_CONCURRENCY=32` allows 64 active
+sandboxes without starting all leases at once.
+
 The batch wrapper resolves its runner directory from the original Slurm
 `Command` path, not `BASH_SOURCE[0]`, because Slurm executes a spool copy of the
 script. Use `GDPVAL_RUNNER_DIR` only as an explicit override.

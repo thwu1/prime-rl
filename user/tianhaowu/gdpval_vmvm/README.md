@@ -258,6 +258,11 @@ GDPVAL_OUTPUT_DIR=/checkpoint/ram/tianhaowu/gdpval_vmvm/smoke \
 sbatch user/tianhaowu/gdpval_vmvm/run_eval.sbatch
 ```
 
+`GDPVAL_WORKERS` controls active task concurrency. For high-fanout runs, set
+`GDPVAL_LEASE_CONCURRENCY` separately to limit simultaneous VMVM lease startup;
+it does not cap the number of active sandboxes after their tunnels are ready.
+For example, use 64 workers with a 32-lease startup cap.
+
 For comparisons against other model runs, copy
 `nemotron_super_kimi_comparison.example.toml` and populate its external
 `[[references]]` directory. Reference Elo anchors are explicit; the runner will
