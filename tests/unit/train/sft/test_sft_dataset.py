@@ -266,6 +266,106 @@ def test_sft_dataset_state_resume(build_dummy_dataset):
         next(dataiter)
 
 
+def test_sft_dataset_grouped_shuffle_preserves_group_order():
+    raw_dataset = Dataset.from_list(
+        [
+            {"group": "a", "segment": 0},
+            {"group": "b", "segment": 0},
+            {"group": "a", "segment": 1},
+            {"group": "c", "segment": 0},
+            {"group": "b", "segment": 1},
+            {"group": "a", "segment": 2},
+        ]
+    )
+    dataset = SFTDataset(
+        raw_dataset,
+        tokenizer=None,
+        shuffle_group_column="group",
+        seed=7,
+        max_epochs=2,
+    )
+
+    samples = list(dataset)
+    for epoch_samples in (samples[:6], samples[6:]):
+        groups = [sample["group"] for sample in epoch_samples]
+        for group in set(groups):
+            positions = [index for index, value in enumerate(groups) if value == group]
+            assert positions == list(range(positions[0], positions[-1] + 1))
+        assert [sample["segment"] for sample in epoch_samples if sample["group"] == "a"] == [0, 1, 2]
+        assert [sample["segment"] for sample in epoch_samples if sample["group"] == "b"] == [0, 1]
+
+    replay = SFTDataset(
+        raw_dataset,
+        tokenizer=None,
+        shuffle_group_column="group",
+        seed=7,
+        max_epochs=2,
+    )
+    assert list(replay) == samples
+
+
+def test_sft_dataset_grouped_shuffle_precedes_rank_sharding():
+    raw_dataset = Dataset.from_list(
+        [
+            {"group": "a", "segment": 0},
+            {"group": "b", "segment": 0},
+            {"group": "a", "segment": 1},
+            {"group": "c", "segment": 0},
+            {"group": "b", "segment": 1},
+            {"group": "c", "segment": 1},
+        ]
+    )
+    unsharded = SFTDataset(
+        raw_dataset,
+        tokenizer=None,
+        shuffle_group_column="group",
+        seed=11,
+        max_epochs=1,
+    )
+    rank_zero = SFTDataset(
+        raw_dataset,
+        tokenizer=None,
+        shuffle_group_column="group",
+        seed=11,
+        max_epochs=1,
+    )
+    rank_one = SFTDataset(
+        raw_dataset,
+        tokenizer=None,
+        shuffle_group_column="group",
+        seed=11,
+        max_epochs=1,
+    )
+    rank_zero.data_rank = 0
+    rank_zero.data_world_size = 2
+    rank_one.data_rank = 1
+    rank_one.data_world_size = 2
+
+    expected = [(sample["group"], sample["segment"]) for sample in unsharded]
+    reconstructed = []
+    for left, right in zip(rank_zero, rank_one, strict=True):
+        reconstructed.extend(((left["group"], left["segment"]), (right["group"], right["segment"])))
+
+    assert reconstructed == expected
+
+
+def test_sft_dataset_grouped_shuffle_rejects_missing_column(build_dummy_dataset):
+    with pytest.raises(ValueError, match="missing configured shuffle group column"):
+        SFTDataset(
+            build_dummy_dataset("a", 2),
+            tokenizer=None,
+            shuffle_group_column="source_trajectory_index",
+        )
+
+
+def test_sft_data_config_grouped_shuffle_requires_shuffle():
+    with pytest.raises(ValueError, match="requires shuffle=true"):
+        SFTDataConfig(shuffle=False, shuffle_group_column="source_trajectory_index")
+
+    with pytest.raises(ValueError, match="incompatible with pack_function='stack'"):
+        SFTDataConfig(pack_function="stack", shuffle_group_column="source_trajectory_index")
+
+
 def test_multiturn_loss_mask():
     dataset = Dataset.from_list(
         [

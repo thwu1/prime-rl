@@ -2,8 +2,10 @@ import json
 import math
 import uuid
 from collections import defaultdict
+from collections.abc import Hashable
 from typing import Literal, NotRequired, TypedDict, cast
 
+import numpy as np
 import torch
 from datasets import Dataset, interleave_datasets, load_dataset
 from jaxtyping import Bool, Float, Int
@@ -139,6 +141,7 @@ class SFTDataset(StatefulIterableDataset):
         dataset: Dataset,
         tokenizer: PreTrainedTokenizer | None,
         shuffle: bool = True,
+        shuffle_group_column: str | None = None,
         seed: int = 0,
         seq_len: int = 128,
         non_dp_size: int = 1,
@@ -154,6 +157,7 @@ class SFTDataset(StatefulIterableDataset):
         self.num_examples = len(self.dataset)
         self.tokenizer = tokenizer
         self.shuffle = shuffle
+        self.shuffle_group_column = shuffle_group_column
         self.seed = seed
         self.seq_len = seq_len
         self.loss_mask_config = loss_mask_config
@@ -171,6 +175,8 @@ class SFTDataset(StatefulIterableDataset):
             self.num_examples = min(self.num_examples, self.max_examples)
             self.dataset = self.dataset.take(self.max_examples)
 
+        self.shuffle_groups = self._build_shuffle_groups()
+
         # Get the data rank and world size
         worker_info = get_worker_info()
         worker_id, num_workers = 0, 1
@@ -180,6 +186,34 @@ class SFTDataset(StatefulIterableDataset):
         assert get_world().world_size % non_dp_size == 0, "world_size must be divisible by non_dp_size"
         self.data_rank = get_world().rank // non_dp_size * num_workers + worker_id
         self.data_world_size = get_world().world_size // non_dp_size * num_workers
+
+    def _build_shuffle_groups(self) -> list[list[int]] | None:
+        if self.shuffle_group_column is None:
+            return None
+        if self.shuffle_group_column not in self.dataset.column_names:
+            raise ValueError(f"Dataset is missing configured shuffle group column {self.shuffle_group_column!r}")
+
+        grouped_indices: dict[Hashable, list[int]] = {}
+        for index, group in enumerate(self.dataset[self.shuffle_group_column]):
+            if group is None:
+                raise ValueError(f"Shuffle group column {self.shuffle_group_column!r} contains a null value")
+            if not isinstance(group, Hashable):
+                raise TypeError(
+                    f"Shuffle group column {self.shuffle_group_column!r} must contain scalar hashable values, "
+                    f"got {type(group).__name__}"
+                )
+            grouped_indices.setdefault(group, []).append(index)
+        return list(grouped_indices.values())
+
+    def _dataset_for_epoch(self, epoch: int) -> Dataset:
+        if not self.shuffle:
+            return self.dataset
+        if self.shuffle_groups is None:
+            return self.dataset.shuffle(seed=epoch + self.seed)
+
+        group_order = np.random.default_rng(epoch + self.seed).permutation(len(self.shuffle_groups))
+        indices = [index for group_index in group_order for index in self.shuffle_groups[group_index]]
+        return self.dataset.select(indices)
 
     def _process(self, example: dict) -> dict | None:
         # Skip processing if no tokenizer was provided
@@ -313,7 +347,7 @@ class SFTDataset(StatefulIterableDataset):
         """
         Apply chat template and tokenize a single example in prompt + completion format (https://github.com/huggingface/trl/blob/de27d612b026526ba39b88eee348994d7636e033/trl/trainer/sft_trainer.py#L661)
         """
-        dataset = self.dataset.shuffle(seed=self.epoch + self.seed) if self.shuffle else self.dataset
+        dataset = self._dataset_for_epoch(self.epoch)
         while True:
             self.step += 1
 
@@ -327,7 +361,7 @@ class SFTDataset(StatefulIterableDataset):
             # Update stored epoch if new epoch is reached, optionally shuffle
             if epoch > self.epoch:
                 self.epoch = epoch
-                dataset = self.dataset.shuffle(seed=self.epoch + self.seed) if self.shuffle else self.dataset
+                dataset = self._dataset_for_epoch(self.epoch)
 
             # Skip samples that don't belong to this data rank
             if (self.step - 1) % self.data_world_size != self.data_rank:
@@ -658,6 +692,7 @@ def setup_dataset(
             raw_dataset,
             tokenizer,
             shuffle=config.shuffle,
+            shuffle_group_column=config.shuffle_group_column,
             seed=config.seed,
             seq_len=config.seq_len,
             loss_mask_config=config.loss_mask,
