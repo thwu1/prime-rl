@@ -116,3 +116,63 @@ a different provider/runtime and user-model protocol. This run is seven passes
 and 1.4433 percentage points higher, but the results are not directly
 interchangeable because this run uses BF16 inference and Kimi K2.6 for both the
 user simulator and judge.
+
+## Full-v5 trajectory-grouped user-block SFT campaign
+
+### Checkpoint 369
+
+- Score: **61 / 291 = 20.9622%**
+- Per-trial passes: 23, 18, and 20 out of 97
+- Per-task success histogram for 0/1/2/3 successes: 63/15/11/8
+- Standard unbiased pass@2: **29.8969%**
+- Standard unbiased pass@3: **35.0515%**
+- Coverage: 97 unique tasks x 3 trials, all complete
+- Statuses: 282 completed and 9 terminal model errors
+- Model errors: 9 empty or length-exhausted policy responses, all recorded as
+  deterministic `ValueError` zeros with no whole-rollout replay
+- VMVM recovery: 4 lost attempts, each immediately followed by one successful
+  attempt-2 record for the same task/trial; one additional in-rollout transport
+  drop restored the tunnel and recovered the original command exactly once
+
+Protocol and provenance:
+
+- Tau2 source: `fc0055dc4e0a316c3f83133267fbd6faaa770992`
+- Evaluator source: `289cf122356ef73599bdfd14e87539b5143d81fb`
+- Training source: `e11c875a139a613d4e1bcccda2b5b5d5dc1066ba`
+- Training job: `10973902`
+- Training config SHA-256:
+  `299d6070d078dc20d610121df5f57dc6c4098126d4a8913918f091a9ef44287b`
+- Training dataset manifest SHA-256:
+  `a2d323ca9d1dc0966ad7b803fa680a08a8d964db82e6e26d6576c98ca90ea2b9`
+- Training shuffle group: `source_trajectory_index`
+- Semantic evaluation fingerprint:
+  `06752d8bd48f430457fcbecdc7128bc3f70c595cbb0dec405c5b61ecedb2ac8b`
+- Verified Tau2 source archive SHA-256:
+  `70ec72b64feef6fae0a6838faa88d4979cf76c91ce2601913944fa51001ffd77`
+- Protected model snapshot:
+  `/checkpoint/ram/tianhaowu/tau3_banking_vmvm/protected_evaluated_checkpoints/full_v5_user_blocks_trajectory_grouped_v1_eval_parity_v1_seed3_r3/step_369`
+- Snapshot integrity: 88 files including `STABLE` and 81 structurally valid
+  safetensor shards; all files had exact device/inode/size parity with the
+  training checkpoint at launch.
+- Policy/user/judge settings match the three-trial protocol above. Policy
+  routing used `consistent_hash` on `x-session-id`; Kimi K2.6 user and judge
+  requests used `x-litellm-session-id`.
+- Independent router audit: 8,378 policy routing events, 294 unique policy
+  sessions, zero session-to-backend conflicts, and event distribution
+  2,068/1,943/2,277/2,090 across the four replicas.
+- Provider audit: 8,378 policy, 2,467 user, and 3 judge HTTP 200 responses;
+  zero non-200 responses and zero provider-retry exhaustions.
+- Slurm jobs: policy `10998350`, evaluator `10998351`, cleanup `10998352`, and
+  audit `10998353`.
+- Final audit:
+  `/checkpoint/ram/tianhaowu/tau3_banking_vmvm/evals/full_v5_user_blocks_trajectory_grouped_v1_eval_parity_v1_seed3_r3_parallel2_x3_v1/step_369/eval/final_audit.json`
+
+Artifact SHA-256 values:
+
+```text
+89a5393cc7c239e0126ba02450db3bd89d6130dbe944a252c168a645fc99abb6  results.jsonl
+03a311460d50f35cd5d579c585ea40ea0bf9adcb1806425b611b7271ddae5d11  attempts.jsonl
+bef1a39312cddf026c4df7376a990cf1ceabc818539616d51e4fb55ae4336045  proxy_requests.jsonl
+3dd5ef9ba343912bd1152335a77e4aa7a1f57cf0484bd6db50746af5b06fcb8f  run_metadata.json
+c0b0c7f90de8b1572aac1a241463395d6011496dd3d90fbc88e727719af41030  final_audit.json
+```
