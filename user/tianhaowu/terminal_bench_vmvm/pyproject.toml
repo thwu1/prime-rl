@@ -1,0 +1,35 @@
+[project]
+name = "terminal-bench-vmvm"
+version = "0.1.0"
+description = "Prime-RL Harbor taskset and VMVM operations for Terminal-Bench"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+    "prime-pydantic-config",
+    "renderers",
+    "verifiers",
+    "vmvm-tb-v2",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["terminal_bench_vmvm"]
+
+[tool.uv]
+required-version = ">=0.11.1"
+exclude-newer = "7 days"
+
+[tool.uv.sources]
+prime-pydantic-config = { path = "../../../deps/pydantic-config", editable = true }
+renderers = { path = "../../../deps/renderers", editable = true }
+verifiers = { path = "../../../deps/verifiers", editable = true }
+vmvm-tb-v2 = { path = "../../../environments/vmvm_tb_v2", editable = true }
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.12",
+]

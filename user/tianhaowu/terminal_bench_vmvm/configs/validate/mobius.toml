@@ -1,0 +1,20 @@
+setup_timeout = 3600
+validate_timeout = 10800
+max_concurrent = 64
+rich = false
+
+[taskset]
+id = "terminal-bench-vmvm"
+dataset_dir = "/storage/home/tianhaowu/prime-rl"
+image_prefix = "vmvm-registry.fbinfra.net/terminal_bench"
+image_tag = "mobius-9b6988a3faf0"
+image_manifest = "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/mobius_images.json"
+ignore_dockerfile = true
+verifier_runtime_retries = 2
+
+[runtime]
+type = "vmvm"
+session_timeout = 10800
+tenant_id = "async_2347641"
+lease_ttl = "60s"
+max_session_buffer_size = 67108864
