@@ -87,6 +87,7 @@ conn.close()
 
 # Generate the corrected SQL
 
+corrected_sql = r"""
 -----------------------------------------------------------------------
 -- Function: margin_category (FIXED)
 -- Fix A: Divide by p_revenue, not p_cost (margin, not markup)

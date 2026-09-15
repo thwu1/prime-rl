@@ -68,8 +68,7 @@ def fix_formatter():
 
 
 def implement_evaluator():
-
-import { readFileSync } from 'fs';
+    code = r'''import { readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 

@@ -1,4 +1,4 @@
- *
+/*
  * Preemptive threading implementation for ARM Cortex-M3.
  * PendSV-based context switching with SysTick-driven scheduling.
  * Stack allocation via K&R malloc.

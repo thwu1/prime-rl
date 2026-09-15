@@ -1,4 +1,4 @@
- *
+/*
  * De Bruijn graph genome assembler.
  * Reads a k-mer file, builds a hash table, traverses from start nodes
  * (backward extension == 'F'), and outputs sorted contigs.

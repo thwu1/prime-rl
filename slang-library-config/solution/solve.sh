@@ -10,21 +10,8 @@ cd /app
 
 echo "=== Installing slang ==="
 
-RELEASE_JSON=$(curl -sL https://api.github.com/repos/MikePopoloski/slang/releases/latest)
-TARBALL_URL=$(echo "$RELEASE_JSON" | python3 -c "
-import sys, json
-data = json.load(sys.stdin)
-for asset in data.get('assets', []):
-    name = asset['name'].lower()
-    if 'linux' in name and name.endswith('.tar.gz'):
-        print(asset['browser_download_url'])
-        break
-")
-
-if [ -z "$TARBALL_URL" ]; then
-    echo "ERROR: No Linux release asset found."
-    exit 1
-fi
+SLANG_VERSION=${SLANG_VERSION:-v11.0}
+TARBALL_URL="https://github.com/MikePopoloski/slang/releases/download/${SLANG_VERSION}/slang-linux-x86_64.tar.gz"
 
 echo "Downloading: $TARBALL_URL"
 wget -q "$TARBALL_URL" -O /tmp/slang-linux.tar.gz

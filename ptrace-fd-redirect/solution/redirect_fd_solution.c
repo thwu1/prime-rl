@@ -1,4 +1,4 @@
- *
+/*
  * redirect_fd_solution.c — Complete ptrace-based FD redirector.
  *
  * Attaches to a running process, injects syscalls to redirect its

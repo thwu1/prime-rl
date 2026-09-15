@@ -7,7 +7,7 @@ in puzzle solution lines using the python-chess library and the provided utility
 """
 
 
-from typing import List, Optional
+TAGGER_SOURCE = r'''from typing import List, Optional
 import chess
 from chess import (
     square_rank,

@@ -1,4 +1,4 @@
- *
+/*
  * K&R-style heap allocator.
  * Uses a static array as the backing store with an sbrk-like
  * bump allocator feeding a coalescing free-list.

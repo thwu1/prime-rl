@@ -5,7 +5,7 @@ Discovers and implements the necessary reduction strategies by studying
 the hypothesis library's Conjecture engine internals.
 """
 
-"""
+SHRINKER_CODE = r'''"""
 Shrinker for choice sequences.
 
 Given a choice sequence that causes a test to be INTERESTING (failing),

@@ -1,5 +1,3 @@
- */
-
 /*
  * Fixed PQC Audit Tool
  *

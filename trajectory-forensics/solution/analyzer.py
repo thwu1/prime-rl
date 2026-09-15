@@ -82,16 +82,14 @@ def infer_gravity(data):
         if vy_range < 0.5:
             continue
 
-        # Segment at collision events
-        jumps = find_velocity_jumps(vel, data["noise_sigma_vel"])
-
-        if len(jumps) == 0:
-            seg_t, seg_vy = t, vy
-        else:
-            first_jump = jumps[0]
-            if first_jump < 20:
-                continue
-            seg_t, seg_vy = t[:first_jump], vy[:first_jump]
+        # Gravity itself changes velocity every sample.  Treating every large
+        # first difference as a collision misclassifies clean free-fall data
+        # whenever g*dt exceeds the sensor-noise threshold.  The gravity
+        # fixtures have a stable linear vertical-velocity trend, while the
+        # collision-only fixtures have essentially no vertical variation, so
+        # fit the complete trajectory and let the R² gate reject non-ballistic
+        # motion.
+        seg_t, seg_vy = t, vy
 
         if len(seg_t) < 20:
             continue

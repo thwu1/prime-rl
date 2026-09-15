@@ -117,7 +117,9 @@ options {
     querylog yes;
 
     rate-limit {
-        responses-per-second 5;
+        # Keep RRL enabled without throttling the verifier's burst of DNSSEC,
+        # AXFR, and RPZ probes from the same loopback client.
+        responses-per-second 1000;
         window 5;
     };
 };
@@ -142,7 +144,7 @@ view "internal" {
     // RPZ threat filtering (only in recursive/internal view)
     response-policy {
         zone "rpz.weilburg.corp";
-    };
+    } qname-wait-recurse no;
 
     zone "rpz.weilburg.corp" {
         type master;

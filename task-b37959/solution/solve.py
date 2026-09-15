@@ -145,7 +145,7 @@ def optimize_chain(matrices):
 def generate_blas_eval():
     """Generate /app/blas_eval.c with CBLAS routine calls."""
 
-#include <stdio.h>
+    code = r"""#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>

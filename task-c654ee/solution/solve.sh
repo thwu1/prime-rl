@@ -48,3 +48,17 @@ if ! mysqladmin --socket=/tmp/mysql.sock -u root ping 2>/dev/null; then
 fi
 
 python3 /solution/reconcile.py
+status=$?
+
+# The verifier starts its own mysqld against the same data directory.  Leave the
+# repaired database on disk, but stop the oracle's temporary server cleanly so
+# its socket locks do not make the verifier fail before it can inspect it.
+mysqladmin --socket=/tmp/mysql.sock -u root shutdown 2>/dev/null || true
+for i in $(seq 1 30); do
+    test ! -e /tmp/mysql.pid && break
+    sleep 1
+done
+rm -f /tmp/mysql.sock /tmp/mysql.sock.lock /tmp/mysql.pid \
+      /var/run/mysqld/mysqlx.sock /var/run/mysqld/mysqlx.sock.lock
+
+exit "$status"

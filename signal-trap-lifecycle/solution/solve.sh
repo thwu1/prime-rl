@@ -43,17 +43,23 @@ _traplib_run_cleanup() {
         eval "${_TRAPLIB_HANDLERS[$i]}"
     done
 
-    # FIX 8: kill process groups with negative PGID, with individual PID fallback
-    # and SIGKILL escalation for stubborn processes
-    local pgid
+    # FIX 8: terminate group members before their leader. This lets a shell
+    # waiting on a child reap it before the shell itself exits, avoiding
+    # lingering zombies in minimal containers whose PID 1 is not a reaper.
+    local pgid member
     for pgid in "${_TRAPLIB_PGROUPS[@]}"; do
-        kill -- -"$pgid" 2>/dev/null
+        while read -r member; do
+            [ -n "$member" ] && [ "$member" != "$pgid" ] && kill "$member" 2>/dev/null
+        done < <(ps -eo pid=,pgid= | awk -v group="$pgid" '$2 == group { print $1 }')
+    done
+    sleep 0.1
+    for pgid in "${_TRAPLIB_PGROUPS[@]}"; do
         kill "$pgid" 2>/dev/null
     done
     sleep 0.1
     for pgid in "${_TRAPLIB_PGROUPS[@]}"; do
-        kill -9 -- -"$pgid" 2>/dev/null
         kill -9 "$pgid" 2>/dev/null
+        wait "$pgid" 2>/dev/null
     done
 
     # FIX 6: read from file-based registry (survives subshells)

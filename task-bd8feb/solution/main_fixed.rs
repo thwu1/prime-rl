@@ -234,10 +234,12 @@ fn main() {
         lct.init(i, weights[i - 1]);
     }
 
-    let q: usize = lines.next().unwrap().trim().parse().unwrap();
+    let _q: usize = lines.next().unwrap().trim().parse().unwrap();
 
-    for _ in 0..q {
-        let line = lines.next().unwrap();
+    // Consume the command stream to EOF.  Some real inputs contain a stale
+    // operation count, and silently dropping valid trailing operations makes
+    // an otherwise-correct dynamic forest return an incomplete transcript.
+    for line in lines {
         let tok: Vec<&str> = line.trim().split_whitespace().collect();
         match tok[0] {
             "link" => {

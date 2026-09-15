@@ -7,7 +7,7 @@ cd /app/ramulator2
 mkdir -p build
 cd build
 cmake .. -DCMAKE_BUILD_TYPE=Release
-make -j$(nproc)
+make -j"${BUILD_JOBS:-2}"
 cp ./ramulator2 ../ramulator2
 cd /app
 echo "=== Build complete ==="
@@ -26,7 +26,7 @@ echo "=== FCFS scheduler installed ==="
 echo "=== Step 3: Rebuild with FCFS scheduler ==="
 cd /app/ramulator2/build
 cmake ..
-make -j$(nproc)
+make -j"${BUILD_JOBS:-2}"
 cp ./ramulator2 ../ramulator2
 cd /app
 echo "=== Rebuild complete ==="

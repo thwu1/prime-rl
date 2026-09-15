@@ -5,7 +5,7 @@ Solution: writes the full implementation of quantlib/core.py.
 """
 
 
-"""
+IMPLEMENTATION = r'''"""
 4-bit NormalFloat (NF4) quantization library.
 
 Implements blockwise 4-bit quantization with NF4 and FP4 data types,

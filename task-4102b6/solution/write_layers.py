@@ -2,7 +2,7 @@
 """Write sidp_layers.py and analyze.py to /app/."""
 
 
-import struct
+LAYERS_CODE = r'''import struct
 from scapy.packet import Packet, Raw
 from scapy.fields import (
     ShortField, ByteField, IntField, XShortField, XIntField,

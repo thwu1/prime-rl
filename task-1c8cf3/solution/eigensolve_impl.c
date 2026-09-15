@@ -1,5 +1,3 @@
- */
-
 #include "eigensolve.h"
 #include <string.h>
 

@@ -14,17 +14,12 @@ with open("/opt/pricing_task/pricing_engine.py") as f:
 with open("/solution/optimal_impl.py") as f:
     solver_code = f.read()
 
-# Extract solver function code (skip canary and module-level docstring/imports)
-lines = solver_code.split("\n")
-code_lines = []
-past_canary = False
-for line in lines:
-        past_canary = True
-        continue
-    if past_canary:
-        code_lines.append(line)
-
-helper_code = "\n".join(code_lines)
+# Extract solver function code, skipping its module docstring and import.
+lines = solver_code.splitlines()
+start = next(
+    index for index, line in enumerate(lines) if line.startswith("def _get_discount_products")
+)
+helper_code = "\n".join(lines[start:])
 
 # Find the calculate_optimal_total function in the base module
 marker = "def calculate_optimal_total("

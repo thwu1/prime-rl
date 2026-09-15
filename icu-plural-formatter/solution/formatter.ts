@@ -46,7 +46,9 @@ export function format(
 
       case TYPE.pound: {
         if (currentPluralValue !== undefined) {
-          parts.push(new Intl.NumberFormat(locale).format(currentPluralValue));
+          // Keep grouping locale-sensitive while using Latin decimal digits,
+          // which is the wire-format convention expected by this formatter.
+          parts.push(new Intl.NumberFormat(`${locale}-u-nu-latn`).format(currentPluralValue));
         } else {
           parts.push('#');
         }

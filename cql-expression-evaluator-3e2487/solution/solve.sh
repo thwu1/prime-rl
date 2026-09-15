@@ -8,7 +8,19 @@ pip3 install antlr4-python3-runtime==4.13.2 -q
 # Download ANTLR4 tool JAR
 ANTLR_JAR=/tmp/antlr-4.13.2-complete.jar
 if [ ! -f "$ANTLR_JAR" ]; then
-    curl -sL -o "$ANTLR_JAR" https://www.antlr.org/download/antlr-4.13.2-complete.jar
+    if command -v curl >/dev/null 2>&1; then
+        curl -fsSL -o "$ANTLR_JAR" https://www.antlr.org/download/antlr-4.13.2-complete.jar
+    else
+        python3 - "$ANTLR_JAR" <<'PY'
+import sys
+import urllib.request
+
+urllib.request.urlretrieve(
+    "https://www.antlr.org/download/antlr-4.13.2-complete.jar",
+    sys.argv[1],
+)
+PY
+    fi
 fi
 
 # Copy the adapted grammar to /app

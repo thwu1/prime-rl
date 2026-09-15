@@ -25,10 +25,14 @@ export VAULT_TOKEN=$(cat /app/vault-creds/root-token)
 # =================================================================
 vault secrets tune -max-lease-ttl=87600h pki
 
-vault write pki/root/generate/internal \
+ROOT_CA=$(vault write -format=json pki/root/generate/internal \
     common_name="Example Root CA" \
     ttl=87600h \
-    key_bits=4096
+    key_bits=4096)
+ROOT_ISSUER=$(echo "$ROOT_CA" | jq -r '.data.issuer_id')
+vault write pki/config/issuers \
+    default="$ROOT_ISSUER" \
+    default_follows_latest_issuer=true
 
 vault write pki/config/urls \
     issuing_certificates="http://127.0.0.1:8200/v1/pki/ca" \
@@ -42,15 +46,19 @@ vault write -format=json pki_int/intermediate/generate/internal \
     key_bits=4096 \
     | jq -r '.data.csr' > /tmp/pki_int.csr
 
-vault write -format=json pki/root/sign-intermediate \
+vault write -format=json "pki/issuer/$ROOT_ISSUER/sign-intermediate" \
     csr=@/tmp/pki_int.csr \
     format=pem_bundle \
     ttl=43800h \
     max_path_length=0 \
     | jq -r '.data.certificate' > /tmp/intermediate.cert.pem
 
-vault write pki_int/intermediate/set-signed \
-    certificate=@/tmp/intermediate.cert.pem
+INTERMEDIATE_IMPORT=$(vault write -format=json pki_int/intermediate/set-signed \
+    certificate=@/tmp/intermediate.cert.pem)
+INTERMEDIATE_ISSUER=$(echo "$INTERMEDIATE_IMPORT" | jq -r '.data.imported_issuers[0]')
+vault write pki_int/config/issuers \
+    default="$INTERMEDIATE_ISSUER" \
+    default_follows_latest_issuer=true
 
 vault write pki_int/config/urls \
     issuing_certificates="http://127.0.0.1:8200/v1/pki_int/ca" \

@@ -15,7 +15,7 @@ TSC_PATH = '/app/tsconfig.json'
 os.makedirs('/app/src', exist_ok=True)
 
 
-// Automerge Binary Document Format — Columnar Encoding Codec
+FIXED_CODEC = r'''// Automerge Binary Document Format — Columnar Encoding Codec
 
 import { createHash } from 'crypto';
 

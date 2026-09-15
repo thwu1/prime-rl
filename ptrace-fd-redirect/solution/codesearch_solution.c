@@ -1,4 +1,4 @@
- *
+/*
  * codesearch_solution.c — Complete suffix-array-based code search.
  */
 

@@ -3,7 +3,7 @@
 """Generate the complete MerkleTree.v with all proofs filled in."""
 
 
-(* MerkleTree.v — Formalization of Merkle hash trees with
+SOLUTION = r'''(* MerkleTree.v — Formalization of Merkle hash trees with
    cryptographic security properties. *)
 
 Require Import Arith.

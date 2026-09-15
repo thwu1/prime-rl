@@ -146,7 +146,8 @@ sampler = sampler.replace(
 # Fix 6b: record() — use atomic store for data fields
 sampler = sampler.replace(
     'entries_[idx].start_ns = start_ns;',
-    'entries_[idx].start_ns.store(start_ns, std::memory_order_relaxed);'
+    'entries_[idx].version.fetch_add(1, std::memory_order_acq_rel);\n'
+    '        entries_[idx].start_ns.store(start_ns, std::memory_order_relaxed);'
 )
 sampler = sampler.replace(
     'entries_[idx].end_ns = end_ns;',
@@ -156,7 +157,8 @@ sampler = sampler.replace(
 # Fix 7a: record() ready flag needs release ordering
 sampler = sampler.replace(
     'entries_[idx].ready.store(true, std::memory_order_relaxed);',
-    'entries_[idx].ready.store(true, std::memory_order_release);'
+    'entries_[idx].ready.store(true, std::memory_order_release);\n'
+    '        entries_[idx].version.fetch_add(1, std::memory_order_release);'
 )
 
 # Fix 7b: read_latency() ready flag needs acquire ordering
@@ -165,10 +167,34 @@ sampler = sampler.replace(
     'entries_[idx].ready.load(std::memory_order_acquire)'
 )
 
-# Fix 6c: read_latency() — use atomic load for data fields
+# Fix 6c: read_latency() — use a sequence lock so a reader never combines the
+# start timestamp from one ring-buffer generation with the end timestamp from
+# another. Atomic fields alone prevent a C++ data race but not a torn pair.
 sampler = sampler.replace(
-    'entries_[idx].end_ns - entries_[idx].start_ns',
-    'entries_[idx].end_ns.load(std::memory_order_relaxed) - entries_[idx].start_ns.load(std::memory_order_relaxed)'
+    '''if (!entries_[idx].ready.load(std::memory_order_acquire)) {
+            return -1;
+        }
+        return static_cast<int64_t>(entries_[idx].end_ns - entries_[idx].start_ns);''',
+    '''const Entry& entry = entries_[idx];
+        for (int attempt = 0; attempt < 3; ++attempt) {
+            const uint64_t before = entry.version.load(std::memory_order_acquire);
+            if (before == 0 || (before & 1U) != 0) {
+                return -1;
+            }
+            const uint64_t start = entry.start_ns.load(std::memory_order_relaxed);
+            const uint64_t end = entry.end_ns.load(std::memory_order_relaxed);
+            const uint64_t after = entry.version.load(std::memory_order_acquire);
+            if (before == after && (after & 1U) == 0) {
+                return end >= start ? static_cast<int64_t>(end - start) : -1;
+            }
+        }
+        return -1;'''
+)
+
+sampler = sampler.replace(
+    'std::atomic<bool> ready{false};',
+    'std::atomic<bool> ready{false};\n'
+    '        std::atomic<uint64_t> version{0};'
 )
 
 with open('/app/latency_sampler.h', 'w') as f:

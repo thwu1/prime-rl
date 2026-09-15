@@ -14,7 +14,7 @@ Bugs fixed:
 import json
 import os
 
-"""
+CORRECTED_MODULE = r'''"""
 Ammonia-water (NH3-H2O) thermodynamic property correlations.
 Based on Patek & Klomfar (1995).
 """

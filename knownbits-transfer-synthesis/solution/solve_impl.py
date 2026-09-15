@@ -314,7 +314,7 @@ def transfer_mul(a, b):
 
 def write_solution():
     """Write the solution transfers.py to /app/transfers.py."""
-"""
+    solution = r'''"""
 Transfer Functions for the KnownBits Abstract Domain — SOLUTION
 """
 

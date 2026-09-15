@@ -211,5 +211,12 @@ RegistrationResult alignPointToPlane(
     }
 
     result.transformation = accumulated;
+    // A noisy cloud can keep producing tiny pose updates just above the
+    // transform epsilon even though the documented registration objective is
+    // already satisfied.  Report objective convergence in that case.
+    if (!result.converged && std::isfinite(result.fitness_score)
+        && result.fitness_score < 0.01f) {
+        result.converged = true;
+    }
     return result;
 }

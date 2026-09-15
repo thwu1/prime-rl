@@ -4,7 +4,7 @@
 """
 
 
-"""Format-preserving code migration transformer: restlib -> httpclient.
+TRANSFORMER_CODE = r'''"""Format-preserving code migration transformer: restlib -> httpclient.
 
 Uses libcst (concrete syntax tree) to transform Python source code that
 uses the ``restlib`` HTTP library into equivalent code using ``httpclient``,

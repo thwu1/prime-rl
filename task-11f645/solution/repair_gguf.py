@@ -106,6 +106,7 @@ def main():
     o = 24  # start of metadata (after header fixed fields)
     actual_kv = 0
     type_tag_fixes = []
+    metadata_bytes_removed = 0
 
     while True:
         # Check: can the remaining data be parsed as tensor infos?
@@ -120,6 +121,19 @@ def main():
         tag_off = key_end
         tag = ru32(tag_off)
         val_off = tag_off + 4
+
+        # DEFECT 6: the quantizer attribution was replaced with a longer value.
+        # Repair the length-prefixed string and shift the rest of the header
+        # left. We restore the removed bytes as alignment padding below, so the
+        # tensor-data section remains at its original absolute offset.
+        if key == "general.quantized_by" and tag == 8:
+            old_length = ru64(val_off)
+            replacement = b"local"
+            value_start = val_off + 8
+            value_end = value_start + old_length
+            data[value_start:value_end] = replacement
+            struct.pack_into('<Q', data, val_off, len(replacement))
+            metadata_bytes_removed += old_length - len(replacement)
 
         # Try skipping value with declared type
         try:
@@ -210,6 +224,8 @@ def main():
     header_end = o
     alignment = 64
     pad_needed = (alignment - (header_end % alignment)) % alignment
+    if metadata_bytes_removed:
+        data[header_end:header_end] = b'\x00' * metadata_bytes_removed
     for i in range(header_end, header_end + pad_needed):
         data[i] = 0x00
 

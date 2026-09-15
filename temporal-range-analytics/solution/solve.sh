@@ -3,12 +3,15 @@
 
 set -e
 
-# Start PostgreSQL
-service postgresql start
+# SysV's wrapper can report failure in containers even after postgres has
+# reached readiness (the daemon detaches before the wrapper observes it).
+# Treat readiness, rather than the wrapper's exit status, as authoritative.
+service postgresql start || true
 for i in $(seq 1 30); do
     pg_isready -U postgres -q && break
     sleep 1
 done
+pg_isready -U postgres -q
 
 # Create a fresh database
 psql -U postgres -c "DROP DATABASE IF EXISTS taskdb;" 2>/dev/null || true

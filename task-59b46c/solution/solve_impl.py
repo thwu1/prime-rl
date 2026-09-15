@@ -1,6 +1,6 @@
 """Write the full pipeline implementation to /app/pipeline.py."""
 
-"""Cross-subject EEG motor imagery decoding pipeline."""
+IMPLEMENTATION = r'''"""Cross-subject EEG motor imagery decoding pipeline."""
 
 import numpy as np
 from typing import List, Dict, Tuple

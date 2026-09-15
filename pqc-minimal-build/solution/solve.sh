@@ -44,7 +44,9 @@ mkdir -p /app/output
 /app/pqc_audit
 
 echo "=== Step 5: Install and run Python verification ==="
-pip3 install liboqs-python==0.15.0 -q
+# The 0.15.0 wheel was removed from the configured package index. The 0.16.0
+# wrapper retains the enumeration API used below and can load this system liboqs.
+pip3 install liboqs-python==0.16.0 -q
 
 cp /solution/pqc_verify.py /app/pqc_verify.py
 python3 /app/pqc_verify.py

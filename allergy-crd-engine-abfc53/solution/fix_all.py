@@ -263,6 +263,7 @@ export function isPrimarySensitization(
 # syndromes.ts — Fixes: LTP threshold, pork-cat ID, bird-egg implementation
 # =============================================================================
 
+SYNDROMES_TS = """\
 import {
   AllergenComponent, TestResult, SyndromeDetection,
   MolecularFamily, AllergenCategory
@@ -505,6 +506,7 @@ export function assessRisk(
 # qc.ts — Complete QC pipeline implementation (was unimplemented stub)
 # =============================================================================
 
+QC_TS = """\
 import { PatientPanel, AllergenComponent, QualityFlag } from './types';
 import { getCapClass } from './cap-banding';
 

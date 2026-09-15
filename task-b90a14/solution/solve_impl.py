@@ -4,7 +4,7 @@ Solution: implements the shrinker reduction logic in _reduce().
 Writes the complete shrinker.py with all reduction strategies.
 """
 
-"""
+SHRINKER_CODE = r'''"""
 Shrinker for choice sequences.
 
 Given a choice sequence that causes a test to be INTERESTING (failing),

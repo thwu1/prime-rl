@@ -1,4 +1,4 @@
- *
+/*
  * xv6 Filesystem Consistency Checker
  * Parses a raw xv6 filesystem image and detects structural inconsistencies.
  * Usage: xv6-fsck <image_path>

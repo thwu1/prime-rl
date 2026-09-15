@@ -7,7 +7,7 @@ library (no Mathlib).
 """
 
 
-/-!
+SOLUTION = r'''/-!
 # NAE-SAT to 3-Coloring NP-Completeness Reduction (Complete Solution)
 
 All definitions are self-contained (no Mathlib dependency).
