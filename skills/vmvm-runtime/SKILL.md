@@ -41,6 +41,41 @@ contract with:
 sbatch user/tianhaowu/deepswe_vmvm/run_runtime_smoke.sbatch
 ```
 
+Use the `cpu_x86` partition with `cpu_x86_lowest`; the historical `cpu` /
+`cpu_lowest` names are no longer valid. Pin vacli to
+`/public/fbpkgs/x86_64/vacli/stable/vacli` (or leave the backend default). The
+moving `latest` build 793 launches an x2p helper with an unavailable GLIBC
+symbol on some otherwise healthy CPU nodes, producing misleading repeated
+lease failures. Test a candidate binary with `probe_vmvm.sbatch` before rolling
+it out fleet-wide. Because the login host is ARM64 and CPU workers are x86_64,
+never put the login host's `~/.local/bin/uv` first on a CPU job's `PATH`; use an
+x86-specific binary or a dependency tree staged for x86_64.
+
+Invoke vacli directly. Do not wrap it in the host `stdbuf`: the injected
+`libstdbuf.so` may require GLIBC 2.38 while vacli selects an older bundled libc,
+causing lease startup to fail before any VM is requested.
+
+For Harbor tasks with Compose sidecars, retain the VMVM lease and replace the
+bootstrap task container with a Podman Compose project. Start
+`podman system service --time=0 unix:///run/podman/podman.sock` first because
+Docker Compose is present on the VM but the Podman API socket is not enabled by
+default. Resolve the `main` container after `compose up --wait`, strip terminal
+color escapes before validating its container ID, and preserve service-specific
+artifact bytes for isolated verifier replay. A successful `compose up` alone is
+not an oracle gate: exercise a sidecar collect hook and a separate verifier VM.
+Discover every Compose service name and include those DNS aliases in both
+`NO_PROXY` and `no_proxy` before opening the main container's persistent shell.
+Otherwise HTTP clients route healthy sidecar calls through the forward proxy
+and report misleading 502 responses. Sealed, offline verifier images may add
+new loopback aliases to `/etc/hosts` from `test.sh`; run their verifier command
+with `NO_PROXY=*` so late aliases are also kept local.
+
+Perform harness-owned file transfer, extraction, permission setup, and artifact
+replay with `podman exec --user 0`. Keep the persistent agent shell and collect
+hooks at the image's declared user unless the task explicitly requests another
+user. This mirrors container-copy semantics while preserving the benchmark's
+agent permission boundary.
+
 The smoke checks a real lease, binary file round trip, workdir execution, the
 container-to-host interception route, and cleanup. The host route is an SSH
 reverse forward on VM loopback plus a VM bridge relay; the container URL must

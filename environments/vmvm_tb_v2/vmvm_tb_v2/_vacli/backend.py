@@ -44,7 +44,7 @@ import threading
 import time
 import uuid
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, Literal
 
 from .session import AsyncSession, SessionOutput
@@ -53,7 +53,13 @@ from .types import BackendInitError, BashResult
 logger = logging.getLogger(__name__)
 
 
-VACLI_BIN = "/public/fbpkgs/x86_64/vacli/latest/vacli"
+# `latest` (793 on 2026-09-15) starts an x2p helper that requires a newer
+# GLIBC symbol than some otherwise healthy cpu_x86 nodes provide. The stable
+# channel (788) is compatible across the current heterogeneous CPU fleet.
+# Keep an escape hatch so a rollout canary can test a newer build explicitly.
+VACLI_BIN = os.environ.get(
+    "VACLI_BIN", "/public/fbpkgs/x86_64/vacli/stable/vacli"
+)
 DEFAULT_TENANT = "async_2347641"
 DEFAULT_LEASE_TTL = "500s"
 DEFAULT_TUNNEL_READY_TIMEOUT = (
@@ -64,6 +70,13 @@ DEFAULT_VACLI_CLEANUP_TIMEOUT = (
     45.0  # seconds to wait for vacli to release before SIGKILL (measured ~33s)
 )
 HOST_MEMORY_HEADROOM_MIB = 512
+MAVEN_PROXY_OPTS = (
+    "-Dmaven.wagon.http.ssl.insecure=true "
+    "-Dmaven.wagon.http.ssl.allowall=true "
+    "-Dmaven.wagon.http.ssl.ignore.validity.dates=true "
+    "-Dmaven.wagon.http.retryHandler.count=8 "
+    "-Dmaven.wagon.http.pool=false"
+)
 
 _PR_SET_PDEATHSIG = 1
 try:
@@ -89,6 +102,7 @@ MAX_CONCURRENT_LEASES = int(os.environ.get("VACLI_MAX_CONCURRENT_LEASES", "16"))
 # matters for the docker.io fallback used when an image is not yet mirrored.
 MAX_PULL_RETRIES = int(os.environ.get("VACLI_MAX_PULL_RETRIES", "20"))
 IMAGE_PULL_TIMEOUT_SECONDS = int(os.environ.get("VACLI_IMAGE_PULL_TIMEOUT_SECONDS", "350"))
+CONTAINER_PRIVILEGED = os.environ.get("VACLI_CONTAINER_PRIVILEGED", "0") == "1"
 if IMAGE_PULL_TIMEOUT_SECONDS <= 0:
     raise ValueError("VACLI_IMAGE_PULL_TIMEOUT_SECONDS must be positive")
 # Retries for the vacli lease bring-up itself. Concurrent launches race on
@@ -248,8 +262,6 @@ class VacliLease:
         _lease_concurrency.acquire()
         self._concurrency_held = True
         cmd = [
-            "stdbuf",
-            "-oL",
             VACLI_BIN,
             "--x2p",
             "--faas-tenant-id",
@@ -382,7 +394,7 @@ class VacliLease:
         except (FileNotFoundError, OSError):
             pass
         cmd = [
-            "stdbuf", "-oL", VACLI_BIN, "--x2p", "--faas-tenant-id", self.tenant_id,
+            VACLI_BIN, "--x2p", "--faas-tenant-id", self.tenant_id,
             "lease", "--resume-with-session", self.lease_response,
             "--ttl", self.lease_ttl, "--auto-renew", "--tunnel-ports", "22",
             "--release-on-exit",
@@ -612,7 +624,7 @@ def _ensure_python_in_container(sp, ssh_port, control_path, cid):
         'ln -sf "$(command -v python3)" /usr/local/bin/python 2>/dev/null || '
         'ln -sf "$(command -v python3)" /tmp/python 2>/dev/null; fi'
     )
-    remote = "podman exec " + cid + " bash -lc " + shlex.quote(script)
+    remote = "podman exec --user 0 " + cid + " bash -lc " + shlex.quote(script)
     try:
         sp.run(
             _ssh_opts(ssh_port, control_path) + ["root@localhost", remote],
@@ -625,7 +637,7 @@ def _ensure_python_in_container(sp, ssh_port, control_path, cid):
         logger.warning("vacli: ensure-python symlink step failed (non-fatal)")
 
 
-def _setup_bridge_proxy(sp, ssh_port, control_path, cid):
+def _setup_bridge_proxy(sp, ssh_port, control_path, cid, extra_bypass=()):
     """For a `--network bridge` container: detect the bridge gateway and write
     the egress proxy (now reachable at gateway:8080, not 0.0.0.0:8080) into
     /etc/profile.d so `bash -l` paths (e.g. test exec) get egress. Returns the
@@ -637,7 +649,7 @@ def _setup_bridge_proxy(sp, ssh_port, control_path, cid):
     try:
         r = sp.run(
             _ssh_opts(ssh_port, control_path)
-            + ["root@localhost", "podman exec " + cid + " ip route"],
+            + ["root@localhost", "podman exec --user 0 " + cid + " ip route"],
             stdin=sp.DEVNULL, stdout=sp.PIPE, stderr=sp.DEVNULL, timeout=30,
         )
         for line in r.stdout.decode("utf-8", "replace").splitlines():
@@ -647,7 +659,14 @@ def _setup_bridge_proxy(sp, ssh_port, control_path, cid):
                 break
     except Exception:
         logger.warning("vacli: bridge gateway detection failed; using 10.88.0.1")
-    bypass = f"localhost,127.0.0.1,{gw}"
+    bypass_hosts = ["localhost", "127.0.0.1", gw]
+    bypass_hosts.extend(
+        host
+        for host in extra_bypass
+        if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", host)
+        and host not in bypass_hosts
+    )
+    bypass = ",".join(bypass_hosts)
     exports = (
         "".join(
             "export %s=http://%s:8080\n" % (key, gw)
@@ -657,8 +676,13 @@ def _setup_bridge_proxy(sp, ssh_port, control_path, cid):
         + f'export NO_PROXY="${{NO_PROXY:+$NO_PROXY,}}{bypass}"\n'
     )
     exports += "export HF_HUB_DISABLE_XET=1\nexport HF_XET_DISABLE=1\n"
+    exports += (
+        'export MAVEN_OPTS="${MAVEN_OPTS:+$MAVEN_OPTS }'
+        + MAVEN_PROXY_OPTS
+        + '"\n'
+    )
     script = "cat > /etc/profile.d/zz_vacli_proxy.sh <<\x27VACLIEOF\x27\n" + exports + "VACLIEOF\n"
-    remote = "podman exec -i " + cid + " sh -c " + shlex.quote(script)
+    remote = "podman exec --user 0 -i " + cid + " sh -c " + shlex.quote(script)
     try:
         sp.run(
             _ssh_opts(ssh_port, control_path) + ["root@localhost", remote],
@@ -810,6 +834,9 @@ class VacliVMVMBackend:
             subprocess_mod=config.subprocess_mod,
         )
         self._container_id: str | None = None
+        self._compose_project: str | None = None
+        self._compose_dir: str | None = None
+        self._compose_services: tuple[str, ...] = ()
         self._session: VacliSession | None = None
         self._host_tunnels: set[VacliHostTunnel] = set()
         # FIFO-backed persistent shell state (v1). The shell lives INSIDE the
@@ -929,18 +956,27 @@ class VacliVMVMBackend:
         )
         config = self.config
         _gw = getattr(self, "_proxy_gateway", None)
+        _bypass = (
+            ",".join(["localhost", "127.0.0.1", _gw, *self._compose_services])
+            if _gw
+            else ""
+        )
         _proxy_pre = (
             (
                 "export http_proxy=http://{gw}:8080 https_proxy=http://{gw}:8080 "
                 "HTTP_PROXY=http://{gw}:8080 HTTPS_PROXY=http://{gw}:8080 "
-                'no_proxy="${{no_proxy:+$no_proxy,}}localhost,127.0.0.1,{gw}" '
-                'NO_PROXY="${{NO_PROXY:+$NO_PROXY,}}localhost,127.0.0.1,{gw}"; '.format(
-                    gw=_gw
+                'no_proxy="${{no_proxy:+$no_proxy,}}{bypass}" '
+                'NO_PROXY="${{NO_PROXY:+$NO_PROXY,}}{bypass}"; '.format(
+                    gw=_gw,
+                    bypass=_bypass,
                 )
                 if _gw
                 else ""
             )
-            + "export HF_HUB_DISABLE_XET=1 HF_XET_DISABLE=1"
+            + "export HF_HUB_DISABLE_XET=1 HF_XET_DISABLE=1; "
+            + 'export MAVEN_OPTS="${MAVEN_OPTS:+$MAVEN_OPTS }'
+            + MAVEN_PROXY_OPTS
+            + '"'
         )
         _us = config.start_script or ""
         _eff = ("; ".join(x for x in (_proxy_pre, _us) if x)) or None
@@ -986,18 +1022,27 @@ class VacliVMVMBackend:
         gateway proxy; the inherited 0.0.0.0:8080 is wrong)."""
         config = self.config
         gw = getattr(self, "_proxy_gateway", None)
+        bypass = (
+            ",".join(["localhost", "127.0.0.1", gw, *self._compose_services])
+            if gw
+            else ""
+        )
         proxy_pre = (
             (
                 "export http_proxy=http://{gw}:8080 https_proxy=http://{gw}:8080 "
                 "HTTP_PROXY=http://{gw}:8080 HTTPS_PROXY=http://{gw}:8080 "
-                'no_proxy="${{no_proxy:+$no_proxy,}}localhost,127.0.0.1,{gw}" '
-                'NO_PROXY="${{NO_PROXY:+$NO_PROXY,}}localhost,127.0.0.1,{gw}"; '.format(
-                    gw=gw
+                'no_proxy="${{no_proxy:+$no_proxy,}}{bypass}" '
+                'NO_PROXY="${{NO_PROXY:+$NO_PROXY,}}{bypass}"; '.format(
+                    gw=gw,
+                    bypass=bypass,
                 )
                 if gw
                 else ""
             )
-            + "export HF_HUB_DISABLE_XET=1 HF_XET_DISABLE=1"
+            + "export HF_HUB_DISABLE_XET=1 HF_XET_DISABLE=1; "
+            + 'export MAVEN_OPTS="${MAVEN_OPTS:+$MAVEN_OPTS }'
+            + MAVEN_PROXY_OPTS
+            + '"'
         )
         us = config.start_script or ""
         return "; ".join(x for x in (proxy_pre, us) if x)
@@ -1565,6 +1610,279 @@ class VacliVMVMBackend:
     def duration(self) -> float:
         return time.perf_counter() - self.init_start_time
 
+    def _compose_command(self, args: list[str], *, timeout: int) -> subprocess.CompletedProcess:
+        if self._compose_project is None or self._compose_dir is None:
+            raise RuntimeError("VMVM compose project is not initialized")
+        command = [
+            "podman",
+            "compose",
+            "--project-name",
+            self._compose_project,
+            "--project-directory",
+            self._compose_dir,
+            "-f",
+            f"{self._compose_dir}/base.json",
+            "-f",
+            f"{self._compose_dir}/docker-compose.yaml",
+            *args,
+        ]
+        return self._ssh_call_raw(shlex.join(command), timeout=timeout)
+
+    def _write_host_file(self, path: str, content: bytes) -> None:
+        parent = str(PurePosixPath(path).parent)
+        prepared = self._ssh_call_raw(
+            f"mkdir -p {shlex.quote(parent)}",
+            timeout=30,
+        )
+        if prepared.returncode != 0:
+            detail = (prepared.stdout or b"").decode("utf-8", errors="replace")
+            raise BackendInitError(f"creating compose directory failed: {detail[-1000:]}")
+        argv = _ssh_opts(self._ssh_port, self._control_path) + [
+            "root@localhost",
+            f"cat > {shlex.quote(path)}",
+        ]
+        written = self._sp.run(
+            argv,
+            input=content,
+            stdout=self._sp.PIPE,
+            stderr=self._sp.STDOUT,
+            timeout=60,
+        )
+        if written.returncode != 0:
+            detail = (written.stdout or b"").decode("utf-8", errors="replace")
+            raise BackendInitError(f"writing compose file failed: {detail[-1000:]}")
+
+    def start_compose(self, compose_yaml: bytes) -> str:
+        """Replace the single task container with the task's Compose project.
+
+        The lease and SSH control connection are retained. The generated base
+        file matches Harbor's prebuilt environment: the task image is the main
+        service and its command is a keepalive, while a task compose file may
+        add sidecars or override main (including its image entrypoint).
+        """
+        if self._destroyed or self._container_id is None:
+            raise RuntimeError("start_compose called before VMVM initialization")
+        if self._compose_project is not None:
+            raise RuntimeError("start_compose called more than once")
+
+        old_container = self._container_id
+        if self._session is not None:
+            self._session.stop()
+            self._session = None
+        if self._fifo_mode:
+            self._teardown_fifo_shell()
+        self._fifo_mode = False
+        self._sess_dir = ""
+        removed = self._ssh_call_raw(f"podman rm -f {old_container}", timeout=30)
+        if removed.returncode != 0:
+            detail = (removed.stdout or b"").decode("utf-8", errors="replace")
+            raise BackendInitError(f"removing bootstrap container failed: {detail[-1000:]}")
+        self._container_id = None
+
+        nonce = uuid.uuid4().hex[:12]
+        self._compose_project = f"vf-{nonce}"
+        self._compose_dir = f"/tmp/vmvm-compose-{nonce}"
+        base = {
+            "services": {
+                "main": {
+                    "image": self.config.image_url,
+                    "command": ["sh", "-c", "sleep infinity"],
+                    "privileged": CONTAINER_PRIVILEGED,
+                }
+            }
+        }
+        if self.config.cpu is not None:
+            base["services"]["main"]["cpus"] = self.config.cpu
+        if self.config.memory_gb is not None:
+            base["services"]["main"]["mem_limit"] = f"{self.config.memory_gb}g"
+        self._write_host_file(
+            f"{self._compose_dir}/base.json",
+            json.dumps(base, separators=(",", ":")).encode(),
+        )
+        self._write_host_file(
+            f"{self._compose_dir}/docker-compose.yaml",
+            compose_yaml,
+        )
+
+        try:
+            timeout = max(300, int(self.config.session_timeout))
+            api = self._ssh_call_raw(
+                "mkdir -p /run/podman; "
+                "if ! test -S /run/podman/podman.sock; then "
+                "nohup podman system service --time=0 unix:///run/podman/podman.sock "
+                ">/tmp/vmvm-podman-service.log 2>&1 </dev/null & "
+                "fi; "
+                "for i in $(seq 1 100); do test -S /run/podman/podman.sock && exit 0; sleep 0.1; done; "
+                "cat /tmp/vmvm-podman-service.log 2>/dev/null; exit 1",
+                timeout=30,
+            )
+            if api.returncode != 0:
+                detail = (api.stdout or b"").decode("utf-8", errors="replace")
+                raise BackendInitError(f"starting Podman API service failed: {detail[-1000:]}")
+            logger.info(
+                "vacli: starting Compose project %s; directory=%s",
+                self._compose_project,
+                self._compose_dir,
+            )
+            started = self._compose_command(
+                ["up", "--detach", "--wait", "--wait-timeout", str(timeout)],
+                timeout=timeout + 60,
+            )
+            if started.returncode != 0:
+                detail = (started.stdout or b"").decode("utf-8", errors="replace")
+                raise BackendInitError(f"podman compose up failed: {detail[-4000:]}")
+            services_result = self._compose_command(["config", "--services"], timeout=30)
+            services_output = (services_result.stdout or b"").decode(
+                "utf-8", errors="replace"
+            )
+            services_output = re.sub(r"\x1b\[[0-9;]*[A-Za-z]", "", services_output)
+            if services_result.returncode != 0:
+                raise BackendInitError(
+                    f"podman compose service lookup failed: {services_output[-1000:]}"
+                )
+            self._compose_services = tuple(
+                line.strip()
+                for line in services_output.splitlines()
+                if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", line.strip())
+            )
+            resolved = self._compose_command(["ps", "-q", "main"], timeout=30)
+            output = (resolved.stdout or b"").decode("utf-8", errors="replace")
+            output = re.sub(r"\x1b\[[0-9;]*[A-Za-z]", "", output)
+            container_ids = [
+                line.strip()
+                for line in output.splitlines()
+                if _CONTAINER_ID_RE.fullmatch(line.strip())
+            ]
+            if resolved.returncode != 0 or not container_ids:
+                detail = (resolved.stdout or b"").decode("utf-8", errors="replace")
+                raise BackendInitError(f"podman compose main lookup failed: {detail[-1000:]}")
+            self._container_id = _validate_container_id(container_ids[-1])
+            _ensure_python_in_container(
+                self._sp,
+                self._ssh_port,
+                self._control_path,
+                self._container_id,
+            )
+            self._proxy_gateway = _setup_bridge_proxy(
+                self._sp,
+                self._ssh_port,
+                self._control_path,
+                self._container_id,
+                self._compose_services,
+            )
+            self._open_session(run_entrypoint=False)
+            logger.info(
+                "vacli: Compose project %s ready; main=%s",
+                self._compose_project,
+                self._container_id,
+            )
+            return self._container_id
+        except Exception:
+            try:
+                self._compose_command(
+                    ["down", "--volumes", "--remove-orphans"],
+                    timeout=120,
+                )
+            except Exception:
+                logger.exception("vacli: failed to clean up partial compose project")
+            raise
+
+    def run_service_bash(
+        self,
+        service: str,
+        command: str,
+        timeout: float = 60.0,
+        env: dict[str, str] | None = None,
+        user: str | int | None = None,
+    ) -> BashResult:
+        """Run one command in a Compose sidecar (or the persistent main shell)."""
+        if service in ("", "main"):
+            return self.run_bash(command, timeout)
+        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", service):
+            raise ValueError(f"invalid compose service name: {service!r}")
+        args = ["exec", "-T"]
+        for key, value in (env or {}).items():
+            args.extend(["--env", f"{key}={value}"])
+        if user is not None:
+            args.extend(["--user", str(user)])
+        args.extend([service, "sh", "-c", command])
+        try:
+            result = self._compose_command(args, timeout=max(1, int(timeout)) + 30)
+        except subprocess.TimeoutExpired:
+            return _bash_result("error", "compose exec timed out", "timeout", exit_code=-1)
+        output = (result.stdout or b"").decode("utf-8", errors="replace")
+        if result.returncode != 0:
+            return _bash_result("error", output, "exit", exit_code=result.returncode)
+        return _bash_result("success", output, "none", exit_code=0)
+
+    def run_root_bash(self, command: str, timeout: float = 60.0) -> BashResult:
+        """Run one runtime-management command as root in the main container.
+
+        Agent commands continue to use the image's declared user. This narrow
+        path is for harness-owned staging into locations such as /tests and
+        /solution, matching docker-copy semantics for non-root task images.
+        """
+        if self._destroyed or self._container_id is None:
+            raise RuntimeError("run_root_bash called without a live container")
+        remote = (
+            f"podman exec --user 0 {self._container_id} sh -c "
+            f"{shlex.quote(command)}"
+        )
+        try:
+            result = self._ssh_call_raw(remote, timeout=max(1, int(timeout)))
+        except subprocess.TimeoutExpired:
+            return _bash_result(
+                "error", "root command timed out", "timeout", exit_code=-1
+            )
+        output = (result.stdout or b"").decode("utf-8", errors="replace")
+        if result.returncode != 0:
+            return _bash_result("error", output, "exit", exit_code=result.returncode)
+        return _bash_result("success", output, "none", exit_code=0)
+
+    def read_service_file(self, service: str, remote_path: str | Path) -> bytes:
+        """Read a file from a Compose sidecar without mixing stderr into bytes."""
+        if service in ("", "main"):
+            return self.read_file(remote_path)
+        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", service):
+            raise ValueError(f"invalid compose service name: {service!r}")
+        if self._compose_project is None or self._compose_dir is None:
+            raise RuntimeError("sidecar read requested without a Compose project")
+        command = [
+            "podman",
+            "compose",
+            "--project-name",
+            self._compose_project,
+            "--project-directory",
+            self._compose_dir,
+            "-f",
+            f"{self._compose_dir}/base.json",
+            "-f",
+            f"{self._compose_dir}/docker-compose.yaml",
+            "exec",
+            "-T",
+            "--user",
+            "0",
+            service,
+            "cat",
+            "--",
+            str(remote_path),
+        ]
+        argv = _ssh_opts(self._ssh_port, self._control_path) + [
+            "root@localhost",
+            shlex.join(command),
+        ]
+        result = self._sp.run(
+            argv,
+            stdin=self._sp.DEVNULL,
+            stdout=self._sp.PIPE,
+            stderr=self._sp.PIPE,
+            timeout=int(self.config.session_timeout),
+        )
+        if result.returncode != 0:
+            detail = (result.stderr or b"").decode("utf-8", errors="replace")
+            raise RuntimeError(f"reading {remote_path!s} from {service} failed: {detail[-1000:]}")
+        return result.stdout or b""
+
     # -- public ToolBackend surface ----------------------------------------
 
     def run_bash(self, command: str, timeout: float = 60.0) -> BashResult:
@@ -1659,6 +1977,30 @@ class VacliVMVMBackend:
                 self._teardown_fifo_shell()
             except Exception:
                 pass
+        if self._compose_project is not None:
+            try:
+                result = self._compose_command(
+                    ["down", "--volumes", "--remove-orphans"],
+                    timeout=120,
+                )
+                if result.returncode == 0:
+                    self._container_id = None
+                else:
+                    detail = (result.stdout or b"").decode("utf-8", errors="replace")
+                    logger.warning("vacli: compose teardown failed: %s", detail[-1000:])
+            except Exception:
+                logger.exception("vacli: compose teardown failed")
+            if self._compose_dir is not None:
+                try:
+                    self._ssh_call_raw(
+                        f"rm -rf -- {shlex.quote(self._compose_dir)}",
+                        timeout=30,
+                    )
+                except Exception:
+                    logger.exception("vacli: compose directory cleanup failed")
+            self._compose_project = None
+            self._compose_dir = None
+            self._compose_services = ()
         # Best-effort container teardown; failures here shouldn't block lease release.
         if self._container_id:
             try:
@@ -1721,7 +2063,7 @@ class VacliVMVMBackend:
         )
         argv = _ssh_opts(self._ssh_port, self._control_path) + [
             "root@localhost",
-            f"podman exec -i {self._container_id} sh -c {shlex.quote(remote_cmd)}",
+            f"podman exec --user 0 -i {self._container_id} sh -c {shlex.quote(remote_cmd)}",
         ]
         result = self._sp.run(
             argv,
@@ -1745,7 +2087,7 @@ class VacliVMVMBackend:
             raise RuntimeError("read_file called before container init")
         argv = _ssh_opts(self._ssh_port, self._control_path) + [
             "root@localhost",
-            f"podman exec {self._container_id} cat -- {shlex.quote(str(remote_path))}",
+            f"podman exec --user 0 {self._container_id} cat -- {shlex.quote(str(remote_path))}",
         ]
         result = self._sp.run(
             argv,
@@ -1814,8 +2156,32 @@ class VacliVMVMBackend:
             "import socket; "
             f"socket.create_connection(({gateway!r}, {remote_port}), timeout=1).close()"
         )
+        # TB4 images are intentionally heterogeneous: some expose `python3`,
+        # some only `python`, and a few contain neither.  Probe the actual
+        # container-to-host route with the first available TCP/HTTP client
+        # instead of assuming a `python` executable.  If an ultra-minimal
+        # image has no probe utility, retain the already-established SSH
+        # forward and bridge relay; the intercepted model call is the
+        # authoritative connectivity check and the rollout retry policy will
+        # still classify a real failure as infrastructure.
+        probe_shell = (
+            "if command -v python3 >/dev/null 2>&1; then "
+            f"exec python3 -c {shlex.quote(probe_script)}; "
+            "elif command -v python >/dev/null 2>&1; then "
+            f"exec python -c {shlex.quote(probe_script)}; "
+            "elif command -v nc >/dev/null 2>&1; then "
+            f"exec nc -z -w 1 {shlex.quote(gateway)} {remote_port}; "
+            "elif command -v busybox >/dev/null 2>&1; then "
+            f"exec busybox nc -z -w 1 {shlex.quote(gateway)} {remote_port}; "
+            "elif command -v curl >/dev/null 2>&1; then "
+            f"exec curl -sS --connect-timeout 1 --max-time 2 -o /dev/null "
+            f"http://{gateway}:{remote_port}/; "
+            "elif command -v wget >/dev/null 2>&1; then "
+            f"exec wget -q -T 2 -O /dev/null http://{gateway}:{remote_port}/; "
+            "else printf '__VACLI_NO_TCP_PROBE__\\n'; exit 125; fi"
+        )
         probe_command = (
-            f"podman exec {self._container_id} python -c {shlex.quote(probe_script)}"
+            f"podman exec {self._container_id} sh -c {shlex.quote(probe_shell)}"
         )
         deadline = time.monotonic() + 10
         last_error = "reverse forward was not reachable"
@@ -1824,6 +2190,13 @@ class VacliVMVMBackend:
             if probe.returncode == 0:
                 url = f"http://{gateway}:{remote_port}"
                 logger.info("vacli: host tunnel up at %s", url)
+                return tunnel, url
+            if b"__VACLI_NO_TCP_PROBE__" in (probe.stdout or b""):
+                url = f"http://{gateway}:{remote_port}"
+                logger.warning(
+                    "vacli: container has no TCP probe utility; "
+                    "deferring host tunnel validation to the intercepted request"
+                )
                 return tunnel, url
             last_error = (probe.stdout or b"").decode("utf-8", errors="replace").strip()
             time.sleep(0.2)
@@ -1922,6 +2295,8 @@ class VacliVMVMBackend:
             getattr(self.config, "fallback_image_url", None),
         )
         run_argv = ["podman", "run", "-d", "--network", "bridge"]
+        if CONTAINER_PRIVILEGED:
+            run_argv.append("--privileged")
         if self.config.cpu is not None:
             run_argv.extend(["--cpus", str(self.config.cpu)])
             run_argv.extend(["--env", f"GOMAXPROCS={math.ceil(self.config.cpu)}"])

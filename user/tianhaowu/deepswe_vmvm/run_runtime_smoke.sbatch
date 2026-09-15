@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=deepswe-vmvm-smoke
-#SBATCH --partition=cpu
-#SBATCH --qos=cpu_lowest
+#SBATCH --partition=cpu_x86
+#SBATCH --qos=cpu_x86_lowest
 #SBATCH --account=ram
 #SBATCH --time=00:30:00
 #SBATCH --nodes=1
