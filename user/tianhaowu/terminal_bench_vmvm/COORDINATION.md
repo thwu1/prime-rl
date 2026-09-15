@@ -1,0 +1,66 @@
+# VMVM sandbox coordination
+
+Last updated: 2026-09-15 23:50 UTC
+
+## First message to the next teammate
+
+Please pull `origin/vmvm-sandbox` and read this file before changing anything.
+I own the live Kimi deployment and TB4/Mobius evaluation orchestration. Do not
+cancel or restart jobs `1729414`, `1729868`, or `1731198`, and do not launch a
+duplicate full TB4 run. Add your name, scope, files, and job IDs under **Active
+claims**, commit that claim, and push it before editing. I will fetch/rebase
+before every push and will not force-push this shared branch again.
+
+## Coordination protocol
+
+1. `git fetch origin && git rebase origin/vmvm-sandbox` before starting work.
+2. Add or update one row in **Active claims**, commit it, and push normally.
+3. Do not edit files or mutate jobs owned by another active row without first
+   recording the handoff here.
+4. Record each submitted Slurm job, output directory, and terminal result.
+5. Before pushing code, fetch/rebase again and run the relevant tests.
+6. Never commit API keys. Never force-push this shared branch.
+7. On completion, move the row to **Completed work** with evidence and commit.
+
+## Active claims
+
+| Owner | Scope | Files | Live resources | State / next gate |
+|---|---|---|---|---|
+| Codex session for `tianhaowu` | Kimi serving; TB4 pass@1; repaired-oracle check; 2,500-trace launch | `user/tianhaowu/terminal_bench_vmvm/**`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | deployment `tianhaowu-k3-tb24-20260915`; coordinator `1729414`; proxy `1729868`; repaired-oracle job `1731198` | Wait for at least 16 healthy/0 unhealthy Kimi routes and a stable interval, then launch exactly one fresh full TB4 run. |
+
+Add new rows below this line; do not overwrite another owner's row.
+
+## Live evaluation state
+
+- Sticky/token smoke job `1730918` completed: 2/2 traces, 7,217 sampled
+  tokens, response/tool calls and reasoning retained, zero audit failures.
+- A 64-request inference probe completed 64/64 in 1.21 seconds across all 12
+  routes then available. Same-session requests stayed pinned to one route.
+- Full TB4 job `1731157` was canceled after 2m54s with no result rows because
+  endpoint churn exposed one stale unhealthy route and caused four provider
+  500s. It is diagnostic only. The next full output directory must be
+  `tb4_kimi_k3_sticky_full_v2`.
+- Repaired Mobius corpus is a clean detached worktree at
+  `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/datasets/mobius-ac1f30b9`,
+  commit `ac1f30b9a`, with 2,538 tasks and all 2,500 selected slugs.
+- Repaired-fixture oracle job `1731198` is queued/running for the 42 changed
+  tasks. Its output is
+  `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/oracle/mobius_repairs_ac1f30b9`.
+
+## Completed work
+
+| Owner | Result | Evidence |
+|---|---|---|
+| Codex session for `tianhaowu` | VMVM adapter, transport hardening, Compose support, durable eval snapshots/resume, Kimi token/reasoning capture, LiteLLM session affinity | See `HANDOFF.md`; pipeline tests 16/16 and focused verifier tests 30/30 passed. |
+| Codex session for `tianhaowu` | Mobius oracle exceeded 90% | Job `1725524`: 2,523/2,538 valid (99.408983%). |
+| Codex session for `tianhaowu` | TB4 oracle validation | Job `1725604`: 63 CPU-supported valid and 3 explicit GPU-unsupported tasks. |
+
+## Known non-overlap boundaries
+
+- The direct proxy `cpu-128-141:8100` is on another cluster and is unreachable
+  here. Do not add URL-only pooling; per-endpoint credentials must remain bound
+  to their URL/headers.
+- `tb_tasks.zip` stays on `vmvm-sandbox`, but expanded tasks must not be added
+  back to this branch. Use the detached `ac1f30b9a` worktree for Mobius.
+- The live RAM `proxy_info.json` contains a secret. Read it through
+  `INFERENCE_PROXY_INFO`; never print or commit its `api_key`.
