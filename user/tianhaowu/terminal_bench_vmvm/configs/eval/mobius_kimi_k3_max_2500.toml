@@ -16,8 +16,8 @@ base_url = "http://127.0.0.1:8000/v1"
 api_key_var = "OPENAI_API_KEY"
 timeout = 7200
 connect_timeout = 120
-max_connections = 32
-max_keepalive_connections = 32
+max_connections = 16
+max_keepalive_connections = 16
 max_retries = 10
 
 [sampling]
